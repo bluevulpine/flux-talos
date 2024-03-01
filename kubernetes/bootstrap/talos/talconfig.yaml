@@ -68,6 +68,20 @@ nodes:
             gateway: "10.0.10.1"
         vip:
           ip: "10.0.10.200"
+  - hostname: "talos-04"
+    ipAddress: "10.0.10.204"
+    installDisk: "/dev/sdb"
+    talosImageURL: factory.talos.dev/installer/1637ef03428e5918ba2df082f2620cec37abb5b380389ac4a4c3bfb658901126
+    controlPlane: false
+    networkInterfaces:
+      - interface: eth0
+        dhcp: false
+        addresses:
+          - "10.0.10.204/24"
+        mtu: 1500
+        routes:
+          - network: 0.0.0.0/0
+            gateway: "10.0.10.1"
 
 patches:
   # Configure containerd
