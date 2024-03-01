@@ -32,7 +32,7 @@ spec:
       service:
         annotations:
           external-dns.alpha.kubernetes.io/hostname: "external.${SECRET_DOMAIN}"
-          io.cilium/lb-ipam-ips: "10.0.10.197"
+          io.cilium/lb-ipam-ips: "172.17.0.3"
         externalTrafficPolicy: Cluster
       ingressClassResource:
         name: external
@@ -70,7 +70,7 @@ spec:
           namespaceSelector:
             any: true
       extraArgs:
-        default-ssl-certificate: "network/${SECRET_DOMAIN/./-}-staging-tls"
+        default-ssl-certificate: "network/${SECRET_DOMAIN/./-}-production-tls"
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
