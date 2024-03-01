@@ -40,7 +40,7 @@ spec:
     sources: ["crd", "ingress"]
     txtPrefix: k8s-talos.
     txtOwnerId: k8s-talos
-    domainFilters: ["${SECRET_DOMAIN_BASE}"]
+    domainFilters: ["${SECRET_DOMAIN}"]
     serviceMonitor:
       enabled: true
     podAnnotations:
