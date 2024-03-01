@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/budimanjojo/talhelper/master/pkg/config/schemas/talconfig.json
 ---
 # renovate: datasource=docker depName=ghcr.io/siderolabs/installer
-talosVersion: v1.6.4
+talosVersion: v1.6.5
 # renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
 kubernetesVersion: v1.29.2
 
@@ -14,7 +14,7 @@ clusterSvcNets:
 additionalApiServerCertSans: &sans
   - "10.0.10.200"
   - 127.0.0.1 # KubePrism
-  - "ts-talos.flyingfox-decibel.ts.net"
+  - "talos.flyingfox-decibel.ts.net"
 additionalMachineCertSans: *sans
 cniConfig:
   name: none
@@ -23,14 +23,14 @@ nodes:
   - hostname: "talos-01"
     ipAddress: "10.0.10.201"
     installDisk: "/dev/sda"
-    talosImageURL: factory.talos.dev/installer/92313128ac1ad9f8e1b8cfcd47418b14a8e863999c9219013a86fecf4d1c1abf
+    talosImageURL: factory.talos.dev/installer/1637ef03428e5918ba2df082f2620cec37abb5b380389ac4a4c3bfb658901126
     controlPlane: true
     networkInterfaces:
       - interface: eth0
         dhcp: false
         addresses:
           - "10.0.10.201/24"
-        mtu: 9000
+        mtu: 1500
         routes:
           - network: 0.0.0.0/0
             gateway: "10.0.10.1"
@@ -39,14 +39,14 @@ nodes:
   - hostname: "talos-02"
     ipAddress: "10.0.10.202"
     installDisk: "/dev/sda"
-    talosImageURL: factory.talos.dev/installer/92313128ac1ad9f8e1b8cfcd47418b14a8e863999c9219013a86fecf4d1c1abf
+    talosImageURL: factory.talos.dev/installer/1637ef03428e5918ba2df082f2620cec37abb5b380389ac4a4c3bfb658901126
     controlPlane: true
     networkInterfaces:
       - interface: eth0
         dhcp: false
         addresses:
           - "10.0.10.202/24"
-        mtu: 9000
+        mtu: 1500
         routes:
           - network: 0.0.0.0/0
             gateway: "10.0.10.1"
@@ -55,14 +55,14 @@ nodes:
   - hostname: "talos-03"
     ipAddress: "10.0.10.203"
     installDisk: "/dev/sda"
-    talosImageURL: factory.talos.dev/installer/92313128ac1ad9f8e1b8cfcd47418b14a8e863999c9219013a86fecf4d1c1abf
+    talosImageURL: factory.talos.dev/installer/1637ef03428e5918ba2df082f2620cec37abb5b380389ac4a4c3bfb658901126
     controlPlane: true
     networkInterfaces:
       - interface: eth0
         dhcp: false
         addresses:
           - "10.0.10.203/24"
-        mtu: 9000
+        mtu: 1500
         routes:
           - network: 0.0.0.0/0
             gateway: "10.0.10.1"
@@ -108,7 +108,7 @@ patches:
         extraArgs:
           image-gc-low-threshold: 50
           image-gc-high-threshold: 55
-          rotate-server-certificates: true
+          rotate-server-certificates: false
         nodeIP:
           validSubnets:
             - "10.0.10.0/24"
@@ -125,7 +125,8 @@ patches:
       time:
         disabled: false
         servers:
-          - time.cloudflare.com
+          - ntp1.wiktel.com
+          - ntp2.wiktel.com
 
   # Custom sysctl settings
   - |-
