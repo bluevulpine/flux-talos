@@ -6,13 +6,13 @@ talosVersion: v1.6.5
 kubernetesVersion: v1.29.2
 
 clusterName: &cluster home-kubernetes
-endpoint: https://10.0.10.200:6443
+endpoint: https://10.0.10.30:6443
 clusterPodNets:
   - "10.69.0.0/16"
 clusterSvcNets:
   - "10.96.0.0/16"
 additionalApiServerCertSans: &sans
-  - "10.0.10.200"
+  - "10.0.10.30"
   - 127.0.0.1 # KubePrism
   - "talos.flyingfox-decibel.ts.net"
 additionalMachineCertSans: *sans
@@ -20,11 +20,73 @@ cniConfig:
   name: none
 
 nodes:
-  - hostname: "talos-01"
+  - hostname: "talos-cp-01"
+    ipAddress: "10.0.10.31"
+    installDisk: "/dev/mmcblk0"
+    talosImageURL: factory.talos.dev/installer/1637ef03428e5918ba2df082f2620cec37abb5b380389ac4a4c3bfb658901126
+    controlPlane: true
+    networkInterfaces:
+      - interface: eth0
+        dhcp: false
+        addresses:
+          - "10.0.10.31/24"
+        mtu: 1500
+        routes:
+          - network: 0.0.0.0/0
+            gateway: "10.0.10.1"
+        vip:
+          ip: "10.0.10.30"
+  - hostname: "talos-cp-02"
+    ipAddress: "10.0.10.32"
+    installDisk: "/dev/mmcblk0"
+    talosImageURL: factory.talos.dev/installer/1637ef03428e5918ba2df082f2620cec37abb5b380389ac4a4c3bfb658901126
+    controlPlane: true
+    networkInterfaces:
+      - interface: eth0
+        dhcp: false
+        addresses:
+          - "10.0.10.32/24"
+        mtu: 1500
+        routes:
+          - network: 0.0.0.0/0
+            gateway: "10.0.10.1"
+        vip:
+          ip: "10.0.10.30"
+  - hostname: "talos-cp-03"
+    ipAddress: "10.0.10.33"
+    installDisk: "/dev/mmcblk0"
+    talosImageURL: factory.talos.dev/installer/1637ef03428e5918ba2df082f2620cec37abb5b380389ac4a4c3bfb658901126
+    controlPlane: true
+    networkInterfaces:
+      - interface: eth0
+        dhcp: false
+        addresses:
+          - "10.0.10.33/24"
+        mtu: 1500
+        routes:
+          - network: 0.0.0.0/0
+            gateway: "10.0.10.1"
+        vip:
+          ip: "10.0.10.30"
+  - hostname: "talos-34"
+    ipAddress: "10.0.10.34"
+    installDisk: "/dev/mmcblk0"
+    talosImageURL: factory.talos.dev/installer/1637ef03428e5918ba2df082f2620cec37abb5b380389ac4a4c3bfb658901126
+    controlPlane: false
+    networkInterfaces:
+      - interface: eth0
+        dhcp: false
+        addresses:
+          - "10.0.10.34/24"
+        mtu: 1500
+        routes:
+          - network: 0.0.0.0/0
+            gateway: "10.0.10.1"
+  - hostname: "talos-201"
     ipAddress: "10.0.10.201"
     installDisk: "/dev/sda"
     talosImageURL: factory.talos.dev/installer/1637ef03428e5918ba2df082f2620cec37abb5b380389ac4a4c3bfb658901126
-    controlPlane: true
+    controlPlane: false
     networkInterfaces:
       - interface: eth0
         dhcp: false
@@ -34,13 +96,11 @@ nodes:
         routes:
           - network: 0.0.0.0/0
             gateway: "10.0.10.1"
-        vip:
-          ip: "10.0.10.200"
-  - hostname: "talos-02"
+  - hostname: "talos-202"
     ipAddress: "10.0.10.202"
     installDisk: "/dev/sda"
     talosImageURL: factory.talos.dev/installer/1637ef03428e5918ba2df082f2620cec37abb5b380389ac4a4c3bfb658901126
-    controlPlane: true
+    controlPlane: false
     networkInterfaces:
       - interface: eth0
         dhcp: false
@@ -50,13 +110,11 @@ nodes:
         routes:
           - network: 0.0.0.0/0
             gateway: "10.0.10.1"
-        vip:
-          ip: "10.0.10.200"
-  - hostname: "talos-03"
+  - hostname: "talos-203"
     ipAddress: "10.0.10.203"
     installDisk: "/dev/sda"
     talosImageURL: factory.talos.dev/installer/1637ef03428e5918ba2df082f2620cec37abb5b380389ac4a4c3bfb658901126
-    controlPlane: true
+    controlPlane: false
     networkInterfaces:
       - interface: eth0
         dhcp: false
@@ -66,9 +124,7 @@ nodes:
         routes:
           - network: 0.0.0.0/0
             gateway: "10.0.10.1"
-        vip:
-          ip: "10.0.10.200"
-  - hostname: "talos-04"
+  - hostname: "talos-204"
     ipAddress: "10.0.10.204"
     installDisk: "/dev/sdb"
     talosImageURL: factory.talos.dev/installer/1637ef03428e5918ba2df082f2620cec37abb5b380389ac4a4c3bfb658901126
@@ -122,7 +178,6 @@ patches:
         extraArgs:
           image-gc-low-threshold: 50
           image-gc-high-threshold: 55
-          rotate-server-certificates: false
         nodeIP:
           validSubnets:
             - "10.0.10.0/24"
@@ -176,7 +231,7 @@ controlPlane:
     # Cluster configuration
     - |-
       cluster:
-        allowSchedulingOnMasters: true
+        allowSchedulingOnMasters: false
         controllerManager:
           extraArgs:
             bind-address: 0.0.0.0
