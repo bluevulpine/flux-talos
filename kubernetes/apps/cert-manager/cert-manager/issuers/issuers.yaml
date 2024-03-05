@@ -17,6 +17,12 @@ spec:
         selector:
           dnsZones:
             - "${SECRET_DOMAIN}"
+            - "${SECRET_DOMAIN_MEDIA}"
+            - "${SECRET_DOMAIN_LAKE}"
+            - "${SECRET_DOMAIN_YOYO}"
+            - "${SECRET_DOMAIN_BON}"
+            - "${SECRET_DOMAIN_BLOG}"
+            - "${SECRET_DOMAIN_BLOGCOM}"
 ---
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
@@ -37,3 +43,9 @@ spec:
         selector:
           dnsZones:
             - "${SECRET_DOMAIN}"
+            - "${SECRET_DOMAIN_MEDIA}"
+            - "${SECRET_DOMAIN_LAKE}"
+            - "${SECRET_DOMAIN_YOYO}"
+            - "${SECRET_DOMAIN_BON}"
+            - "${SECRET_DOMAIN_BLOG}"
+            - "${SECRET_DOMAIN_BLOGCOM}"

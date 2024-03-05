@@ -3,8 +3,45 @@ originRequest:
   originServerName: "external.${SECRET_DOMAIN}"
 
 ingress:
+  - hostname: "hello.${SECRET_DOMAIN}"
+    service: hello_world
+
   - hostname: "${SECRET_DOMAIN}"
     service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN}"
     service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+
+  - hostname: "${SECRET_DOMAIN_BLOG}"
+    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+  - hostname: "*.${SECRET_DOMAIN_BLOG}"
+    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+
+  - hostname: "${SECRET_DOMAIN_BLOGCOM}"
+    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+  - hostname: "*.${SECRET_DOMAIN_BLOGCOM}"
+    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+
+  - hostname: "${SECRET_DOMAIN_MEDIA}"
+    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+  - hostname: "*.${SECRET_DOMAIN_MEDIA}"
+    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+
+  - hostname: "${SECRET_DOMAIN_LAKE}"
+    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+  - hostname: "*.${SECRET_DOMAIN_LAKE}"
+    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+
+  - hostname: "${SECRET_DOMAIN_YOYO}"
+    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+  - hostname: "*.${SECRET_DOMAIN_YOYO}"
+    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+
+  - hostname: "${SECRET_DOMAIN_BON}"
+    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+  - hostname: "*.${SECRET_DOMAIN_BON}"
+    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+
   - service: http_status:404
+
+
+
