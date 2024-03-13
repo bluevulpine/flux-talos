@@ -30,6 +30,7 @@ resources:
   - ./k8s-gateway.yaml
   - ./kubernetes-dashboard.yaml
   - ./kubernetes-sigs-nfd.yaml
+  - ./mayastor.yaml
   - ./metrics-server.yaml
   - ./openebs.yaml
   - ./piraeus.yaml
