@@ -46,8 +46,6 @@ spec:
     etcd:
       localpvScConfig:
         name: openebs-hostpath
-      nodeSelector:
-        kubernetes.io/arch: amd64
       replicaCount: 3
       persistence:
         enabled: false
