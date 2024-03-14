@@ -34,39 +34,40 @@ metadata:
 spec:
   node: talos-201
   disks: ["/dev/disk/by-id/ata-SATA_SSD_23101651200078"]
----
-apiVersion: "openebs.io/v1beta1"
-kind: DiskPool
-metadata:
-  name: 34-pool
-  namespace: openebs-system
-spec:
-  node: talos-34
-  disks: ["/dev/disk/by-id/ata-Samsung_SSD_840_EVO_250GB_S1DBNSBDC20552M"]
----
-apiVersion: "openebs.io/v1beta1"
-kind: DiskPool
-metadata:
-  name: cp-03-pool
-  namespace: openebs-system
-spec:
-  node: talos-cp-03
-  disks: ["/dev/disk/by-id/ata-SATA_SSD_21121624000275"]
----
-apiVersion: "openebs.io/v1beta1"
-kind: DiskPool
-metadata:
-  name: cp-02-pool
-  namespace: openebs-system
-spec:
-  node: talos-cp-02
-  disks: ["/dev/disk/by-id/ata-SATA_SSD_21121624000274"]
----
-apiVersion: "openebs.io/v1beta1"
-kind: DiskPool
-metadata:
-  name: cp-01-pool
-  namespace: openebs-system
-spec:
-  node: talos-cp-01
-  disks: ["/dev/disk/by-id/ata-SATA_SSD_21121624000272"]
+# # The following nodes are all ARM and mayastor cannot start the disk pools
+# ---
+# apiVersion: "openebs.io/v1beta1"
+# kind: DiskPool
+# metadata:
+#   name: 34-pool
+#   namespace: openebs-system
+# spec:
+#   node: talos-34
+#   disks: ["/dev/disk/by-id/ata-Samsung_SSD_840_EVO_250GB_S1DBNSBDC20552M"]
+# ---
+# apiVersion: "openebs.io/v1beta1"
+# kind: DiskPool
+# metadata:
+#   name: cp-03-pool
+#   namespace: openebs-system
+# spec:
+#   node: talos-cp-03
+#   disks: ["/dev/disk/by-id/ata-SATA_SSD_21121624000275"]
+# ---
+# apiVersion: "openebs.io/v1beta1"
+# kind: DiskPool
+# metadata:
+#   name: cp-02-pool
+#   namespace: openebs-system
+# spec:
+#   node: talos-cp-02
+#   disks: ["/dev/disk/by-id/ata-SATA_SSD_21121624000274"]
+# ---
+# apiVersion: "openebs.io/v1beta1"
+# kind: DiskPool
+# metadata:
+#   name: cp-01-pool
+#   namespace: openebs-system
+# spec:
+#   node: talos-cp-01
+#   disks: ["/dev/disk/by-id/ata-SATA_SSD_21121624000272"]
