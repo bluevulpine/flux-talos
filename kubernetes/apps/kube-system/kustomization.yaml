@@ -4,7 +4,10 @@ kind: Kustomization
 resources:
   - ./namespace.yaml
   - ./cilium/ks.yaml
+  - ./descheduler/ks.yaml
+  - ./gpu-operator/ks.yaml
   - ./kubelet-csr-approver/ks.yaml
   - ./metrics-server/ks.yaml
+  - ./node-feature-discovery/ks.yaml
   - ./spegel/ks.yaml
   - ./reloader/ks.yaml
