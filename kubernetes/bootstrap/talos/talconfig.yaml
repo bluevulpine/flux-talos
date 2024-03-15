@@ -221,7 +221,7 @@ patches:
         fs.inotify.max_queued_events: 65536
         fs.inotify.max_user_watches: 524288
         fs.inotify.max_user_instances: 8192
-        vm.nr_hugepages: "1024"
+        vm.nr_hugepages: "1152"
 
   # Mount openebs-hostpath in kubelet
   - |-
