@@ -82,7 +82,6 @@ spec:
       enabled: true
       commonName: "emqx.${SECRET_DOMAIN}"
       dnsnames:
-      - 172.16.8.8
       - "emqx.${SECRET_DOMAIN}"
       - "mqtt.${SECRET_DOMAIN}"
       - "wss.${SECRET_DOMAIN}"
