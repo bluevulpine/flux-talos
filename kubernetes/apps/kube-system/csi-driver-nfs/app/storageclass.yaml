@@ -6,7 +6,7 @@ metadata:
 provisioner: nfs.csi.k8s.io
 parameters:
   server: 10.0.10.10
-  share: /mnt/apps/k3s-nfs
+  share: /mnt/apps/kubernetes/k3s-nfs
 #  subdir: \${pvc.metadata.name}
 reclaimPolicy: Delete
 allowVolumeExpansion: true
