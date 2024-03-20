@@ -1,0 +1,33 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: vault-nfs
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: 10.0.10.10
+  share: /mnt/apps/k3s-nfs
+#  subdir: \${pvc.metadata.name}
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: Immediate
+mountOptions:
+  - hard
+  - intr
+  - noatime
+  - noresvport
+  - nfsvers=4.2
+  - rsize=1048576
+  - wsize=1048576
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: csi-nfs-test-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: vault-nfs
+  resources:
+    requests:
+      storage: 1Mi
