@@ -32,19 +32,17 @@ spec:
     ingress:
       dashboard:
         annotations:
-          cert-manager.io/cluster-issuer: letsencrypt-production
           gethomepage.dev/enabled: "true"
           gethomepage.dev/icon: chess-rook.png
           gethomepage.dev/name: Rook
           gethomepage.dev/group: Storage
-        ingressClassName: "traefik-internal"
+        ingressClassName: "internal"
         host:
           name: &host "rook.${SECRET_DOMAIN}"
           path: /
         tls:
           - hosts:
               - *host
-            secretName: rook-ceph-cluster-tls
     configOverride: |
       [global]
       bdev_enable_discard = true
@@ -115,21 +113,30 @@ spec:
         useAllNodes: false
         useAllDevices: false
         nodes:
-          # - name: pi-k3s-w01
-          #   devices:
-          #     - name: "/dev/disk/by-id/scsi-SSATA_SSD__A79238EE1A62"
-          # - name: pi-k3s-w02
-          #   devices:
-          #     - name: "/dev/disk/by-id/scsi-SSATA_SSD__601938EE1A62"
-          # - name: pi-k3s-w03
-          #   devices:
-          #     - name: "/dev/disk/by-id/scsi-SSATA_SSD__615238EE1A62"
-          # - name: pi-k3s-w04
-          #   devices:
-          #     - name: "/dev/disk/by-id/scsi-SSATA_SSD__7C6238EE1A62"
-          # - name: pi-k3s-w06
-          #   devices:
-          #     - name: "/dev/disk/by-id/scsi-SSATA_SSD__F74238EE1A62"
+          - name: talos-cp-01
+            devices:
+              - name: "/dev/disk/by-id/ata-SATA_SSD_21121624000272"
+          - name: talos-cp-02
+            devices:
+              - name: "/dev/disk/by-id/ata-SATA_SSD_21121624000274"
+          - name: talos-cp-03
+            devices:
+              - name: "/dev/disk/by-id/ata-SATA_SSD_21121624000275"
+          - name: talos-34
+            devices:
+              - name: "/dev/disk/by-id/ata-Samsung_SSD_840_EVO_250GB_S1DBNSBDC20552M"
+          - name: talos-201
+            devices:
+              - name: "/dev/disk/by-id/ata-SATA_SSD_23101651200078"
+          - name: talos-202
+            devices:
+              - name: "/dev/disk/by-id/ata-SATA_SSD_23101651200106"
+          - name: talos-203
+            devices:
+              - name: "/dev/disk/by-id/ata-SATA_SSD_23101651200079"
+          - name: talos-204
+            devices:
+              - name: "/dev/disk/by-id/ata-WD_Blue_SA510_2.5_1TB_232027800426"
 
     cephBlockPoolsVolumeSnapshotClass:
       enabled: false
