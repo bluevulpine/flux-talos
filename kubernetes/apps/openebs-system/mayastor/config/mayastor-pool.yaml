@@ -1,39 +1,39 @@
----
-apiVersion: "openebs.io/v1beta1"
-kind: DiskPool
-metadata:
-  name: 204-pool
-  namespace: openebs-system
-spec:
-  node: talos-204
-  disks: ["/dev/disk/by-id/ata-WD_Blue_SA510_2.5_1TB_232027800426"]
----
-apiVersion: "openebs.io/v1beta1"
-kind: DiskPool
-metadata:
-  name: 203-pool
-  namespace: openebs-system
-spec:
-  node: talos-203
-  disks: ["/dev/disk/by-id/ata-SATA_SSD_23101651200079"]
----
-apiVersion: "openebs.io/v1beta1"
-kind: DiskPool
-metadata:
-  name: 202-pool
-  namespace: openebs-system
-spec:
-  node: talos-202
-  disks: ["/dev/disk/by-id/ata-SATA_SSD_23101651200106"]
----
-apiVersion: "openebs.io/v1beta1"
-kind: DiskPool
-metadata:
-  name: 201-pool
-  namespace: openebs-system
-spec:
-  node: talos-201
-  disks: ["/dev/disk/by-id/ata-SATA_SSD_23101651200078"]
+# ---
+# apiVersion: "openebs.io/v1beta1"
+# kind: DiskPool
+# metadata:
+#   name: 204-pool
+#   namespace: openebs-system
+# spec:
+#   node: talos-204
+#   disks: ["/dev/disk/by-id/ata-WD_Blue_SA510_2.5_1TB_232027800426"]
+# ---
+# apiVersion: "openebs.io/v1beta1"
+# kind: DiskPool
+# metadata:
+#   name: 203-pool
+#   namespace: openebs-system
+# spec:
+#   node: talos-203
+#   disks: ["/dev/disk/by-id/ata-SATA_SSD_23101651200079"]
+# ---
+# apiVersion: "openebs.io/v1beta1"
+# kind: DiskPool
+# metadata:
+#   name: 202-pool
+#   namespace: openebs-system
+# spec:
+#   node: talos-202
+#   disks: ["/dev/disk/by-id/ata-SATA_SSD_23101651200106"]
+# ---
+# apiVersion: "openebs.io/v1beta1"
+# kind: DiskPool
+# metadata:
+#   name: 201-pool
+#   namespace: openebs-system
+# spec:
+#   node: talos-201
+#   disks: ["/dev/disk/by-id/ata-SATA_SSD_23101651200078"]
 # # The following nodes are all ARM and mayastor cannot start the disk pools
 # ---
 # apiVersion: "openebs.io/v1beta1"
