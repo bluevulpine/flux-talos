@@ -50,7 +50,7 @@ spec:
         kubernetes.io/arch: amd64
       replicaCount: 3
       persistence:
-        enabled: false
+        enabled: true
     io_engine:
       cpuCount: "1"
     storageClass:
