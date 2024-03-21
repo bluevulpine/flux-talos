@@ -54,6 +54,6 @@ spec:
     io_engine:
       cpuCount: "1"
     storageClass:
-      enabled: false
+      enabled: true
     localpv-provisioner:
-      enabled: false
+      enabled: true
