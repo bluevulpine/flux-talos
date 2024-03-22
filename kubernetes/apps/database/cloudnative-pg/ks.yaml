@@ -9,7 +9,7 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  path: ./kubernetes/apps/infrastructure/cloudnative-pg/app
+  path: ./kubernetes/apps/database/cloudnative-pg/app
   prune: true
   sourceRef:
     kind: GitRepository
@@ -18,7 +18,6 @@ spec:
   interval: 30m
   retryInterval: 1m
   timeout: 5m
-
 
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -31,7 +30,7 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  path: ./kubernetes/apps/infrastructure/cloudnative-pg/cluster
+  path: ./kubernetes/apps/database/cloudnative-pg/cluster
   prune: true
   dependsOn:
   - name: cloudnative-pg
