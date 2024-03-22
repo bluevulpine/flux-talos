@@ -43,7 +43,7 @@ spec:
       enabled: true
     persistence:
       enabled: true
-      storageClass: vault-nfs
+      storageClass: ceph-block
       size: 400Mi
     affinity:
       podAntiAffinity:
