@@ -113,15 +113,15 @@ spec:
         useAllNodes: false
         useAllDevices: false
         nodes:
-          - name: talos-cp-01
-            devices:
-              - name: "/dev/disk/by-id/ata-SATA_SSD_21121624000272"
-          - name: talos-cp-02
-            devices:
-              - name: "/dev/disk/by-id/ata-SATA_SSD_21121624000274"
-          - name: talos-cp-03
-            devices:
-              - name: "/dev/disk/by-id/ata-SATA_SSD_21121624000275"
+          # - name: talos-cp-01
+          #   devices:
+          #     - name: "/dev/disk/by-id/ata-SATA_SSD_21121624000272"
+          # - name: talos-cp-02
+          #   devices:
+          #     - name: "/dev/disk/by-id/ata-SATA_SSD_21121624000274"
+          # - name: talos-cp-03
+          #   devices:
+          #     - name: "/dev/disk/by-id/ata-SATA_SSD_21121624000275"
           - name: talos-34
             devices:
               - name: "/dev/disk/by-id/ata-Samsung_SSD_840_EVO_250GB_S1DBNSBDC20552M"
