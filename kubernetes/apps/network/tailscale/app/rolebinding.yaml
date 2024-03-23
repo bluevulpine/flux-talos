@@ -23,5 +23,5 @@ roleRef:
 subjects:
   - kind: User
     name: ${SECRET_TS_ADMIN}
-  - kind: Group
-    name: tailnet-admin
+  - kind: User
+    name: vault.flyingfox-decibel.ts.net
