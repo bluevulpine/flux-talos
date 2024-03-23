@@ -23,3 +23,5 @@ roleRef:
 subjects:
   - kind: User
     name: ${SECRET_TS_ADMIN}
+  - kind: Group
+    name: tailnet-admin
