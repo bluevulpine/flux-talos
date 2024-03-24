@@ -47,7 +47,6 @@ spec:
               LLDAP_HTTP_PORT: &port 80
               LLDAP_HTTP_URL: "https://lldap.${SECRET_DOMAIN}"
               LLDAP_LDAP_PORT: &ldapPort 389
-              LLDAP_DATABASE_URL: "postgres://${INIT_POSTGRES_USER}:${INIT_POSTGRES_PASS}@postgres16-rw.database.svc.cluster.local/lldap"
             envFrom: *envFrom
             probes:
               liveness: &probes
