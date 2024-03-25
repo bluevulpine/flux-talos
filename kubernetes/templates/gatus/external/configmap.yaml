@@ -8,8 +8,22 @@ metadata:
 data:
   config.yaml: |
     endpoints:
-      - name: "${APP}"
-        group: external
+      - name: "${APP}-external-dns"
+        group: ${NS}
+        url: 1.1.1.1
+        interval: 1m
+        ui:
+          hide-hostname: true
+          hide-url: true
+        dns:
+          query-name: "${GATUS_SUBDOMAIN:-${APP}}.${SECRET_DOMAIN}"
+          query-type: A
+        conditions:
+          - "len([BODY]) != 0"
+        alerts:
+          - type: pushover
+      - name: "${APP}-external-connectivity"
+        group: "${NS}"
         url: "https://${GATUS_SUBDOMAIN:-${APP}}.${SECRET_DOMAIN}${GATUS_PATH:-/}"
         interval: 1m
         client:

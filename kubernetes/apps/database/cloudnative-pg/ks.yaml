@@ -5,7 +5,7 @@ metadata:
   name: &app cloudnative-pg
   namespace: flux-system
 spec:
-  targetNamespace: database
+  targetNamespace: &ns database
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
@@ -18,6 +18,10 @@ spec:
   interval: 30m
   retryInterval: 1m
   timeout: 5m
+  postBuild:
+    substitute:
+      APP: *app
+      NS: *ns
 
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -26,7 +30,7 @@ metadata:
   name: &app cloudnative-pg-cluster
   namespace: flux-system
 spec:
-  targetNamespace: database
+  targetNamespace: &ns database
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
@@ -41,4 +45,8 @@ spec:
   interval: 30m
   retryInterval: 1m
   timeout: 5m
+  postBuild:
+    substitute:
+      APP: *app
+      NS: *ns
 

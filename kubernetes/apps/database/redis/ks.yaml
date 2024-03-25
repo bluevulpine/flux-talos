@@ -6,7 +6,7 @@ metadata:
   name: &app redis
   namespace: flux-system
 spec:
-  targetNamespace: database
+  targetNamespace: &ns database
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
@@ -19,3 +19,7 @@ spec:
   interval: 30m
   retryInterval: 1m
   timeout: 15m
+  postBuild:
+    substitute:
+      APP: *app
+      NS: *ns

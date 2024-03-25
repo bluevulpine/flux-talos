@@ -6,7 +6,7 @@ metadata:
   name: &app gatus
   namespace: flux-system
 spec:
-  targetNamespace: observability
+  targetNamespace: &ns observability
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
@@ -21,3 +21,7 @@ spec:
   interval: 30m
   retryInterval: 1m
   timeout: 5m
+  postBuild:
+    substitute:
+      APP: *app
+      NS: *ns

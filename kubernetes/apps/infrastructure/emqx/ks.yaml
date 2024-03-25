@@ -5,7 +5,7 @@ metadata:
   name: &app emqx
   namespace: flux-system
 spec:
-  targetNamespace: infrastructure
+  targetNamespace: &ns infrastructure
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
@@ -18,3 +18,7 @@ spec:
   interval: 30m
   retryInterval: 1m
   timeout: 5m
+  postBuild:
+    substitute:
+      APP: *app
+      NS: *ns

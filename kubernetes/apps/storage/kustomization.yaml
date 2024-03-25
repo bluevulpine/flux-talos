@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
   - ./namespace.yaml
   - ./rook-ceph-operator/ks.yaml
+  - ../../../../templates/gatus/guarded

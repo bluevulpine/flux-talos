@@ -6,7 +6,7 @@ metadata:
   namespace: flux-system
   labels:
 spec:
-  targetNamespace: storage
+  targetNamespace: &ns storage
   dependsOn:
     - name: cilium
   commonMetadata:
@@ -21,6 +21,10 @@ spec:
   interval: 30m
   retryInterval: 1m
   timeout: 5m
+  postBuild:
+    substitute:
+      APP: *app
+      NS: *ns
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -28,7 +32,7 @@ metadata:
   name: &app rook-ceph-cluster
   namespace: flux-system
 spec:
-  targetNamespace: storage
+  targetNamespace: &ns storage
   dependsOn:
     - name: rook-ceph-operator
   commonMetadata:
@@ -43,5 +47,8 @@ spec:
   interval: 30m
   retryInterval: 1m
   timeout: 5m
-
+  postBuild:
+    substitute:
+      APP: rook # so that Gatus can find the ingress
+      NS: *ns
 

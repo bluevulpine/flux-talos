@@ -8,8 +8,8 @@ metadata:
 data:
   config.yaml: |
     endpoints:
-      - name: "${APP}"
-        group: guarded
+      - name: "${APP}-no-external-dns"
+        group: ${NS}
         url: 1.1.1.1
         interval: 1m
         ui:
@@ -20,5 +20,15 @@ data:
           query-type: A
         conditions:
           - "len([BODY]) == 0"
+        alerts:
+          - type: pushover
+      - name: "${APP}-internal-connectivity"
+        group: "${NS}"
+        url: "https://${GATUS_SUBDOMAIN:-${APP}}.${SECRET_DOMAIN}${GATUS_PATH:-/}"
+        interval: 1m
+        client:
+          dns-resolver: tcp://1.1.1.1:53
+        conditions:
+          - "[STATUS] == ${GATUS_STATUS:-200}"
         alerts:
           - type: pushover

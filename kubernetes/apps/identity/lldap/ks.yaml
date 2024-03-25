@@ -6,7 +6,7 @@ metadata:
   name: &app lldap
   namespace: flux-system
 spec:
-  targetNamespace: identity
+  targetNamespace: &ns identity
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
@@ -24,3 +24,4 @@ spec:
   postBuild:
     substitute:
       APP: *app
+      NS: *ns
