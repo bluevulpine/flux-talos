@@ -8,8 +8,8 @@ metadata:
 data:
   config.yaml: |
     endpoints:
-      - name: "${APP}-external-dns"
-        group: ${NS}
+      - name: "${NS}-${APP}-external-dns"
+        group: external
         url: 1.1.1.1
         interval: 1m
         ui:
@@ -22,12 +22,22 @@ data:
           - "len([BODY]) != 0"
         alerts:
           - type: pushover
-      - name: "${APP}-external-connectivity"
-        group: "${NS}"
+      - name: "${NS}-${APP}-external-connectivity"
+        group: external
         url: "https://${GATUS_SUBDOMAIN:-${APP}}.${SECRET_DOMAIN}${GATUS_PATH:-/}"
         interval: 1m
         client:
           dns-resolver: tcp://1.1.1.1:53
+        conditions:
+          - "[STATUS] == ${GATUS_STATUS:-200}"
+        alerts:
+          - type: pushover
+      - name: "${NS}-${APP}-internal-connectivity"
+        group: external
+        url: "https://${GATUS_SUBDOMAIN:-${APP}}.${SECRET_DOMAIN}${GATUS_PATH:-/}"
+        interval: 1m
+        client:
+          dns-resolver: tcp://k8s-gateway.network.svc.cluster.local:53
         conditions:
           - "[STATUS] == ${GATUS_STATUS:-200}"
         alerts:
