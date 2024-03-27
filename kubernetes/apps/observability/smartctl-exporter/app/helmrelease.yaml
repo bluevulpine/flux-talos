@@ -31,3 +31,5 @@ spec:
       enabled: true
     prometheusRules:
       enabled: false
+    nodeSelector:
+      kubernetes.io/arch: amd64 # the image is not currently multi-arch
