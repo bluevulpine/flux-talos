@@ -109,6 +109,8 @@ spec:
         urlPrefix: /
         ssl: false
         port: 8000
+        prometheusEndpoint: http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090
+        prometheusEndpointSSLVerify: true
       storage:
         useAllNodes: false
         useAllDevices: false
