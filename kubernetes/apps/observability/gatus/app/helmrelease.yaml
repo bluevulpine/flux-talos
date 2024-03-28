@@ -107,6 +107,7 @@ spec:
     serviceMonitor:
       app:
         serviceName: gatus
+        enabled: true
         endpoints:
           - port: http
             scheme: http
