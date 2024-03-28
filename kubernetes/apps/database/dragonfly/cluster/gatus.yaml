@@ -8,9 +8,9 @@ metadata:
 data:
   config.yaml: |
     endpoints:
-      - name: redis
+      - name: dragonfly
         group: database
-        url: tcp://redis.database.svc.cluster.local:6379
+        url: tcp://dragonfly.database.svc.cluster.local:6379
         interval: 1m
         ui:
           hide-url: true
