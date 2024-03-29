@@ -8,7 +8,7 @@ metadata:
 data:
   config.yaml: |
     endpoints:
-      - name: "${NS}-${APP}-no-external-dns"
+      - name: "${NS}/${APP} No External DNS"
         group: guarded
         url: 1.1.1.1
         interval: 1m
@@ -22,7 +22,7 @@ data:
           - "len([BODY]) == 0"
         alerts:
           - type: pushover
-      - name: "${NS}-${APP}-internal-connectivity"
+      - name: "${NS}/${APP}"
         group: guarded
         url: "https://${GATUS_SUBDOMAIN:-${APP}}.${SECRET_DOMAIN}${GATUS_PATH:-/}"
         interval: 1m
