@@ -45,3 +45,13 @@ endpoints:
       - "[STATUS] == 404"
     alerts:
       - type: pushover
+  - name: mqtt
+    group: external
+    url: "https://emqx.${SECRET_DOMAIN}"
+    interval: 1m
+    client:
+      dns-resolver: tcp://k8s-gateway.network.svc.cluster.local:53
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: pushover
