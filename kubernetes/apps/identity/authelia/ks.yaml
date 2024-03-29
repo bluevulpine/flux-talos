@@ -27,3 +27,4 @@ spec:
     substitute:
       APP: *app
       NS: *ns
+      GATUS_SUBDOMAIN: auth
