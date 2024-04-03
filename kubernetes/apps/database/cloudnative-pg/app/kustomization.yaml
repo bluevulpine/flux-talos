@@ -5,4 +5,4 @@ kind: Kustomization
 namespace: infrastructure
 resources:
   - ./helmrelease.yaml
-  - ./secret.sops.yaml
+  - ./externalsecret.yaml
