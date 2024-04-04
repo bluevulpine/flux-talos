@@ -127,6 +127,7 @@ spec:
           - name: talos-34
             devices:
               - name: "/dev/disk/by-id/ata-Samsung_SSD_840_EVO_250GB_S1DBNSBDC20552M"
+              - name: "/dev/disk/by-id/ata-SATA_SSD_23101651200105"
           - name: talos-201
             devices:
               - name: "/dev/disk/by-id/ata-SATA_SSD_23101651200078"
