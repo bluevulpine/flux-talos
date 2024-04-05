@@ -24,13 +24,15 @@ spec:
     keepHistory: false
   values:
     localprovisioner:
+      deviceClass:
+        enabled: false
       hostpathClass:
         enabled: true
-        name: openebs-hostpath
+        name: local-hostpath
         isDefaultClass: false
         basePath: /var/openebs/local
     ndm:
       enabled: false
-    ndm-operator:
+    ndmoperator:
       enabled: false
 
