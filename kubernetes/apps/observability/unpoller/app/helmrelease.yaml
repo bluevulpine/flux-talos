@@ -1,0 +1,77 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2beta2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: unpoller
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.0.4
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  dependsOn:
+    - name: kube-prometheus-stack
+      namespace: observability
+  values:
+    controllers:
+      unpoller:
+        containers:
+          app:
+            image:
+              repository: ghcr.io/unpoller/unpoller
+              tag: v2.10.0@sha256:c2ac3a1415efeec0ad2a191786e570348748570bbdd414d0a56ef663ee09dca4
+            env:
+              TZ: America/Chicago
+              UP_UNIFI_DEFAULT_ROLE: home-ops
+              UP_UNIFI_DEFAULT_URL: https://10.0.10.1
+              UP_UNIFI_DEFAULT_VERIFY_SSL: false
+              UP_UNIFI_DEFAULT_USER: unifipoller
+              UP_UNIFI_DEFAULT_PASS: 1nternalUseOnly
+              UP_INFLUXDB_DISABLE: true
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+              limits:
+                memory: 128Mi
+        pod:
+          securityContext:
+            runAsUser: 568
+            runAsGroup: 568
+            runAsNonRoot: true
+    service:
+      app:
+        controller: unpoller
+        ports:
+          http:
+            port: 9130
+    serviceMonitor:
+      app:
+        serviceName: unpoller
+        endpoints:
+          - port: http
+            scheme: http
+            path: /metrics
+            interval: 2m # Unifi API only polls at 2m intervals
+            scrapeTimeout: 10s
