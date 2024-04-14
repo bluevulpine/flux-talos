@@ -28,7 +28,7 @@ spec:
         enabled: false
       hostpathClass:
         enabled: true
-        name: local-hostpath
+        name: openebs-hostpath
         isDefaultClass: false
         basePath: /var/openebs/local
     ndm:
