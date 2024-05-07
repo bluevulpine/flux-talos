@@ -12,7 +12,7 @@ spec:
     size: 20Gi
     storageClass: ceph-block
   superuserSecret:
-    name: cloudnative-pg-secret
+    name: &secretName cloudnative-pg-secret
   enableSuperuserAccess: true
   postgresql:
     parameters:
@@ -34,7 +34,7 @@ spec:
       - { sourceLabels: ["cluster"], targetLabel: cnpg_cluster, action: replace }
       - { regex: cluster, action: labeldrop }
   backup:
-    retentionPolicy: 30d
+    retentionPolicy: 7d
     barmanObjectStore: &barmanObjectStore
       data:
         compression: bzip2
@@ -42,25 +42,44 @@ spec:
         compression: bzip2
         maxParallel: 8
       destinationPath: s3://cloudnative-pg/
-      endpointURL: http://10.0.10.11:9000
-      # Note: serverName version needs to be inclemented
+      endpointURL: &s3 https://${SECRET_CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com
+      # Note: serverName version needs to be incremented
       # when recovering from an existing cnpg cluster
       serverName: &currentCluster postgres16-v2
       s3Credentials:
         accessKeyId:
-          name: cloudnative-pg-secret
-          key: aws-access-key-id
+          name: *secretName
+          key: s3-access-key-id
         secretAccessKey:
-          name: cloudnative-pg-secret
-          key: aws-secret-access-key
+          name: *secretName
+          key: s3-secret-access-key
   # Note: previousCluster needs to be set to the name of the previous
   # cluster when recovering from an existing cnpg cluster
-  bootstrap:
-    recovery:
-      source: &previousCluster postgres16-v1
+  # bootstrap:
+  #   recovery:
+  #     # Should match name in externalClusters
+  #     source: &previousCluster postgres16-v1
+  #   # Use for major upgrades or creating new cluster from existing
+  #   initdb:
+  #     import:
+  #       type: monolith
+  #       databases: ["*"]
+  #       roles: ["*"]
+  #       source:
+  #         externalCluster: old-cluster
   # Note: externalClusters is needed when recovering from an existing cnpg cluster
-  externalClusters:
-    - name: *previousCluster
-      barmanObjectStore:
-        <<: *barmanObjectStore
-        serverName: *previousCluster
+  # externalClusters:
+  #   # for s3 restore
+  #   - name: *previousCluster
+  #     barmanObjectStore:
+  #       <<: *barmanObjectStore
+  #       serverName: *previousCluster
+  #   # for initdb restore
+  #   - name: old-cluster
+  #     connectionParameters:
+  #       host: postgres16-rw.default.svc.cluster.local
+  #       user: postgres
+  #       dbname: postgres
+  #     password:
+  #       name: *secretName
+  #       key: password
