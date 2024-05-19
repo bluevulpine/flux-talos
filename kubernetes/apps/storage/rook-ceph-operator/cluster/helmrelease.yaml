@@ -10,7 +10,7 @@ spec:
       chart: rook-ceph-cluster
       # upgrades to the chart version may fail as the storage classes cannot be patched after creation and must be deleted and recreated.
       # if there are PVs using the storage class, this is probably not a good idea?
-      version: v1.14.3
+      version: v1.14.4
       sourceRef:
         kind: HelmRepository
         name: rook-ceph
