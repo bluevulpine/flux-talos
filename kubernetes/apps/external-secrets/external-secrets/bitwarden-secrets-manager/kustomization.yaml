@@ -6,3 +6,4 @@ resources:
 - ./helmrelease.yaml
 - ./secret.sops.yaml
 - ./externalsecret.yaml
+- ./restart-cronjob.yaml
