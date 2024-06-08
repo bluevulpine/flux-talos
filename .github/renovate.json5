@@ -62,7 +62,7 @@
       "matchUpdateTypes": ["minor", "patch"]
     },
     {
-      "description": "Automerge non-major updates",
+      "description": ["Automerge non-major updates"],
       "matchUpdateTypes": ["minor", "patch"],
       "matchCurrentVersion": "!/^0/",
       "automerge": true
