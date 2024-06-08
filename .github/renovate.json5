@@ -61,6 +61,12 @@
       "ignoreTests": true,
       "matchUpdateTypes": ["minor", "patch"]
     },
+    {
+      "description": "Automerge non-major updates",
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchCurrentVersion": "!/^0/",
+      "automerge": true
+    },
     // groups
     {
       "description": ["Flux Group"],
