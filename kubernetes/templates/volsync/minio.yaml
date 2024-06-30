@@ -13,10 +13,10 @@ spec:
     template:
       engineVersion: v2
       data:
-        RESTIC_REPOSITORY: "{{ .REPOSITORY_TEMPLATE }}/${APP}"
-        RESTIC_PASSWORD: "{{ .RESTIC_PASSWORD }}"
-        AWS_ACCESS_KEY_ID: "{{ .MINIO_ROOT_USER }}"
-        AWS_SECRET_ACCESS_KEY: "{{ .MINIO_ROOT_PASSWORD }}"
+        RESTIC_REPOSITORY: "{{ .VolSync__Minio__RepositoryTemplate }}/${APP}"
+        RESTIC_PASSWORD: "{{ .VolSync__Minio__ResticPassword }}"
+        AWS_ACCESS_KEY_ID: "{{ .Minio__RootUser }}"
+        AWS_SECRET_ACCESS_KEY: "{{ .Minio__RootPass }}"
   dataFrom:
     - extract:
         key: minio

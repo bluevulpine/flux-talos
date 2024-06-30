@@ -13,10 +13,10 @@ spec:
     template:
       engineVersion: v2
       data:
-        RESTIC_REPOSITORY: "{{ .REPOSITORY_TEMPLATE }}/${APP}"
-        RESTIC_PASSWORD: "{{ .RESTIC_PASSWORD }}"
-        AWS_ACCESS_KEY_ID: "{{ .AWS_ACCESS_KEY_ID }}"
-        AWS_SECRET_ACCESS_KEY: "{{ .AWS_SECRET_ACCESS_KEY }}"
+        RESTIC_REPOSITORY: "{{ .VolSync__R2__RepositoryTemplate }}/${APP}"
+        RESTIC_PASSWORD: "{{ .VolSync__R2__ResticPassword }}"
+        AWS_ACCESS_KEY_ID: "{{ .VolSync__R2__AwsAccessKeyId }}"
+        AWS_SECRET_ACCESS_KEY: "{{ .VolSync__R2__AwsSecretKey }}"
   dataFrom:
     - extract:
         key: cloudflare
