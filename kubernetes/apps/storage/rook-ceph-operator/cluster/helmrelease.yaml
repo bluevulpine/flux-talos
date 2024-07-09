@@ -137,9 +137,9 @@ spec:
           - name: talos-203
             devices:
               - name: "/dev/disk/by-id/ata-SATA_SSD_23101651200079"
-          - name: talos-204
-            devices:
-              - name: "/dev/disk/by-id/ata-WD_Blue_SA510_2.5_1TB_232027800426"
+          # - name: talos-204
+          #   devices:
+          #     - name: "/dev/disk/by-id/ata-WD_Blue_SA510_2.5_1TB_232027800426"
 
     cephBlockPoolsVolumeSnapshotClass:
       enabled: false
