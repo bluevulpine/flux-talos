@@ -128,15 +128,15 @@ spec:
           #   devices:
           #     - name: "/dev/disk/by-id/ata-Samsung_SSD_840_EVO_250GB_S1DBNSBDC20552M"
           #     - name: "/dev/disk/by-id/ata-SATA_SSD_23101651200105"
-          - name: talos-201
-            devices:
-              - name: "/dev/disk/by-id/ata-SATA_SSD_23101651200078"
-          - name: talos-202
-            devices:
-              - name: "/dev/disk/by-id/ata-SATA_SSD_23101651200106"
-          - name: talos-203
-            devices:
-              - name: "/dev/disk/by-id/ata-SATA_SSD_23101651200079"
+          # - name: talos-201
+          #   devices:
+          #     - name: "/dev/disk/by-id/ata-SATA_SSD_23101651200078"
+          # - name: talos-202
+          #   devices:
+          #     - name: "/dev/disk/by-id/ata-SATA_SSD_23101651200106"
+          # - name: talos-203
+          #   devices:
+          #     - name: "/dev/disk/by-id/ata-SATA_SSD_23101651200079"
           # - name: talos-204
           #   devices:
           #     - name: "/dev/disk/by-id/ata-WD_Blue_SA510_2.5_1TB_232027800426"
@@ -165,41 +165,41 @@ spec:
             csi.storage.k8s.io/node-stage-secret-name: rook-csi-rbd-node
             csi.storage.k8s.io/node-stage-secret-namespace: storage
             csi.storage.k8s.io/fstype: ext4
-    cephFileSystems:
-      - name: ceph-filesystem
-        spec:
-          metadataPool:
-            replicated:
-              size: 3
-          dataPools:
-            - failureDomain: host
-              replicated:
-                size: 3
-          metadataServer:
-            activeCount: 1
-            activeStandby: true
-            resources:
-              limits:
-                # cpu: "500m"
-                memory: "4Gi"
-              requests:
-                cpu: "500m"
-                memory: "100Mi"
-        storageClass:
-          enabled: true
-          isDefault: false
-          name: ceph-filesystem
-          reclaimPolicy: Delete
-          allowVolumeExpansion: true
-          mountOptions: []
-          parameters:
-            csi.storage.k8s.io/provisioner-secret-name: rook-csi-cephfs-provisioner
-            csi.storage.k8s.io/provisioner-secret-namespace: storage
-            csi.storage.k8s.io/controller-expand-secret-name: rook-csi-cephfs-provisioner
-            csi.storage.k8s.io/controller-expand-secret-namespace: storage
-            csi.storage.k8s.io/node-stage-secret-name: rook-csi-cephfs-node
-            csi.storage.k8s.io/node-stage-secret-namespace: storage
-            csi.storage.k8s.io/fstype: ext4
+    # cephFileSystems:
+    #   - name: ceph-filesystem
+    #     spec:
+    #       metadataPool:
+    #         replicated:
+    #           size: 3
+    #       dataPools:
+    #         - failureDomain: host
+    #           replicated:
+    #             size: 3
+    #       metadataServer:
+    #         activeCount: 1
+    #         activeStandby: true
+    #         resources:
+    #           limits:
+    #             # cpu: "500m"
+    #             memory: "4Gi"
+    #           requests:
+    #             cpu: "500m"
+    #             memory: "100Mi"
+    #     storageClass:
+    #       enabled: true
+    #       isDefault: false
+    #       name: ceph-filesystem
+    #       reclaimPolicy: Delete
+    #       allowVolumeExpansion: true
+    #       mountOptions: []
+    #       parameters:
+    #         csi.storage.k8s.io/provisioner-secret-name: rook-csi-cephfs-provisioner
+    #         csi.storage.k8s.io/provisioner-secret-namespace: storage
+    #         csi.storage.k8s.io/controller-expand-secret-name: rook-csi-cephfs-provisioner
+    #         csi.storage.k8s.io/controller-expand-secret-namespace: storage
+    #         csi.storage.k8s.io/node-stage-secret-name: rook-csi-cephfs-node
+    #         csi.storage.k8s.io/node-stage-secret-namespace: storage
+    #         csi.storage.k8s.io/fstype: ext4
     cephObjectStores:
       - name: ceph-objectstore
         spec:
