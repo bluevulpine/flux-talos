@@ -20,13 +20,101 @@ cniConfig:
   name: none
 
 nodes:
-  - hostname: "talos-cp-01"
-    ipAddress: "10.0.10.31"
-    installDisk: "/dev/mmcblk0"
-    talosImageURL: factory.talos.dev/installer/cf9001404ecb05308d6e7c4c945a5e7d84013d86eda6e604d69c9167380c4084
+  - hostname: "odin01"
+    ipAddress: "10.0.10.35"
+    installDisk: "/dev/sda"
+    talosImageURL:  factory.talos.dev/installer/24ea4490582949eabe1c42e924fbf3dbe21f3252558e52aa47699594539a1520
     controlPlane: true
-    nodeLabels:
-      openebs.io/engine: mayastor
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "bc:24:11:*"
+        dhcp: true
+        vip:
+          ip: "10.0.10.30"
+
+  - hostname: "odin02"
+    ipAddress: "10.0.10.36"
+    installDisk: "/dev/sda"
+    talosImageURL:  factory.talos.dev/installer/24ea4490582949eabe1c42e924fbf3dbe21f3252558e52aa47699594539a1520
+    controlPlane: true
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "bc:24:11:*"
+        dhcp: true
+        vip:
+          ip: "10.0.10.30"
+
+  - hostname: "odin03"
+    ipAddress: "10.0.10.37"
+    installDisk: "/dev/sda"
+    talosImageURL:  factory.talos.dev/installer/24ea4490582949eabe1c42e924fbf3dbe21f3252558e52aa47699594539a1520
+    controlPlane: true
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "bc:24:11:*"
+        dhcp: true
+        vip:
+          ip: "10.0.10.30"
+
+  - hostname: "brokkr01"
+    ipAddress: "10.0.10.38"
+    installDisk: "/dev/sda"
+    talosImageURL:  factory.talos.dev/installer/24ea4490582949eabe1c42e924fbf3dbe21f3252558e52aa47699594539a1520
+    controlPlane: false
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "bc:24:11:*"
+        dhcp: true
+
+  - hostname: "brokkr02"
+    ipAddress: "10.0.10.39"
+    installDisk: "/dev/sda"
+    talosImageURL:  factory.talos.dev/installer/24ea4490582949eabe1c42e924fbf3dbe21f3252558e52aa47699594539a1520
+    controlPlane: false
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "bc:24:11:*"
+        dhcp: true
+
+  - hostname: "brokkr03"
+    ipAddress: "10.0.10.40"
+    installDisk: "/dev/sda"
+    talosImageURL:  factory.talos.dev/installer/24ea4490582949eabe1c42e924fbf3dbe21f3252558e52aa47699594539a1520
+    controlPlane: false
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "bc:24:11:*"
+        dhcp: true
+
+  - hostname: "baldr01"
+    ipAddress: "192.168.50.5"
+    installDisk: "/dev/sda"
+    talosImageURL:  factory.talos.dev/installer/24ea4490582949eabe1c42e924fbf3dbe21f3252558e52aa47699594539a1520
+    controlPlane: false
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "bc:24:11:*"
+        dhcp: true
+    nodeTaints:
+      iot: iot:NoSchedule
+
+  - hostname: "thor01"
+    ipAddress: "192.168.20.5"
+    installDisk: "/dev/sda"
+    talosImageURL:  factory.talos.dev/installer/24ea4490582949eabe1c42e924fbf3dbe21f3252558e52aa47699594539a1520
+    controlPlane: false
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "bc:24:11:*"
+        dhcp: true
+    nodeTaints:
+      untrusted: untrusted:NoSchedule
+
+  - hostname: "freyja01"
+    ipAddress: "10.0.10.31"
+    installDisk: "/dev/sda"
+    talosImageURL: factory.talos.dev/installer/385bde5bbbcfc231f8bdb46211eed312add827ca45ec16bcb9c6850996d63175
+    controlPlane: false
     networkInterfaces:
       - interface: eth0
         dhcp: false
@@ -36,15 +124,12 @@ nodes:
         routes:
           - network: 0.0.0.0/0
             gateway: "10.0.10.1"
-        vip:
-          ip: "10.0.10.30"
-  - hostname: "talos-cp-02"
+
+  - hostname: "freyja02"
     ipAddress: "10.0.10.32"
-    installDisk: "/dev/mmcblk0"
-    talosImageURL: factory.talos.dev/installer/cf9001404ecb05308d6e7c4c945a5e7d84013d86eda6e604d69c9167380c4084
-    controlPlane: true
-    nodeLabels:
-      openebs.io/engine: mayastor
+    installDisk: "/dev/sda"
+    talosImageURL: factory.talos.dev/installer/385bde5bbbcfc231f8bdb46211eed312add827ca45ec16bcb9c6850996d63175
+    controlPlane: false
     networkInterfaces:
       - interface: eth0
         dhcp: false
@@ -54,15 +139,12 @@ nodes:
         routes:
           - network: 0.0.0.0/0
             gateway: "10.0.10.1"
-        vip:
-          ip: "10.0.10.30"
-  - hostname: "talos-cp-03"
+
+  - hostname: "freyja03"
     ipAddress: "10.0.10.33"
-    installDisk: "/dev/mmcblk0"
-    talosImageURL: factory.talos.dev/installer/cf9001404ecb05308d6e7c4c945a5e7d84013d86eda6e604d69c9167380c4084
-    controlPlane: true
-    nodeLabels:
-      openebs.io/engine: mayastor
+    installDisk: "/dev/sda"
+    talosImageURL: factory.talos.dev/installer/385bde5bbbcfc231f8bdb46211eed312add827ca45ec16bcb9c6850996d63175
+    controlPlane: false
     networkInterfaces:
       - interface: eth0
         dhcp: false
@@ -72,15 +154,13 @@ nodes:
         routes:
           - network: 0.0.0.0/0
             gateway: "10.0.10.1"
-        vip:
-          ip: "10.0.10.30"
-  - hostname: "talos-34"
+
+
+  - hostname: "freyja04"
     ipAddress: "10.0.10.34"
-    installDisk: "/dev/mmcblk0"
-    talosImageURL: factory.talos.dev/installer/cf9001404ecb05308d6e7c4c945a5e7d84013d86eda6e604d69c9167380c4084
+    installDisk: "/dev/sda"
+    talosImageURL: factory.talos.dev/installer/385bde5bbbcfc231f8bdb46211eed312add827ca45ec16bcb9c6850996d63175
     controlPlane: false
-    nodeLabels:
-      openebs.io/engine: mayastor
     networkInterfaces:
       - interface: eth0
         dhcp: false
@@ -90,61 +170,12 @@ nodes:
         routes:
           - network: 0.0.0.0/0
             gateway: "10.0.10.1"
-  - hostname: "talos-201"
-    ipAddress: "10.0.10.201"
-    installDisk: "/dev/sda"
-    talosImageURL: factory.talos.dev/installer/cf9001404ecb05308d6e7c4c945a5e7d84013d86eda6e604d69c9167380c4084
-    controlPlane: false
-    nodeLabels:
-      openebs.io/engine: mayastor
-    networkInterfaces:
-      - interface: eth0
-        dhcp: false
-        addresses:
-          - "10.0.10.201/24"
-        mtu: 1500
-        routes:
-          - network: 0.0.0.0/0
-            gateway: "10.0.10.1"
-  - hostname: "talos-202"
-    ipAddress: "10.0.10.202"
-    installDisk: "/dev/sda"
-    talosImageURL: factory.talos.dev/installer/cf9001404ecb05308d6e7c4c945a5e7d84013d86eda6e604d69c9167380c4084
-    controlPlane: false
-    nodeLabels:
-      openebs.io/engine: mayastor
-    networkInterfaces:
-      - interface: eth0
-        dhcp: false
-        addresses:
-          - "10.0.10.202/24"
-        mtu: 1500
-        routes:
-          - network: 0.0.0.0/0
-            gateway: "10.0.10.1"
-  - hostname: "talos-203"
-    ipAddress: "10.0.10.203"
-    installDisk: "/dev/sda"
-    talosImageURL: factory.talos.dev/installer/cf9001404ecb05308d6e7c4c945a5e7d84013d86eda6e604d69c9167380c4084
-    controlPlane: false
-    nodeLabels:
-      openebs.io/engine: mayastor
-    networkInterfaces:
-      - interface: eth0
-        dhcp: false
-        addresses:
-          - "10.0.10.203/24"
-        mtu: 1500
-        routes:
-          - network: 0.0.0.0/0
-            gateway: "10.0.10.1"
-  - hostname: "talos-204"
+
+  - hostname: "sif01"
     ipAddress: "10.0.10.204"
     installDisk: "/dev/sdb"
-    talosImageURL: factory.talos.dev/installer/cf9001404ecb05308d6e7c4c945a5e7d84013d86eda6e604d69c9167380c4084
+    talosImageURL: factory.talos.dev/installer/5e49e3bcc265c79b8dfa883cacf7e20be8fe45e887ce5028405d9203675099fc
     controlPlane: false
-    nodeLabels:
-      openebs.io/engine: mayastor
     networkInterfaces:
       - interface: eth0
         dhcp: false
@@ -154,6 +185,7 @@ nodes:
         routes:
           - network: 0.0.0.0/0
             gateway: "10.0.10.1"
+
 
 patches:
   # Configure containerd
@@ -236,14 +268,6 @@ patches:
               - bind
               - rshared
               - rw
-
-  # Disable predictable NIC naming
-  - |-
-    machine:
-      install:
-        extraKernelArgs:
-          - net.ifnames=0
-
 
 controlPlane:
   patches:
