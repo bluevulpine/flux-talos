@@ -119,7 +119,7 @@ spec:
       annotations:
         grafana_folder: Cilium
     rollOutCiliumPods: true
-    routingMode: native
+    routingMode: geneve
     securityContext:
       capabilities:
         ciliumAgent:
