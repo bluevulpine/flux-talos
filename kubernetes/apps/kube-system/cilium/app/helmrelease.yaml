@@ -96,7 +96,6 @@ spec:
       enabled: false # https://github.com/cilium/cilium/issues/28985
     loadBalancer:
       algorithm: maglev
-      mode: dsr
     localRedirectPolicy: true
     operator:
       replicas: 1
