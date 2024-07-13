@@ -29,7 +29,7 @@ spec:
     bgpControlPlane:
       enabled: true
     bpf:
-      masquerade: false
+      masquerade: true
     cgroup:
       automount:
         enabled: false
@@ -119,7 +119,7 @@ spec:
       annotations:
         grafana_folder: Cilium
     rollOutCiliumPods: true
-    routingMode: geneve
+    routingMode: tunnel
     securityContext:
       capabilities:
         ciliumAgent:
