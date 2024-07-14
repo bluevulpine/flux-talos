@@ -22,3 +22,5 @@ spec:
       cpu: 100m
     limits:
       memory: 512Mi
+  nodeSelector:
+    kubernetes.io/arch: amd64 # the image is not currently multi-arch
