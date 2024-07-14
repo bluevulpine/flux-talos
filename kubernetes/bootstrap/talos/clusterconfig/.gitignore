@@ -11,3 +11,16 @@ home-kubernetes-talos-201.yaml
 home-kubernetes-talos-202.yaml
 home-kubernetes-talos-203.yaml
 home-kubernetes-talos-204.yaml
+home-kubernetes-odin01.yaml
+home-kubernetes-odin02.yaml
+home-kubernetes-odin03.yaml
+home-kubernetes-brokkr01.yaml
+home-kubernetes-brokkr02.yaml
+home-kubernetes-brokkr03.yaml
+home-kubernetes-baldr01.yaml
+home-kubernetes-thor01.yaml
+home-kubernetes-freyja01.yaml
+home-kubernetes-freyja02.yaml
+home-kubernetes-freyja03.yaml
+home-kubernetes-freyja04.yaml
+home-kubernetes-sif01.yaml
