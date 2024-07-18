@@ -6,7 +6,7 @@ metadata:
   namespace: flux-system
   labels:
 spec:
-  targetNamespace: &ns storage
+  targetNamespace: &ns rook-ceph
   dependsOn:
     - name: cilium
   commonMetadata:
@@ -32,7 +32,7 @@ metadata:
   name: &app rook-ceph-cluster
   namespace: flux-system
 spec:
-  targetNamespace: &ns storage
+  targetNamespace: &ns rook-ceph
   dependsOn:
     - name: rook-ceph-operator
   commonMetadata:

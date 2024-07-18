@@ -25,7 +25,7 @@ spec:
   values:
     toolbox:
       enabled: true
-    operatorNamespace: storage  # cluster chart will skip conflicting resources if it knows the operator is in same namespace
+    operatorNamespace: &ns rook-ceph  # cluster chart will skip conflicting resources if it knows the operator is in same namespace
     monitoring:
       enabled: true
       createPrometheusRules: true
@@ -159,11 +159,11 @@ spec:
             imageFormat: "2"
             imageFeatures: layering
             csi.storage.k8s.io/provisioner-secret-name: rook-csi-rbd-provisioner
-            csi.storage.k8s.io/provisioner-secret-namespace: storage
+            csi.storage.k8s.io/provisioner-secret-namespace: *ns
             csi.storage.k8s.io/controller-expand-secret-name: rook-csi-rbd-provisioner
-            csi.storage.k8s.io/controller-expand-secret-namespace: storage
+            csi.storage.k8s.io/controller-expand-secret-namespace: *ns
             csi.storage.k8s.io/node-stage-secret-name: rook-csi-rbd-node
-            csi.storage.k8s.io/node-stage-secret-namespace: storage
+            csi.storage.k8s.io/node-stage-secret-namespace: *ns
             csi.storage.k8s.io/fstype: ext4
     # cephFileSystems:
     #   - name: ceph-filesystem
@@ -200,34 +200,34 @@ spec:
     #         csi.storage.k8s.io/node-stage-secret-name: rook-csi-cephfs-node
     #         csi.storage.k8s.io/node-stage-secret-namespace: storage
     #         csi.storage.k8s.io/fstype: ext4
-    cephObjectStores:
-      - name: ceph-objectstore
-        spec:
-          metadataPool:
-            failureDomain: host
-            replicated:
-              size: 3
-          dataPool:
-            failureDomain: host
-            erasureCoded:
-              dataChunks: 2
-              codingChunks: 1
-          preservePoolsOnDelete: true
-          gateway:
-            port: 80
-            resources:
-              requests:
-                cpu: 500m
-                memory: 100Mi
-              limits:
-                memory: 2Gi
-            instances: 1
-          healthCheck:
-            bucket:
-              interval: 60s
-        storageClass:
-          enabled: true
-          name: ceph-bucket
-          reclaimPolicy: Delete
-          parameters:
-            region: us-east-1
+    # cephObjectStores:
+    #   - name: ceph-objectstore
+    #     spec:
+    #       metadataPool:
+    #         failureDomain: host
+    #         replicated:
+    #           size: 3
+    #       dataPool:
+    #         failureDomain: host
+    #         erasureCoded:
+    #           dataChunks: 2
+    #           codingChunks: 1
+    #       preservePoolsOnDelete: true
+    #       gateway:
+    #         port: 80
+    #         resources:
+    #           requests:
+    #             cpu: 500m
+    #             memory: 100Mi
+    #           limits:
+    #             memory: 2Gi
+    #         instances: 1
+    #       healthCheck:
+    #         bucket:
+    #           interval: 60s
+    #     storageClass:
+    #       enabled: true
+    #       name: ceph-bucket
+    #       reclaimPolicy: Delete
+    #       parameters:
+    #         region: us-east-1
