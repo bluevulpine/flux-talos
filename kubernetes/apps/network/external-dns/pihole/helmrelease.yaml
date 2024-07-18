@@ -1,0 +1,45 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app external-dns-pihole
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: external-dns
+      version: 1.14.5
+      sourceRef:
+        kind: HelmRepository
+        name: external-dns
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    fullnameOverride: *app
+    provider: pihole
+    envFrom:
+      - secretRef:
+          name: &secret external-dns-secret-pihole
+    extraArgs:
+      - --ignore-ingress-tls-spec
+      - --crd-source-apiversion=externaldns.k8s.io/v1alpha1
+      - --crd-source-kind=DNSEndpoint
+      - --pihole-server=http://10.25.52.5
+    policy: upsert-only
+    sources: ["crd", "ingress", "service"]
+    registry: noop
+    txtPrefix: k8s.
+    txtOwnerId: default
+    domainFilters: ["${SECRET_DOMAIN}", "${SECRET_DOMAIN_BLOG}", "${SECRET_DOMAIN_BLOGCOM}", "${SECRET_DOMAIN_MEDIA}", "${SECRET_DOMAIN_LAKE}", "${SECRET_DOMAIN_YOYO}", "${SECRET_DOMAIN_BON}"]
+    serviceMonitor:
+      enabled: true
+    podAnnotations:
+      secret.reloader.stakater.com/reload: *secret
