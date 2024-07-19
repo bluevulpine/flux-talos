@@ -32,7 +32,6 @@ spec:
             name: &secret external-dns-secret-pihole
             key: EXTERNAL_DNS_PIHOLE_PASSWORD
     extraArgs:
-      - --ingress-class=internal
       - --ignore-ingress-tls-spec
       - --crd-source-apiversion=externaldns.k8s.io/v1alpha1
       - --crd-source-kind=DNSEndpoint
