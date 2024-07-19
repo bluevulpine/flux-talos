@@ -12,7 +12,7 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  path: ./kubernetes/apps/storage/rook-ceph-operator/app
+  path: ./kubernetes/apps/rook-ceph/rook-ceph-operator/app
   prune: true
   sourceRef:
     kind: GitRepository
@@ -38,7 +38,7 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  path: ./kubernetes/apps/storage/rook-ceph-operator/cluster
+  path: ./kubernetes/apps/rook-ceph/rook-ceph-operator/cluster
   prune: true
   sourceRef:
     kind: GitRepository
