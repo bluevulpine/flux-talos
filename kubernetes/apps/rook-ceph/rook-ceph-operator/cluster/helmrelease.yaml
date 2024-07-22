@@ -29,6 +29,9 @@ spec:
     monitoring:
       enabled: true
       createPrometheusRules: true
+      externalMgrEndpoints:
+      - ip: 10.0.10.21
+        externalMgrPrometheusPort: 9283
     ingress:
       dashboard:
         annotations:
@@ -64,8 +67,3 @@ spec:
           mon:
             disabled: false
             interval: 45s
-      monitoring:
-        enabled: true
-        externalMgrEndpoints:
-        - ip: 10.0.10.21
-          externalMgrPrometheusPort: 9283
