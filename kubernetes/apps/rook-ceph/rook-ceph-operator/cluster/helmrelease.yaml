@@ -8,8 +8,6 @@ spec:
   chart:
     spec:
       chart: rook-ceph-cluster
-      # upgrades to the chart version may fail as the storage classes cannot be patched after creation and must be deleted and recreated.
-      # if there are PVs using the storage class, this is probably not a good idea?
       version: v1.14.8
       sourceRef:
         kind: HelmRepository
@@ -32,20 +30,6 @@ spec:
       externalMgrEndpoints:
       - ip: 10.0.10.21
         externalMgrPrometheusPort: 9283
-    ingress:
-      dashboard:
-        annotations:
-          gethomepage.dev/enabled: "true"
-          gethomepage.dev/icon: chess-rook.png
-          gethomepage.dev/name: Rook
-          gethomepage.dev/group: Storage
-        ingressClassName: "internal"
-        host:
-          name: &host "rook.${SECRET_DOMAIN}"
-          path: /
-        tls:
-          - hosts:
-              - *host
     configOverride: |
       [global]
       bdev_enable_discard = true
@@ -53,17 +37,13 @@ spec:
     cephClusterSpec:
       external:
         enable: true
+      cephVersion:
+        image: quay.io/ceph/ceph:v18.2.1 # Should match external cluster version, but pveceph having issues with matching 18.2.2
       crashCollector:
         disable: true
-      dashboard:
-        enabled: true
-        urlPrefix: /
-        ssl: false
-        port: 8000
-        prometheusEndpoint: http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090
-        prometheusEndpointSSLVerify: true
       healthCheck:
         daemonHealth:
           mon:
             disabled: false
             interval: 45s
+
