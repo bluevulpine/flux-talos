@@ -1,0 +1,96 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app joplin
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.3.1
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+      remediateLastFailure: true
+  uninstall:
+    keepHistory: false
+  values:
+    controllers:
+      joplin:
+        strategy: RollingUpdate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/onedr0p/postgres-init
+              tag: 16
+            envFrom: &envFrom
+              - secretRef:
+                  name: joplin-secret
+        containers:
+          app:
+            image:
+              repository: joplin/server
+              tag: 3.0.1-beta@sha256:52af57880c0e04a179107807e13ffb8868b31ea2cc86a2b04da42220facb7589
+            env:
+              APP_BASE_URL: https://joplin.${SECRET_DOMAIN}
+              APP_PORT: &port 8080
+              DB_CLIENT: pg
+              MAILER_ENABLED: 1
+              MAILER_HOST: smtp-relay.infrastructure.svc.cluster.local.
+              MAILER_PORT: 25
+              MAILER_SECURITY: none
+              MAILER_NOREPLY_NAME: JoplinServer
+              MAILER_NOREPLY_EMAIL: joplin@${SECRET_DOMAIN}
+            envFrom: *envFrom
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: *port
+    ingress:
+      app:
+        enabled: true
+        className: internal
+        hosts:
+          - host: &host "{{ .Release.Name }}.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                service:
+                  identifier: app
+                  port: http
+        tls:
+          - hosts:
+              - *host
+      tailscale:
+        enabled: true
+        className: tailscale
+        hosts:
+          - host: *app
+            paths:
+              - path: /
+                service:
+                  identifier: app
+                  port: http
+        tls:
+          - hosts:
+              - *app
