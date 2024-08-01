@@ -84,6 +84,8 @@ spec:
       tailscale:
         enabled: true
         className: tailscale
+        annotations:
+          nginx.ingress.kubernetes.io/upstream-vhost: *host
         hosts:
           - host: *app
             paths:
