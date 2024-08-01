@@ -20,7 +20,7 @@ The baseline of this configuration starts from from onedr0p's [cluster-template]
 
 [Talos](https://www.talos.dev) is the linux distribution running kubernetes on my nodes. I have so far been happy with the results. I'd previously tried provisioning k3s on top of ubuntu with various ansible scripts to assist with the setup. Talos seems like less overhead to maintain and update.
 
-I've tried some hyper-converged cluster storage paradigms, using mayastor, longhorn, or rook-ceph. I've had the most luck with rook-ceph. Currently, I do not have converged storage running in the cluster nodes as I've moved my primary workers and control-plane nodes to VMs on a Proxmox cluster.
+I've tried some hyper-converged cluster storage paradigms, using mayastor, longhorn, or rook-ceph. I've had the most luck with rook-ceph. Currently, I've moved my primary workers and control-plane nodes to VMs on a Proxmox cluster, and am using rook-ceph in external mode with ceph running on the Proxmox cluster.
 
 ### 🏗️ Core Components
 
@@ -29,7 +29,7 @@ I've tried some hyper-converged cluster storage paradigms, using mayastor, longh
 - [cilium](https://github.com/cilium/cilium): Internal Kubernetes container networking interface.
 - [cloudflared](https://github.com/cloudflare/cloudflared): Enables Cloudflare secure access to certain ingresses.
 - [external-dns](https://github.com/kubernetes-sigs/external-dns): Automatically syncs ingress DNS records to a DNS provider.
-- [external-secrets](https://github.com/external-secrets/external-secrets): Managed Kubernetes secrets using [Bitwarden Secrets Manager Cache](https://github.com/rippleFCL/bws-cache).
+- [external-secrets](https://github.com/external-secrets/external-secrets): Managed Kubernetes secrets using [Bitwarden Secrets Manager Cache](https://github.com/rippleFCL/bws-cache). BWSC seems a bit unstable, so I have a cronjob set to restart it daily.
 - [ingress-nginx](https://github.com/kubernetes/ingress-nginx): Kubernetes ingress controller using NGINX as a reverse proxy and load balancer.
 - [sops](https://github.com/getsops/sops): Managed secrets for Kubernetes which are commited to Git.
 - [spegel](https://github.com/spegel-org/spegel): Stateless cluster local OCI registry mirror.
@@ -63,20 +63,22 @@ I have tailscale's operator running, which potentially could also help solve the
 While most of my infrastructure and workloads are self-hosted I do rely upon the cloud for certain key parts of my setup. This saves me from having to worry about three things. (1) Dealing with chicken/egg scenarios, (2) services I critically need whether my cluster is online or not and (3) The "hit by a bus factor" - what happens to critical apps (e.g. Email, Password Manager, Photos) that my family relies on when I no longer around.
 
 
-| Service                                   | Use                                                            | Cost            |
-|-------------------------------------------|----------------------------------------------------------------|-----------------|
-| [Bitwarden](https://bitwarden.com/)       | Secrets with [External Secrets](https://external-secrets.io/)  | ~$40/yr         |
-| [Cloudflare](https://www.cloudflare.com/) | Several Domains and S3                                         | ~$100/yr        |
-| [GitHub](https://github.com/)             | Hosting this repository and continuous integration/deployments | ~$48/yr         |
-| [Fastmail](https://fastmail.com/)         | Email hosting                                                  | ~$100/yr        |
-| [Pushover](https://pushover.net/)         | Kubernetes Alerts and application notifications                | $5 OTP          |
-|                                           |                                                                | Total: ~$xyz/mo |
+| Service                                   | Use                                                                                    | Cost            |
+|-------------------------------------------|----------------------------------------------------------------------------------------|-----------------|
+| [Bitwarden](https://bitwarden.com/)       | Family password manager, Secrets with [External Secrets](https://external-secrets.io/) | ~$40/yr         |
+| [Cloudflare](https://www.cloudflare.com/) | Several Domains and S3                                                                 | ~$100/yr        |
+| [GitHub](https://github.com/)             | Hosting this repository and CI/CD. Pro subscription.                                   | ~$48/yr         |
+| [Fastmail](https://fastmail.com/)         | Email hosting for 2 users                                                              | ~$100/yr        |
+| [Pushover](https://pushover.net/)         | Kubernetes Alerts and application notifications                                        | $5 OTP          |
+|                                           |                                                                                        | Total: ~$xyz/mo |
 
 ---
 
 ## 🌐 DNS
 
-In my cluster there are two [ExternalDNS](https://github.com/kubernetes-sigs/external-dns) instances deployed. One is deployed with the [ExternalDNS webhook provider for UniFi](https://github.com/kashalls/external-dns-unifi-webhook) which syncs DNS records to my UniFi router. The other ExternalDNS instance syncs DNS records to Cloudflare only when the ingresses and services have an ingress class name of `external` and contain an ingress annotation `external-dns.alpha.kubernetes.io/target`. All local clients on my network use my UniFi router as the upstream DNS server.
+In my cluster there are multiple [ExternalDNS](https://github.com/kubernetes-sigs/external-dns) instances deployed. One is deployed with the [ExternalDNS webhook provider for UniFi](https://github.com/kashalls/external-dns-unifi-webhook) which syncs DNS records to my UniFi router. Another does the same to a [PiHole](https://pi-hole.net) VM, which is mirrored with GravitySync to a secondary VM and a tertiary hardware Pi. The other ExternalDNS instance syncs DNS records to Cloudflare only when the ingresses and services have an ingress class name of `external` and contain an ingress annotation `external-dns.alpha.kubernetes.io/target`. Most local clients on my network use my PiHoles as the upstream DNS server; some fall back on the Unifi router.
+
+Once I do more testing of Unifi's adblock solution, I may remove the piholes.
 
 ---
 
@@ -89,7 +91,6 @@ In my cluster there are two [ExternalDNS](https://github.com/kubernetes-sigs/ext
 | RasPi 3                     | 1     | 32GB  SD     | -                            | 8GB  | DietPi           | PiHole                  |
 | RasPi 5                     | 1     | 128GB SD     | -                            | 8GB  | HAOS             | Home Assistant          |
 | Supermicro 846 & X9dri-f    | 1     | 2x 512GB SSD | 10x16TB ZFS (mirrored vdevs) | 64GB | TrueNAS Scale    | NFS + Backup Server     |
-| TESmart 8 Port KVM Switch   | 1     | -            | -                            | -    | -                | Network KVM (for PiKVM) |
 | UniFi UDM SE                | 1     | -            | 1x12TB HDD                   | -    | -                | Router & NVR            |
 | UniFi USW-Enterprise-24-PoE | 1     | -            | -                            | -    | -                | 2.5Gb PoE Switch        |
 | UniFi USP PDU Pro           | 1     | -            | -                            | -    | -                | PDU                     |
