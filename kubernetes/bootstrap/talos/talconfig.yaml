@@ -86,30 +86,6 @@ nodes:
           hardwareAddr: "bc:24:11:*"
         dhcp: true
 
-  - hostname: "baldr01"
-    ipAddress: "192.168.50.5"
-    installDisk: "/dev/sda"
-    talosImageURL:  factory.talos.dev/installer/24ea4490582949eabe1c42e924fbf3dbe21f3252558e52aa47699594539a1520
-    controlPlane: false
-    networkInterfaces:
-      - deviceSelector:
-          hardwareAddr: "bc:24:11:*"
-        dhcp: true
-    nodeTaints:
-      iot: iot:NoSchedule
-
-  - hostname: "thor01"
-    ipAddress: "192.168.20.5"
-    installDisk: "/dev/sda"
-    talosImageURL:  factory.talos.dev/installer/24ea4490582949eabe1c42e924fbf3dbe21f3252558e52aa47699594539a1520
-    controlPlane: false
-    networkInterfaces:
-      - deviceSelector:
-          hardwareAddr: "bc:24:11:*"
-        dhcp: true
-    nodeTaints:
-      untrusted: untrusted:NoSchedule
-
   - hostname: "freyja01"
     ipAddress: "10.0.10.31"
     installDisk: "/dev/sda"
@@ -166,21 +142,6 @@ nodes:
         dhcp: false
         addresses:
           - "10.0.10.34/24"
-        mtu: 1500
-        routes:
-          - network: 0.0.0.0/0
-            gateway: "10.0.10.1"
-
-  - hostname: "sif01"
-    ipAddress: "10.0.10.204"
-    installDisk: "/dev/sdb"
-    talosImageURL: factory.talos.dev/installer/5e49e3bcc265c79b8dfa883cacf7e20be8fe45e887ce5028405d9203675099fc
-    controlPlane: false
-    networkInterfaces:
-      - interface: eth0
-        dhcp: false
-        addresses:
-          - "10.0.10.204/24"
         mtu: 1500
         routes:
           - network: 0.0.0.0/0
