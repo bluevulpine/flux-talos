@@ -90,7 +90,7 @@ spec:
         annotations:
           external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
         hosts:
-          - host: &host "{{ .Release.Name }}-external.${SECRET_DOMAIN}"
+          - host: &hostExternal "{{ .Release.Name }}-external.${SECRET_DOMAIN}"
             paths:
               - path: /
                 service:
@@ -98,12 +98,12 @@ spec:
                   port: http
         tls:
           - hosts:
-              - *host
+              - *hostExternal
       internal:
         enabled: true
         className: internal
         hosts:
-          - host: &host "{{ .Release.Name }}-internal.${SECRET_DOMAIN}"
+          - host: &hostInternal "{{ .Release.Name }}-internal.${SECRET_DOMAIN}"
             paths:
               - path: /
                 service:
@@ -111,4 +111,4 @@ spec:
                   port: http
         tls:
           - hosts:
-              - *host
+              - *hostInternal
