@@ -46,6 +46,21 @@ spec:
             image:
               repository: joplin/server
               tag: 3.0.1-beta@sha256:52af57880c0e04a179107807e13ffb8868b31ea2cc86a2b04da42220facb7589
+            env:
+              APP_BASE_URL: https://joplin.${SECRET_DOMAIN}
+              APP_PORT: &port 8080
+              DB_CLIENT: pg
+              MAILER_ENABLED: 1
+              MAILER_HOST: smtp-relay.infrastructure.svc.cluster.local.
+              MAILER_PORT: 25
+              MAILER_SECURITY: none
+              MAILER_NOREPLY_NAME: JoplinServer
+              MAILER_NOREPLY_EMAIL: joplin@${SECRET_DOMAIN}
+            envFrom: *envFrom
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
             probes:
               liveness: &probes
                 enabled: true
@@ -62,21 +77,6 @@ spec:
                   timeoutSeconds: 1
                   failureThreshold: 3
               readiness: *probes
-            env:
-              APP_BASE_URL: https://joplin.${SECRET_DOMAIN}
-              APP_PORT: &port 8080
-              DB_CLIENT: pg
-              MAILER_ENABLED: 1
-              MAILER_HOST: smtp-relay.infrastructure.svc.cluster.local.
-              MAILER_PORT: 25
-              MAILER_SECURITY: none
-              MAILER_NOREPLY_NAME: JoplinServer
-              MAILER_NOREPLY_EMAIL: joplin@${SECRET_DOMAIN}
-            envFrom: *envFrom
-            resources:
-              requests:
-                cpu: 50m
-                memory: 256Mi
     service:
       app:
         controller: *app
