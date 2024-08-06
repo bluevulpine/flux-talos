@@ -38,16 +38,19 @@ spec:
   values:
     runnerScaleSetName: arc-runner-set-flux-talos
     githubConfigUrl: https://github.com/bluevulpine/flux-talos
-    minRunners: 5
-    maxRunners: 30
+    minRunners: 10
+    maxRunners: 100
     containerMode:
       type: dind
     template:
       spec:
+        nodeSelector:
+            kubernetes.io/arch: amd64 # docker-in-docker is not supported on arm64? no arm image in manifest
         containers:
           - name: runner
             image: ghcr.io/onedr0p/actions-runner:2.318.0@sha256:9b49b75f291b4227462d8df8adb6f46f56fb18f9a3baf6b8a1fca60852a565a1
             command: ["/home/runner/run.sh"]
+
     controllerServiceAccount:
       name: actions-runner-controller-gha-rs-controller
       namespace: actions-runner-system
