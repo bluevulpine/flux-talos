@@ -19,6 +19,9 @@ jobs:
     name: Lychee
     runs-on: arc-runner-set-flux-talos
     steps:
+      - name: Install GH CLI
+        uses: actions4gh/setup-gh@v1
+
       - name: Checkout
         uses: actions/checkout@v4
 
