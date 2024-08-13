@@ -38,6 +38,7 @@ metadata:
 spec:
   concurrencyPolicy: Forbid # Do not run concurrently!
   schedule: '40 17 * * *'     #  “At 17:40Z on every day-of-week.”
+  suspend: true
   jobTemplate:
     spec:
       backoffLimit: 2

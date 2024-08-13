@@ -7,3 +7,4 @@ resources:
 - ./secret.sops.yaml
 - ./externalsecret.yaml
 - ./restart-cronjob.yaml
+- ../../../../templates/gatus/guarded
