@@ -4,6 +4,8 @@ apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
   name: "${APP}-volsync-r2"
+  labels:
+    external-secrets.io/type: webhook
 spec:
   secretStoreRef:
     name: bitwarden-secrets-manager
