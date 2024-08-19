@@ -37,7 +37,7 @@ spec:
       - --crd-source-kind=DNSEndpoint
       - --pihole-server=http://10.0.10.5
     policy: upsert-only
-    sources: ["crd", "ingress", "service"]
+    sources: ["ingress", "service"]
     registry: noop
     txtPrefix: k8s.
     txtOwnerId: default
