@@ -35,7 +35,7 @@ spec:
             image:
               # renovate: datasource=github-releases depName=gethomepage/homepage
               repository: ghcr.io/gethomepage/homepage
-              tag: v0.9.5
+              tag: v0.9.6
             env:
               TZ: "${TIMEZONE}"
               LOG_LEVEL: "debug"
