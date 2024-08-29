@@ -86,66 +86,66 @@ nodes:
           hardwareAddr: "bc:24:11:*"
         dhcp: true
 
-  - hostname: "freyja01"
-    ipAddress: "10.0.10.31"
-    installDisk: "/dev/sda"
-    talosImageURL: factory.talos.dev/installer/385bde5bbbcfc231f8bdb46211eed312add827ca45ec16bcb9c6850996d63175
-    controlPlane: false
-    networkInterfaces:
-      - interface: eth0
-        dhcp: false
-        addresses:
-          - "10.0.10.31/24"
-        mtu: 1500
-        routes:
-          - network: 0.0.0.0/0
-            gateway: "10.0.10.1"
+  # - hostname: "freyja01"
+  #   ipAddress: "10.0.10.31"
+  #   installDisk: "/dev/sda"
+  #   talosImageURL: factory.talos.dev/installer/385bde5bbbcfc231f8bdb46211eed312add827ca45ec16bcb9c6850996d63175
+  #   controlPlane: false
+  #   networkInterfaces:
+  #     - interface: eth0
+  #       dhcp: false
+  #       addresses:
+  #         - "10.0.10.31/24"
+  #       mtu: 1500
+  #       routes:
+  #         - network: 0.0.0.0/0
+  #           gateway: "10.0.10.1"
 
-  - hostname: "freyja02"
-    ipAddress: "10.0.10.32"
-    installDisk: "/dev/sda"
-    talosImageURL: factory.talos.dev/installer/385bde5bbbcfc231f8bdb46211eed312add827ca45ec16bcb9c6850996d63175
-    controlPlane: false
-    networkInterfaces:
-      - interface: eth0
-        dhcp: false
-        addresses:
-          - "10.0.10.32/24"
-        mtu: 1500
-        routes:
-          - network: 0.0.0.0/0
-            gateway: "10.0.10.1"
+  # - hostname: "freyja02"
+  #   ipAddress: "10.0.10.32"
+  #   installDisk: "/dev/sda"
+  #   talosImageURL: factory.talos.dev/installer/385bde5bbbcfc231f8bdb46211eed312add827ca45ec16bcb9c6850996d63175
+  #   controlPlane: false
+  #   networkInterfaces:
+  #     - interface: eth0
+  #       dhcp: false
+  #       addresses:
+  #         - "10.0.10.32/24"
+  #       mtu: 1500
+  #       routes:
+  #         - network: 0.0.0.0/0
+  #           gateway: "10.0.10.1"
 
-  - hostname: "freyja03"
-    ipAddress: "10.0.10.33"
-    installDisk: "/dev/sda"
-    talosImageURL: factory.talos.dev/installer/385bde5bbbcfc231f8bdb46211eed312add827ca45ec16bcb9c6850996d63175
-    controlPlane: false
-    networkInterfaces:
-      - interface: eth0
-        dhcp: false
-        addresses:
-          - "10.0.10.33/24"
-        mtu: 1500
-        routes:
-          - network: 0.0.0.0/0
-            gateway: "10.0.10.1"
+  # - hostname: "freyja03"
+  #   ipAddress: "10.0.10.33"
+  #   installDisk: "/dev/sda"
+  #   talosImageURL: factory.talos.dev/installer/385bde5bbbcfc231f8bdb46211eed312add827ca45ec16bcb9c6850996d63175
+  #   controlPlane: false
+  #   networkInterfaces:
+  #     - interface: eth0
+  #       dhcp: false
+  #       addresses:
+  #         - "10.0.10.33/24"
+  #       mtu: 1500
+  #       routes:
+  #         - network: 0.0.0.0/0
+  #           gateway: "10.0.10.1"
 
 
-  - hostname: "freyja04"
-    ipAddress: "10.0.10.34"
-    installDisk: "/dev/sda"
-    talosImageURL: factory.talos.dev/installer/385bde5bbbcfc231f8bdb46211eed312add827ca45ec16bcb9c6850996d63175
-    controlPlane: false
-    networkInterfaces:
-      - interface: eth0
-        dhcp: false
-        addresses:
-          - "10.0.10.34/24"
-        mtu: 1500
-        routes:
-          - network: 0.0.0.0/0
-            gateway: "10.0.10.1"
+  # - hostname: "freyja04"
+  #   ipAddress: "10.0.10.34"
+  #   installDisk: "/dev/sda"
+  #   talosImageURL: factory.talos.dev/installer/385bde5bbbcfc231f8bdb46211eed312add827ca45ec16bcb9c6850996d63175
+  #   controlPlane: false
+  #   networkInterfaces:
+  #     - interface: eth0
+  #       dhcp: false
+  #       addresses:
+  #         - "10.0.10.34/24"
+  #       mtu: 1500
+  #       routes:
+  #         - network: 0.0.0.0/0
+  #           gateway: "10.0.10.1"
 
 
 patches:
