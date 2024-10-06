@@ -27,21 +27,22 @@ kind: ReplicationSource
 metadata:
   name: "${APP}-r2"
 spec:
-  sourcePVC: "${VOLSYNC_CLAIM:-${APP}}"
+  sourcePVC: "${APP}"
   trigger:
     schedule: "0 0 * * *"
   restic:
-    copyMethod: Snapshot
-    repository: ${APP}-volsync-r2
-    cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-openebs-hostpath}"
-    cacheCapacity: "${VOLSYNC_CACHE_CAPACITY:-1Gi}"
-    storageClassName: "${VOLSYNC_STORAGECLASS:-ceph-block}"
-    volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-csi-ceph-blockpool}"
-    moverSecurityContext:
-      runAsUser: ${APP_UID:-568}
-      runAsGroup: ${APP_GID:-568}
-      fsGroup: ${APP_GID:-568}
+    copyMethod: "${VOLSYNC_COPYMETHOD:-Snapshot}"
     pruneIntervalDays: 7
+    repository: "${APP}-volsync-r2-secret"
+    volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-csi-ceph-blockpool}"
+    cacheCapacity: "${VOLSYNC_CACHE_CAPACITY:-4Gi}"
+    cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-openebs-hostpath}"
+    cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
+    storageClassName: "${VOLSYNC_STORAGECLASS:-ceph-block}"
+    accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
+    moverSecurityContext:
+      runAsUser: 568
+      runAsGroup: 568
+      fsGroup: 568
     retain:
       daily: 7
-      weekly: 1
