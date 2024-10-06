@@ -36,12 +36,21 @@ spec:
               tag: v0.4.2@sha256:89eab1c6604d8ef79fb0e7340620d6559ef296cc469c4eabf22598bbaf93ff42
             env:
               PROMETHEUS_URL: http://thanos-query-frontend.observability.svc.cluster.local:10902
-              PORT: &port 80
+              SERVER_PORT: &serverPort 80
+              HEALTH_PORT: &healthPort 8080
             probes:
-              liveness:
+              liveness: &probes
                 enabled: true
-              readiness:
-                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /readyz
+                    port: *healthPort
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 1
+                  failureThreshold: 3
+              readiness: *probes
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
@@ -68,7 +77,10 @@ spec:
         controller: kromgo
         ports:
           http:
-            port: *port
+            primary: true
+            port: *serverPort
+          health:
+            port: *healthPort
     ingress:
       app:
         className: external
