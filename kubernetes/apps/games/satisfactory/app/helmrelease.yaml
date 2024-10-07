@@ -65,6 +65,13 @@ spec:
               MAXTICKRATE: "120" # default is a low 30
               NETWORKQUALITY: "3" # 0-3, 3 is Ultra (default)
               TIMEOUT: "300"
+            ports:
+              - name: "api"
+                containerPort: 7777
+                protocol: TCP
+              - name: "game"
+                containerPort: 7777
+                protocol: UDP
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: false
@@ -91,7 +98,12 @@ spec:
         enabled: true
         controller: *app
         type: LoadBalancer
+        allocateLoadBalancerNodePorts: true
+        annotations:
+          external-dns.alpha.kubernetes.io/hostname: "satisfactory.${SECRET_DOMAIN}"
+          lbipam.cilium.io/ips: 172.16.8.7
         externalTrafficPolicy: Cluster
+        internalTrafficPolicy: Cluster
         #ipFamilyPolicy: RequireDualStack
         ports:
           game-udp:
@@ -103,22 +115,7 @@ spec:
             enabled: true
             port: 7777
             protocol: TCP
-          game2-udp:
-            enabled: true
-            port: 15000
-            protocol: UDP
-          game2-tcp:
-            enabled: true
-            port: 15000
-            protocol: TCP
-          game3-udp:
-            enabled: true
-            port: 15777
-            protocol: UDP
-          game3-tcp:
-            enabled: true
-            port: 15777
-            protocol: TCP
+
 
 
 
