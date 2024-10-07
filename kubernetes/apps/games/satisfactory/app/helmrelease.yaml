@@ -103,6 +103,22 @@ spec:
             enabled: true
             port: 7777
             protocol: TCP
+          game2-udp:
+            enabled: true
+            port: 15000
+            protocol: UDP
+          game2-tcp:
+            enabled: true
+            port: 15000
+            protocol: TCP
+          game3-udp:
+            enabled: true
+            port: 15777
+            protocol: UDP
+          game3-tcp:
+            enabled: true
+            port: 15777
+            protocol: TCP
 
 
 
