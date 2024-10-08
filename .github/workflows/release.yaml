@@ -15,6 +15,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install GH CLI
+        uses: actions4gh/setup-gh@v1
+
       - name: Create Release
         shell: bash
         env:
