@@ -41,9 +41,9 @@ spec:
     storageClassName: "${VOLSYNC_STORAGECLASS:-ceph-block}"
     accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
     moverSecurityContext:
-      runAsUser: ["${VOLSYNC_RUN_AS_USER:-568}"]
-      runAsGroup: ["${VOLSYNC_RUN_AS_GROUP:-568}"]
-      fsGroup: ["${VOLSYNC_FS_GROUP:-568}"]
+      runAsUser: "${VOLSYNC_RUN_AS_USER:-568}"
+      runAsGroup: "${VOLSYNC_RUN_AS_GROUP:-568}"
+      fsGroup: "${VOLSYNC_FS_GROUP:-568}"
     retain:
       daily: 7
 ---
