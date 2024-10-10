@@ -31,7 +31,6 @@ spec:
   values:
     defaultPodOptions:
       dnsPolicy: ClusterFirstWithHostNet
-      #hostNetwork: true # This is pain, but for some reason the container doesn't seem to reply though LB.
       automountServiceAccountToken: false
       enableServiceLinks: false
       securityContext:
