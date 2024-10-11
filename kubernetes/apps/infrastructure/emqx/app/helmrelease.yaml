@@ -37,7 +37,7 @@ spec:
       EMQX_LISTENERS__SSL__DEFAULT__SSL_OPTIONS__KEYFILE: /tmp/ssl/tls.key
     service:
       type: LoadBalancer
-      loadBalancerIP: 172.16.8.8
+      loadBalancerIP: ${SVC_EMQX_ADDR}
       externalTrafficPolicy: Cluster
     metrics:
       enabled: true

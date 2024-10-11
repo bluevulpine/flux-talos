@@ -38,7 +38,7 @@ metadata:
   name: &name smtp-relay
 spec:
   staticConfigs:
-    - targets: ["172.16.8.5:8080"]
+    - targets: ["${SVC_SMTP_RELAY_ADDR}:8080"]
   metricsPath: /metrics
   relabelings:
     - action: replace

@@ -100,7 +100,7 @@ spec:
         allocateLoadBalancerNodePorts: true
         annotations:
           external-dns.alpha.kubernetes.io/hostname: "satisfactory.${SECRET_DOMAIN}"
-          lbipam.cilium.io/ips: 172.16.8.7
+          lbipam.cilium.io/ips: "${SVC_SATISFACTORY_ADDR}"
         externalTrafficPolicy: Cluster
         internalTrafficPolicy: Cluster
         #ipFamilyPolicy: RequireDualStack

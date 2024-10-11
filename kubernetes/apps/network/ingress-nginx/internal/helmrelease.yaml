@@ -29,7 +29,7 @@ spec:
       replicaCount: 1
       service:
         annotations:
-          lbipam.cilium.io/ips: "172.16.8.2"
+          lbipam.cilium.io/ips: "${SVC_NGINX_INTERNAL}"
         externalTrafficPolicy: Cluster
       ingressClassResource:
         name: internal
