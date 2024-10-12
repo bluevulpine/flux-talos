@@ -5,3 +5,6 @@ metadata:
   name: games
   labels:
     kustomize.toolkit.fluxcd.io/prune: disabled
+  annotations:
+    # volsync couldn't restore satisfactory's data due to permission errors in the container
+    volsync.backube/privileged-movers: "true"
