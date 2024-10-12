@@ -1,0 +1,154 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app plex
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.5.0
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  dependsOn:
+    - name: rook-ceph-cluster
+      namespace: rook-ceph
+    - name: volsync
+      namespace: volsync-system
+  values:
+    controllers:
+      plex:
+        labels:
+          nfsMount: "true"
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/joryirving/plex
+              tag: 1.41.0.8994-f2c27da23@sha256:4c0e326e5c608555ef9fcf2234ec9232396dbe2d2d70fa05709bff2b59fc6eda
+            env:
+              TZ: ${TIMEZONE}
+              PLEX_ADVERTISE_URL: https://plex.${SECRET_MEDIA_DOMAIN}:443,http://${SVC_PLEX_ADDR}:32400
+              PLEX_NO_AUTH_NETWORKS: ${NODE_CIDR}
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /identity
+                    port: 32400
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 1
+                  failureThreshold: 3
+              readiness: *probes
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 30
+                  periodSeconds: 10
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 100m
+                memory: 4G
+              limits:
+                memory: 16G
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+        supplementalGroups: [44, 10000]
+        seccompProfile: { type: RuntimeDefault }
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/name
+                    operator: In
+                    values: ["kyoo"]
+                  - key: app.kubernetes.io/component
+                    operator: In
+                    values: ["transcoder"]
+              topologyKey: kubernetes.io/hostname
+    service:
+      app:
+        controller: *app
+        type: LoadBalancer
+        annotations:
+          lbipam.cilium.io/ips: ${SVC_PLEX_ADDR:=temp}
+        ports:
+          http:
+            port: 32400
+    ingress:
+      app:
+        className: external
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Video
+          gethomepage.dev/name: Plex
+          gethomepage.dev/icon: plex.png
+          gethomepage.dev/description: Media Player
+          gethomepage.dev/widget.type: plex
+          gethomepage.dev/widget.url: http://plex.media.svc.cluster.local:32400
+          #gethomepage.dev/widget.key: "{{ `{{HOMEPAGE_VAR_PLEX_TOKEN}}` }}"
+          external-dns.alpha.kubernetes.io/target: external.${SECRET_DOMAIN}
+          nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+        hosts:
+          - host: "{{ .Release.Name }}.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                service:
+                  identifier: app
+                  port: http
+    persistence:
+      config:
+        existingClaim: *app
+      # Separate PVC for cache to avoid backing up cache files
+      plex-cache:
+        existingClaim: plex-cache
+        globalMounts:
+          - path: /config/Library/Application Support/Plex Media Server/Cache
+      logs:
+        type: emptyDir
+        globalMounts:
+          - path: /config/Library/Application Support/Plex Media Server/Logs
+      tmp:
+        type: emptyDir
+      transcode:
+        type: emptyDir
+      media:
+        type: nfs
+        server: ${SECRET_NFS_SERVER}
+        path: ${SECRET_NFS_MEDIA:=temp}
+        globalMounts:
+          - path: /data
+            readOnly: true
+      media-home:
+        type: nfs
+        server: ${SECRET_NFS_SERVER}
+        path: ${SECRET_NFS_MEDIA_HOME:=temp}
+        globalMounts:
+          - path: /data/video/Home
+            readOnly: true
