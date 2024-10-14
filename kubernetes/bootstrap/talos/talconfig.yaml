@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/budimanjojo/talhelper/master/pkg/config/schemas/talconfig.json
 ---
 # renovate: datasource=docker depName=ghcr.io/siderolabs/installer
-talosVersion: v1.8.0
+talosVersion: v1.8.1
 # renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
 kubernetesVersion: v1.31.1
 
@@ -19,11 +19,12 @@ additionalMachineCertSans: *sans
 cniConfig:
   name: none
 
+
 nodes:
   - hostname: "odin01"
     ipAddress: "10.0.10.35"
     installDisk: "/dev/sda"
-    talosImageURL:  factory.talos.dev/installer/24ea4490582949eabe1c42e924fbf3dbe21f3252558e52aa47699594539a1520
+    talosImageURL:  factory.talos.dev/installer/5eef07726e9774513ae03865873986d6afe6d38b58fc6ab0189edcf4d8915ecd
     controlPlane: true
     networkInterfaces:
       - deviceSelector:
@@ -31,11 +32,15 @@ nodes:
         dhcp: true
         vip:
           ip: "10.0.10.30"
+    extensionServices:
+      - name: tailscale
+        environment:
+          - TS_AUTHKEY=KEY-GOES-HERE
 
   - hostname: "odin02"
     ipAddress: "10.0.10.36"
     installDisk: "/dev/sda"
-    talosImageURL:  factory.talos.dev/installer/24ea4490582949eabe1c42e924fbf3dbe21f3252558e52aa47699594539a1520
+    talosImageURL:  factory.talos.dev/installer/5eef07726e9774513ae03865873986d6afe6d38b58fc6ab0189edcf4d8915ecd
     controlPlane: true
     networkInterfaces:
       - deviceSelector:
@@ -43,11 +48,15 @@ nodes:
         dhcp: true
         vip:
           ip: "10.0.10.30"
+    extensionServices:
+    - name: tailscale
+      environment:
+      - TS_AUTHKEY=KEY-GOES-HERE
 
   - hostname: "odin03"
     ipAddress: "10.0.10.37"
     installDisk: "/dev/sda"
-    talosImageURL:  factory.talos.dev/installer/24ea4490582949eabe1c42e924fbf3dbe21f3252558e52aa47699594539a1520
+    talosImageURL:  factory.talos.dev/installer/5eef07726e9774513ae03865873986d6afe6d38b58fc6ab0189edcf4d8915ecd
     controlPlane: true
     networkInterfaces:
       - deviceSelector:
@@ -55,36 +64,52 @@ nodes:
         dhcp: true
         vip:
           ip: "10.0.10.30"
+    extensionServices:
+    - name: tailscale
+      environment:
+      - TS_AUTHKEY=KEY-GOES-HERE
 
   - hostname: "brokkr01"
     ipAddress: "10.0.10.38"
     installDisk: "/dev/sda"
-    talosImageURL:  factory.talos.dev/installer/24ea4490582949eabe1c42e924fbf3dbe21f3252558e52aa47699594539a1520
+    talosImageURL:  factory.talos.dev/installer/5eef07726e9774513ae03865873986d6afe6d38b58fc6ab0189edcf4d8915ecd
     controlPlane: false
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "bc:24:11:*"
         dhcp: true
+    extensionServices:
+    - name: tailscale
+      environment:
+      - TS_AUTHKEY=KEY-GOES-HERE
 
   - hostname: "brokkr02"
     ipAddress: "10.0.10.39"
     installDisk: "/dev/sda"
-    talosImageURL:  factory.talos.dev/installer/24ea4490582949eabe1c42e924fbf3dbe21f3252558e52aa47699594539a1520
+    talosImageURL:  factory.talos.dev/installer/5eef07726e9774513ae03865873986d6afe6d38b58fc6ab0189edcf4d8915ecd
     controlPlane: false
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "bc:24:11:*"
         dhcp: true
+    extensionServices:
+    - name: tailscale
+      environment:
+      - TS_AUTHKEY=KEY-GOES-HERE
 
   - hostname: "brokkr03"
     ipAddress: "10.0.10.40"
     installDisk: "/dev/sda"
-    talosImageURL:  factory.talos.dev/installer/24ea4490582949eabe1c42e924fbf3dbe21f3252558e52aa47699594539a1520
+    talosImageURL:  factory.talos.dev/installer/5eef07726e9774513ae03865873986d6afe6d38b58fc6ab0189edcf4d8915ecd
     controlPlane: false
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "bc:24:11:*"
         dhcp: true
+    extensionServices:
+    - name: tailscale
+      environment:
+      - TS_AUTHKEY=KEY-GOES-HERE
 
   # - hostname: "freyja01"
   #   ipAddress: "10.0.10.31"
