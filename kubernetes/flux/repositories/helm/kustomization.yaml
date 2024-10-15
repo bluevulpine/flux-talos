@@ -39,6 +39,7 @@ resources:
   - ./prometheus-community.yaml
   - ./rancher-latest.yaml
   - ./rook-ceph.yaml
+  - ./spegel.yaml
   - ./stakater.yaml
   - ./stevehipwell.yaml
   - ./tailscale.yaml
