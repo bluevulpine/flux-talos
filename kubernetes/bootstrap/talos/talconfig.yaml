@@ -111,6 +111,20 @@ nodes:
       environment:
       - TS_AUTHKEY=KEY-GOES-HERE
 
+  - hostname: "freyja01"
+    ipAddress: "10.0.10.41"
+    installDisk: "/dev/vda"
+    talosImageURL:  factory.talos.dev/installer/a163010e1002df22b2afdd6c790572c5ff00178da55d865268046cf4884077c8
+    controlPlane: false
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "00:a0:98:*"
+        dhcp: true
+    extensionServices:
+    - name: tailscale
+      environment:
+      - TS_AUTHKEY=hithere
+
   # - hostname: "freyja01"
   #   ipAddress: "10.0.10.31"
   #   installDisk: "/dev/sda"
