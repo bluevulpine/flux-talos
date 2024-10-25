@@ -6,4 +6,5 @@ resources:
   # Pre Flux-Kustomizations
   - ./namespace.yaml
   # Flux-Kustomizations
+  - ./x-haven-server/ks.yaml
   - ./satisfactory/ks.yaml
