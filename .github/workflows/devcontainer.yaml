@@ -32,7 +32,7 @@ jobs:
         uses: Homebrew/actions/setup-homebrew@master
 
       - name: Setup Workflow Tools
-        run: brew install node python
+        run: brew install node python skopeo
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
