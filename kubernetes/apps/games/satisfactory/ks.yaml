@@ -25,7 +25,7 @@ spec:
       NS: *ns
       APP_UID: "1000"
       APP_GID: "1000"
-      VOLSYNC_CAPACITY: "2Gi"
+      VOLSYNC_CAPACITY: 2Gi
       VOLSYNC_STORAGECLASS: ceph-block
       VOLSYNC_SNAPSHOTCLASS: csi-ceph-blockpool
       VOLSYNC_RUN_AS_USER: "1000"
