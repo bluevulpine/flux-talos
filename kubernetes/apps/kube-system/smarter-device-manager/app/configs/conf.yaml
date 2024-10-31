@@ -1,0 +1,3 @@
+---
+- devicematch: ^net/tun$
+  nummaxdevices: 10
