@@ -119,6 +119,8 @@ spec:
         controller: *app
         type: LoadBalancer
         loadBalancerClass: tailscale
+        labels:
+          tailscale.com/proxy-class: "tun-access"
         ports:
           game-udp:
             enabled: true
