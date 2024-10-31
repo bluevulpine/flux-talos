@@ -112,3 +112,19 @@ spec:
         tls:
           - hosts:
               - *hostInternal
+      tailscale:
+        enabled: true
+        className: tailscale
+        annotations:
+          tailscale.com/funnel: "true"
+        hosts:
+          - host: &hostTailscale "{{ .Release.Name }}-tailscale"
+            paths:
+              - path: /
+                service:
+                  identifier: main
+                  port: http
+        tls:
+          - hosts:
+              - *hostTailscale
+
