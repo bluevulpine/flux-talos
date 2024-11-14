@@ -5,7 +5,7 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: "${SECRET_ACME_EMAIL}"
+    email: "${SECRET_ACME_EMAIL:=temp}"
     privateKeySecretRef:
       name: letsencrypt-production
     solvers:
@@ -16,13 +16,13 @@ spec:
               key: api-token
         selector:
           dnsZones:
-            - "${SECRET_DOMAIN}"
-            - "${SECRET_DOMAIN_MEDIA}"
-            - "${SECRET_DOMAIN_LAKE}"
-            - "${SECRET_DOMAIN_YOYO}"
-            - "${SECRET_DOMAIN_BON}"
-            - "${SECRET_DOMAIN_BLOG}"
-            - "${SECRET_DOMAIN_BLOGCOM}"
+            - "${SECRET_DOMAIN:=temp}"
+            - "${SECRET_DOMAIN_MEDIA:=temp}"
+            - "${SECRET_DOMAIN_LAKE:=temp}"
+            - "${SECRET_DOMAIN_YOYO:=temp}"
+            - "${SECRET_DOMAIN_BON:=temp}"
+            - "${SECRET_DOMAIN_BLOG:=temp}"
+            - "${SECRET_DOMAIN_BLOGCOM:=temp}"
 ---
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
@@ -31,7 +31,7 @@ metadata:
 spec:
   acme:
     server: https://acme-staging-v02.api.letsencrypt.org/directory
-    email: "${SECRET_ACME_EMAIL}"
+    email: "${SECRET_ACME_EMAIL:=temp}"
     privateKeySecretRef:
       name: letsencrypt-staging
     solvers:
@@ -42,10 +42,10 @@ spec:
               key: api-token
         selector:
           dnsZones:
-            - "${SECRET_DOMAIN}"
-            - "${SECRET_DOMAIN_MEDIA}"
-            - "${SECRET_DOMAIN_LAKE}"
-            - "${SECRET_DOMAIN_YOYO}"
-            - "${SECRET_DOMAIN_BON}"
-            - "${SECRET_DOMAIN_BLOG}"
-            - "${SECRET_DOMAIN_BLOGCOM}"
+            - "${SECRET_DOMAIN:=temp}"
+            - "${SECRET_DOMAIN_MEDIA:=temp}"
+            - "${SECRET_DOMAIN_LAKE:=temp}"
+            - "${SECRET_DOMAIN_YOYO:=temp}"
+            - "${SECRET_DOMAIN_BON:=temp}"
+            - "${SECRET_DOMAIN_BLOG:=temp}"
+            - "${SECRET_DOMAIN_BLOGCOM:=temp}"

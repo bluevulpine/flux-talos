@@ -116,8 +116,8 @@ spec:
           repository: prometheus/prometheus
           tag: v2.54.0-dedupelabels
         thanos:
-          image: quay.io/thanos/thanos:${THANOS_VERSION}
-          version: "${THANOS_VERSION#v}"
+          image: quay.io/thanos/thanos:${THANOS_VERSION:=temp}
+          version: "${THANOS_VERSION#v:=temp}"
           objectStorageConfig:
             existingSecret:
               name: *secret

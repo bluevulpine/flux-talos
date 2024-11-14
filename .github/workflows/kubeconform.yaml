@@ -22,7 +22,16 @@ jobs:
         uses: Homebrew/actions/setup-homebrew@master
 
       - name: Setup Workflow Tools
-        run: brew install fluxcd/tap/flux kubeconform kustomize gettext
+        run: brew install fluxcd/tap/flux kubeconform kustomize
+
+      - name: Get better envsubst
+        run: |
+          mkdir -p ./bin
+          curl -L https://github.com/a8m/envsubst/releases/download/v1.2.0/envsubst-`uname -s`-`uname -m` -o ./bin/envsubst
+          chmod +x ./bin/envsubst
+
+      - name: Add ./bin to PATH
+        run: echo "./bin" >> $GITHUB_PATH
 
       - name: Run kubeconform
         shell: bash

@@ -22,6 +22,6 @@ roleRef:
   name: cluster-admin
 subjects:
   - kind: User
-    name: ${SECRET_TS_ADMIN}
+    name: ${SECRET_TS_ADMIN:=temp}
   - kind: User
     name: vault.flyingfox-decibel.ts.net

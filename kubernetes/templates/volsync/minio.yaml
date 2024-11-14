@@ -27,9 +27,9 @@ spec:
 apiVersion: volsync.backube/v1alpha1
 kind: ReplicationSource
 metadata:
-  name: "${APP}"
+  name: "${APP:=temp}"
 spec:
-  sourcePVC: "${APP}"
+  sourcePVC: "${APP:=temp}"
   trigger:
     schedule: "0 * * * *"
   restic:
@@ -37,7 +37,7 @@ spec:
     pruneIntervalDays: 7
     repository: "${APP}-volsync-secret"
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-csi-ceph-blockpool}"
-    cacheCapacity: "${VOLSYNC_CACHE_CAPACITY:-4Gi}"
+    cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-4Gi}
     cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-openebs-hostpath}"
     cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
     storageClassName: "${VOLSYNC_STORAGECLASS:-ceph-block}"
@@ -65,7 +65,7 @@ spec:
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-csi-ceph-blockpool}"
     cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-openebs-hostpath}"
     cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
-    cacheCapacity: "${VOLSYNC_CACHE_CAPACITY:-8Gi}"
+    cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-8Gi}
     storageClassName: "${VOLSYNC_STORAGECLASS:-ceph-block}"
     accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
     capacity: "${VOLSYNC_CAPACITY:-20Gi}"

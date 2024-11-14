@@ -2,26 +2,26 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: "${SECRET_DOMAIN/./-}-production"
+  name: "${SECRET_DOMAIN/./-:=temp}-production"
 spec:
-  secretName: "${SECRET_DOMAIN/./-}-production-tls"
+  secretName: "${SECRET_DOMAIN/./-:=temp}-production-tls"
   issuerRef:
     name: letsencrypt-production
     kind: ClusterIssuer
-  commonName: "${SECRET_DOMAIN}"
+  commonName: "${SECRET_DOMAIN:=temp}"
   dnsNames:
-    - "${SECRET_DOMAIN}"
-    - "*.${SECRET_DOMAIN}"
-    - "${SECRET_DOMAIN_BLOG}"
-    - "*.${SECRET_DOMAIN_BLOG}"
-    - "${SECRET_DOMAIN_BLOGCOM}"
-    - "*.${SECRET_DOMAIN_BLOGCOM}"
-    - "${SECRET_DOMAIN_MEDIA}"
-    - "*.${SECRET_DOMAIN_MEDIA}"
-    - "${SECRET_DOMAIN_LAKE}"
-    - "*.${SECRET_DOMAIN_LAKE}"
-    - "${SECRET_DOMAIN_YOYO}"
-    - "*.${SECRET_DOMAIN_YOYO}"
-    - "${SECRET_DOMAIN_BON}"
-    - "*.${SECRET_DOMAIN_BON}"
+    - "${SECRET_DOMAIN:=temp}"
+    - "*.${SECRET_DOMAIN:=temp}"
+    - "${SECRET_DOMAIN_BLOG:=temp}"
+    - "*.${SECRET_DOMAIN_BLOG:=temp}"
+    - "${SECRET_DOMAIN_BLOGCOM:=temp}"
+    - "*.${SECRET_DOMAIN_BLOGCOM:=temp}"
+    - "${SECRET_DOMAIN_MEDIA:=temp}"
+    - "*.${SECRET_DOMAIN_MEDIA:=temp}"
+    - "${SECRET_DOMAIN_LAKE:=temp}"
+    - "*.${SECRET_DOMAIN_LAKE:=temp}"
+    - "${SECRET_DOMAIN_YOYO:=temp}"
+    - "*.${SECRET_DOMAIN_YOYO:=temp}"
+    - "${SECRET_DOMAIN_BON:=temp}"
+    - "*.${SECRET_DOMAIN_BON:=temp}"
 

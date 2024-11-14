@@ -25,9 +25,9 @@ spec:
 apiVersion: volsync.backube/v1alpha1
 kind: ReplicationSource
 metadata:
-  name: "${APP}-r2"
+  name: "${APP:=temp}-r2"
 spec:
-  sourcePVC: "${APP}"
+  sourcePVC: "${APP:=temp}"
   trigger:
     schedule: "0 0 * * *"
   restic:
@@ -35,15 +35,15 @@ spec:
     pruneIntervalDays: 7
     repository: "${APP}-volsync-r2-secret"
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-csi-ceph-blockpool}"
-    cacheCapacity: "${VOLSYNC_CACHE_CAPACITY:-4Gi}"
+    cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-4Gi}
     cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-openebs-hostpath}"
     cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
     storageClassName: "${VOLSYNC_STORAGECLASS:-ceph-block}"
     accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
     moverSecurityContext:
-      runAsUser: "${VOLSYNC_RUN_AS_USER:-568}"
-      runAsGroup: "${VOLSYNC_RUN_AS_GROUP:-568}"
-      fsGroup: "${VOLSYNC_FS_GROUP:-568}"
+      runAsUser: ${VOLSYNC_RUN_AS_USER:-568}
+      runAsGroup: ${VOLSYNC_RUN_AS_GROUP:-568}
+      fsGroup: ${VOLSYNC_FS_GROUP:-568}
     retain:
       daily: 7
 ---
@@ -61,11 +61,11 @@ spec:
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-csi-ceph-blockpool}"
     cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-openebs-hostpath}"
     cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
-    cacheCapacity: "${VOLSYNC_CACHE_CAPACITY:-8Gi}"
+    cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-8Gi}
     storageClassName: "${VOLSYNC_STORAGECLASS:-ceph-block}"
     accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
     capacity: "${VOLSYNC_CAPACITY:-20Gi}"
     moverSecurityContext:
-      runAsUser: "${VOLSYNC_RUN_AS_USER:-568}"
-      runAsGroup: "${VOLSYNC_RUN_AS_GROUP:-568}"
-      fsGroup: "${VOLSYNC_FS_GROUP:-568}"
+      runAsUser: ${VOLSYNC_RUN_AS_USER:-568}
+      runAsGroup: ${VOLSYNC_RUN_AS_GROUP:-568}
+      fsGroup: ${VOLSYNC_FS_GROUP:-568}
