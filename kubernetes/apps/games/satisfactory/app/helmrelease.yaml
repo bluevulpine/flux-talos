@@ -55,13 +55,13 @@ spec:
             env:
               TZ: "${TIMEZONE}"
               ROOTLESS: "true"
-              AUTOPAUSE: "true"
+              AUTOPAUSE: "false"
               AUTOSAVEINTERVAL: "60"
               AUTOSAVENUM: "30"
               AUTOSAVEONDISCONNECT: "true"
               CRASHREPORT: "false"
               MAXPLAYERS: "5"
-              MAXTICKRATE: "120" # default is a low 30
+              MAXTICKRATE: "240" # default is a low 30
               NETWORKQUALITY: "3" # 0-3, 3 is Ultra (default)
               TIMEOUT: "300"
             ports:
@@ -118,6 +118,7 @@ spec:
         enabled: true
         controller: *app
         type: LoadBalancer
+        allocateLoadBalancerNodePorts: true
         loadBalancerClass: tailscale
         labels:
           tailscale.com/proxy-class: "tun-access"
