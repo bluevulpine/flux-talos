@@ -103,6 +103,7 @@ spec:
     persistence:
       data:
         enabled: true
+        accessMode: readWriteOnce
         storageClass: vault-nfs
         size: 1Ti
         globalMounts:
