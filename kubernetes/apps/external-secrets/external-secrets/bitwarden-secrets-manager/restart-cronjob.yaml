@@ -51,7 +51,7 @@ spec:
             kubernetes.io/arch: amd64
           containers:
             - name: kubectl
-              image: registry.k8s.io/kubectl:v1.31.2 # Specify the kubectl image
+              image: registry.k8s.io/kubectl:v1.31.3 # Specify the kubectl image
               command: # The kubectl command to execute
                 - 'kubectl'
                 - 'rollout'
