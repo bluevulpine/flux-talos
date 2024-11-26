@@ -38,8 +38,8 @@ spec:
   values:
     runnerScaleSetName: arc-runner-set-flux-talos
     githubConfigUrl: https://github.com/bluevulpine/flux-talos
-    minRunners: 10
-    maxRunners: 20
+    minRunners: 1
+    maxRunners: 4
     containerMode:
       type: dind
     template:
