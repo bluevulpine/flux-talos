@@ -45,8 +45,8 @@ nodes:
             - siderolabs/intel-ice-firmware
             - siderolabs/intel-ucode
             - siderolabs/iscsi-tools
-            - siderolabs/nonfree-kmod-nvidia-production
-            - siderolabs/nvidia-container-toolkit-production
+            # - siderolabs/nonfree-kmod-nvidia-production
+            # - siderolabs/nvidia-container-toolkit-production
             # - siderolabs/nvidia-open-gpu-kernel-modules-production
             - siderolabs/qemu-guest-agent
             - siderolabs/realtek-firmware
@@ -73,7 +73,7 @@ nodes:
     extensionServices:
     - name: tailscale
       environment:
-      - TS_AUTHKEY=KEY-GOES-HERE
+      - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
 
   - hostname: "odin03"
     ipAddress: "10.0.10.37"
@@ -146,7 +146,27 @@ nodes:
           hardwareAddr: "00:a0:98:*"
         dhcp: true
         mtu: 9000
-    schematic: *schematic
+    schematic:
+      customization:
+        systemExtensions:
+          officialExtensions:
+            - siderolabs/amd-ucode
+            - siderolabs/amdgpu-firmware
+            - siderolabs/binfmt-misc
+            - siderolabs/btrfs
+            - siderolabs/fuse3
+            - siderolabs/i915-ucode
+            - siderolabs/intel-ice-firmware
+            - siderolabs/intel-ucode
+            - siderolabs/iscsi-tools
+            - siderolabs/nonfree-kmod-nvidia-production
+            - siderolabs/nvidia-container-toolkit-production
+            # - siderolabs/nvidia-open-gpu-kernel-modules-production
+            - siderolabs/qemu-guest-agent
+            - siderolabs/realtek-firmware
+            - siderolabs/tailscale
+            - siderolabs/v4l-uvc-drivers
+            # - siderolabs/zfs
     extensionServices:
     - name: tailscale
       environment:
