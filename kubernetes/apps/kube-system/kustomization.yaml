@@ -6,7 +6,6 @@ resources:
   - ./cilium/ks.yaml
   - ./csi-driver-nfs/ks.yaml
   - ./descheduler/ks.yaml
-  - ./gpu-operator/ks.yaml
   - ./kubelet-csr-approver/ks.yaml
   - ./metrics-server/ks.yaml
   - ./node-feature-discovery/ks.yaml
