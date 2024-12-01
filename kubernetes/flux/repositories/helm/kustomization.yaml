@@ -32,6 +32,7 @@ resources:
   - ./kubernetes-sigs-nfd.yaml
   - ./mayastor.yaml
   - ./metrics-server.yaml
+  - ./nvidia-charts.yaml
   - ./openebs.yaml
   - ./piraeus.yaml
   - ./plex.yaml
