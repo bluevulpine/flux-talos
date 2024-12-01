@@ -69,9 +69,10 @@ spec:
               requests:
                 cpu: 100m
                 memory: 4G
-              limits:
                 nvidia.com/gpu: 1
+              limits:
                 memory: 16G
+                nvidia.com/gpu: 1
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
@@ -81,15 +82,6 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         supplementalGroups: [44, 10000]
         seccompProfile: { type: RuntimeDefault }
-      affinity:
-        podAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - topologyKey: kubernetes.io/hostname
-              labelSelector:
-                matchExpressions:
-                  - key: nvidia.com/gpu.present
-                    operator: In
-                    values: ["true"]
     service:
       app:
         controller: *app
@@ -114,7 +106,7 @@ spec:
           external-dns.alpha.kubernetes.io/target: external.${SECRET_DOMAIN}
           nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
         hosts:
-          - host: "{{ .Release.Name }}.${SECRET_DOMAIN}"
+          - host: "{{ .Release.Name }}.${SECRET_DOMAIN_MEDIA}"
             paths:
               - path: /
                 service:
