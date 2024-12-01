@@ -41,7 +41,7 @@ spec:
               tag: 1.41.0.8994-f2c27da23@sha256:d088ec4c03532c7e270de8c6f0e3d7c72b5289dbe0b32da93c51abdcf4e1e0d1
             env:
               TZ: ${TIMEZONE}
-              PLEX_ADVERTISE_URL: https://plex.${SECRET_MEDIA_DOMAIN}:443,http://${SVC_PLEX_ADDR}:32400
+              PLEX_ADVERTISE_URL: https://plex.${SECRET_DOMAIN_MEDIA}:443,http://${SVC_PLEX_ADDR}:32400
               PLEX_NO_AUTH_NETWORKS: ${NODE_CIDR}
             probes:
               liveness: &probes
@@ -69,6 +69,7 @@ spec:
               requests:
                 cpu: 100m
                 memory: 4G
+                nvidia.com/gpu: 1
               limits:
                 memory: 16G
     defaultPodOptions:
@@ -81,17 +82,14 @@ spec:
         supplementalGroups: [44, 10000]
         seccompProfile: { type: RuntimeDefault }
       affinity:
-        podAntiAffinity:
+        podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
                 matchExpressions:
-                  - key: app.kubernetes.io/name
+                  - key: nvidia.com/gpu.present
                     operator: In
-                    values: ["kyoo"]
-                  - key: app.kubernetes.io/component
-                    operator: In
-                    values: ["transcoder"]
-              topologyKey: kubernetes.io/hostname
+                    values: ["true"]
     service:
       app:
         controller: *app
