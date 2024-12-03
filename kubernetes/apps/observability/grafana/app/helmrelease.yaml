@@ -77,7 +77,7 @@ spec:
         role_attribute_path: |
           contains(groups[*], 'admins') && 'Admin' || contains(groups[*], 'people') && 'Viewer'
       auth.basic:
-        enabled: false
+        enabled: true
       auth.anonymous:
         enabled: false
       news:
