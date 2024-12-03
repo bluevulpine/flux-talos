@@ -39,28 +39,63 @@ data:
               accountid: {{HOMEPAGE_VAR_CLOUDFLARED_ACCOUNTID}}
               tunnelid: {{HOMEPAGE_VAR_CLOUDFLARED_TUNNELID}}
               key: {{HOMEPAGE_VAR_CLOUDFLARED_API_TOKEN}}
+    - Infrastructure:
+        - TrueNAS:
+            href: {{HOMEPAGE_VAR_TRUENAS_HOST}}
+            icon: truenas.png
+            description: TrueNAS Scale
+        - Pi-hole:
+            href: {{HOMEPAGE_VAR_PIHOLE_HOST_1}}
+            icon: pihole.png
+            description: Pi-hole
+        - Pi-hole Heimdallr01:
+            href: {{HOMEPAGE_VAR_PIHOLE_HOST_2}}
+            icon: pihole.png
+            description: Pi-hole
+        - Pi-hole Heimdallr02:
+            href: {{HOMEPAGE_VAR_PIHOLE_HOST_3}}
+            icon: pihole.png
+            description: Pi-hole
+
   settings.yaml: |
     title: Dashboard
+    favicon: https://w7.pngwing.com/pngs/848/762/png-transparent-computer-icons-home-house-home-angle-building-rectangle-thumbnail.png
+    useEqualHeights: true
     theme: dark
     color: slate
     headerStyle: clean
     layout:
-      Home:
-        style: column
-        icon: mdi-home-analytics
       Network:
         style: row
         columns: 3
+        icon: mdi-network
+      Calendar:
+        style: column
+        icon: mdi-calendar
+      Video:
+        style: column
+        icon: mdi-play-circle
+      Books:
+        style: row
+        columns: 2
+        icon: mdi-book
+      Infrastructure:
+        style: row
+        columns: 5
         icon: mdi-server
       Observability:
-        style: column
+        style: row
+        columns: 5
         icon: mdi-chart-line
+      Home:
+        style: row
+        columns: 5
+        icon: mdi-home-analytics
+      Downloads:
+        style: row
+        columns: 3
+        icon: mdi-download-circle
   widgets.yaml: |
-    - resources:
-        backend: kubernetes
-        cpu: true
-        expanded: true
-        memory: true
     - search:
         provider: [duckduckgo]
         focus: false
@@ -74,3 +109,30 @@ data:
           dateStyle: long
           timeStyle: short
           hourCycle: h23
+    - kubernetes:
+        cluster:
+          cpu: true
+          memory: true
+          show: true
+          showLabel: true
+        nodes:
+          cpu: true
+          memory: true
+          show: false
+          showLabel: true
+    - openmeteo:
+        label: Home
+        latitude: {{HOMEPAGE_VAR_LATITUDE}}
+        longitude: {{HOMEPAGE_VAR_LONGITUDE}}
+        timezone: ${TIMEZONE}
+        units: imperial
+        cache: 5
+        format:
+          maximumFractionDigits: 1
+    - truenas:
+        url: {{HOMEPAGE_VAR_TRUENAS_HOST}}
+        key: {{HOMEPAGE_VAR_TRUENAS_APIKEY}}
+    - pihole:
+        url: {{HOMEPAGE_VAR_PIHOLE_HOST_1}}
+        version: 6
+        key: {{HOMEPAGE_VAR_PIHOLE_APIKEY}}
