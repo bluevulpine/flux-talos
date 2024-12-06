@@ -127,6 +127,7 @@ spec:
         enabled: true
         accessMode: ReadWriteOnce
         storageClass: vault-nfs
+        reclaimPolicy: Retain
         size: 1Ti
         globalMounts:
           - path: /var/syncthing
