@@ -124,10 +124,8 @@ spec:
 
     persistence:
       data:
-        enabled: true
-        accessMode: ReadWriteOnce
-        storageClass: vault-nfs
-        reclaimPolicy: Retain
-        size: 1Ti
+        type: nfs
+        server: ${SECRET_NFS_SERVER:=temp}
+        path: /mnt/apps/kubernetes/syncthing
         globalMounts:
           - path: /var/syncthing
