@@ -81,7 +81,7 @@ spec:
         controller: syncthing
         type: LoadBalancer
         loadBalancerIP: ${SVC_SYNCTHING_ADDR}
-        externalTrafficPolicy: Cluster # This is important for Cilium sharing keys.
+        externalTrafficPolicy: Local
         annotations:
           lbipam.cilium.io/sharing-key: syncthing
         ports:
@@ -95,9 +95,9 @@ spec:
         controller: syncthing
         type: LoadBalancer
         loadBalancerIP: ${SVC_SYNCTHING_ADDR}
-        externalTrafficPolicy: Cluster
+        externalTrafficPolicy: Local
         annotations:
-          ilbipam.cilium.io/sharing-key: syncthing
+          lbipam.cilium.io/sharing-key: syncthing
         ports:
           discovery:
             enabled: true
