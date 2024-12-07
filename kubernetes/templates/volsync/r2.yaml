@@ -3,13 +3,13 @@
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: "${APP}-volsync-r2"
+  name: "${APP:=temp}-volsync-r2"
 spec:
   secretStoreRef:
     name: bitwarden-secrets-manager
     kind: ClusterSecretStore
   target:
-    name: "${APP}-volsync-r2-secret"
+    name: "${APP:=temp}-volsync-r2-secret"
     template:
       engineVersion: v2
       data:
@@ -51,12 +51,12 @@ spec:
 apiVersion: volsync.backube/v1alpha1
 kind: ReplicationDestination
 metadata:
-  name: "${APP}-dst-r2"
+  name: "${APP:=temp}-dst-r2"
 spec:
   trigger:
     manual: restore-once
   restic:
-    repository: "${APP}-volsync-r2-secret"
+    repository: "${APP:=temp}-volsync-r2-secret"
     copyMethod: Snapshot # must be Snapshot
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-csi-ceph-blockpool}"
     cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-openebs-hostpath}"
