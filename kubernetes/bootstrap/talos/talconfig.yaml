@@ -161,12 +161,10 @@ nodes:
             - siderolabs/iscsi-tools
             - siderolabs/nonfree-kmod-nvidia-production
             - siderolabs/nvidia-container-toolkit-production
-            # - siderolabs/nvidia-open-gpu-kernel-modules-production
             - siderolabs/qemu-guest-agent
             - siderolabs/realtek-firmware
             - siderolabs/tailscale
             - siderolabs/v4l-uvc-drivers
-            # - siderolabs/zfs
     extensionServices:
     - name: tailscale
       environment:
