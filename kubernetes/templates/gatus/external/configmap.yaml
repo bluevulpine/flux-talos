@@ -10,7 +10,7 @@ data:
     endpoints:
       - name: "${NS}/${APP} External"
         group: external
-        url: "https://${GATUS_SUBDOMAIN:-${APP}}.${SECRET_DOMAIN}${GATUS_PATH:-/}"
+        url: "https://${GATUS_SUBDOMAIN:-${APP}}.${GATUS_DOMAIN:-${SECRET_DOMAIN}}${GATUS_PATH:-/}"
         interval: 1m
         client:
           dns-resolver: tcp://1.1.1.1:53
@@ -20,7 +20,7 @@ data:
           - type: pushover
       - name: "${NS}/${APP} Internal"
         group: external
-        url: "https://${GATUS_SUBDOMAIN:-${APP}}.${SECRET_DOMAIN}${GATUS_PATH:-/}"
+        url: "https://${GATUS_SUBDOMAIN:-${APP}}.${GATUS_DOMAIN:-${SECRET_DOMAIN}}${GATUS_PATH:-/}"
         interval: 1m
         client:
           dns-resolver: tcp://k8s-gateway.network.svc.cluster.local:53
