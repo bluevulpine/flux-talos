@@ -114,7 +114,7 @@ spec:
     backend:
       replicas: 2
       persistence:
-        size: 20Gi
+        size: 100Gi
         storageClass: ceph-block
     gateway:
       replicas: 2
@@ -133,7 +133,7 @@ spec:
     write:
       replicas: 2
       persistence:
-        size: 20Gi
+        size: 100Gi
         storageClass: ceph-block
     sidecar:
       image:

@@ -25,8 +25,8 @@ spec:
       APP: *app
       GATUS_PATH: /web/index.html
       GATUS_DOMAIN: ${SECRET_DOMAIN_MEDIA:-temp}
-      VOLSYNC_CAPACITY: 20Gi
-      VOLSYNC_CACHE_CAPACITY: 20Gi
+      VOLSYNC_CAPACITY: 100Gi
+      VOLSYNC_CACHE_CAPACITY: 100Gi
       VOLSYNC_STORAGECLASS: ceph-block
       VOLSYNC_SNAPSHOTCLASS: csi-ceph-blockpool
 ---
