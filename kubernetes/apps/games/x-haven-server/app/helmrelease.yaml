@@ -37,7 +37,7 @@ spec:
           app:
             image:
               repository: docker.io/aschneem/x-haven-server
-              tag: latest@sha256:8e121e7b5787a5eaa9831eb924344a772bd31c84c88e4762369677e4fc8aabbe
+              tag: latest@sha256:3f0d6b2064f2439972dc08192a7be86046494f3859c515e83885b3b30b656f8b
             env:
               TZ: "${TIMEZONE}"
             ports:
