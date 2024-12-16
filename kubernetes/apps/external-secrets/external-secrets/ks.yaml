@@ -49,5 +49,7 @@ spec:
   postBuild:
     substitute:
       APP: bitwarden-secrets-manager
-      GATUS_DOMAIN: external-secrets.svc.cluster.local
+      GATUS_SUBDOMAIN: bitwarden-sdk-server
+      GATUS_DOMAIN: external-secrets.svc.cluster.local:9998
+      GATUS_PATH: /ready
       NS: *ns
