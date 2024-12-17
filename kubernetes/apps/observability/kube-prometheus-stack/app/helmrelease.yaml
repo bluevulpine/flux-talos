@@ -78,18 +78,26 @@ spec:
           - action: drop
             sourceLabels: ["__name__"]
             regex: (apiserver_response_sizes_bucket|apiserver_watch_events_sizes_bucket)
+      service:
+        selector:
+          k8s-app: "kube-apiserver"
     kubeControllerManager:
       enabled: true
       endpoints: &cp
         - 10.0.10.31
         - 10.0.10.32
         - 10.0.10.33
+      service:
+        selector:
+          k8s-app: "kube-controller-manager"
     kubeEtcd:
-      enabled: true
-      endpoints: *cp
+      enabled: false
     kubeScheduler:
       enabled: true
       endpoints: *cp
+      service:
+        selector:
+          k8s-app: "kube-scheduler"
     kubeProxy:
       enabled: false
     prometheus:
