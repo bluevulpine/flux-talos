@@ -25,7 +25,6 @@ spec:
   values:
     fullnameOverride: reloader
     reloader:
-      autoReloadAll: true
       readOnlyRootFileSystem: true
       podMonitor:
         enabled: true
