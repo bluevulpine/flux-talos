@@ -36,6 +36,11 @@ spec:
     cleanPrometheusOperatorObjectNames: true
     alertmanager:
       ingress:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/icon: alertmanager.png
+          gethomepage.dev/name: Alert-Manager
+          gethomepage.dev/group: Monitoring
         enabled: true
         ingressClassName: internal
         pathType: Prefix
@@ -78,26 +83,12 @@ spec:
           - action: drop
             sourceLabels: ["__name__"]
             regex: (apiserver_response_sizes_bucket|apiserver_watch_events_sizes_bucket)
-      service:
-        selector:
-          k8s-app: "kube-apiserver"
     kubeControllerManager:
-      enabled: true
-      endpoints: &cp
-        - 10.0.10.31
-        - 10.0.10.32
-        - 10.0.10.33
-      service:
-        selector:
-          k8s-app: "kube-controller-manager"
+      enabled: false
     kubeEtcd:
       enabled: false
     kubeScheduler:
-      enabled: true
-      endpoints: *cp
-      service:
-        selector:
-          k8s-app: "kube-scheduler"
+      enabled: false
     kubeProxy:
       enabled: false
     prometheus:
@@ -109,8 +100,6 @@ spec:
           gethomepage.dev/icon: prometheus.png
           gethomepage.dev/name: Prometheus
           gethomepage.dev/group: Observability
-          gethomepage.dev/widget.type: prometheus
-          gethomepage.dev/app: prometheus
         pathType: Prefix
         hosts:
           - &host "prometheus.${SECRET_DOMAIN}"
@@ -136,12 +125,9 @@ spec:
         walCompression: true
         enableFeatures:
           - auto-gomemlimit
+          - auto-gomaxprocs
           - memory-snapshot-on-shutdown
           - new-service-discovery-manager
-        image:
-          registry: quay.io
-          repository: prometheus/prometheus
-          tag: v2.54.0-dedupelabels
         thanos:
           image: quay.io/thanos/thanos:${THANOS_VERSION:=temp}
           version: "${THANOS_VERSION#v:=temp}"
