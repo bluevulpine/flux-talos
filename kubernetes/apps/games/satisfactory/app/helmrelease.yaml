@@ -99,8 +99,11 @@ spec:
         type: LoadBalancer
         allocateLoadBalancerNodePorts: true
         annotations:
+          tailscale.com/expose: "true"
           external-dns.alpha.kubernetes.io/hostname: "satisfactory.${SECRET_DOMAIN}"
           lbipam.cilium.io/ips: "${SVC_SATISFACTORY_ADDR}"
+        labels:
+          tailscale.com/proxy-class: "tun-access"
         externalTrafficPolicy: Cluster
         internalTrafficPolicy: Cluster
         #ipFamilyPolicy: RequireDualStack
@@ -114,26 +117,6 @@ spec:
             enabled: true
             port: 7777
             protocol: TCP
-      tailscale:
-        enabled: true
-        controller: *app
-        type: LoadBalancer
-        allocateLoadBalancerNodePorts: true
-        loadBalancerClass: tailscale
-        labels:
-          tailscale.com/proxy-class: "tun-access"
-        ports:
-          game-udp:
-            enabled: true
-            primary: true
-            port: 7777
-            protocol: UDP
-          game-tcp:
-            enabled: true
-            port: 7777
-            protocol: TCP
-
-
 
 
     persistence:

@@ -11,3 +11,7 @@ spec:
             smarter-devices/net_tun: "1"
           limits:
             smarter-devices/net_tun: "1"
+  metrics:
+    enable: true
+    serviceMonitor:
+      enable: true
