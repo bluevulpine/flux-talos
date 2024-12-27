@@ -13,4 +13,3 @@ spec:
     requests:
       storage: "${VOLSYNC_CAPACITY:-20Gi}"
   storageClassName: "${VOLSYNC_STORAGECLASS:-ceph-block}"
-  reclaimPolicy: "${VOLSYNC_RECLAIMPOLICY:-Delete}"
