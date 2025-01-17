@@ -1,0 +1,7 @@
+apiVersion: tailscale.com/v1alpha1
+kind: Connector
+metadata:
+  name: ts-exit-node
+spec:
+  hostname: ts-exit-node
+  exitNode: true
