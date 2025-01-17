@@ -50,7 +50,7 @@ spec:
           - hosts:
               - *promHost
       alertmanagerSpec:
-        replicas: 3
+        replicas: 1
         useExistingSecret: true
         configSecret: alertmanager-secret
         storage:
