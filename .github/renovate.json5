@@ -57,6 +57,24 @@
   packageRules: [
     {
       description: [
+        'Auto merge all updates for cloudflared',
+      ],
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        '/cloudflare/',
+      ],
+      matchUpdateTypes: [
+        'major',
+        'minor',
+        'patch'
+      ],
+      ignoreTests: true,
+      automerge: true
+    },
+      {
+      description: [
         'Auto merge Github Actions',
       ],
       matchManagers: [
