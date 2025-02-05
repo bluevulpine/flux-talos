@@ -50,12 +50,3 @@ spec:
           mon:
             disabled: false
             interval: 45s
-      monitoring:
-        enabled: true
-        externalMgrEndpoints:
-          - ip: 10.0.10.21
-            port: 9283  # Match the port here as well
-          - ip: 10.0.10.22
-            port: 9283  # Match the port here as well
-          - ip: 10.0.10.23
-            port: 9283  # Match the port here as well
