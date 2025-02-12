@@ -43,7 +43,7 @@ spec:
         enable: true
       skipVersionCheck: true
       cephVersion:
-        image: quay.io/ceph/ceph:v18.2.4 # Should match external cluster version, but pveceph having issues with matching 18.2.2
+        image: quay.io/ceph/ceph:v19.2.1 # Should match external cluster version, but pveceph having issues with matching 18.2.2
       crashCollector:
         disable: true
       healthCheck:
