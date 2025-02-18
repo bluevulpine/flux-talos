@@ -23,9 +23,6 @@ spec:
   uninstall:
     keepHistory: false
   values:
-    defaultPodOptions:
-      dnsPolicy: ClusterFirstWithHostNet
-      hostNetwork: true
     controllers:
       main:
         replicas: 2
@@ -92,6 +89,13 @@ spec:
         ports:
           http:
             port: *port
+      udptest:
+        controller: main
+        type: LoadBalancer
+        externalTrafficPolicy: Local
+        ports:
+          udp:
+            port: 7844
     serviceMonitor:
       main:
         enabled: true
