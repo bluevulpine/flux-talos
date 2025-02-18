@@ -23,9 +23,6 @@ spec:
   uninstall:
     keepHistory: false
   values:
-    defaultPodOptions:
-      dnsPolicy: ClusterFirstWithHostNet
-      hostNetwork: true # quic is not able to connect without this, since early 2025? UDP is getting lost on the way back
     controllers:
       main:
         replicas: 2
@@ -42,8 +39,8 @@ spec:
               TUNNEL_CRED_FILE: /etc/cloudflared/creds/credentials.json
               TUNNEL_METRICS: 0.0.0.0:8080
               TUNNEL_ORIGIN_ENABLE_HTTP2: true
-              TUNNEL_TRANSPORT_PROTOCOL: auto # this no longer automatically falls back to http2 since around 2025.2
-              TUNNEL_POST_QUANTUM: true # this forces quic connections
+              TUNNEL_TRANSPORT_PROTOCOL: http2 # auto no longer automatically falls back to http2 since around 2025.2
+              TUNNEL_POST_QUANTUM: false # 'true' forces quic connections
               TUNNEL_ID:
                 valueFrom:
                   secretKeyRef:
