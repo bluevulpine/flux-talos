@@ -36,6 +36,7 @@ spec:
       - --crd-source-apiversion=externaldns.k8s.io/v1alpha1
       - --crd-source-kind=DNSEndpoint
       - --pihole-server=https://10.0.10.5
+      - --pihole-tls-skip-verify
     policy: upsert-only
     sources: ["ingress", "service"]
     registry: noop
