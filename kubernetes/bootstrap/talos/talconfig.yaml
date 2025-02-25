@@ -194,8 +194,6 @@ patches:
     cluster:
       discovery:
         registries:
-          kubernetes:
-            disabled: false
           service:
             disabled: false
 
