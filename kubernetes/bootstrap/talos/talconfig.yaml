@@ -37,22 +37,11 @@ nodes:
         systemExtensions:
           officialExtensions:
             - siderolabs/amd-ucode
-            - siderolabs/amdgpu-firmware
+            - siderolabs/amdgpu
             - siderolabs/binfmt-misc
-            - siderolabs/btrfs
-            - siderolabs/fuse3
-            - siderolabs/i915-ucode
-            - siderolabs/intel-ice-firmware
-            - siderolabs/intel-ucode
             - siderolabs/iscsi-tools
-            # - siderolabs/nonfree-kmod-nvidia-production
-            # - siderolabs/nvidia-container-toolkit-production
-            # - siderolabs/nvidia-open-gpu-kernel-modules-production
             - siderolabs/qemu-guest-agent
-            - siderolabs/realtek-firmware
             - siderolabs/tailscale
-            - siderolabs/v4l-uvc-drivers
-            # - siderolabs/zfs
     extensionServices:
       - name: tailscale
         environment:
@@ -151,20 +140,13 @@ nodes:
         systemExtensions:
           officialExtensions:
             - siderolabs/amd-ucode
-            - siderolabs/amdgpu-firmware
+            - siderolabs/amdgpu
             - siderolabs/binfmt-misc
-            - siderolabs/btrfs
-            - siderolabs/fuse3
-            - siderolabs/i915-ucode
-            - siderolabs/intel-ice-firmware
-            - siderolabs/intel-ucode
             - siderolabs/iscsi-tools
             - siderolabs/nonfree-kmod-nvidia-production
             - siderolabs/nvidia-container-toolkit-production
             - siderolabs/qemu-guest-agent
-            - siderolabs/realtek-firmware
             - siderolabs/tailscale
-            - siderolabs/v4l-uvc-drivers
     extensionServices:
     - name: tailscale
       environment:
@@ -255,8 +237,8 @@ patches:
         fs.inotify.max_queued_events: 65536
         fs.inotify.max_user_watches: 524288
         fs.inotify.max_user_instances: 8192
-        net.core.rmem_max: "2500000"
-        net.core.wmem_max: "2500000"
+        net.core.rmem_max: "5000000"
+        net.core.wmem_max: "5000000"
 
   # Mount openebs-hostpath in kubelet
   - |-
