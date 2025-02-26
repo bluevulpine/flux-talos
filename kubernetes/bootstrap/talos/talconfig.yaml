@@ -81,6 +81,78 @@ nodes:
       environment:
       - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
 
+  - hostname: "jormungandr1"
+    ipAddress: "10.0.10.31"
+    installDisk: "/dev/sda"
+    controlPlane: true
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "e4:5f:01:*"
+        dhcp: true
+        mtu: 1500
+        vip:
+          ip: "10.0.10.30"
+    schematic: &pischematic
+      customization:
+        systemExtensions:
+          officialExtensions:
+            - siderolabs/binfmt-misc
+            - siderolabs/iscsi-tools
+            - siderolabs/tailscale
+    extensionServices:
+    - name: tailscale
+      environment:
+      - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
+
+  - hostname: "jormungandr2"
+    ipAddress: "10.0.10.32"
+    installDisk: "/dev/sda"
+    controlPlane: true
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "e4:5f:01:*"
+        dhcp: true
+        mtu: 1500
+        vip:
+          ip: "10.0.10.30"
+    schematic: *pischematic
+    extensionServices:
+    - name: tailscale
+      environment:
+      - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
+
+  - hostname: "jormungandr3"
+    ipAddress: "10.0.10.33"
+    installDisk: "/dev/sda"
+    controlPlane: true
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "e4:5f:01:*"
+        dhcp: true
+        mtu: 1500
+        vip:
+          ip: "10.0.10.30"
+    schematic: *pischematic
+    extensionServices:
+    - name: tailscale
+      environment:
+      - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
+
+  - hostname: "jormungandr4"
+    ipAddress: "10.0.10.34"
+    installDisk: "/dev/sda"
+    controlPlane: false
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "e4:5f:01:*"
+        dhcp: true
+        mtu: 1500
+    schematic: *pischematic
+    extensionServices:
+    - name: tailscale
+      environment:
+      - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
+
   - hostname: "brokkr01"
     ipAddress: "10.0.10.38"
     installDisk: "/dev/sda"

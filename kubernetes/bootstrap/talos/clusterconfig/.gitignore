@@ -24,3 +24,7 @@ home-kubernetes-freyja02.yaml
 home-kubernetes-freyja03.yaml
 home-kubernetes-freyja04.yaml
 home-kubernetes-sif01.yaml
+home-kubernetes-jormungandr1.yaml
+home-kubernetes-jormungandr2.yaml
+home-kubernetes-jormungandr3.yaml
+home-kubernetes-jormungandr4.yaml
