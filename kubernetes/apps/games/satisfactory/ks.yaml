@@ -30,4 +30,4 @@ spec:
       VOLSYNC_SNAPSHOTCLASS: csi-vault-nfs
       VOLSYNC_RUN_AS_USER: "1000"
       VOLSYNC_RUN_AS_GROUP: "1000"
-      VOLSYNC_FS_GROUP: "6"
+      VOLSYNC_FS_GROUP: "1000"
