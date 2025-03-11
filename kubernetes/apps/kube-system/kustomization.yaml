@@ -13,3 +13,4 @@ resources:
   - ./smarter-device-manager/ks.yaml
   - ./spegel/ks.yaml
   - ./reloader/ks.yaml
+  - ./talos-backup/ks.yaml

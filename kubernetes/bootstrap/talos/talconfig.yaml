@@ -21,66 +21,6 @@ cniConfig:
 
 
 nodes:
-  - hostname: "odin01"
-    ipAddress: "10.0.10.35"
-    installDisk: "/dev/sda"
-    controlPlane: true
-    networkInterfaces:
-      - deviceSelector:
-          hardwareAddr: "bc:24:11:*"
-        dhcp: true
-        mtu: 9000
-        vip:
-          ip: "10.0.10.30"
-    schematic: &schematic
-      customization:
-        systemExtensions:
-          officialExtensions:
-            - siderolabs/amd-ucode
-            - siderolabs/amdgpu
-            - siderolabs/binfmt-misc
-            - siderolabs/iscsi-tools
-            - siderolabs/qemu-guest-agent
-            - siderolabs/tailscale
-    extensionServices:
-      - name: tailscale
-        environment:
-          - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
-
-  - hostname: "odin02"
-    ipAddress: "10.0.10.36"
-    installDisk: "/dev/sda"
-    controlPlane: true
-    networkInterfaces:
-      - deviceSelector:
-          hardwareAddr: "bc:24:11:*"
-        dhcp: true
-        mtu: 9000
-        vip:
-          ip: "10.0.10.30"
-    schematic: *schematic
-    extensionServices:
-    - name: tailscale
-      environment:
-      - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
-
-  - hostname: "odin03"
-    ipAddress: "10.0.10.37"
-    installDisk: "/dev/sda"
-    controlPlane: true
-    networkInterfaces:
-      - deviceSelector:
-          hardwareAddr: "bc:24:11:*"
-        dhcp: true
-        mtu: 9000
-        vip:
-          ip: "10.0.10.30"
-    schematic: *schematic
-    extensionServices:
-    - name: tailscale
-      environment:
-      - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
-
   - hostname: "jormungandr1"
     ipAddress: "10.0.10.31"
     installDisk: "/dev/sda"
@@ -162,7 +102,16 @@ nodes:
           hardwareAddr: "bc:24:11:*"
         dhcp: true
         mtu: 9000
-    schematic: *schematic
+    schematic: &schematic
+      customization:
+        systemExtensions:
+          officialExtensions:
+            - siderolabs/amd-ucode
+            - siderolabs/amdgpu
+            - siderolabs/binfmt-misc
+            - siderolabs/iscsi-tools
+            - siderolabs/qemu-guest-agent
+            - siderolabs/tailscale
     extensionServices:
     - name: tailscale
       environment:
@@ -170,21 +119,6 @@ nodes:
 
   - hostname: "brokkr02"
     ipAddress: "10.0.10.39"
-    installDisk: "/dev/sda"
-    controlPlane: false
-    networkInterfaces:
-      - deviceSelector:
-          hardwareAddr: "bc:24:11:*"
-        dhcp: true
-        mtu: 9000
-    schematic: *schematic
-    extensionServices:
-    - name: tailscale
-      environment:
-      - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
-
-  - hostname: "brokkr03"
-    ipAddress: "10.0.10.40"
     installDisk: "/dev/sda"
     controlPlane: false
     networkInterfaces:
@@ -360,7 +294,9 @@ controlPlane:
             enabled: true
             allowedRoles:
               - os:admin
+              - os:etcd:backup
             allowedKubernetesNamespaces:
               - system-upgrade
+              - kube-system
 
 
