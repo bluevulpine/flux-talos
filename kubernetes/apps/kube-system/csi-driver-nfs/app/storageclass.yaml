@@ -8,7 +8,7 @@ parameters:
   server: ${SECRET_NFS_SERVER}
   share: ${SECRET_NFS_KUBERNETES}/k3s-nfs
 #  subdir: \${pvc.metadata.name}
-reclaimPolicy: Retain
+reclaimPolicy: Delete
 allowVolumeExpansion: true
 volumeBindingMode: Immediate
 mountOptions:
