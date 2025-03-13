@@ -115,7 +115,7 @@ spec:
       replicas: 2
       persistence:
         size: 100Gi
-        storageClass: ceph-block
+        storageClass: vault-nfs
     gateway:
       replicas: 2
       image:
@@ -134,7 +134,7 @@ spec:
       replicas: 2
       persistence:
         size: 100Gi
-        storageClass: ceph-block
+        storageClass: vault-nfs
     sidecar:
       image:
         repository: ghcr.io/kiwigrid/k8s-sidecar
