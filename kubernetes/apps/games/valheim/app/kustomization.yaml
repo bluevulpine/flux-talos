@@ -5,4 +5,4 @@ resources:
   - pvc.yaml
   - helmrelease.yaml
   - dnsendpoint.yaml
-  - ../../../../templates/volsync
+  - externalsecret.yaml
