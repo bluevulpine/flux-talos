@@ -31,7 +31,7 @@ spec:
             image:
               repository: ghcr.io/ksdn117/tcp-udp-test
               tag: latest
-            poets:
+            ports:
               - name: "tcp"
                 containerPort: 1234
                 protocol: TCP
