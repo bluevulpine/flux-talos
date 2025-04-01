@@ -64,6 +64,7 @@ spec:
               MAXTICKRATE: "240" # default is a low 30
               NETWORKQUALITY: "3" # 0-3, 3 is Ultra (default)
               TIMEOUT: "300"
+              STEAMBETA: "true"
             ports:
               - name: "api"
                 containerPort: 7777
@@ -71,6 +72,9 @@ spec:
               - name: "game"
                 containerPort: 7777
                 protocol: UDP
+              - name: "messaging"
+                containerPort: 8888
+                protocol: TCP
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: false
@@ -88,7 +92,7 @@ spec:
               requests:
                 memory: 4Gi
               limits:
-                memory: 8Gi
+                memory: 16Gi
 
 
 
@@ -105,8 +109,7 @@ spec:
         labels:
           tailscale.com/proxy-class: "tun-access"
         externalTrafficPolicy: Cluster
-        internalTrafficPolicy: Cluster
-        #ipFamilyPolicy: RequireDualStack
+        internalTrafficPolicy: Local
         ports:
           game-udp:
             enabled: true
@@ -116,6 +119,10 @@ spec:
           game-tcp:
             enabled: true
             port: 7777
+            protocol: TCP
+          messaging:
+            enabled: true
+            port: 8888
             protocol: TCP
 
 
