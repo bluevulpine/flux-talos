@@ -23,4 +23,4 @@ spec:
       APP: *app
       NS: *ns
       # renovate: datasource=docker depName=quay.io/thanos/thanos
-      THANOS_VERSION: v0.37.2
+      THANOS_VERSION: v0.38.0
