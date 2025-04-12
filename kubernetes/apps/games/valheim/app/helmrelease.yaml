@@ -65,6 +65,12 @@ spec:
                   ValheimModding-Jotunn-2.24.3
                   ValheimModding-HookGenPatcher-0.0.4
                   Numenos-InfinityTools-1.0.0
+                  shudnal-ExtraSlots-1.0.28
+              AUTO_UPDATE: 0
+              AUTO_UPDATE_SCHEDULE: "0 8 * * *" # every day at 8am
+              AUTO_UPDATE_PAUSE_WITH_PLAYERS: 1
+              SCHEDULED_RESTART: 1
+              SCHEDULED_RESTART_SCHEDULE: "0 4 * * *" # every day at 4am
             resources:
               requests:
                 cpu: 441m
