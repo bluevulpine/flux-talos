@@ -61,7 +61,7 @@ spec:
               TYPE: "BepInEx"
               MODS: |
                   Advize-PlantEasily-2.0.3
-                  Advize-PlantEverything-1.19.0
+                  Advize-PlantEverything-1.19.1
                   ValheimModding-Jotunn-2.24.3
                   ValheimModding-HookGenPatcher-0.0.4
                   Numenos-InfinityTools-1.0.0
