@@ -8,4 +8,4 @@ spec:
   interval: 30m0s
   url: https://github.com/kubernetes-sigs/gateway-api.git
   ref:
-    tag: v1.2.1
+    tag: v1.3.0
