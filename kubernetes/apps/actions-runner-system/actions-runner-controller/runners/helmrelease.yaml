@@ -48,7 +48,7 @@ spec:
             kubernetes.io/arch: amd64 # docker-in-docker is not supported on arm64? no arm image in manifest
         containers:
           - name: runner
-            image: ghcr.io/home-operations/actions-runner:2.322.0@sha256:079ad66d4aafca56c325325e184921f591ee023af6fd7b26a35a78836e660ce9
+            image: ghcr.io/home-operations/actions-runner:2.324.0@sha256:a8a54cd667ca1e12d05a3933b6c8b56dc84b35cdb1538db37a6623ef93ed789c
             command: ["/home/runner/run.sh"]
 
     controllerServiceAccount:
