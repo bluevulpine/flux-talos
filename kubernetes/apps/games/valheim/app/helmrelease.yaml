@@ -60,12 +60,13 @@ spec:
               WORLD: "SaturdayGK"
               TYPE: "BepInEx"
               MODS: |
-                  Advize-PlantEasily-2.0.3
-                  Advize-PlantEverything-1.19.1
-                  ValheimModding-Jotunn-2.24.3
-                  ValheimModding-HookGenPatcher-0.0.4
-                  Numenos-InfinityTools-1.0.0
-                  shudnal-ExtraSlots-1.0.28
+                Advize-PlantEasily-2.0.3
+                Advize-PlantEverything-1.19.1
+                ValheimModding-Jotunn-2.25.0
+                ValheimModding-HookGenPatcher-0.0.4
+                Numenos-InfinityTools-1.0.0
+                shudnal-ExtraSlots-1.0.28
+                blacks7ar-OdinsHares-1.2.9
               AUTO_UPDATE: 0
               AUTO_UPDATE_SCHEDULE: "0 8 * * *" # every day at 8am
               AUTO_UPDATE_PAUSE_WITH_PLAYERS: 1
