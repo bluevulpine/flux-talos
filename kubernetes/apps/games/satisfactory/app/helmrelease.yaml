@@ -51,7 +51,7 @@ spec:
           app:
             image:
               repository: ghcr.io/wolveix/satisfactory-server
-              tag: v1.9.7
+              tag: v1.9.8
             env:
               TZ: "${TIMEZONE}"
               ROOTLESS: "true"
