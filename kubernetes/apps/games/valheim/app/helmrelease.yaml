@@ -62,10 +62,10 @@ spec:
               MODS: |
                 Advize-PlantEasily-2.0.3
                 Advize-PlantEverything-1.19.1
-                ValheimModding-Jotunn-2.25.0
+                ValheimModding-Jotunn-2.26.0
                 ValheimModding-HookGenPatcher-0.0.4
                 Numenos-InfinityTools-1.0.0
-                shudnal-ExtraSlots-1.0.28
+                shudnal-ExtraSlots-1.0.31
                 blacks7ar-OdinsHares-1.2.9
               AUTO_UPDATE: 0
               AUTO_UPDATE_SCHEDULE: "0 8 * * *" # every day at 8am
