@@ -27,8 +27,8 @@ spec:
       GATUS_DOMAIN: ${SECRET_DOMAIN_MEDIA:-temp}
       VOLSYNC_CAPACITY: 100Gi
       VOLSYNC_CACHE_CAPACITY: 100Gi
-      VOLSYNC_STORAGECLASS: ceph-block
-      VOLSYNC_SNAPSHOTCLASS: csi-ceph-blockpool
+      VOLSYNC_STORAGECLASS: vault-nfs
+      VOLSYNC_SNAPSHOTCLASS: csi-vault-nfs
 ---
 # # yaml-language-server: $schema=https://kube-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 # apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -59,8 +59,8 @@ spec:
 #     substitute:
 #       APP: *app
 #       VOLSYNC_CAPACITY: 10Gi
-#       VOLSYNC_STORAGECLASS: ceph-block
-#       VOLSYNC_SNAPSHOTCLASS: csi-ceph-blockpool
+#       VOLSYNC_STORAGECLASS: vault-nfs
+#       VOLSYNC_SNAPSHOTCLASS: csi-vault-nfs
 ---
 # yaml-language-server: $schema=https://kube-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -111,5 +111,5 @@ spec:
     substitute:
       APP: *app
       VOLSYNC_CAPACITY: 2Gi
-      VOLSYNC_STORAGECLASS: ceph-block
-      VOLSYNC_SNAPSHOTCLASS: csi-ceph-blockpool
+      VOLSYNC_STORAGECLASS: vault-nfs
+      VOLSYNC_SNAPSHOTCLASS: csi-vault-nfs

@@ -35,7 +35,7 @@ spec:
         - name: csi-ceph-blockpool
           driver: rook-ceph.rbd.csi.ceph.com
           annotations:
-            snapshot.storage.kubernetes.io/is-default-class: "true"
+            snapshot.storage.kubernetes.io/is-default-class: "false"
           parameters:
             clusterID: rook-ceph
             csi.storage.k8s.io/snapshotter-secret-name: rook-csi-rbd-provisioner
@@ -53,7 +53,7 @@ spec:
         - name: csi-vault-nfs
           driver: nfs.csi.k8s.io
           annotations:
-            snapshot.storage.kubernetes.io/is-default-class: "false"
+            snapshot.storage.kubernetes.io/is-default-class: "true"
           deletionPolicy: Delete
 
       serviceMonitor:
