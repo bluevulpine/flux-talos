@@ -20,7 +20,7 @@ concurrency:
 jobs:
   devcontainer:
     name: publish
-    runs-on: arc-runner-set-flux-talos
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
