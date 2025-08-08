@@ -1,0 +1,10 @@
+---
+# ConfigMap for Loki Minio bucket configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-bucket
+data:
+  BUCKET_NAME: "loki"
+  BUCKET_HOST: "${SECRET_MINIO_HOST}"
+  BUCKET_REGION: "us-east-1"

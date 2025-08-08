@@ -1,0 +1,10 @@
+---
+# ConfigMap for Thanos Minio bucket configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: thanos-bucket
+data:
+  BUCKET_NAME: "thanos"
+  BUCKET_HOST: "${SECRET_MINIO_HOST}"
+  BUCKET_REGION: "us-east-1"
