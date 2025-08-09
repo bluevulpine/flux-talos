@@ -129,8 +129,6 @@ spec:
               key: AWS_SECRET_ACCESS_KEY
     gateway:
       replicas: 2
-      image:
-        registry: ghcr.io
       ingress:
         enabled: true
         ingressClassName: internal
