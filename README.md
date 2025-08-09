@@ -20,7 +20,7 @@ The baseline of this configuration starts from from onedr0p's [cluster-template]
 
 [Talos](https://www.talos.dev) is the linux distribution running kubernetes on my nodes. I have so far been happy with the results. I'd previously tried provisioning k3s on top of ubuntu with various ansible scripts to assist with the setup. Talos seems like less overhead to maintain and update.
 
-I've tried some hyper-converged cluster storage paradigms, using mayastor, longhorn, or rook-ceph. I've had the most luck with rook-ceph. Currently, I've moved my primary workers and control-plane nodes to VMs on a Proxmox cluster, and am using rook-ceph in external mode with ceph running on the Proxmox cluster.
+I've tried some hyper-converged cluster storage paradigms, using mayastor, longhorn, or rook-ceph. Currently, I've moved my primary workers and control-plane nodes to VMs on a Proxmox cluster, and am using NFS storage for persistent volumes and MinIO for object storage (used by observability stack components like Loki and Thanos).
 
 ### 🏗️ Core Components
 
@@ -86,7 +86,7 @@ Once I do more testing of Unifi's adblock solution, I may remove the piholes.
 
 | Device                      | Count | OS Disk Size | Data Disk Size               | Ram  | Operating System | Purpose                 |
 |-----------------------------|-------|--------------|------------------------------|------|------------------|-------------------------|
-| Gmktec M5 Pro               | 3     | 512GB SSD    | 1TB NVMe (ceph)              | 64GB | Proxmox          | VM Hosts                |
+| Gmktec M5 Pro               | 3     | 512GB SSD    | 1TB NVMe                     | 64GB | Proxmox          | VM Hosts                |
 | RasPi 4                     | 4     | 512GB SSD    | -                            | 8GB  | Talos            | Kubernetes Workers      |
 | RasPi 3                     | 1     | 32GB  SD     | -                            | 8GB  | DietPi           | PiHole                  |
 | RasPi 5                     | 1     | 128GB SD     | -                            | 8GB  | HAOS             | Home Assistant          |
