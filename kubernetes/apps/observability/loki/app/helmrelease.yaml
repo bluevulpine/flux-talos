@@ -48,14 +48,6 @@ spec:
       kind: ConfigMap
       name: *cephBucket
       valuesKey: BUCKET_REGION
-    - targetPath: loki.storage.s3.accessKeyId
-      kind: Secret
-      name: *cephBucket
-      valuesKey: AWS_ACCESS_KEY_ID
-    - targetPath: loki.storage.s3.secretAccessKey
-      kind: Secret
-      name: *cephBucket
-      valuesKey: AWS_SECRET_ACCESS_KEY
   values:
     deploymentMode: SimpleScalable
     loki:
@@ -69,6 +61,8 @@ spec:
         s3:
           s3ForcePathStyle: true
           insecure: false
+          accessKeyId: "${LOKI_S3_ACCESS_KEY_ID}"
+          secretAccessKey: "${LOKI_S3_SECRET_ACCESS_KEY}"
           http_config:
             insecure_skip_verify: true
       schemaConfig:
@@ -120,6 +114,19 @@ spec:
       persistence:
         size: 100Gi
         storageClass: vault-nfs
+      extraArgs:
+        - '-config.expand-env=true'
+      extraEnv:
+        - name: LOKI_S3_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: loki-bucket
+              key: AWS_ACCESS_KEY_ID
+        - name: LOKI_S3_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: loki-bucket
+              key: AWS_SECRET_ACCESS_KEY
     gateway:
       replicas: 2
       image:
@@ -134,11 +141,37 @@ spec:
                 pathType: Prefix
     read:
       replicas: 2
+      extraArgs:
+        - '-config.expand-env=true'
+      extraEnv:
+        - name: LOKI_S3_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: loki-bucket
+              key: AWS_ACCESS_KEY_ID
+        - name: LOKI_S3_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: loki-bucket
+              key: AWS_SECRET_ACCESS_KEY
     write:
       replicas: 2
       persistence:
         size: 100Gi
         storageClass: vault-nfs
+      extraArgs:
+        - '-config.expand-env=true'
+      extraEnv:
+        - name: LOKI_S3_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: loki-bucket
+              key: AWS_ACCESS_KEY_ID
+        - name: LOKI_S3_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: loki-bucket
+              key: AWS_SECRET_ACCESS_KEY
     sidecar:
       image:
         repository: ghcr.io/kiwigrid/k8s-sidecar
