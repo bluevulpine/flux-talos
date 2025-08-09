@@ -53,9 +53,7 @@ spec:
         type: s3
         config:
           insecure: false
-          http_config:
-            tls_config:
-              insecure_skip_verify: true
+          insecure_skip_verify: true
     additionalEndpoints:
       - dnssrv+_grpc._tcp.kube-prometheus-stack-thanos-discovery.observability.svc.cluster.local
     additionalReplicaLabels: ["__replica__"]
