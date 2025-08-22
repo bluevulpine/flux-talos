@@ -44,18 +44,6 @@ data:
             href: {{HOMEPAGE_VAR_TRUENAS_HOST}}
             icon: truenas.png
             description: TrueNAS Scale
-        - Pi-hole:
-            href: {{HOMEPAGE_VAR_PIHOLE_HOST_1}}
-            icon: pihole.png
-            description: Pi-hole
-        - Pi-hole Heimdallr01:
-            href: {{HOMEPAGE_VAR_PIHOLE_HOST_2}}
-            icon: pihole.png
-            description: Pi-hole
-        - Pi-hole Heimdallr02:
-            href: {{HOMEPAGE_VAR_PIHOLE_HOST_3}}
-            icon: pihole.png
-            description: Pi-hole
 
   settings.yaml: |
     title: Dashboard
@@ -132,7 +120,3 @@ data:
     - truenas:
         url: {{HOMEPAGE_VAR_TRUENAS_HOST}}
         key: {{HOMEPAGE_VAR_TRUENAS_APIKEY}}
-    - pihole:
-        url: {{HOMEPAGE_VAR_PIHOLE_HOST_1}}
-        version: 6
-        key: {{HOMEPAGE_VAR_PIHOLE_APIKEY}}

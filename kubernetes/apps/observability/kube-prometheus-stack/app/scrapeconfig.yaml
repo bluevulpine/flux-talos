@@ -7,7 +7,6 @@ metadata:
 spec:
   staticConfigs:
     - targets:
-        - pihole.flyingfox-decibel.ts.net:9100
         - net-ups-serverrack.flyingfox-decibel.ts.net:9100
         - pinas.flyingfox-decibel.ts.net:9100
         - chronos.flyingfox-decibel.ts.net:9100
