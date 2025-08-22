@@ -16,7 +16,7 @@ mountOptions:
   - intr
   - noatime
   - noresvport
-  - nfsvers=4.2
+  - nfsvers=3
   - rsize=1048576
   - wsize=1048576
 ---
