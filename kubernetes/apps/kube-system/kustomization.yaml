@@ -12,6 +12,7 @@ resources:
   - ./metrics-server/ks.yaml
   - ./node-feature-discovery/ks.yaml
   - ./smarter-device-manager/ks.yaml
+  - ./snapshot-controller/ks.yaml
   - ./spegel/ks.yaml
   - ./reloader/ks.yaml
   - ./talos-backup/ks.yaml
