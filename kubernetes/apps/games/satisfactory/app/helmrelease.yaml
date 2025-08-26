@@ -5,7 +5,7 @@ metadata:
   name: &app satisfactory
   namespace: games
 spec:
-  interval: 5m
+  interval: 30m
   chart:
     spec:
       chart: app-template
@@ -14,7 +14,7 @@ spec:
         kind: HelmRepository
         name: bjw-s
         namespace: flux-system
-      interval: 5m
+      interval: 30m
   maxHistory: 3
   install:
     remediation:

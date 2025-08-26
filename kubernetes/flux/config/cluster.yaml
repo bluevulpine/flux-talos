@@ -5,7 +5,7 @@ metadata:
   name: home-kubernetes
   namespace: flux-system
 spec:
-  interval: 30m
+  interval: 2h
   url: "https://github.com/bluevulpine/flux-talos.git"
   secretRef:
     name: github-deploy-key

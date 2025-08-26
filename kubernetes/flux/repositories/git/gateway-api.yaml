@@ -5,7 +5,7 @@ metadata:
   name: gateway-api
   namespace: flux-system
 spec:
-  interval: 30m0s
+  interval: 2h
   url: https://github.com/kubernetes-sigs/gateway-api.git
   ref:
     tag: v1.3.0
