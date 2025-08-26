@@ -71,7 +71,7 @@ spec:
         - --retention.resolution-1h=60d
       persistence: &persistence
         enabled: true
-        storageClass: vault-nfs
+        storageClass: longhorn
         size: 20Gi
     query:
       replicas: 2

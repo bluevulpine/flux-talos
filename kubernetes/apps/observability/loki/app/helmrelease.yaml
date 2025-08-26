@@ -130,7 +130,7 @@ spec:
       replicas: 2
       persistence:
         size: 100Gi
-        storageClass: vault-nfs
+        storageClass: longhorn
     gateway:
       replicas: 2
       ingress:
@@ -147,7 +147,7 @@ spec:
       replicas: 2
       persistence:
         size: 100Gi
-        storageClass: vault-nfs
+        storageClass: longhorn
     sidecar:
       image:
         repository: ghcr.io/kiwigrid/k8s-sidecar
