@@ -29,7 +29,6 @@ spec:
       namespace: volsync-system
   values:
     defaultPodOptions:
-      runtimeClassName: nvidia
       securityContext:
         runAsNonRoot: true
         runAsUser: 568
@@ -78,11 +77,9 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 4Gi
-                # nvidia.com/gpu: 1
+                memory: 1Gi
               limits:
                 memory: 16Gi
-                # nvidia.com/gpu: 1
     service:
       app:
         controller: *app
