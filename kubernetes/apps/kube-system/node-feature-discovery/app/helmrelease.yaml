@@ -27,6 +27,15 @@ spec:
       retries: 3
   values:
     master:
+      livenessProbe:
+        initialDelaySeconds: 60
+        timeoutSeconds: 10
+      readinessProbe:
+        initialDelaySeconds: 30
+        timeoutSeconds: 10
+      startupProbe:
+        initialDelaySeconds: 60
+        timeoutSeconds: 10
       resources:
         requests:
           cpu: 21m
@@ -35,12 +44,18 @@ spec:
           memory: 51Mi
 
     worker:
+      livenessProbe:
+        initialDelaySeconds: 60
+        timeoutSeconds: 10
+      readinessProbe:
+        initialDelaySeconds: 30
+        timeoutSeconds: 10
       resources:
         requests:
           cpu: 5m
           memory: 48Mi
         limits:
-          memory: 48Mi
+          memory: 128Mi
       tolerations: # allow control plane nodes to be labeled with their discovered features.
         - effect: NoSchedule
           operator: Exists
