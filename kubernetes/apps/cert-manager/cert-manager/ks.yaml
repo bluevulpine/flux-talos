@@ -66,7 +66,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: home-kubernetes
-  interval: 10m
+  interval: 30m
   postBuild:
     substitute:
       APP: *app
