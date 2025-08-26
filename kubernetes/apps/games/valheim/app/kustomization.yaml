@@ -6,3 +6,4 @@ resources:
   - helmrelease.yaml
   - dnsendpoint.yaml
   - externalsecret.yaml
+  - ../../../../templates/volsync
