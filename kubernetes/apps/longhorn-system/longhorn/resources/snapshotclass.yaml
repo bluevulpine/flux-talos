@@ -5,4 +5,5 @@ metadata:
   name: longhorn-snapclass
 driver: driver.longhorn.io
 deletionPolicy: Delete
-
+parameters:
+  type: snap
