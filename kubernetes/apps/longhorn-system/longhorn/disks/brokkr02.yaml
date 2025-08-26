@@ -1,0 +1,14 @@
+---
+apiVersion: longhorn.io/v1beta2
+kind: Node
+metadata:
+  name: brokkr02
+spec:
+  disks:
+    data-1:
+      path: /var/mnt/data-1
+      allowScheduling: true
+    data-2:
+      path: /var/mnt/data-2
+      allowScheduling: true
+

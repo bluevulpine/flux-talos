@@ -30,6 +30,7 @@ resources:
   - ./k8s-gateway.yaml
   - ./kubernetes-dashboard.yaml
   - ./kubernetes-sigs-nfd.yaml
+  - ./longhorn.yaml
   - ./mayastor.yaml
   - ./metrics-server.yaml
   - ./nvidia-charts.yaml
