@@ -13,3 +13,4 @@ spec:
     requests:
       storage: "${VOLSYNC_CAPACITY:-20Gi}"
   storageClassName: "${VOLSYNC_STORAGECLASS:-longhorn}"
+  volumeName: "pvc-${APP}-volsync"
