@@ -39,6 +39,7 @@ nodes:
             - siderolabs/binfmt-misc
             - siderolabs/iscsi-tools
             - siderolabs/tailscale
+            - siderolabs/util-linux-tools
     extensionServices:
     - name: tailscale
       environment:
@@ -95,11 +96,21 @@ nodes:
 
   - hostname: "brokkr01"
     ipAddress: "10.0.10.38"
-    installDisk: "/dev/sda"
+    installDiskSelector:
+      model: "AirDisk 1TB SSD"
     controlPlane: false
     networkInterfaces:
-      - deviceSelector:
-          hardwareAddr: "bc:24:11:*"
+      - interface: bond0
+        bond:
+          mode: 802.3ad
+          lacpRate: fast
+          xmitHashPolicy: layer3+4
+          miimon: 100
+          updelay: 200
+          downdelay: 200
+          interfaces:
+          - enx844709336c1f
+          - enx844709336c20
         dhcp: true
         mtu: 9000
     schematic: &schematic
@@ -110,20 +121,76 @@ nodes:
             - siderolabs/amdgpu
             - siderolabs/binfmt-misc
             - siderolabs/iscsi-tools
-            - siderolabs/qemu-guest-agent
             - siderolabs/tailscale
+            - siderolabs/util-linux-tools
     extensionServices:
     - name: tailscale
       environment:
       - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
+    volumes:
+      - name: EPHEMERAL
+        provisioning:
+            grow: false
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            maxSize: 100GiB
+      - name: IMAGECACHE
+        provisioning:
+            grow: false
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            maxSize: 100GiB
+    userVolumes:
+      - name: data-1
+        provisioning:
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            grow: true
+            minSize: 100GiB
+        filesystem:
+            type: xfs
+        encryption:
+            provider: luks2 # schema says this is an error but it's what the app actually wants
+            keys:
+                - slot: 0
+                  tpm: {}
+                - slot: 1
+                  static:
+                    passphrase: ${SECRET_VOLUME_KEY}
+      - name: data-2
+        provisioning:
+            diskSelector:
+                match: disk.model == "WD_BLACK SN770 2TB"
+            grow: true
+            minSize: 100GiB
+        filesystem:
+            type: xfs
+        encryption:
+            provider: luks2 # schema says this is an error but it's what the app actually wants
+            keys:
+                - slot: 0
+                  tpm: {}
+                - slot: 1
+                  static:
+                    passphrase: ${SECRET_VOLUME_KEY}
 
   - hostname: "brokkr02"
     ipAddress: "10.0.10.39"
-    installDisk: "/dev/sda"
+    installDiskSelector:
+      model: "AirDisk 1TB SSD"
     controlPlane: false
     networkInterfaces:
-      - deviceSelector:
-          hardwareAddr: "bc:24:11:*"
+      - interface: bond0
+        bond:
+          mode: 802.3ad
+          lacpRate: fast
+          xmitHashPolicy: layer3+4
+          miimon: 100
+          updelay: 200
+          downdelay: 200
+          interfaces:
+          - enx844709336ca1
+          - enx844709336ca2
         dhcp: true
         mtu: 9000
     schematic: *schematic
@@ -131,47 +198,166 @@ nodes:
     - name: tailscale
       environment:
       - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
+    volumes:
+      - name: EPHEMERAL
+        provisioning:
+            grow: false
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            maxSize: 100GiB
+      - name: IMAGECACHE
+        provisioning:
+            grow: false
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            maxSize: 100GiB
+    userVolumes:
+      - name: data-1
+        provisioning:
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            grow: true
+            minSize: 100GiB
+        filesystem:
+            type: xfs
+        encryption:
+            provider: luks2 # schema says this is an error but it's what the app actually wants
+            keys:
+                - slot: 0
+                  tpm: {}
+                - slot: 1
+                  static:
+                    passphrase: ${SECRET_VOLUME_KEY}
+      - name: data-2
+        provisioning:
+            diskSelector:
+                match: disk.model == "SPCC M.2 PCIe SSD"
+            grow: true
+            minSize: 100GiB
+        filesystem:
+            type: xfs
+        encryption:
+            provider: luks2 # schema says this is an error but it's what the app actually wants
+            keys:
+                - slot: 0
+                  tpm: {}
+                - slot: 1
+                  static:
+                    passphrase: ${SECRET_VOLUME_KEY}
 
-  - hostname: "freyja01"
-    ipAddress: "10.0.10.41"
-    installDisk: "/dev/vda"
+# args: -set device.hostpci0.x-msix-relocation=bar2 -set device.hostpci1.x-msix-relocation=bar2
+  - hostname: "brokkr03"
+    ipAddress: "10.0.10.40"
+    installDiskSelector:
+      model: "AirDisk 1TB SSD"
     controlPlane: false
     networkInterfaces:
-      - deviceSelector:
-          hardwareAddr: "00:a0:98:*"
+      - interface: bond0
+        bond:
+          mode: 802.3ad
+          lacpRate: fast
+          xmitHashPolicy: layer3+4
+          miimon: 100
+          updelay: 200
+          downdelay: 200
+          interfaces:
+          - enx844709337101
+          - enx844709337102
         dhcp: true
         mtu: 9000
-    schematic:
-      customization:
-        systemExtensions:
-          officialExtensions:
-            - siderolabs/amd-ucode
-            - siderolabs/amdgpu
-            - siderolabs/binfmt-misc
-            - siderolabs/iscsi-tools
-            - siderolabs/nonfree-kmod-nvidia-production
-            - siderolabs/nvidia-container-toolkit-production
-            - siderolabs/qemu-guest-agent
-            - siderolabs/tailscale
+    schematic: *schematic
     extensionServices:
     - name: tailscale
       environment:
       - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
-    patches:
-      - |-
-        - op: add
-          path: /machine/kernel
-          value:
-            modules:
-              - name: nvidia
-              - name: nvidia_uvm
-              - name: nvidia_drm
-              - name: nvidia_modeset
-      - |-
-        - op: add
-          path: /machine/sysctls
-          value:
-            net.core.bpf_jit_harden: 1
+    volumes:
+      - name: EPHEMERAL
+        provisioning:
+            grow: false
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            maxSize: 100GiB
+      - name: IMAGECACHE
+        provisioning:
+            grow: false
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            maxSize: 100GiB
+    userVolumes:
+      - name: data-1
+        provisioning:
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            grow: true
+            minSize: 100GiB
+        filesystem:
+            type: xfs
+        encryption:
+            provider: luks2 # schema says this is an error but it's what the app actually wants
+            keys:
+                - slot: 0
+                  tpm: {}
+                - slot: 1
+                  static:
+                    passphrase: ${SECRET_VOLUME_KEY}
+      - name: data-2
+        provisioning:
+            diskSelector:
+                match: disk.model == "Samsung SSD 990 EVO 2TB"
+            grow: true
+            minSize: 100GiB
+        filesystem:
+            type: xfs
+        encryption:
+            provider: luks2 # schema says this is an error but it's what the app actually wants
+            keys:
+                - slot: 0
+                  tpm: {}
+                - slot: 1
+                  static:
+                    passphrase: ${SECRET_VOLUME_KEY}
+
+  # - hostname: "freyja01"
+  #   ipAddress: "10.0.10.41"
+  #   installDisk: "/dev/vda"
+  #   controlPlane: false
+  #   networkInterfaces:
+  #     - deviceSelector:
+  #         hardwareAddr: "00:a0:98:*"
+  #       dhcp: true
+  #       mtu: 9000
+  #   schematic:
+  #     customization:
+  #       systemExtensions:
+  #         officialExtensions:
+  #           - siderolabs/amd-ucode
+  #           - siderolabs/amdgpu
+  #           - siderolabs/binfmt-misc
+  #           - siderolabs/iscsi-tools
+  #           - siderolabs/nonfree-kmod-nvidia-production
+  #           - siderolabs/nvidia-container-toolkit-production
+  #           - siderolabs/qemu-guest-agent
+  #           - siderolabs/tailscale
+  #           - siderolabs/util-linux-tools
+  #   extensionServices:
+  #   - name: tailscale
+  #     environment:
+  #     - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
+  #   patches:
+  #     - |-
+  #       - op: add
+  #         path: /machine/kernel
+  #         value:
+  #           modules:
+  #             - name: nvidia
+  #             - name: nvidia_uvm
+  #             - name: nvidia_drm
+  #             - name: nvidia_modeset
+  #     - |-
+  #       - op: add
+  #         path: /machine/sysctls
+  #         value:
+  #           net.core.bpf_jit_harden: 1
 
 patches:
   # Configure containerd
@@ -227,9 +413,6 @@ patches:
         disabled: false
         servers:
           - chronos.funb.us
-          - pve01.funb.us
-          - pve02.funb.us
-          - pve03.funb.us
           - ntp1.wiktel.com
           - ntp2.wiktel.com
           - time.cloudflare.com
