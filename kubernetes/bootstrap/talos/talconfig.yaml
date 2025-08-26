@@ -173,6 +173,16 @@ nodes:
                 - slot: 1
                   static:
                     passphrase: ${SECRET_VOLUME_KEY}
+    patches:
+      - |-
+        machine:
+          sysctls:
+            vm.nr_hugepages: "1024"
+          kernel:
+            modules:
+              - name: nvme_tcp
+              - name: vfio_pci
+              - name: uio_pci_generic
 
   - hostname: "brokkr02"
     ipAddress: "10.0.10.39"
@@ -244,6 +254,16 @@ nodes:
                 - slot: 1
                   static:
                     passphrase: ${SECRET_VOLUME_KEY}
+    patches:
+      - |-
+        machine:
+          sysctls:
+            vm.nr_hugepages: "1024"
+          kernel:
+            modules:
+              - name: nvme_tcp
+              - name: vfio_pci
+              - name: uio_pci_generic
 
 # args: -set device.hostpci0.x-msix-relocation=bar2 -set device.hostpci1.x-msix-relocation=bar2
   - hostname: "brokkr03"
@@ -316,6 +336,16 @@ nodes:
                 - slot: 1
                   static:
                     passphrase: ${SECRET_VOLUME_KEY}
+    patches:
+      - |-
+        machine:
+          sysctls:
+            vm.nr_hugepages: "1024"
+          kernel:
+            modules:
+              - name: nvme_tcp
+              - name: vfio_pci
+              - name: uio_pci_generic
 
   # - hostname: "freyja01"
   #   ipAddress: "10.0.10.41"

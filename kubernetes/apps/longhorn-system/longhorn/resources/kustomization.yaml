@@ -1,0 +1,10 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../disks/brokkr01.yaml
+  - ../disks/brokkr02.yaml
+  - ../disks/brokkr03.yaml
+  - ./snapshotclass.yaml
+  - ./ingress.yaml
+
