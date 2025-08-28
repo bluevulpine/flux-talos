@@ -1,0 +1,28 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/cert-manager.io/certificate_v1.json
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "${SECRET_DOMAIN/./-}-staging"
+spec:
+  secretName: "${SECRET_DOMAIN/./-}-staging-tls"
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  commonName: "${SECRET_DOMAIN:=temp}"
+  dnsNames:
+    - "${SECRET_DOMAIN:=temp}"
+    - "*.${SECRET_DOMAIN:=temp}"
+    - "${SECRET_DOMAIN_BLOG:=temp}"
+    - "*.${SECRET_DOMAIN_BLOG:=temp}"
+    - "${SECRET_DOMAIN_BLOGCOM:=temp}"
+    - "*.${SECRET_DOMAIN_BLOGCOM:=temp}"
+    - "${SECRET_DOMAIN_MEDIA:=temp}"
+    - "*.${SECRET_DOMAIN_MEDIA:=temp}"
+    - "${SECRET_DOMAIN_LAKE:=temp}"
+    - "*.${SECRET_DOMAIN_LAKE:=temp}"
+    - "${SECRET_DOMAIN_YOYO:=temp}"
+    - "*.${SECRET_DOMAIN_YOYO:=temp}"
+    - "${SECRET_DOMAIN_BON:=temp}"
+    - "*.${SECRET_DOMAIN_BON:=temp}"
+
