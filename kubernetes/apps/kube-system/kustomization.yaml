@@ -5,6 +5,7 @@ resources:
   - ./namespace.yaml
   - ./certificates/ks.yaml
   - ./gateway-api-crds/ks.yaml
+  - ./gateway/ks.yaml
   - ./cilium/ks.yaml
   - ./coredns-custom/ks.yaml
   - ./csi-driver-nfs/ks.yaml
