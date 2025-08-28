@@ -85,7 +85,7 @@ spec:
             scrapeTimeout: 10s
     ingress:
       main:
-        enabled: true
+        enabled: false
         className: external
         annotations:
           external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
@@ -100,7 +100,7 @@ spec:
           - hosts:
               - *hostExternal
       internal:
-        enabled: true
+        enabled: false
         className: internal
         hosts:
           - host: &hostInternal "{{ .Release.Name }}-internal.${SECRET_DOMAIN}"
