@@ -37,7 +37,7 @@ spec:
       - --crd-source-apiversion=externaldns.k8s.io/v1alpha1
       - --crd-source-kind=DNSEndpoint
     policy: sync
-    sources: ["crd", "ingress", "gateway-httproute"]
+    sources: ["crd", "ingress"]
     txtPrefix: k8s.
     txtOwnerId: default
     domainFilters: ["${SECRET_DOMAIN}", "${SECRET_DOMAIN_BLOG}", "${SECRET_DOMAIN_BLOGCOM}", "${SECRET_DOMAIN_MEDIA}", "${SECRET_DOMAIN_LAKE}", "${SECRET_DOMAIN_YOYO}", "${SECRET_DOMAIN_BON}"]
