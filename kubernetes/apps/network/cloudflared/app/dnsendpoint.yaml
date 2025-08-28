@@ -13,7 +13,3 @@ spec:
     - dnsName: "hello.${SECRET_DOMAIN}"
       recordType: CNAME
       targets: ["external.${SECRET_DOMAIN}"]
-
-    - dnsName: "echo-server-external.${SECRET_DOMAIN}"
-      recordType: CNAME
-      targets: ["external.${SECRET_DOMAIN}"]
