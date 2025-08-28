@@ -1,0 +1,11 @@
+Common commands:
+- task kubernetes:kubeconform                # Validate Kubernetes manifests using kubeconform
+- kubectl get kustomizations -A              # View Flux Kustomizations
+- kubectl get helmreleases -A                # View Flux HelmReleases
+- kubectl -n flux-system logs deploy/notification-controller -f   # Flux logs
+- kubectl get certificates -A                # Check cert-manager Certificates
+- kubectl describe certificate -n kube-system ${SECRET_DOMAIN/./-}-production
+- kubectl get gateways -A; kubectl get httproutes -A             # Gateway API resources
+- kubectl -n network logs deploy/cloudflared -f   # Tunnel logs
+- kubectl -n network get ingress,svc                     # Legacy ingress state
+- flux reconcile kustomization -n flux-system <name>     # Force reconcile

@@ -1,0 +1,6 @@
+Project: flux-talos (bluevulpine)
+Purpose: GitOps-managed home Kubernetes cluster (Talos) using Flux. Migrating networking from Ingress NGINX to Gateway API. Certificates via cert-manager + Cloudflare DNS. Storage: currently longhorn and NFS (rook-ceph deprecated).
+Tech stack: Kubernetes (manifests via Kustomize + Flux Kustomization/HelmRelease), Talos, FluxCD, cert-manager (ClusterIssuers for Let’s Encrypt), cloudflared, Cilium CNI, ExternalDNS, ExternalSecrets, SOPS, Renovate.
+Repo structure: kubernetes/apps (per-namespace apps; each app directory has ks.yaml; subdirs app/resources), kubernetes/flux (flux core, repositories), kubernetes/bootstrap (bootstrap talos/flux), templates (gatus, guarded). Taskfile for workflows.
+Key conventions: Variables via Flux postBuild substitute (${SECRET_*}), Kustomizations in flux-system namespace targeting app namespaces. Certificates typically named "${SECRET_DOMAIN/./-}-<stage>" with wildcards across multiple domain families.
+Networking notes: Ingress-NGINX controllers exist (internal/external). Moving to Gateway API (CRDs added via upstream GitRepository; Gateways to be added in kube-system). Cloudflared currently points to ingress-nginx external; will incrementally map specific hosts to Gateway service.
