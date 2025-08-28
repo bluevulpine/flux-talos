@@ -108,7 +108,7 @@ spec:
         enabled: true
         existingClaim: "${APP}"
         globalMounts:
-          - path: /home/steam/valheim/worlds_local
+          - path: /home/steam/valheim/worlds_local_debug
       server-cache:
         enabled: true
         existingClaim: valheim-gamedata
