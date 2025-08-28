@@ -6,6 +6,9 @@ ingress:
   - hostname: "hello.${SECRET_DOMAIN}"
     service: hello_world
 
+  - hostname: "echo-server-external.${SECRET_DOMAIN}"
+    service: https://cilium-gateway-external.kube-system.svc.cluster.local
+
   - hostname: "${SECRET_DOMAIN}"
     service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN}"
