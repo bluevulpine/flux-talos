@@ -60,13 +60,12 @@ spec:
               WORLD: "SaturdayGK"
               TYPE: "BepInEx"
               MODS: |
-                denikson-BepInExPack_Valheim-5.4.2332
                 Advize-PlantEasily-2.0.3
                 Advize-PlantEverything-1.19.1
-                ValheimModding-Jotunn-2.26.0
+                ValheimModding-Jotunn-2.26.1
                 ValheimModding-HookGenPatcher-0.0.4
                 Numenos-InfinityTools-1.0.0
-                shudnal-ExtraSlots-1.0.32
+                shudnal-ExtraSlots-1.0.33
                 blacks7ar-OdinsHares-1.2.9
                 ValheimModding-YamlDotNet-16.3.1
               AUTO_UPDATE: 1
@@ -104,11 +103,6 @@ spec:
             port: 2458
             protocol: UDP
     persistence:
-      config:
-        enabled: true
-        existingClaim: "${APP}"
-        globalMounts:
-          - path: /home/steam/valheim/worlds_local_debug
       server-cache:
         enabled: true
         existingClaim: valheim-gamedata
@@ -116,3 +110,8 @@ spec:
           - path: /home/steam/.config/unity3d/IronGate/Valheim/
           - path: /home/steam/valheim/
           - path: /home/steam/backups/
+      config:
+        enabled: true
+        existingClaim: "${APP}"
+        globalMounts:
+          - path: /home/steam/valheim/worlds_local_debug
