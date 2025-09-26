@@ -61,12 +61,12 @@ spec:
               TYPE: "BepInEx"
               MODS: |
                 Advize-PlantEasily-2.0.3
-                Advize-PlantEverything-1.19.1
+                Advize-PlantEverything-1.20.0
                 ValheimModding-Jotunn-2.26.1
                 ValheimModding-HookGenPatcher-0.0.4
                 Numenos-InfinityTools-1.0.0
-                shudnal-ExtraSlots-1.0.33
-                blacks7ar-OdinsHares-1.2.9
+                shudnal-ExtraSlots-1.0.40
+                blacks7ar-OdinsHares-1.3.1
                 ValheimModding-YamlDotNet-16.3.1
               AUTO_UPDATE: 1
               AUTO_UPDATE_SCHEDULE: "0 8 * * *" # every day at 8am
