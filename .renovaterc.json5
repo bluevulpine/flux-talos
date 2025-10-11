@@ -1,0 +1,37 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:recommended",
+    "docker:enableMajor",
+    "helpers:pinGitHubActionDigests",
+    "github>bluevulpine/flux-talos//.renovate/autoMerge.json5",
+    "github>bluevulpine/flux-talos//.renovate/changelogs.json5",
+    "github>bluevulpine/flux-talos//.renovate/customManagers.json5",
+    "github>bluevulpine/flux-talos//.renovate/grafanaDashboards.json5",
+    "github>bluevulpine/flux-talos//.renovate/groups.json5",
+    "github>bluevulpine/flux-talos//.renovate/labels.json5",
+    "github>bluevulpine/flux-talos//.renovate/overrides.json5",
+    "github>bluevulpine/flux-talos//.renovate/semanticCommits.json5",
+    "github>bluevulpine/flux-talos//.renovate/valheimMods.json5",
+    ":automergeBranch",
+    ":disableRateLimiting",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":timezone(America/Chicago)",
+  ],
+  dependencyDashboardTitle: "Renovate Dashboard 🤖",
+  suppressNotifications: [
+    "prEditedNotification",
+    "prIgnoreNotification",
+  ],
+  ignorePaths: [
+    "**/*.sops.*",
+    "**/resources/**",
+  ],
+  flux: {
+    managerFilePatterns: ["/\\.yaml(?:\\.j2)?$/"],
+  },
+  kubernetes: {
+    managerFilePatterns: ["/\\.yaml(?:\\.j2)?$/"],
+  },
+}
