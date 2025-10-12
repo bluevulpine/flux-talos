@@ -426,7 +426,7 @@ patches:
       time:
         disabled: false
         servers:
-          - chronos.funb.us
+          - chronos.funb.us # gps refclock
           - ntp1.wiktel.com
           - ntp2.wiktel.com
           - time.cloudflare.com
