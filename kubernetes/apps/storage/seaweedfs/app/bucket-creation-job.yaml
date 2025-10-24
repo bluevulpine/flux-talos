@@ -1,0 +1,50 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seaweedfs-create-buckets
+  namespace: storage
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: aws-cli
+        image: amazon/aws-cli:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          echo "Creating SeaweedFS S3 buckets..."
+          
+          # Configure AWS CLI for SeaweedFS
+          export AWS_ACCESS_KEY_ID=admin
+          export AWS_SECRET_ACCESS_KEY=admin
+          export AWS_DEFAULT_REGION=us-east-1
+          
+          # SeaweedFS S3 endpoint
+          ENDPOINT="http://seaweedfs-s3.storage.svc.cluster.local:8333"
+          
+          echo "Testing S3 connection..."
+          aws --endpoint-url=$ENDPOINT s3 ls || echo "Connection test failed, continuing..."
+          
+          echo "Creating loki bucket..."
+          aws --endpoint-url=$ENDPOINT s3 mb s3://loki || echo "Bucket loki may already exist"
+          
+          echo "Creating thanos bucket..."
+          aws --endpoint-url=$ENDPOINT s3 mb s3://thanos || echo "Bucket thanos may already exist"
+          
+          echo "Listing buckets..."
+          aws --endpoint-url=$ENDPOINT s3 ls
+          
+          echo "Bucket creation completed!"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          seccompProfile:
+            type: RuntimeDefault
