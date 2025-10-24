@@ -87,12 +87,7 @@ spec:
               key: cache.yaml
       extraArgs: ["--query-range.response-cache-config=$(THANOS_CACHE_CONFIG)"]
       ingress:
-        enabled: true
-        ingressClassName: internal
-        hosts:
-          - &host thanos.${SECRET_DOMAIN}
-        tls:
-          - hosts: [*host]
+        enabled: false
       podAnnotations: &podAnnotations
         configmap.reloader.stakater.com/reload: *configMap
     rule:

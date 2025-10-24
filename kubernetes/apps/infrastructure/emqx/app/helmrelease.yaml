@@ -64,20 +64,7 @@ spec:
         memory: 512Mi
     ingress:
       dashboard:
-        enabled: true
-        ingressClassName: internal
-        annotations:
-          gethomepage.dev/enabled: "true"
-          gethomepage.dev/icon: simple-icons:emqx
-          gethomepage.dev/name: EMQX
-          gethomepage.dev/group: infrastructure
-        path: /
-        pathType: Prefix
-        hosts:
-          - &host "emqx.${SECRET_DOMAIN}"
-        tls:
-          - hosts:
-              - *host
+        enabled: false
     ssl:
       enabled: true
       commonName: "emqx.${SECRET_DOMAIN}"
