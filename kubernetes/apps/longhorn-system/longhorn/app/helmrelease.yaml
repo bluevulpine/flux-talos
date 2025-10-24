@@ -16,5 +16,5 @@ spec:
   values:
     defaultSettings:
       createDefaultDiskLabeledNodes: true
-      defaultReplicaCount: 3
+      defaultReplicaCount: "3"
 
