@@ -90,8 +90,7 @@ nodes:
     installDisk: "/dev/sda"
     controlPlane: false
     networkInterfaces:
-      - deviceSelector:
-          hardwareAddr: "e4:5f:01:*"
+      - interface: "end0"
         dhcp: true
         mtu: 1500
         vlans: &vlans

@@ -92,24 +92,7 @@ spec:
             port: 32400
     ingress:
       app:
-        className: external
-        annotations:
-          gethomepage.dev/enabled: "true"
-          gethomepage.dev/group: Media
-          gethomepage.dev/name: Plex
-          gethomepage.dev/icon: plex.png
-          gethomepage.dev/widget.type: plex
-          gethomepage.dev/widget.url: http://plex.media.svc.cluster.local:32400
-          gethomepage.dev/widget.key: "{{ `{{HOMEPAGE_VAR_PLEX_TOKEN}}` }}" # tells homepage to check for a secret with this value
-          external-dns.alpha.kubernetes.io/target: external.${SECRET_DOMAIN}
-          nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
-        hosts:
-          - host: "{{ .Release.Name }}.${SECRET_DOMAIN_MEDIA}"
-            paths:
-              - path: /
-                service:
-                  identifier: app
-                  port: http
+        enabled: false
     persistence:
       config:
         existingClaim: *app
