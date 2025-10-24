@@ -504,27 +504,11 @@ controlPlane:
           advertisedSubnets:
             - "10.0.10.0/24"
 
-    # Configure PodSecurity admission to exempt storage namespace.
+    # Disable default API server admission plugins.
     - |-
       cluster:
         apiServer:
-          admissionControl:
-            - name: PodSecurity
-              configuration:
-                apiVersion: pod-security.admission.config.k8s.io/v1
-                kind: PodSecurityConfiguration
-                defaults:
-                  enforce: privileged
-                  enforce-version: latest
-                  audit: privileged
-                  audit-version: latest
-                  warn: privileged
-                  warn-version: latest
-                exemptions:
-                  namespaces:
-                    - kube-system
-                    - storage
-                    - openebs-system
+          admissionControl: null
 
     # Enable K8s Talos API Access
     - |-
