@@ -71,12 +71,8 @@ spec:
                 spec:
                   install:
                     crds: CreateReplace
-                    strategy:
-                      name: RetryOnFailure
                   upgrade:
                     crds: CreateReplace
-                    strategy:
-                      name: RetryOnFailure
               target:
                 group: helm.toolkit.fluxcd.io
                 kind: HelmRelease
