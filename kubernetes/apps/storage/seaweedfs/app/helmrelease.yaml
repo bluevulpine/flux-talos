@@ -29,20 +29,22 @@ spec:
       replicationPlacment: "001"  # 1 replica for storage efficiency
       monitoring:
         enabled: true
-      # Disable hostPath log volumes to comply with PodSecurity
-      logsHostPath: ""
-      
+
     # Master servers (metadata management)
     master:
       enabled: true
       replicas: 3
-      
+
       # Use local storage for master data
       data:
         type: "persistentVolumeClaim"
         size: "5Gi"
         storageClass: "openebs-hostpath"
-      
+
+      # Use emptyDir for logs instead of hostPath
+      logs:
+        type: "emptyDir"
+
       # Resource limits
       resources:
         requests:
@@ -63,13 +65,19 @@ spec:
     volume:
       enabled: true
       replicas: 3
-      
-      # Use local storage for volume data
-      data:
-        type: "persistentVolumeClaim"
-        size: "100Gi"  # Adjust based on your storage needs
-        storageClass: "openebs-hostpath"
-      
+
+      # Override default hostPath dataDirs with PVC
+      dataDirs:
+        - name: data1
+          type: "persistentVolumeClaim"
+          size: "100Gi"
+          storageClass: "openebs-hostpath"
+          maxVolumes: 0
+
+      # Use emptyDir for logs instead of hostPath
+      logs:
+        type: "emptyDir"
+
       # Resource limits
       resources:
         requests:
@@ -82,23 +90,21 @@ spec:
       # Disable affinity
       affinity: ""
 
-      # Disable hostPath log volumes and data volumes
-      logs:
-        type: "emptyDir"
-      data:
-        type: "emptyDir"
-
     # Filer (file system interface)
     filer:
       enabled: true
       replicas: 2
-      
+
       # Use local storage for filer metadata
       data:
         type: "persistentVolumeClaim"
         size: "5Gi"
         storageClass: "openebs-hostpath"
-      
+
+      # Use emptyDir for logs instead of hostPath
+      logs:
+        type: "emptyDir"
+
       # Enable S3 API
       s3:
         enabled: true
@@ -107,7 +113,7 @@ spec:
         allowEmptyFolder: false
         domainName: ""
         enableAuth: true
-      
+
       # Resource limits
       resources:
         requests:
@@ -117,15 +123,11 @@ spec:
           cpu: 500m
           memory: 1Gi
 
-      # Disable hostPath log volumes
-      logs:
-        type: "emptyDir"
-
     # S3 Gateway
     s3:
       enabled: true
       replicas: 2
 
-      # Disable hostPath log volumes
+      # Use emptyDir for logs instead of hostPath
       logs:
         type: "emptyDir"
