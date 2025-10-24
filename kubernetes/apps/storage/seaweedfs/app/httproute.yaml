@@ -4,12 +4,11 @@ kind: HTTPRoute
 metadata:
   name: seaweedfs-filer
   namespace: storage
-  annotations:
-    external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
 spec:
   parentRefs:
     - name: internal
-      namespace: network
+      namespace: kube-system
+      sectionName: https
   hostnames:
     - seaweedfs.${SECRET_DOMAIN}
   rules:
