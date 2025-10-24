@@ -4,8 +4,6 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: authelia
-  annotations:
-    external-dns.alpha.kubernetes.io/target: external.${SECRET_DOMAIN}
 spec:
   hostnames: ["auth.${SECRET_DOMAIN}"]
   parentRefs:
@@ -15,7 +13,7 @@ spec:
   rules:
     - backendRefs:
         - name: authelia
-          port: 9091
+          port: 80
 ---
 # Note: The following nginx-specific headers were previously configured:
 # - Cache-Control: no-store

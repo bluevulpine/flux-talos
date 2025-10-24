@@ -8,3 +8,4 @@ resources:
   - ./scrapeconfig.yaml
   - ./alertmanagerconfig.yaml
   - ./externalsecret.yaml
+  - ./httproute.yaml

@@ -32,12 +32,12 @@ spec:
             name: &secret external-dns-secret-cloudflare
             key: api-token
     extraArgs:
-      - --ingress-class=external
       - --cloudflare-proxied
       - --crd-source-apiversion=externaldns.k8s.io/v1alpha1
       - --crd-source-kind=DNSEndpoint
+      - --ignore-hostname-annotation=false
     policy: sync
-    sources: ["crd", "ingress"]
+    sources: ["crd", "gateway-httproute"]
     txtPrefix: k8s.
     txtOwnerId: default
     domainFilters: ["${SECRET_DOMAIN}", "${SECRET_DOMAIN_BLOG}", "${SECRET_DOMAIN_BLOGCOM}", "${SECRET_DOMAIN_MEDIA}", "${SECRET_DOMAIN_LAKE}", "${SECRET_DOMAIN_YOYO}", "${SECRET_DOMAIN_BON}"]

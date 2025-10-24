@@ -17,5 +17,5 @@ spec:
       sectionName: https
   rules:
     - backendRefs:
-        - name: emqx-dashboard
+        - name: emqx
           port: 18083

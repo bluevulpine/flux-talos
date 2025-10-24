@@ -36,19 +36,7 @@ spec:
     cleanPrometheusOperatorObjectNames: true
     alertmanager:
       ingress:
-        annotations:
-          gethomepage.dev/enabled: "true"
-          gethomepage.dev/icon: alertmanager.png
-          gethomepage.dev/name: Alert-Manager
-          gethomepage.dev/group: Monitoring
-        enabled: true
-        ingressClassName: internal
-        pathType: Prefix
-        hosts:
-          - &promHost "alertmanager.${SECRET_DOMAIN}"
-        tls:
-          - hosts:
-              - *promHost
+        enabled: false
       alertmanagerSpec:
         replicas: 1
         useExistingSecret: true
@@ -93,18 +81,7 @@ spec:
       enabled: false
     prometheus:
       ingress:
-        enabled: true
-        ingressClassName: internal
-        annotations:
-          gethomepage.dev/enabled: "true"
-          gethomepage.dev/icon: prometheus.png
-          gethomepage.dev/name: Prometheus
-          gethomepage.dev/group: Observability
-        pathType: Prefix
-        hosts:
-          - &host "prometheus.${SECRET_DOMAIN}"
-        tls:
-          - hosts: [*host]
+        enabled: false
       thanosService:
         enabled: true
       thanosServiceMonitor:
