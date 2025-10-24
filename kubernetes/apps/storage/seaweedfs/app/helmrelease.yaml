@@ -39,7 +39,7 @@ spec:
       data:
         type: "persistentVolumeClaim"
         size: "5Gi"
-        storageClass: "openebs-hostpath"
+        storageClass: "longhorn"
 
       # Use emptyDir for logs instead of hostPath
       logs:
