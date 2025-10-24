@@ -1,10 +1,10 @@
 ---
-# ConfigMap for Loki Minio bucket configuration
+# ConfigMap for Loki SeaweedFS S3 bucket configuration
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: loki-bucket
 data:
   BUCKET_NAME: "loki"
-  BUCKET_HOST: "${SECRET_MINIO_HOST}"
+  BUCKET_HOST: "seaweedfs-s3.storage.svc.cluster.local:8333"
   BUCKET_REGION: "us-east-1"
