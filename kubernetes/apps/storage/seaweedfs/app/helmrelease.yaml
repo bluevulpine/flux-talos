@@ -67,7 +67,7 @@ spec:
         - name: data1
           type: "persistentVolumeClaim"
           size: "100Gi"
-          storageClass: "openebs-hostpath"
+          storageClass: "longhorn"
           maxVolumes: 0
 
       # Use emptyDir for logs instead of hostPath
@@ -95,7 +95,7 @@ spec:
       data:
         type: "persistentVolumeClaim"
         size: "5Gi"
-        storageClass: "openebs-hostpath"
+        storageClass: "longhorn"
 
       # Use emptyDir for logs instead of hostPath
       logs:
