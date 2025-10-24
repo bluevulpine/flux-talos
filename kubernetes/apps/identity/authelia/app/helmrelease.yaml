@@ -107,23 +107,7 @@ spec:
             scrapeTimeout: 10s
     ingress:
       app:
-        className: external
-        annotations:
-          external-dns.alpha.kubernetes.io/target: external.${SECRET_DOMAIN}
-          nginx.ingress.kubernetes.io/configuration-snippet: |
-            add_header Cache-Control "no-store";
-            add_header Pragma "no-cache";
-            add_header X-Frame-Options "SAMEORIGIN";
-            add_header X-XSS-Protection "1; mode=block";
-        hosts:
-          - host: &host auth.${SECRET_DOMAIN}
-            paths:
-              - path: /
-                service:
-                  identifier: app
-                  port: http
-        tls:
-          - hosts: [*host]
+        enabled: false
     persistence:
       config:
         type: configMap

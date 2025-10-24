@@ -1,0 +1,30 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: plex
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/group: Media
+    gethomepage.dev/name: Plex
+    gethomepage.dev/icon: plex.png
+    gethomepage.dev/widget.type: plex
+    gethomepage.dev/widget.url: http://plex.media.svc.cluster.local:32400
+    gethomepage.dev/widget.key: "{{ `{{HOMEPAGE_VAR_PLEX_TOKEN}}` }}"
+    external-dns.alpha.kubernetes.io/target: external.${SECRET_DOMAIN}
+spec:
+  hostnames: ["plex.${SECRET_DOMAIN_MEDIA}"]
+  parentRefs:
+    - name: external
+      namespace: kube-system
+      sectionName: https
+  rules:
+    - backendRefs:
+        - name: plex
+          port: 32400
+---
+# Note: The nginx.ingress.kubernetes.io/backend-protocol: "HTTPS" annotation
+# was previously configured. In Gateway API, backend protocol configuration
+# may need to be handled through BackendTLSPolicy or other mechanisms
+# depending on the Gateway implementation.

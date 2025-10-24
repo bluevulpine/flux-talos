@@ -1,3 +1,0 @@
----
-providerRegex: ^(talos-cp-01|talos-cp-02|talos-cp-03|talos-34|talos-201|talos-202|talos-203|talos-204)$
-bypassDnsResolution: true

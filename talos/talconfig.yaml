@@ -1,0 +1,526 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/budimanjojo/talhelper/master/pkg/config/schemas/talconfig.json
+clusterName: &cluster home-kubernetes
+# renovate: datasource=github-releases depName=siderolabs/talos
+talosVersion: v1.11.2
+# renovate: datasource=github-releases depName=kubernetes/kubernetes
+kubernetesVersion: v1.34.1
+
+endpoint: https://10.0.10.30:6443
+clusterPodNets:
+  - "10.69.0.0/16"
+clusterSvcNets:
+  - "10.96.0.0/16"
+additionalApiServerCertSans: &sans
+  - "10.0.10.30"
+  - 127.0.0.1 # KubePrism
+  - "talos.flyingfox-decibel.ts.net"
+  - k8s.internal
+additionalMachineCertSans: *sans
+cniConfig:
+  name: none
+
+
+nodes:
+  - hostname: "jormungandr1"
+    ipAddress: "10.0.10.31"
+    installDisk: "/dev/sda"
+    controlPlane: true
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "e4:5f:01:*"
+        dhcp: true
+        mtu: 1500
+        vip:
+          ip: "10.0.10.30"
+    schematic: &pischematic
+      customization:
+        extraKernelArgs:
+          - -init_on_alloc # Less security, faster puter
+          - -init_on_free # Less security, faster puter
+          - -selinux # Less security, faster puter
+          - apparmor=0 # Less security, faster puter
+          - init_on_alloc=0 # Less security, faster puter
+          - init_on_free=0 # Less security, faster puter
+          - mitigations=off # Less security, faster puter
+          - security=none # Less security, faster puter
+          - talos.auditd.disabled=1 # Less security, faster puter
+        systemExtensions:
+          officialExtensions:
+            - siderolabs/binfmt-misc # For running non-native binaries
+            - siderolabs/iscsi-tools
+            - siderolabs/nfsrahead # Faster NFS
+            - siderolabs/tailscale
+            - siderolabs/util-linux-tools
+    extensionServices: &extensionServices
+    - name: tailscale
+      environment:
+      - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
+
+  - hostname: "jormungandr2"
+    ipAddress: "10.0.10.32"
+    installDisk: "/dev/sda"
+    controlPlane: true
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "e4:5f:01:*"
+        dhcp: true
+        mtu: 1500
+        vip:
+          ip: "10.0.10.30"
+    schematic: *pischematic
+    extensionServices: *extensionServices
+
+  - hostname: "jormungandr3"
+    ipAddress: "10.0.10.33"
+    installDisk: "/dev/sda"
+    controlPlane: true
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "e4:5f:01:*"
+        dhcp: true
+        mtu: 1500
+        vip:
+          ip: "10.0.10.30"
+    schematic: *pischematic
+    extensionServices: *extensionServices
+
+  - hostname: "jormungandr4"
+    ipAddress: "10.0.10.34"
+    installDisk: "/dev/sda"
+    controlPlane: false
+    networkInterfaces:
+      - interface: "end0"
+        dhcp: true
+        mtu: 1500
+        vlans: &vlans
+          - # IOT
+            vlanId: 50
+            dhcp: false
+            mtu: 1500
+    schematic: *pischematic
+    extensionServices: *extensionServices
+
+  - hostname: "brokkr01"
+    ipAddress: "10.0.10.38"
+    installDiskSelector:
+      model: "AirDisk 1TB SSD"
+    controlPlane: false
+    networkInterfaces:
+      - interface: bond0
+        bond:
+          mode: 802.3ad
+          lacpRate: fast
+          xmitHashPolicy: layer3+4
+          miimon: 100
+          updelay: 200
+          downdelay: 200
+          interfaces:
+          - enx844709336c1f
+          - enx844709336c20
+        dhcp: true
+        mtu: 9000
+        vlans: *vlans
+    schematic: &schematic
+      customization:
+        extraKernelArgs:
+          - -init_on_alloc # Less security, faster puter
+          - -init_on_free # Less security, faster puter
+          - -selinux # Less security, faster puter
+          - apparmor=0 # Less security, faster puter
+          - init_on_alloc=0 # Less security, faster puter
+          - init_on_free=0 # Less security, faster puter
+          - amd_iommu=on # PCI Passthrough
+          - iommu=pt # PCI Passthrough
+          - mitigations=off # Less security, faster puter
+          - security=none # Less security, faster puter
+          - talos.auditd.disabled=1 # Less security, faster puter
+        systemExtensions:
+          officialExtensions:
+            - siderolabs/amd-ucode
+            - siderolabs/amdgpu
+            - siderolabs/binfmt-misc
+            - siderolabs/iscsi-tools
+            - siderolabs/nfsrahead # Faster NFS
+            - siderolabs/tailscale
+            - siderolabs/util-linux-tools
+    extensionServices: *extensionServices
+    volumes:
+      - name: EPHEMERAL
+        provisioning:
+            grow: false
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            maxSize: 100GiB
+      - name: IMAGECACHE
+        provisioning:
+            grow: false
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            maxSize: 100GiB
+    userVolumes:
+      - name: data-1
+        provisioning:
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            grow: true
+            minSize: 100GiB
+        filesystem:
+            type: xfs
+        encryption:
+            provider: luks2 # schema says this is an error but it's what the app actually wants
+            keys:
+                - slot: 0
+                  tpm: {}
+                - slot: 1
+                  static:
+                    passphrase: ${SECRET_VOLUME_KEY}
+      - name: data-2
+        provisioning:
+            diskSelector:
+                match: disk.model == "WD_BLACK SN770 2TB"
+            grow: true
+            minSize: 100GiB
+        filesystem:
+            type: xfs
+        encryption:
+            provider: luks2 # schema says this is an error but it's what the app actually wants
+            keys:
+                - slot: 0
+                  tpm: {}
+                - slot: 1
+                  static:
+                    passphrase: ${SECRET_VOLUME_KEY}
+    patches:
+      - |-
+        machine:
+          sysctls:
+            vm.nr_hugepages: "1024"
+          kernel:
+            modules:
+              - name: nvme_tcp
+              - name: vfio_pci
+              - name: uio_pci_generic
+
+  - hostname: "brokkr02"
+    ipAddress: "10.0.10.39"
+    installDiskSelector:
+      model: "AirDisk 1TB SSD"
+    controlPlane: false
+    networkInterfaces:
+      - interface: bond0
+        bond:
+          mode: 802.3ad
+          lacpRate: fast
+          xmitHashPolicy: layer3+4
+          miimon: 100
+          updelay: 200
+          downdelay: 200
+          interfaces:
+          - enx844709336ca1
+          - enx844709336ca2
+        dhcp: true
+        mtu: 9000
+        vlans: *vlans
+    schematic: *schematic
+    extensionServices: *extensionServices
+    volumes:
+      - name: EPHEMERAL
+        provisioning:
+            grow: false
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            maxSize: 100GiB
+      - name: IMAGECACHE
+        provisioning:
+            grow: false
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            maxSize: 100GiB
+    userVolumes:
+      - name: data-1
+        provisioning:
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            grow: true
+            minSize: 100GiB
+        filesystem:
+            type: xfs
+        encryption:
+            provider: luks2 # schema says this is an error but it's what the app actually wants
+            keys:
+                - slot: 0
+                  tpm: {}
+                - slot: 1
+                  static:
+                    passphrase: ${SECRET_VOLUME_KEY}
+      - name: data-2
+        provisioning:
+            diskSelector:
+                match: disk.model == "SPCC M.2 PCIe SSD"
+            grow: true
+            minSize: 100GiB
+        filesystem:
+            type: xfs
+        encryption:
+            provider: luks2 # schema says this is an error but it's what the app actually wants
+            keys:
+                - slot: 0
+                  tpm: {}
+                - slot: 1
+                  static:
+                    passphrase: ${SECRET_VOLUME_KEY}
+    patches:
+      - |-
+        machine:
+          sysctls:
+            vm.nr_hugepages: "1024"
+          kernel:
+            modules:
+              - name: nvme_tcp
+              - name: vfio_pci
+              - name: uio_pci_generic
+
+  - hostname: "brokkr03"
+    ipAddress: "10.0.10.40"
+    installDiskSelector:
+      model: "AirDisk 1TB SSD"
+    controlPlane: false
+    networkInterfaces:
+      - interface: bond0
+        bond:
+          mode: 802.3ad
+          lacpRate: fast
+          xmitHashPolicy: layer3+4
+          miimon: 100
+          updelay: 200
+          downdelay: 200
+          interfaces:
+          - enx844709337101
+          - enx844709337102
+        dhcp: true
+        mtu: 9000
+        vlans: *vlans
+    schematic: *schematic
+    extensionServices: *extensionServices
+    volumes:
+      - name: EPHEMERAL
+        provisioning:
+            grow: false
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            maxSize: 100GiB
+      - name: IMAGECACHE
+        provisioning:
+            grow: false
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            maxSize: 100GiB
+    userVolumes:
+      - name: data-1
+        provisioning:
+            diskSelector:
+                match: disk.model == "AirDisk 1TB SSD"
+            grow: true
+            minSize: 100GiB
+        filesystem:
+            type: xfs
+        encryption:
+            provider: luks2 # schema says this is an error but it's what the app actually wants
+            keys:
+                - slot: 0
+                  tpm: {}
+                - slot: 1
+                  static:
+                    passphrase: ${SECRET_VOLUME_KEY}
+      - name: data-2
+        provisioning:
+            diskSelector:
+                match: disk.model == "Samsung SSD 990 EVO 2TB"
+            grow: true
+            minSize: 100GiB
+        filesystem:
+            type: xfs
+        encryption:
+            provider: luks2 # schema says this is an error but it's what the app actually wants
+            keys:
+                - slot: 0
+                  tpm: {}
+                - slot: 1
+                  static:
+                    passphrase: ${SECRET_VOLUME_KEY}
+    patches:
+      - |-
+        machine:
+          sysctls:
+            vm.nr_hugepages: "1024"
+          kernel:
+            modules:
+              - name: nvme_tcp
+              - name: vfio_pci
+              - name: uio_pci_generic
+
+patches:
+  # API Server feature gates
+  - |-
+    cluster:
+      apiServer:
+        extraArgs:
+          feature-gates: ImageVolume=true
+
+  # Controller Manager feature gates
+  - |-
+    cluster:
+      controllerManager:
+        extraArgs:
+          feature-gates: ImageVolume=true
+
+  # Scheduler feature gates
+  - |-
+    cluster:
+      scheduler:
+        extraArgs:
+          feature-gates: ImageVolume=true
+
+  # Configure containerd
+  - |-
+    machine:
+      files:
+        - op: create
+          path: /etc/cri/conf.d/20-customization.part
+          content: |-
+            [plugins."io.containerd.cri.v1.images"]
+              discard_unpacked_layers = false
+            [plugins."io.containerd.cri.v1.runtime"]
+              device_ownership_from_security_context = true
+
+  # Enable cluster discovery
+  - |-
+    cluster:
+      discovery:
+        enabled: true
+        registries:
+          kubernetes:
+            disabled: true
+          service:
+            disabled: false
+
+  # Configure kubelet
+  - |-
+    machine:
+      kubelet:
+        extraConfig:
+          featureGates:
+            ImageVolume: true
+        extraArgs:
+          image-gc-low-threshold: 50
+          image-gc-high-threshold: 55
+        nodeIP:
+          validSubnets:
+            - "10.0.10.0/24"
+
+  # Configure NTP
+  - |-
+    machine:
+      time:
+        disabled: false
+        servers:
+          - chronos.funb.us # gps refclock
+          - ntp1.wiktel.com
+          - ntp2.wiktel.com
+          - time.cloudflare.com
+
+  # Custom sysctl settings
+  - |-
+    machine:
+      sysctls:
+        fs.inotify.max_queued_events: 65536
+        fs.inotify.max_user_instances: "8192"
+        fs.inotify.max_user_watches: "1048576"
+        net.core.default_qdisc: fq
+        net.core.rmem_max: "67108864"
+        net.core.wmem_max: "67108864"
+        net.ipv4.neigh.default.gc_thresh1: "4096"
+        net.ipv4.neigh.default.gc_thresh2: "8192"
+        net.ipv4.neigh.default.gc_thresh3: "16384"
+        net.ipv4.tcp_congestion_control: bbr
+        net.ipv4.tcp_fastopen: "3"
+        net.ipv4.tcp_mtu_probing: "1"
+        net.ipv4.tcp_rmem: 4096 87380 33554432
+        net.ipv4.tcp_window_scaling: "1"
+        net.ipv4.tcp_wmem: 4096 65536 33554432
+        sunrpc.tcp_max_slot_table_entries: "128"
+        sunrpc.tcp_slot_table_entries: "128"
+        user.max_user_namespaces: "11255"
+
+  # Mount openebs-hostpath in kubelet
+  - |-
+    machine:
+      kubelet:
+        extraMounts:
+          - destination: /var/openebs/local
+            type: bind
+            source: /var/openebs/local
+            options:
+              - bind
+              - rshared
+              - rw
+
+  # Set global NFS options
+  - |-
+    machine:
+      files:
+        - op: overwrite
+          path: /etc/nfsmount.conf
+          permissions: 0o644
+          content: |
+            [ NFSMount_Global_Options ]
+            nfsvers=4.2
+            hard=True
+            nconnect=16
+            noatime=True
+
+controlPlane:
+  patches:
+    # Cluster configuration
+    - |-
+      cluster:
+        allowSchedulingOnMasters: false
+        controllerManager:
+          extraArgs:
+            bind-address: 0.0.0.0
+        proxy:
+          disabled: true
+        scheduler:
+          extraArgs:
+            bind-address: 0.0.0.0
+
+    # ETCD configuration
+    - |-
+      cluster:
+        etcd:
+          extraArgs:
+            listen-metrics-urls: http://0.0.0.0:2381
+          advertisedSubnets:
+            - "10.0.10.0/24"
+
+    # Disable default API server admission plugins.
+    - |-
+      cluster:
+        apiServer:
+          admissionControl: null
+
+    # Enable K8s Talos API Access
+    - |-
+      machine:
+        features:
+          kubernetesTalosAPIAccess:
+            enabled: true
+            allowedRoles:
+              - os:admin
+              - os:etcd:backup
+            allowedKubernetesNamespaces:
+              - system-upgrade
+              - kube-system
+              - actions-runner-system
+

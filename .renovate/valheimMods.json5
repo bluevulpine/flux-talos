@@ -1,0 +1,43 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "packageRules": [
+    {
+      "matchDatasources": [
+        "custom.thunderstore-valheim"
+      ],
+      "addLabels": [
+        "renovate/valheim-mod"
+      ],
+      "groupName": "Valheim mods",
+      "schedule": [
+        "on saturday"
+      ]
+    }
+  ],
+  "customDatasources": {
+    "thunderstore-valheim": {
+      "defaultRegistryUrlTemplate": "https://valheim.thunderstore.io/api/v1/package/",
+      "format": "json",
+      "transformTemplates": [
+        "{ \"releases\": $map($[full_name=\\\"{{packageName}}\\\"].versions, function($v) { { \"version\": $v.version_number, \"releaseTimestamp\": $v.date_created } }) }"
+      ]
+    }
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": [
+        "Process Valheim mods from Thunderstore"
+      ],
+      "managerFilePatterns": [
+        "**/valheim/**/helmrelease.yaml"
+      ],
+      "matchStrings": [
+        "^\\s+(?<depName>[^-]+-[^-]+)-(?<currentValue>[^\\s\\n]+)"
+      ],
+      "datasourceTemplate": "custom.thunderstore-valheim",
+      "extractVersionTemplate": "^(?<version>.*)$"
+    }
+  ]
+}
+

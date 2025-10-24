@@ -84,16 +84,7 @@ spec:
             port: *ldapPort
     ingress:
       app:
-        className: internal
-        hosts:
-          - host: &host "{{ .Release.Name }}.${SECRET_DOMAIN}"
-            paths:
-              - path: /
-                service:
-                  identifier: app
-                  port: http
-        tls:
-          - hosts: [*host]
+        enabled: false
     persistence:
       data:
         type: emptyDir
