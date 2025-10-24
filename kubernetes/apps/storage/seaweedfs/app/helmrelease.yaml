@@ -57,10 +57,6 @@ spec:
       # Disable affinity
       affinity: ""
 
-      # Disable hostPath log volumes
-      logs:
-        type: "emptyDir"
-
     # Volume servers (data storage)
     volume:
       enabled: true
