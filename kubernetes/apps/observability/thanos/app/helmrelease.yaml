@@ -52,7 +52,7 @@ spec:
       value:
         type: s3
         config:
-          insecure: false
+          insecure: true
           http_config:
             tls_config:
               insecure_skip_verify: true
