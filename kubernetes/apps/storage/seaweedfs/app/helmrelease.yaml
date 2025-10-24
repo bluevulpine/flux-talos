@@ -49,9 +49,10 @@ spec:
         limits:
           cpu: 500m
           memory: 512Mi
-      
 
-    
+      # Disable affinity
+      affinity: ""
+
     # Volume servers (data storage)
     volume:
       enabled: true
@@ -71,9 +72,10 @@ spec:
         limits:
           cpu: 1000m
           memory: 1Gi
-      
 
-    
+      # Disable affinity
+      affinity: ""
+
     # Filer (file system interface)
     filer:
       enabled: true
