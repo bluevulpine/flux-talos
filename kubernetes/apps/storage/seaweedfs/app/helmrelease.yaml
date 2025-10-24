@@ -108,7 +108,7 @@ spec:
         httpsPort: 0
         allowEmptyFolder: false
         domainName: ""
-        enableAuth: true
+        enableAuth: false
 
       # Resource limits
       resources:
