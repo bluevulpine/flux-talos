@@ -34,14 +34,16 @@ spec:
         initialDelaySeconds: 30
         timeoutSeconds: 10
       startupProbe:
-        initialDelaySeconds: 60
-        timeoutSeconds: 10
+        initialDelaySeconds: 120
+        timeoutSeconds: 30
+        periodSeconds: 10
+        failureThreshold: 30
       resources:
         requests:
           cpu: 21m
-          memory: 51Mi
+          memory: 64Mi
         limits:
-          memory: 51Mi
+          memory: 128Mi
 
     worker:
       livenessProbe:
