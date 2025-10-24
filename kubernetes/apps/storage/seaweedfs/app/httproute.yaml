@@ -5,12 +5,11 @@ metadata:
   name: seaweedfs-filer
   namespace: storage
   annotations:
-    external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
+    external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
 spec:
   parentRefs:
-    - name: external
-      namespace: kube-system
-      sectionName: https
+    - name: internal
+      namespace: network
   hostnames:
     - seaweedfs.${SECRET_DOMAIN}
   rules:
