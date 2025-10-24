@@ -1,0 +1,132 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app seaweedfs
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: seaweedfs
+      version: 3.81.0
+      sourceRef:
+        kind: HelmRepository
+        name: seaweedfs
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    # Global settings
+    global:
+      replicationPlacment: "001"  # 1 replica for storage efficiency
+      monitoring:
+        enabled: true
+      
+    # Master servers (metadata management)
+    master:
+      enabled: true
+      replicas: 3
+      
+      # Use local storage for master data
+      data:
+        type: "persistentVolumeClaim"
+        size: "5Gi"
+        storageClass: "openebs-hostpath"
+      
+      # Resource limits
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      
+      # Anti-affinity to spread across nodes
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values: ["seaweedfs"]
+                    - key: app.kubernetes.io/component
+                      operator: In
+                      values: ["master"]
+                topologyKey: kubernetes.io/hostname
+    
+    # Volume servers (data storage)
+    volume:
+      enabled: true
+      replicas: 3
+      
+      # Use local storage for volume data
+      data:
+        type: "persistentVolumeClaim"
+        size: "100Gi"  # Adjust based on your storage needs
+        storageClass: "openebs-hostpath"
+      
+      # Resource limits
+      resources:
+        requests:
+          cpu: 200m
+          memory: 256Mi
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+      
+      # Anti-affinity to spread across nodes
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values: ["seaweedfs"]
+                    - key: app.kubernetes.io/component
+                      operator: In
+                      values: ["volume"]
+                topologyKey: kubernetes.io/hostname
+    
+    # Filer (file system interface)
+    filer:
+      enabled: true
+      replicas: 2
+      
+      # Use local storage for filer metadata
+      data:
+        type: "persistentVolumeClaim"
+        size: "5Gi"
+        storageClass: "openebs-hostpath"
+      
+      # Enable S3 API
+      s3:
+        enabled: true
+        port: 8333
+        httpsPort: 0
+        allowEmptyFolder: false
+        domainName: ""
+        enableAuth: true
+      
+      # Resource limits
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 1Gi

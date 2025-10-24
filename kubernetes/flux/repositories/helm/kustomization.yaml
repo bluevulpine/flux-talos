@@ -40,6 +40,7 @@ resources:
   - ./postfinance.yaml
   - ./prometheus-community.yaml
   - ./rancher-latest.yaml
+  - ./seaweedfs.yaml
 
   - ./spegel.yaml
   - ./stakater.yaml
