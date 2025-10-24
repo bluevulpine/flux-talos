@@ -62,8 +62,6 @@ spec:
       - --ignore-ingress-tls-spec
       - --crd-source-apiversion=externaldns.k8s.io/v1alpha1
       - --crd-source-kind=DNSEndpoint
-      - --gateway-namespace=kube-system
-      - --gateway-name=internal
     policy: sync
     sources: ["service", "gateway-httproute"]
     txtOwnerId: main
