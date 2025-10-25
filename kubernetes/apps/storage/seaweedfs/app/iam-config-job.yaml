@@ -1,0 +1,50 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seaweedfs-configure-iam
+  namespace: storage
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: seaweedfs-shell
+        image: chrislusf/seaweedfs:3.98
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          echo "Configuring SeaweedFS IAM..."
+          
+          # Wait for filer to be ready
+          until weed shell -filer=seaweedfs-filer-client.storage:8888 <<< "exit"; do
+            echo "Waiting for filer to be ready..."
+            sleep 5
+          done
+          
+          echo "Filer is ready, configuring IAM..."
+          
+          # Configure IAM identity for minio user
+          weed shell -filer=seaweedfs-filer-client.storage:8888 <<EOF
+          s3.configure -user=minio -access_key=minio -secret_key=$MINIO_SECRET_KEY -actions=Admin,Read,Write -apply
+          exit
+          EOF
+          
+          echo "IAM configuration completed!"
+        env:
+          - name: MINIO_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: seaweedfs-s3-secret
+                key: AWS_SECRET_ACCESS_KEY
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          seccompProfile:
+            type: RuntimeDefault

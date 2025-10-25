@@ -6,4 +6,5 @@ resources:
   - ./helmrelease.yaml
   - ./externalsecret.yaml
   - ./bucket-creation-job.yaml
+  - ./iam-config-job.yaml
   - ./httproute.yaml
