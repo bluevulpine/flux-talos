@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - ./namespace.yaml
   - ./vars/kustomization.yaml
+  - ./repositories/kustomization.yaml
   - ./flux-operator/ks.yaml
   - ./flux-instance/ks.yaml
   - ./addons/ks.yaml
