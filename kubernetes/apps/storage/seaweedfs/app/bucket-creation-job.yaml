@@ -11,16 +11,25 @@ spec:
       containers:
       - name: aws-cli
         image: amazon/aws-cli:latest
+        env:
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: seaweedfs-s3-secret
+                key: AWS_ACCESS_KEY_ID
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: seaweedfs-s3-secret
+                key: AWS_SECRET_ACCESS_KEY
         command:
         - /bin/sh
         - -c
         - |
           set -e
           echo "Creating SeaweedFS S3 buckets..."
-          
-          # Configure AWS CLI for SeaweedFS
-          export AWS_ACCESS_KEY_ID=admin
-          export AWS_SECRET_ACCESS_KEY=admin
+
+          # Configure AWS CLI for SeaweedFS using MinIO credentials
           export AWS_DEFAULT_REGION=us-east-1
           
           # SeaweedFS S3 endpoint
