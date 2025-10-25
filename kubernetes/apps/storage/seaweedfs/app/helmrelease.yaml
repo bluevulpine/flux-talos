@@ -108,7 +108,7 @@ spec:
         httpsPort: 0
         allowEmptyFolder: false
         domainName: ""
-        enableAuth: true
+        enableAuth: false
 
       # Resource limits
       resources:
@@ -127,16 +127,3 @@ spec:
       # Use emptyDir for logs instead of hostPath
       logs:
         type: "emptyDir"
-
-      # Configure S3 authentication with MinIO credentials
-      extraEnvVars:
-        - name: WEED_S3_DEFAULT_USER_ID
-          valueFrom:
-            secretKeyRef:
-              name: seaweedfs-s3-secret
-              key: AWS_ACCESS_KEY_ID
-        - name: WEED_S3_DEFAULT_USER_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: seaweedfs-s3-secret
-              key: AWS_SECRET_ACCESS_KEY
