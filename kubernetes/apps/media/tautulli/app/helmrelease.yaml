@@ -87,7 +87,7 @@ spec:
         parentRefs:
           - name: internal
             namespace: kube-system
-            sectionName: https
+            sectionName: https-media
         hostnames:
           - "tautulli.${SECRET_DOMAIN_MEDIA}"
         rules:
