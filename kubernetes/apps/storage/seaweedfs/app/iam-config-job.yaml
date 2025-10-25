@@ -19,18 +19,13 @@ spec:
           echo "Configuring SeaweedFS IAM..."
           
           # Wait for filer to be ready
-          until weed shell -filer=seaweedfs-filer-client.storage:8888 <<< "exit"; do
-            echo "Waiting for filer to be ready..."
-            sleep 5
-          done
-          
-          echo "Filer is ready, configuring IAM..."
-          
+          echo "Waiting for filer to be ready..."
+          sleep 10
+
+          echo "Filer should be ready, configuring IAM..."
+
           # Configure IAM identity for minio user
-          weed shell -filer=seaweedfs-filer-client.storage:8888 <<EOF
-          s3.configure -user=minio -access_key=minio -secret_key=$MINIO_SECRET_KEY -actions=Admin,Read,Write -apply
-          exit
-          EOF
+          echo "s3.configure -user=minio -access_key=minio -secret_key=$MINIO_SECRET_KEY -actions=Admin,Read,Write -apply" | weed shell -filer=seaweedfs-filer-client.storage:8888
           
           echo "IAM configuration completed!"
         env:
