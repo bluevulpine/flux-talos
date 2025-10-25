@@ -25,7 +25,7 @@ spec:
           echo "Filer should be ready, configuring IAM..."
 
           # Configure IAM identity for minio user
-          echo "s3.configure -user=minio -access_key=minio -secret_key=$MINIO_SECRET_KEY -actions=Admin,Read,Write -apply" | weed shell -filer=seaweedfs-filer-client.storage:8888
+          echo "s3.configure -user=minio -access_key=minio -secret_key=$MINIO_SECRET_KEY -actions=Admin,Read,Write -apply" | weed shell -master=seaweedfs-master.storage:9333 -filer=seaweedfs-filer-client.storage:8888
           
           echo "IAM configuration completed!"
         env:
