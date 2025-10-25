@@ -24,10 +24,10 @@ spec:
       sync:
         kind: GitRepository
         name: home-kubernetes
-        url: https://github.com/bluevulpine/flux-talos
+        url: https://github.com/bluevulpine/flux-talos.git
         ref: refs/heads/main
         path: kubernetes/apps
-        interval: 1h
+        interval: 1m
       kustomize:
         postBuild:
           substituteFrom:
@@ -40,7 +40,7 @@ spec:
               optional: true
             - kind: Secret
               name: cluster-secrets-user
-        optional: true
+        optional: false
         patches:
           - patch: |- # Add SOPS decryption and variable substitution to all Kustomizations
               apiVersion: kustomize.toolkit.fluxcd.io/v1
