@@ -129,7 +129,7 @@ spec:
         type: "emptyDir"
 
       # Configure S3 authentication with MinIO credentials
-      extraEnvironmentVars:
+      extraEnvVars:
         - name: WEED_S3_DEFAULT_USER_ID
           valueFrom:
             secretKeyRef:
