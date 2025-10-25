@@ -5,6 +5,7 @@ kind: Kustomization
 namespace: flux-system
 
 resources:
+  - ./fluxinstance.yaml
   - ./helmrelease.yaml
   - ./ocirepository.yaml
 
