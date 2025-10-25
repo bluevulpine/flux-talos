@@ -23,6 +23,7 @@ spec:
         - notification-controller
       sync:
         kind: GitRepository
+        name: home-kubernetes
         url: https://github.com/bluevulpine/flux-talos
         ref: refs/heads/main
         path: kubernetes/apps
