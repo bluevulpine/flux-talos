@@ -29,7 +29,69 @@ spec:
         path: kubernetes/apps
         interval: 1h
       kustomize:
+        postBuild:
+          substituteFrom:
+            - kind: ConfigMap
+              name: cluster-settings
+            - kind: Secret
+              name: cluster-secrets
+            - kind: ConfigMap
+              name: cluster-settings-user
+              optional: true
+            - kind: Secret
+              name: cluster-secrets-user
+        optional: true
         patches:
+          - patch: |- # Add SOPS decryption and variable substitution to all Kustomizations
+              apiVersion: kustomize.toolkit.fluxcd.io/v1
+              kind: Kustomization
+              metadata:
+                name: not-used
+              spec:
+                decryption:
+                  provider: sops
+                  secretRef:
+                    name: sops-age
+                postBuild:
+                  substituteFrom:
+                    - kind: ConfigMap
+                      name: cluster-settings
+                    - kind: Secret
+                      name: cluster-secrets
+                    - kind: ConfigMap
+                      name: cluster-settings-user
+                      optional: true
+                    - kind: Secret
+                      name: cluster-secrets-user
+                      optional: true
+            target:
+              group: kustomize.toolkit.fluxcd.io
+              kind: Kustomization
+              labelSelector: substitution.flux.home.arpa/disabled notin (true)
+          - # Add HelmRelease defaults to all Kustomizations
+            patch: |-
+              apiVersion: kustomize.toolkit.fluxcd.io/v1
+              kind: Kustomization
+              metadata:
+                name: not-used
+              spec:
+                patches:
+                  - patch: |-
+                      apiVersion: helm.toolkit.fluxcd.io/v2
+                      kind: HelmRelease
+                      metadata:
+                        name: not-used
+                      spec:
+                        install:
+                          crds: CreateReplace
+                        upgrade:
+                          crds: CreateReplace
+                    target:
+                      group: helm.toolkit.fluxcd.io
+                      kind: HelmRelease
+            target:
+              group: kustomize.toolkit.fluxcd.io
+              kind: Kustomization
           - # Remove NetworkPolicies (legacy from k3s template, not needed for Talos + Cilium but kept for safety)
             patch: |-
               $patch: delete
