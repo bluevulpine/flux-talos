@@ -51,7 +51,7 @@ spec:
 #     kind: GitRepository
 #     name: home-kubernetes
 #     namespace: flux-system
-  targetNamespace: media
+#   targetNamespace: media
 #   wait: false # no flux ks dependents
 #   interval: 30m
 #   timeout: 5m
