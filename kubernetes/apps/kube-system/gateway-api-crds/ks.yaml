@@ -15,6 +15,7 @@ spec:
     kind: GitRepository
     name: gateway-api
     namespace: flux-system
+  targetNamespace: kube-system
   timeout: 5m
   wait: true
 

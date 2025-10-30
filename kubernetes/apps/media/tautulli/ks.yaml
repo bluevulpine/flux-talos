@@ -17,6 +17,7 @@ spec:
     kind: GitRepository
     name: home-kubernetes
     namespace: flux-system
+  targetNamespace: media
   wait: false # no flux ks dependents
   postBuild:
     substitute:

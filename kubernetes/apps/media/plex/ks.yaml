@@ -16,6 +16,7 @@ spec:
     kind: GitRepository
     name: home-kubernetes
     namespace: flux-system
+  targetNamespace: media
   wait: false # no flux ks dependents
   interval: 30m
   timeout: 5m
@@ -34,9 +35,7 @@ spec:
 # kind: Kustomization
 # metadata:
 #   name: &app kometa
-#   namespace: flux-system
 # spec:
-#   targetNamespace: media
 #   commonMetadata:
 #     labels:
 #       app.kubernetes.io/name: *app
@@ -52,6 +51,7 @@ spec:
 #     kind: GitRepository
 #     name: home-kubernetes
 #     namespace: flux-system
+  targetNamespace: media
 #   wait: false # no flux ks dependents
 #   interval: 30m
 #   timeout: 5m
@@ -80,6 +80,7 @@ spec:
     kind: GitRepository
     name: home-kubernetes
     namespace: flux-system
+  targetNamespace: media
   wait: false # no flux ks dependents
   interval: 30m
   timeout: 5m
@@ -102,6 +103,7 @@ spec:
     kind: GitRepository
     name: home-kubernetes
     namespace: flux-system
+  targetNamespace: media
   wait: false # no flux ks dependents
   interval: 30m
   timeout: 5m

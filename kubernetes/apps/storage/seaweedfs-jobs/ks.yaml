@@ -17,6 +17,7 @@ spec:
     kind: GitRepository
     name: home-kubernetes
     namespace: flux-system
+  targetNamespace: storage
   wait: false
   interval: 30m
   retryInterval: 1m
