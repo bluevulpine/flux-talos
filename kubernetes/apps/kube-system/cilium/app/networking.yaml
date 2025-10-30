@@ -51,7 +51,7 @@ spec:
       localASN: 65512
       peers:
         - name: unifi
-          peerAddress: "10.0.10.1/32"
+          peerAddress: "10.0.10.1"
           peerASN: 65510
           peerConfigRef:
             name: l3-bgp-peer-config
