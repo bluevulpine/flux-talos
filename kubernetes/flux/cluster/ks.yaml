@@ -74,11 +74,6 @@ spec:
               - kind: Secret
                 name: cluster-secrets
                 namespace: flux-system
-          decryption:
-            provider: sops
-            secretRef:
-              name: sops-age
-              namespace: flux-system
       target:
         group: kustomize.toolkit.fluxcd.io
         kind: Kustomization
