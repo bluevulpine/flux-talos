@@ -67,7 +67,6 @@ kind: Kustomization
 metadata:
   name: &app plex-auto-languages
 spec:
-  targetNamespace: media
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
@@ -79,6 +78,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: home-kubernetes
+    namespace: flux-system
   wait: false # no flux ks dependents
   interval: 30m
   timeout: 5m
@@ -89,7 +89,6 @@ kind: Kustomization
 metadata:
   name: &app plex-image-cleanup
 spec:
-  targetNamespace: media
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
@@ -101,6 +100,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: home-kubernetes
+    namespace: flux-system
   wait: false # no flux ks dependents
   interval: 30m
   timeout: 5m
