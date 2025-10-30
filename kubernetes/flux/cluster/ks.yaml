@@ -70,8 +70,10 @@ spec:
             substituteFrom:
               - kind: ConfigMap
                 name: cluster-settings
+                namespace: flux-system
               - kind: Secret
                 name: cluster-secrets
+                namespace: flux-system
           decryption:
             provider: sops
             secretRef:
