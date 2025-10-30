@@ -10,7 +10,7 @@ metadata:
     gethomepage.dev/name: Cilium
     gethomepage.dev/icon: cilium.png
 spec:
-  hostnames: ["hubble.${SECRET_DOMAIN}"]
+  hostnames: ["hubble.derekjacobs.dev"]
   parentRefs:
     - name: internal
       namespace: kube-system
