@@ -56,7 +56,6 @@ spec:
             target:
               group: kustomize.toolkit.fluxcd.io
               kind: Kustomization
-              labelSelector: substitution.flux.home.arpa/disabled notin (true)
           - # Add HelmRelease defaults to all Kustomizations
             patch: |-
               apiVersion: kustomize.toolkit.fluxcd.io/v1
