@@ -4,9 +4,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: &app joplin-server
-  namespace: flux-system
 spec:
-  targetNamespace: &ns joplin-server
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app

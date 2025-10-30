@@ -3,9 +3,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: &app external-dns-crd
-  namespace: flux-system
 spec:
-  targetNamespace: &ns network
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
@@ -27,9 +25,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: &app external-dns-cloudflare
-  namespace: flux-system
 spec:
-  targetNamespace: &ns network
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
@@ -53,9 +49,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: &app external-dns-unifi
-  namespace: flux-system
 spec:
-  targetNamespace: &ns network
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app

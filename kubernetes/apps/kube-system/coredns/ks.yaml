@@ -5,7 +5,6 @@ metadata:
   name: &app coredns
   namespace: &namespace kube-system
 spec:
-  targetNamespace: *namespace
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
