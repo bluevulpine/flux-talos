@@ -8,5 +8,3 @@ data:
   CLUSTER_CIDR: "10.69.0.0/16"
   NODE_CIDR: "10.0.10.0/24"
   BGP_ADVERTISED_CIDR: "172.16.8.0/24"
-  ENVIRONMENT: "production"
-
