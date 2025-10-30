@@ -19,5 +19,5 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      NS: *ns
+      NS: kube-system
 

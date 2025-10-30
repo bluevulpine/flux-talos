@@ -20,7 +20,7 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      NS: *ns
+      NS: external-secrets
 ---
 # yaml-language-server: $schema=https://lds-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -48,4 +48,4 @@ spec:
       GATUS_SUBDOMAIN: bitwarden-sdk-server
       GATUS_DOMAIN: external-secrets.svc.cluster.local:9998
       GATUS_PATH: /ready
-      NS: *ns
+      NS: external-secrets

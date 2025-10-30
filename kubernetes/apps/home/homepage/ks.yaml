@@ -19,4 +19,4 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      NS: *ns
+      NS: home

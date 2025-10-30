@@ -19,7 +19,7 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      NS: *ns
+      NS: network
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -43,7 +43,7 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      NS: *ns
+      NS: network
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -67,4 +67,4 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      NS: *ns
+      NS: network
