@@ -19,19 +19,21 @@ spec:
   timeout: 5m
   wait: true
   patches:
+    # Add v1alpha3 as deprecated version to all policy CRDs
+    # This allows proper migration from v1alpha3 to v1
+    # TODO: Remove this patch once all v1alpha3 data has been migrated
     - patch: |-
-        apiVersion: apiextensions.k8s.io/v1
-        kind: CustomResourceDefinition
-        metadata:
-          name: not-used
-        spec:
-          versions:
-            - name: v1alpha3
-              served: false
-              storage: false
-              schema:
-                openAPIV3Schema:
-                  type: object
+        - op: add
+          path: /spec/versions/0
+          value:
+            name: v1alpha3
+            served: false
+            storage: false
+            deprecated: true
+            deprecationWarning: "v1alpha3 is deprecated, use v1 instead"
+            schema:
+              openAPIV3Schema:
+                type: object
       target:
         group: apiextensions.k8s.io
         kind: CustomResourceDefinition
