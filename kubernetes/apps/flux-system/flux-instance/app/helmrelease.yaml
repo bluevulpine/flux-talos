@@ -26,7 +26,7 @@ spec:
         name: home-kubernetes
         url: https://github.com/bluevulpine/flux-talos.git
         ref: refs/heads/main
-        path: kubernetes/apps
+        path: kubernetes/flux/cluster
         interval: 1m
       kustomize:
         postBuild:
@@ -35,11 +35,6 @@ spec:
               name: cluster-settings
             - kind: Secret
               name: cluster-secrets
-            - kind: ConfigMap
-              name: cluster-settings-user
-              optional: true
-            - kind: Secret
-              name: cluster-secrets-user
         optional: false
         patches:
           - patch: |- # Add SOPS decryption and variable substitution to all Kustomizations
@@ -58,12 +53,6 @@ spec:
                       name: cluster-settings
                     - kind: Secret
                       name: cluster-secrets
-                    - kind: ConfigMap
-                      name: cluster-settings-user
-                      optional: true
-                    - kind: Secret
-                      name: cluster-secrets-user
-                      optional: true
             target:
               group: kustomize.toolkit.fluxcd.io
               kind: Kustomization
@@ -92,27 +81,11 @@ spec:
             target:
               group: kustomize.toolkit.fluxcd.io
               kind: Kustomization
-          - # Remove NetworkPolicies (legacy from k3s template, not needed for Talos + Cilium but kept for safety)
-            patch: |-
-              $patch: delete
-              apiVersion: networking.k8s.io/v1
-              kind: NetworkPolicy
-              metadata:
-                name: not-used
-            target:
-              group: networking.k8s.io
-              kind: NetworkPolicy
-          - # Increase the number of reconciliations that can be performed in parallel
+          - # Increase the number of workers
             patch: |-
               - op: add
                 path: /spec/template/spec/containers/0/args/-
-                value: --concurrent=8
-              - op: add
-                path: /spec/template/spec/containers/0/args/-
-                value: --kube-api-qps=500
-              - op: add
-                path: /spec/template/spec/containers/0/args/-
-                value: --kube-api-burst=1000
+                value: --concurrent=10
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --requeue-dependency=5s
@@ -124,7 +97,7 @@ spec:
               apiVersion: apps/v1
               kind: Deployment
               metadata:
-                name: not-used
+                name: all
               spec:
                 template:
                   spec:
@@ -132,12 +105,39 @@ spec:
                       - name: manager
                         resources:
                           limits:
-                            cpu: 2000m
                             memory: 2Gi
             target:
               kind: Deployment
               name: (kustomize-controller|helm-controller|source-controller)
-          - # Enable Helm near OOM detection
+          - # Enable in-memory kustomize builds
+            patch: |-
+              - op: add
+                path: /spec/template/spec/containers/0/args/-
+                value: --concurrent=20
+              - op: replace
+                path: /spec/template/spec/volumes/0
+                value:
+                  name: temp
+                  emptyDir:
+                    medium: Memory
+            target:
+              kind: Deployment
+              name: kustomize-controller
+          - # Enable Helm repositories caching
+            patch: |-
+              - op: add
+                path: /spec/template/spec/containers/0/args/-
+                value: --helm-cache-max-size=10
+              - op: add
+                path: /spec/template/spec/containers/0/args/-
+                value: --helm-cache-ttl=60m
+              - op: add
+                path: /spec/template/spec/containers/0/args/-
+                value: --helm-cache-purge-interval=5m
+            target:
+              kind: Deployment
+              name: source-controller
+          - # Flux near OOM detection for Helm
             patch: |-
               - op: add
                 path: /spec/template/spec/containers/0/args/-
@@ -151,4 +151,35 @@ spec:
             target:
               kind: Deployment
               name: helm-controller
-
+          - # Disable chart digest tracking
+            patch: |-
+              - op: add
+                path: /spec/template/spec/containers/0/args/-
+                value: --feature-gates=DisableChartDigestTracking=true
+            target:
+              kind: Deployment
+              name: helm-controller
+          - # Controller-level SOPS decryption
+            patch: |-
+              - op: add
+                path: /spec/template/spec/containers/0/args/-
+                value: --sops-age-secret=sops-age-secret
+            target:
+              kind: Deployment
+              name: kustomize-controller
+          - # Watch configmaps and secrets attached to HelmReleases and Kustomizations
+            patch: |-
+              - op: add
+                path: /spec/template/spec/containers/0/args/-
+                value: --watch-configs-label-selector=owner!=helm
+            target:
+              kind: Deployment
+              name: (helm-controller|kustomize-controller)
+          - # Cancel health checks on new Kustomizations revisions
+            patch: |-
+              - op: add
+                path: /spec/template/spec/containers/0/args/-
+                value: --feature-gates=CancelHealthCheckOnNewRevision=true
+            target:
+              kind: Deployment
+              name: kustomize-controller

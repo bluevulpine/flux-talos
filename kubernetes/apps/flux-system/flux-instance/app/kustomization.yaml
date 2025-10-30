@@ -5,5 +5,10 @@ kind: Kustomization
 namespace: flux-system
 
 resources:
-  - ./fluxinstance.yaml
+  - ./secret.sops.yaml
+  - ./helmrelease.yaml
+  - ./ocirepository.yaml
+  - ./httproute.yaml
+  - ./prometheusrule.yaml
+  - ./receiver.yaml
 
