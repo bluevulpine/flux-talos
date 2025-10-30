@@ -66,7 +66,6 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: &app plex-auto-languages
-  namespace: flux-system
 spec:
   targetNamespace: media
   commonMetadata:
@@ -89,7 +88,6 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: &app plex-image-cleanup
-  namespace: flux-system
 spec:
   targetNamespace: media
   commonMetadata:
