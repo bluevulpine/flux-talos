@@ -9,9 +9,9 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: gateway-api-crds
-      namespace: flux-system
+      namespace: network
     - name: certificates-wildcard
-      namespace: flux-system
+      namespace: kube-system
   path: ./kubernetes/apps/kube-system/gateway/app
   prune: true
   sourceRef:

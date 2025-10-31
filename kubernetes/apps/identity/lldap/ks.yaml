@@ -10,6 +10,7 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: cloudnative-pg-cluster
+      namespace: database
   path: ./kubernetes/apps/identity/lldap/app
   prune: true
   sourceRef:

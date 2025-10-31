@@ -10,6 +10,7 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: seaweedfs
+      namespace: storage
       namespace: flux-system
   path: ./kubernetes/apps/storage/seaweedfs-jobs/app
   prune: true
