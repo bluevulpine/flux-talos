@@ -108,11 +108,15 @@ spec:
         existingClaim: valheim-gamedata-recovered
         globalMounts:
           - path: /home/steam/.config/unity3d/IronGate/Valheim/
+            subPath: unity-config
           - path: /home/steam/valheim/
+            subPath: valheim-data
           - path: /home/steam/backups/
+            subPath: backups
       config:
         enabled: true
         existingClaim: "${APP}"
         globalMounts:
-          - path: /home/steam/valheim/worlds_local_debug
+          - path: /home/steam/valheim/worlds_local
+            subPath: worlds_local
 
