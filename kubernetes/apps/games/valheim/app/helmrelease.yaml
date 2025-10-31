@@ -105,7 +105,7 @@ spec:
     persistence:
       server-cache:
         enabled: true
-        existingClaim: valheim-gamedata-recovered
+        existingClaim: valheim-gamedata
         globalMounts:
           - path: /home/steam/valheim/
             subPath: valheim-data
