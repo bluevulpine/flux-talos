@@ -9,7 +9,7 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: gateway-api-crds
-      namespace: network
+      namespace: kube-system
     - name: certificates-wildcard
       namespace: kube-system
   path: ./kubernetes/apps/kube-system/gateway/app
