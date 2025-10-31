@@ -92,6 +92,9 @@ spec:
       udptest:
         controller: main
         type: LoadBalancer
+        annotations:
+          external-dns.alpha.kubernetes.io/hostname: "udptest.${SECRET_DOMAIN}"
+          lbipam.cilium.io/ips: "${SVC_UDPTEST_ADDR}"
         externalTrafficPolicy: Local
         ports:
           udp:
