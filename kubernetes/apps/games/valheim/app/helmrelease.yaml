@@ -103,11 +103,6 @@ spec:
             port: 2458
             protocol: UDP
     persistence:
-      config:
-        enabled: true
-        existingClaim: "${APP}"
-        globalMounts:
-          - path: /home/steam/valheim/worlds_local
       server-cache:
         enabled: true
         existingClaim: valheim-gamedata-recovered
@@ -115,4 +110,9 @@ spec:
           - path: /home/steam/.config/unity3d/IronGate/Valheim/
           - path: /home/steam/valheim/
           - path: /home/steam/backups/
+      config:
+        enabled: true
+        existingClaim: "${APP}"
+        globalMounts:
+          - path: /home/steam/valheim/worlds_local_debug
 
