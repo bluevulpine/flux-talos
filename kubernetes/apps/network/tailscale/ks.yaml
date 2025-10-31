@@ -40,6 +40,7 @@ spec:
   targetNamespace: network
   dependsOn:
     - name: tailscale
+      namespace: network
   wait: false
   interval: 30m
   retryInterval: 1m
