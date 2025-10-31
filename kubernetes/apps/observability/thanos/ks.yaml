@@ -11,6 +11,7 @@ spec:
   dependsOn:
     - name: dragonfly-cluster
     - name: external-secrets-stores
+      namespace: external-secrets
   path: ./kubernetes/apps/observability/thanos/app
   prune: true
   sourceRef:
