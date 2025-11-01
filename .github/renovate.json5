@@ -384,9 +384,6 @@
         'renovate/valheim-mod',
       ],
       groupName: 'Valheim mods',
-      schedule: [
-        'on saturday',
-      ],
     },
   ],
   customDatasources: {
