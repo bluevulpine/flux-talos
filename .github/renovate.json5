@@ -1,5 +1,13 @@
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+
+  "logLevelRemap": [
+    {
+      "matchMessage": "/^Custom datasource/",
+      "newLogLevel": "trace"
+    }
+  ],
+
   extends: [
     'config:recommended',
     'docker:enableMajor',
@@ -413,7 +421,7 @@
         'Process Valheim mods from Thunderstore',
       ],
       managerFilePatterns: [
-        '**/valheim/**/helmrelease.yaml',
+        'valheim/app/helmrelease.yaml',
       ],
       matchStrings: [
         '^\\s+(?<depName>[^-]+-[^-]+)-(?<currentValue>[^\\s\\n]+)',
