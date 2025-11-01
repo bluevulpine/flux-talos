@@ -10,7 +10,7 @@ spec:
       restartPolicy: OnFailure
       containers:
       - name: seaweedfs-shell
-        image: chrislusf/seaweedfs:3.98
+        image: chrislusf/seaweedfs:3.99
         command:
         - /bin/sh
         - -c
