@@ -60,19 +60,26 @@ spec:
               WORLD: "SaturdayGK"
               TYPE: "BepInEx"
               MODS: |
-                Advize-PlantEasily-2.0.3
-                Advize-PlantEverything-1.20.0
-                ValheimModding-Jotunn-2.27.0
-                ValheimModding-HookGenPatcher-0.0.4
-                Numenos-InfinityTools-1.0.0
-                shudnal-ExtraSlots-1.0.48
-                blacks7ar-OdinsHares-1.3.1
-                ValheimModding-YamlDotNet-16.3.1
+                Advize-PlantEasily-2.*
+                Advize-PlantEverything-1.*
+                ValheimModding-Jotunn-2.*
+                ValheimModding-HookGenPatcher-0.0.*
+                Numenos-InfinityTools-1.*
+                shudnal-ExtraSlots-1.*
+                blacks7ar-OdinsHares-1.*
+                ValheimModding-YamlDotNet-16.*
               AUTO_UPDATE: 1
               AUTO_UPDATE_SCHEDULE: "0 8 * * *" # every day at 8am
               AUTO_UPDATE_PAUSE_WITH_PLAYERS: 1
               SCHEDULED_RESTART: 1
-              SCHEDULED_RESTART_SCHEDULE: "0 4 * * *" # every day at 4am
+              SCHEDULED_RESTART_SCHEDULE: "0 9 * * *" # every day at 9am
+              AUTO_BACKUP: 1
+              AUTO_BACKUP_SCHEDULE: "*/15 * * * *"
+              AUTO_BACKUP_REMOVE_OLD: 1
+              AUTO_BACKUP_DAYS_TO_LIVE: 3
+              AUTO_BACKUP_ON_UPDATE: 1
+              AUTO_BACKUP_ON_SHUTDOWN: 1
+              HTTP_PORT: 80
             resources:
               requests:
                 cpu: 441m
