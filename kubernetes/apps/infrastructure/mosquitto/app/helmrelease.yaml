@@ -44,7 +44,85 @@ spec:
                 cpu: 10m
               limits:
                 memory: 100Mi
+          hasher:
+            image:
+              repository: public.ecr.aws/docker/library/eclipse-mosquitto
+              tag: 2.0.22
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            command:
+              - sh
+              - -c
+              - |
+                set -eu
+                echo "[hasher] started at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                ensure_initial() {
+                  if [ -f /mosquitto/config-src/passwd.conf ]; then
+                    echo "[hasher] initial: hashing passwd.conf"
+                    cp /mosquitto/config-src/passwd.conf /tmp/passwd.conf
+                    chmod 600 /tmp/passwd.conf
+                    mosquitto_passwd -U /tmp/passwd.conf || true
+                    cp /tmp/passwd.conf /mosquitto/config/passwd.conf
+                    chmod 600 /mosquitto/config/passwd.conf
+                    echo "[hasher] initial: copied hashed passwd.conf to /mosquitto/config/passwd.conf"
+                    cp /mosquitto/config-src/mosquitto.conf /mosquitto/config/mosquitto.conf || true
+                    echo "[hasher] initial: copied mosquitto.conf"
+                  else
+                    echo "[hasher] initial: no passwd.conf found in secret"
+                  fi
+                  cp /mosquitto/config-src/passwd.conf /tmp/prev-passwd.conf 2>/dev/null || true
+                  cp /mosquitto/config-src/mosquitto.conf /tmp/prev-mosquitto.conf 2>/dev/null || true
+                  echo "[hasher] initial: baseline snapshots captured"
+                }
+                sighup() {
+                  for p in /proc/[0-9]*; do
+                    name=$(cat "$p/comm" 2>/dev/null || true)
+                    if [ "$name" = "mosquitto" ]; then
+                      echo "[hasher] sending SIGHUP to mosquitto pid $(basename "$p")"
+                      kill -HUP "$(basename "$p")" || true
+                    fi
+                  done
+                }
+                ensure_initial
+                while true; do
+                  changed=0
+                  if [ -f /mosquitto/config-src/passwd.conf ]; then
+                    if ! cmp -s /mosquitto/config-src/passwd.conf /tmp/prev-passwd.conf; then
+                      echo "[hasher] change detected: passwd.conf; rehashing"
+                      cp /mosquitto/config-src/passwd.conf /tmp/prev-passwd.conf
+                      cp /mosquitto/config-src/passwd.conf /tmp/passwd.conf
+                      chmod 600 /tmp/passwd.conf
+                      mosquitto_passwd -U /tmp/passwd.conf || true
+                      cp /tmp/passwd.conf /mosquitto/config/passwd.conf
+                      chmod 600 /mosquitto/config/passwd.conf
+                      echo "[hasher] updated /mosquitto/config/passwd.conf"
+                      changed=1
+                    fi
+                  fi
+                  if [ -f /mosquitto/config-src/mosquitto.conf ]; then
+                    if ! cmp -s /mosquitto/config-src/mosquitto.conf /tmp/prev-mosquitto.conf; then
+                      echo "[hasher] change detected: mosquitto.conf; copying"
+                      cp /mosquitto/config-src/mosquitto.conf /tmp/prev-mosquitto.conf
+                      cp /mosquitto/config-src/mosquitto.conf /mosquitto/config/mosquitto.conf
+                      changed=1
+                    fi
+                  fi
+                  if [ "$changed" = "1" ]; then
+                    echo "[hasher] changes applied; signaling mosquitto"
+                    sighup
+                  fi
+                  sleep 5
+                done
+            resources:
+              requests:
+                cpu: 5m
+              limits:
+                memory: 64Mi
+
     defaultPodOptions:
+      shareProcessNamespace: true
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
