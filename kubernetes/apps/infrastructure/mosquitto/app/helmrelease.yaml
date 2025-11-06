@@ -29,12 +29,6 @@ spec:
                 cpu: 10m
               limits:
                 memory: 100Mi
-        statefulset:
-          volumeClaimTemplates:
-            - name: config
-              storageClass: longhorn
-              accessMode: ReadWriteOnce
-              size: 5Gi
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
@@ -52,21 +46,38 @@ spec:
           mqtt:
             port: 1883
     configMaps:
-      config:
+      mosquitto-config:
         data:
           mosquitto.conf: |
-            allow_anonymous true
+            allow_anonymous false
             autosave_interval 60
-            connection_messages false
-            listener 1883
+            connection_messages true
             per_listener_settings false
+            listener 1883
             persistence true
-            persistence_location /data
+            persistence_location /mosquitto/data
+            log_dest file /mosquitto/log/mosquitto.log
+            password_file /mosquitto/config/passwd.conf
     persistence:
+      data:
+        existingClaim: ${APP}
+        globalMounts:
+          - path: /mosquitto/data
+            subPath: data
+      log:
+        type: emptyDir
+        globalMounts:
+          - path: /mosquitto/log
       config-file:
         type: configMap
-        identifier: config
+        identifier: mosquitto-config
         globalMounts:
           - path: /mosquitto/config/mosquitto.conf
             subPath: mosquitto.conf
-
+      passwd-file:
+        type: secret
+        name: mosquitto-secret
+        globalMounts:
+          - path: /mosquitto/config/passwd.conf
+            subPath: passwd
+            readOnly: true
