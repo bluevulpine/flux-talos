@@ -13,6 +13,21 @@ spec:
     controllers:
       mosquitto:
         type: statefulset
+        initContainers:
+          init-passwd:
+            image:
+              repository: public.ecr.aws/docker/library/eclipse-mosquitto
+              tag: 2.0.22
+            command:
+              - sh
+              - -c
+              - |
+                cp /mosquitto/config-src/passwd.conf /tmp/passwd.conf
+                chmod 600 /tmp/passwd.conf
+                mosquitto_passwd -U /tmp/passwd.conf
+                cp /tmp/passwd.conf /mosquitto/config/passwd.conf
+                cp /mosquitto/config-src/mosquitto.conf /mosquitto/config/mosquitto.conf
+                chmod 600 /mosquitto/config/passwd.conf
         containers:
           app:
             image:
@@ -55,9 +70,17 @@ spec:
         type: emptyDir
         globalMounts:
           - path: /mosquitto/log
-      passwd-file:
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
+      config-src:
         type: secret
         name: mosquitto-secret
         globalMounts:
-          - path: /mosquitto/config
+          - path: /mosquitto/config-src
             readOnly: true
+      config:
+        type: emptyDir
+        globalMounts:
+          - path: /mosquitto/config
