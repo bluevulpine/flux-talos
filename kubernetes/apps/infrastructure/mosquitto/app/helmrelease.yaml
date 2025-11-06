@@ -45,19 +45,6 @@ spec:
         ports:
           mqtt:
             port: 1883
-    configMaps:
-      mosquitto-config:
-        data:
-          mosquitto.conf: |
-            allow_anonymous false
-            autosave_interval 60
-            connection_messages true
-            per_listener_settings false
-            listener 1883
-            persistence true
-            persistence_location /mosquitto/data
-            log_dest file /mosquitto/log/mosquitto.log
-            password_file /mosquitto/config/passwd.conf
     persistence:
       data:
         existingClaim: ${APP}
@@ -68,16 +55,9 @@ spec:
         type: emptyDir
         globalMounts:
           - path: /mosquitto/log
-      config-file:
-        type: configMap
-        identifier: mosquitto-config
-        globalMounts:
-          - path: /mosquitto/config/mosquitto.conf
-            subPath: mosquitto.conf
       passwd-file:
         type: secret
         name: mosquitto-secret
         globalMounts:
-          - path: /mosquitto/config/passwd.conf
-            subPath: passwd
+          - path: /mosquitto/config
             readOnly: true
