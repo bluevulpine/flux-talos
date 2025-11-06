@@ -5,14 +5,9 @@ metadata:
   name: descheduler
 spec:
   interval: 30m
-  chart:
-    spec:
-      chart: descheduler
-      version: 0.34.0
-      sourceRef:
-        kind: HelmRepository
-        name: descheduler
-        namespace: flux-system
+  chartRef:
+    kind: OCIRepository
+    name: descheduler
   maxHistory: 2
   install:
     remediation:

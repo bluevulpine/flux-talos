@@ -6,3 +6,5 @@ namespace: tools
 resources:
   - ./runtimeclass.yaml
   - ./helmrelease.yaml
+  - ./ocirepository.yaml
+

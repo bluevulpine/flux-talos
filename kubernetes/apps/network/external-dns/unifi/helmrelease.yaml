@@ -6,14 +6,9 @@ metadata:
   name: &app external-dns-unifi
 spec:
   interval: 30m
-  chart:
-    spec:
-      chart: external-dns
-      version: 1.19.0
-      sourceRef:
-        kind: HelmRepository
-        name: external-dns
-        namespace: flux-system
+  chartRef:
+    kind: OCIRepository
+    name: external-dns-unifi
   install:
     remediation:
       retries: 3

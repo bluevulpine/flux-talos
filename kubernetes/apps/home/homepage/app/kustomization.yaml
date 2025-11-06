@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - ./configmap.yaml
   - ./externalsecret.yaml
+  - ./ocirepository.yaml
   - ./helmrelease.yaml
   - ./httproute.yaml
   - ./rbac.yaml

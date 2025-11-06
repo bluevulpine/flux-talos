@@ -6,13 +6,9 @@ metadata:
   namespace: longhorn-system
 spec:
   interval: 30m
-  chart:
-    spec:
-      chart: longhorn
-      sourceRef:
-        kind: HelmRepository
-        name: longhorn
-        namespace: flux-system
+  chartRef:
+    kind: OCIRepository
+    name: longhorn
   values:
     defaultSettings:
       createDefaultDiskLabeledNodes: true

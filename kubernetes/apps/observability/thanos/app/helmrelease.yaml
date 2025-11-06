@@ -7,14 +7,9 @@ metadata:
 spec:
   interval: 30m
   timeout: 15m
-  chart:
-    spec:
-      chart: thanos
-      version: 1.21.1
-      sourceRef:
-        kind: HelmRepository
-        name: stevehipwell
-        namespace: flux-system
+  chartRef:
+    kind: OCIRepository
+    name: thanos
   install:
     remediation:
       retries: 3
