@@ -23,3 +23,7 @@ Brewfile.lock.json
 wiki
 # Bootstrap
 /config.yaml
+
+
+# Bitwarden Secrets Manager (local dev only)
+.bws_access_token
