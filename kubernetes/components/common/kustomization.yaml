@@ -6,3 +6,10 @@ resources:
   - ./alerts
   - ./cluster-config
   - ./sops-age
+patches:
+  - target:
+      group: external-secrets.io
+      version: v1
+      kind: ExternalSecret
+    path: ./externalsecret-refresh-interval.patch.yaml
+
