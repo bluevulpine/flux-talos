@@ -5,6 +5,8 @@ kind: Kustomization
 namespace: observability
 components:
   - ../../components/common
+  - ../../components/psa-privileged
+
 resources:
   - ./namespace.yaml
   # - ./alertmanager-silencer/ks.yaml
