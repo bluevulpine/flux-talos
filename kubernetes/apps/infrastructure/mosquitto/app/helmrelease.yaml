@@ -69,11 +69,16 @@ spec:
                     echo "[hasher] initial: copied hashed passwd.conf to /mosquitto/config/passwd.conf"
                     cp /mosquitto/config-src/mosquitto.conf /mosquitto/config/mosquitto.conf || true
                     echo "[hasher] initial: copied mosquitto.conf"
+                    if [ -f /mosquitto/config-src/acl.conf ]; then
+                      cp /mosquitto/config-src/acl.conf /mosquitto/config/acl.conf
+                      echo "[hasher] initial: copied acl.conf"
+                    fi
                   else
                     echo "[hasher] initial: no passwd.conf found in secret"
                   fi
                   cp /mosquitto/config-src/passwd.conf /tmp/prev-passwd.conf 2>/dev/null || true
                   cp /mosquitto/config-src/mosquitto.conf /tmp/prev-mosquitto.conf 2>/dev/null || true
+                  cp /mosquitto/config-src/acl.conf /tmp/prev-acl.conf 2>/dev/null || true
                   echo "[hasher] initial: baseline snapshots captured"
                 }
                 sighup() {
@@ -109,6 +114,14 @@ spec:
                       echo "[hasher] change detected: mosquitto.conf; copying"
                       cp /mosquitto/config-src/mosquitto.conf /tmp/prev-mosquitto.conf
                       cp /mosquitto/config-src/mosquitto.conf /mosquitto/config/mosquitto.conf
+                      changed=1
+                    fi
+                  fi
+                  if [ -f /mosquitto/config-src/acl.conf ]; then
+                    if ! cmp -s /mosquitto/config-src/acl.conf /tmp/prev-acl.conf; then
+                      echo "[hasher] change detected: acl.conf; copying"
+                      cp /mosquitto/config-src/acl.conf /tmp/prev-acl.conf
+                      cp /mosquitto/config-src/acl.conf /mosquitto/config/acl.conf
                       changed=1
                     fi
                   fi
