@@ -5,6 +5,7 @@ kind: Kustomization
 namespace: network
 components:
   - ../../components/common
+  - ../../components/psa-privileged
 resources:
   - ./namespace.yaml
   - ./cloudflared/ks.yaml
