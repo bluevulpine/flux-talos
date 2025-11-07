@@ -71,6 +71,7 @@ spec:
                     echo "[hasher] initial: copied mosquitto.conf"
                     if [ -f /mosquitto/config-src/acl.conf ]; then
                       cp /mosquitto/config-src/acl.conf /mosquitto/config/acl.conf
+                      chmod 700 /mosquitto/config/acl.conf
                       echo "[hasher] initial: copied acl.conf"
                     fi
                   else
@@ -122,6 +123,7 @@ spec:
                       echo "[hasher] change detected: acl.conf; copying"
                       cp /mosquitto/config-src/acl.conf /tmp/prev-acl.conf
                       cp /mosquitto/config-src/acl.conf /mosquitto/config/acl.conf
+                      chmod 700 /mosquitto/config/acl.conf
                       changed=1
                     fi
                   fi
