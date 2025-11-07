@@ -166,7 +166,7 @@ spec:
       app:
         type: LoadBalancer
         annotations:
-          external-dns.alpha.kubernetes.io/hostname: "mqtt.${SECRET_DOMAIN_MEDIA}"
+          external-dns.alpha.kubernetes.io/hostname: "mqtt.${SECRET_DOMAIN_MEDIA},mqtt.${SECRET_DOMAIN}"
           lbipam.cilium.io/ips: "${SVC_MOSQUITTO_ADDR}"
         ports:
           mqtt:
