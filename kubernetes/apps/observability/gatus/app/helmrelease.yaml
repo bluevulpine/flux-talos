@@ -40,7 +40,7 @@ spec:
               FOLDER: /config
               LABEL: gatus.io/enabled
               NAMESPACE: ALL
-              RESOURCE: both
+              RESOURCE: configmap
               UNIQUE_FILENAMES: true
               METHOD: LIST
             resources: &resources
@@ -87,7 +87,7 @@ spec:
                 cpu: 10m
                 memory: 64Mi
               limits:
-                memory: 256Mi
+                memory: 512Mi
         pod:
           dnsConfig:
             options:
