@@ -86,6 +86,9 @@ spec:
                   done
                 }
                 ensure_initial
+                # Baseline TLS snapshots
+                cp /mosquitto/tls/tls.crt /tmp/prev-tls.crt 2>/dev/null || true
+                cp /mosquitto/tls/tls.key /tmp/prev-tls.key 2>/dev/null || true
                 while true; do
                   changed=0
                   if [ -f /mosquitto/config-src/passwd.conf ]; then
@@ -106,6 +109,21 @@ spec:
                       echo "[hasher] change detected: mosquitto.conf; copying"
                       cp /mosquitto/config-src/mosquitto.conf /tmp/prev-mosquitto.conf
                       cp /mosquitto/config-src/mosquitto.conf /mosquitto/config/mosquitto.conf
+                      changed=1
+                    fi
+                  fi
+                  # TLS cert/key change detection
+                  if [ -f /mosquitto/tls/tls.crt ]; then
+                    if ! cmp -s /mosquitto/tls/tls.crt /tmp/prev-tls.crt; then
+                      echo "[hasher] change detected: tls.crt; will reload"
+                      cp /mosquitto/tls/tls.crt /tmp/prev-tls.crt
+                      changed=1
+                    fi
+                  fi
+                  if [ -f /mosquitto/tls/tls.key ]; then
+                    if ! cmp -s /mosquitto/tls/tls.key /tmp/prev-tls.key; then
+                      echo "[hasher] change detected: tls.key; will reload"
+                      cp /mosquitto/tls/tls.key /tmp/prev-tls.key
                       changed=1
                     fi
                   fi
@@ -138,9 +156,12 @@ spec:
         ports:
           mqtt:
             port: 1883
+          mqtts:
+            port: 8883
     persistence:
       data:
         existingClaim: ${APP}
+
         globalMounts:
           - path: /mosquitto/data
             subPath: data
@@ -162,3 +183,10 @@ spec:
         type: emptyDir
         globalMounts:
           - path: /mosquitto/config
+      tls:
+        type: secret
+        name: mosquitto-tls
+        globalMounts:
+          - path: /mosquitto/tls
+            readOnly: true
+
