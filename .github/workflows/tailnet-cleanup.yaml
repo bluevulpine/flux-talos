@@ -1,0 +1,22 @@
+# File: .github/workflows/tailnet-cleanup.yaml
+
+name: Cleanup your tailnet
+
+on:
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cleanup Tailnet
+        uses: simonhaas/tailscale-node-remover@main
+        id: cleanup
+        with:
+          ts_api_token: ${{ secrets.TS_API_TOKEN }}       # required
+          ts_tags: 'tag:k8s, tag:k8s-operator'            # default
+          ts_timeout: 3600 # one hour                     # default
+          ts_tailnet: '-' # your default tailnet          # default
+          ts_api_url: 'https://api.tailscale.com/api/v2/' # default
+      - name: Get the removed nodes
+        run: echo ${{ steps.cleanup.outputs.removed_nodes }}
