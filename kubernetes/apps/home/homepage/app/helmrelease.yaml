@@ -71,5 +71,5 @@ spec:
           - subPath: widgets.yaml
             path: /app/config/widgets.yaml
     serviceAccount:
-      main:
-        create: true
+      create: true
+      name: homepage
