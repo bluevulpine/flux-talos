@@ -23,7 +23,7 @@ spec:
         type: deployment
         strategy: RollingUpdate
         containers:
-          main:
+          echo-server:
             image:
               repository: ghcr.io/mendhak/http-https-echo
               tag: 38
