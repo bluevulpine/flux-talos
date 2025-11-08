@@ -20,6 +20,7 @@ spec:
   values:
     controllers:
       main:
+        type: deployment
         strategy: RollingUpdate
         containers:
           main:
