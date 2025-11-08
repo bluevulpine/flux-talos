@@ -22,6 +22,7 @@ spec:
   values:
     controllers:
       main:
+        type: deployment
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
@@ -70,4 +71,5 @@ spec:
           - subPath: widgets.yaml
             path: /app/config/widgets.yaml
     serviceAccount:
-      create: true
+      main:
+        create: true
