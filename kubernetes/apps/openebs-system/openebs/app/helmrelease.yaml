@@ -18,41 +18,10 @@ spec:
   uninstall:
     keepHistory: false
   values:
-    # Only enable local hostpath provisioner
-    localprovisioner:
-      deviceClass:
-        enabled: false
-      hostpathClass:
-        enabled: true
-        name: openebs-hostpath
-        isDefaultClass: false
-        basePath: /var/openebs/local
-
-    # Disable all other components
-    ndm:
-      enabled: false
-    ndmoperator:
-      enabled: false
-    engines:
-      local:
-        lvm:
-          enabled: false
-        zfs:
-          enabled: false
-      replicated:
-        mayastor:
-          enabled: false
-
-    # Disable observability stack
-    obs:
-      callhome:
-        enabled: false
-
-    # Disable data plane components
-    mayastor:
-      enabled: false
-    lvm:
-      enabled: false
-    zfs:
-      enabled: false
+    # Simple hostpath provisioner only
+    hostpathClass:
+      enabled: true
+      name: openebs-hostpath
+      isDefaultClass: false
+      basePath: /var/openebs/local
 
