@@ -18,10 +18,28 @@ spec:
   uninstall:
     keepHistory: false
   values:
-    # Simple hostpath provisioner only
-    hostpathClass:
+    # Only enable hostpath local provisioner
+    localpv-provisioner:
       enabled: true
-      name: openebs-hostpath
-      isDefaultClass: false
-      basePath: /var/openebs/local
+      hostpathClass:
+        enabled: true
+        name: openebs-hostpath
+        isDefaultClass: false
+        basePath: /var/openebs/local
+
+    # Disable all other components
+    jiva:
+      enabled: false
+    cstor:
+      enabled: false
+    ndm:
+      enabled: false
+    ndmOperator:
+      enabled: false
+    mayastor:
+      enabled: false
+    lvm-localpv:
+      enabled: false
+    zfs-localpv:
+      enabled: false
 
