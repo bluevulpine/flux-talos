@@ -26,7 +26,9 @@ spec:
     bgpControlPlane:
       enabled: true
     bpf:
-      masquerade: false
+      masquerade: true  # Enable masquerading for proper NAT of outbound connections
+      preallocateMaps: true  # Performance optimization
+      tproxy: true  # Enable transparent proxy for better UDP handling
     cgroup:
       automount:
         enabled: false
@@ -125,4 +127,7 @@ spec:
           - SYS_ADMIN
           - SYS_RESOURCE
     socketLB:
-      hostNamespaceOnly: true
+      hostNamespaceOnly: false  # Allow socket LB in all namespaces for better UDP handling
+    enableIPv4BIGTCP: true  # Performance optimization for large packets
+    pmtuDiscovery:
+      enabled: true  # Important for QUIC path MTU discovery

@@ -449,6 +449,14 @@ patches:
         net.ipv4.tcp_rmem: 4096 87380 33554432
         net.ipv4.tcp_window_scaling: "1"
         net.ipv4.tcp_wmem: 4096 65536 33554432
+        # UDP optimizations for QUIC
+        net.core.netdev_max_backlog: "5000"
+        net.core.netdev_budget: "600"
+        net.ipv4.udp_mem: "102400 873800 16777216"
+        net.ipv4.udp_rmem_min: "8192"
+        net.ipv4.udp_wmem_min: "8192"
+        net.netfilter.nf_conntrack_udp_timeout: "30"
+        net.netfilter.nf_conntrack_udp_timeout_stream: "180"
         sunrpc.tcp_max_slot_table_entries: "128"
         sunrpc.tcp_slot_table_entries: "128"
         user.max_user_namespaces: "11255"
