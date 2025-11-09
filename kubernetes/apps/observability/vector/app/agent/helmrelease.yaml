@@ -55,8 +55,8 @@ spec:
             securityContext:
               privileged: true
     serviceAccount:
-      create: true
-      name: vector-agent
+      vector-agent:
+        enabled: true
     persistence:
       config:
         enabled: true
