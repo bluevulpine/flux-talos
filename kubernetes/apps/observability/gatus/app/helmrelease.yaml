@@ -118,6 +118,9 @@ spec:
     ingress:
       app:
         enabled: false
+    serviceAccount:
+      name: gatus
+      create: true
 
     persistence:
       config:
