@@ -90,6 +90,7 @@ spec:
               limits:
                 memory: 512Mi
         pod:
+          serviceAccountName: gatus
           dnsConfig:
             options:
               - { name: ndots, value: "1" }
@@ -118,8 +119,7 @@ spec:
     ingress:
       app:
         enabled: false
-    serviceAccount:
-      name: gatus
+
 
     persistence:
       config:
