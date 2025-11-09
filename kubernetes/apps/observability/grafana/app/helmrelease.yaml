@@ -344,24 +344,12 @@ spec:
         provider:
           disableDelete: true
           foldersFromFilesStructure: true
-        env:
-          REQ_USERNAME: admin
-        envValueFrom:
-          REQ_PASSWORD:
-            secretKeyRef:
-              name: grafana-secret
-              key: GF_SECURITY_ADMIN_PASSWORD
+        skipReload: true
       datasources:
         enabled: true
         searchNamespace: ALL
         labelValue: ""
-        env:
-          REQ_USERNAME: admin
-        envValueFrom:
-          REQ_PASSWORD:
-            secretKeyRef:
-              name: grafana-secret
-              key: GF_SECURITY_ADMIN_PASSWORD
+        skipReload: true
     plugins:
       - grafana-clock-panel
       - grafana-piechart-panel
