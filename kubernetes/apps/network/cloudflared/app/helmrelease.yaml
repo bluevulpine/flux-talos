@@ -45,6 +45,8 @@ spec:
               - tunnel
               - --config
               - /etc/cloudflared/config/config.yaml
+              - --logfile
+              - /proc/self/fd/1
               - run
               - "$(TUNNEL_ID)"
             probes:
