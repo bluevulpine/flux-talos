@@ -20,6 +20,7 @@ spec:
   values:
     controllers:
       gatus:
+        type: deployment
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
@@ -117,9 +118,7 @@ spec:
     ingress:
       app:
         enabled: false
-    serviceAccount:
-      create: true
-      name: gatus
+
     persistence:
       config:
         type: emptyDir
