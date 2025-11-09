@@ -2,7 +2,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: cloudflared
+  name: cloudflare-tunnel
 spec:
   interval: 30m
   chartRef:
@@ -10,13 +10,13 @@ spec:
     name: cloudflared
   values:
     controllers:
-      main:
+      cloudflare-tunnel:
         replicas: 2
         strategy: RollingUpdate
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
-          main:
+          app:
             image:
               repository: docker.io/cloudflare/cloudflared
               tag: 2025.11.1
@@ -63,18 +63,18 @@ spec:
                 cpu: 10m
               limits:
                 memory: 256Mi
-        pod:
-          securityContext:
-            runAsUser: 65534
-            runAsGroup: 65534
-            runAsNonRoot: true
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
     service:
-      main:
+      app:
         ports:
           http:
             port: *port
     serviceMonitor:
-      main:
+      app:
         endpoints:
           - port: http
     persistence:
