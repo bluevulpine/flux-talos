@@ -90,7 +90,6 @@ spec:
               limits:
                 memory: 512Mi
         pod:
-          serviceAccountName: gatus
           dnsConfig:
             options:
               - { name: ndots, value: "1" }
