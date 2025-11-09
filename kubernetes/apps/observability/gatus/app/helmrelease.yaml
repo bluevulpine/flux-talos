@@ -119,8 +119,8 @@ spec:
       app:
         enabled: false
     serviceAccount:
-      gatus:
-        create: true
+      create: true
+      name: gatus
 
     persistence:
       config:
