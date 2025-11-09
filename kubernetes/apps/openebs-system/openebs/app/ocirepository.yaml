@@ -11,10 +11,5 @@ spec:
     operation: copy
   ref:
     tag: 4.1.1
-  url: oci://ghcr.io/home-operations/charts-mirror/localpv-provisioner
-  verify:
-    provider: cosign
-    matchOIDCIdentity:
-      - issuer: ^https://token.actions.githubusercontent.com$
-        subject: ^https://github.com/home-operations/charts-mirror.*$
+  url: oci://ghcr.io/openebs/charts/localpv-provisioner
 
