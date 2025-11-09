@@ -7,19 +7,19 @@ ingress:
     service: hello_world
 
   - hostname: "echo-server-external.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local
+    service: http://cilium-gateway-external.kube-system.svc.cluster.local
 
   # Applications migrated to Gateway API
   - hostname: "flux-webhook.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local
+    service: http://cilium-gateway-external.kube-system.svc.cluster.local
   - hostname: "auth.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local
+    service: http://cilium-gateway-external.kube-system.svc.cluster.local
   - hostname: "status.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local
+    service: http://cilium-gateway-external.kube-system.svc.cluster.local
   - hostname: "kromgo.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local
+    service: http://cilium-gateway-external.kube-system.svc.cluster.local
   - hostname: "joplin-server.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local
+    service: http://cilium-gateway-external.kube-system.svc.cluster.local
 
   - hostname: "${SECRET_DOMAIN}"
     service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
@@ -38,7 +38,7 @@ ingress:
 
   # Plex migrated to Gateway API
   - hostname: "plex.${SECRET_DOMAIN_MEDIA}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local
+    service: http://cilium-gateway-external.kube-system.svc.cluster.local
 
   - hostname: "${SECRET_DOMAIN_MEDIA}"
     service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
