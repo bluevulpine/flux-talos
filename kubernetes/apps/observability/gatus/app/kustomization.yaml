@@ -6,7 +6,6 @@ resources:
   - ./ocirepository.yaml
   - ./externalsecret.yaml
   - ./rbac.yaml
-  - ./serviceaccount.yaml
   - ./helmrelease.yaml
   - ./httproute.yaml
 configMapGenerator:
