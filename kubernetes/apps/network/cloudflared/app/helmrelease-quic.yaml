@@ -2,7 +2,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: cloudflare-tunnel
+  name: cloudflare-tunnel-quic
 spec:
   interval: 30m
   chartRef:
@@ -10,8 +10,8 @@ spec:
     name: cloudflared
   values:
     controllers:
-      cloudflare-tunnel:
-        replicas: 2
+      cloudflare-tunnel-quic:
+        replicas: 1  # Single replica for testing
         strategy: RollingUpdate
         annotations:
           reloader.stakater.com/auto: "true"
@@ -24,8 +24,8 @@ spec:
               NO_AUTOUPDATE: true
               TUNNEL_CRED_FILE: /etc/cloudflared/creds/credentials.json
               TUNNEL_METRICS: 0.0.0.0:8080
-              TUNNEL_TRANSPORT_PROTOCOL: http2 # Use stable HTTP/2 transport
-              TUNNEL_POST_QUANTUM: false # Disable post-quantum for HTTP/2
+              TUNNEL_TRANSPORT_PROTOCOL: quic # Force QUIC for investigation
+              TUNNEL_POST_QUANTUM: true # Enable post-quantum for QUIC testing
               TUNNEL_ID:
                 valueFrom:
                   secretKeyRef:
@@ -48,7 +48,7 @@ spec:
                 spec:
                   httpGet:
                     path: /ready
-                    port: &port 8080
+                    port: &port 8081  # Different port to avoid conflicts
                   initialDelaySeconds: 0
                   periodSeconds: 10
                   timeoutSeconds: 1
