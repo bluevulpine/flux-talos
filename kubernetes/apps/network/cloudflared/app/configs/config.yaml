@@ -1,64 +1,85 @@
 ---
-originRequest:
-  originServerName: "external.${SECRET_DOMAIN}"
-
 ingress:
   - hostname: "hello.${SECRET_DOMAIN}"
     service: hello_world
 
-  - hostname: "echo-server-external.${SECRET_DOMAIN}"
-    service: https://172.16.8.3
-
-  # Applications migrated to Gateway API
-  - hostname: "flux-webhook.${SECRET_DOMAIN}"
-    service: https://172.16.8.3
-  - hostname: "auth.${SECRET_DOMAIN}"
-    service: https://172.16.8.3
-  - hostname: "status.${SECRET_DOMAIN}"
-    service: https://172.16.8.3
-  - hostname: "kromgo.${SECRET_DOMAIN}"
-    service: https://172.16.8.3
-  - hostname: "joplin-server.${SECRET_DOMAIN}"
-    service: https://172.16.8.3
-
   - hostname: "${SECRET_DOMAIN}"
-    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+    originRequest:
+      http2Origin: true
+      originServerName: "external.${SECRET_DOMAIN}"
+    service: https://cilium-gateway-external.kube-system-svc.cluster.local:443
+
   - hostname: "*.${SECRET_DOMAIN}"
-    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+    originRequest:
+      http2Origin: true
+      originServerName: "external.${SECRET_DOMAIN}"
+    service: https://cilium-gateway-external.kube-system-svc.cluster.local:443
 
   - hostname: "${SECRET_DOMAIN_BLOG}"
-    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+    originRequest:
+      http2Origin: true
+      originServerName: "external.${SECRET_DOMAIN}"
+    service: https://cilium-gateway-external.kube-system-svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN_BLOG}"
-    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+    originRequest:
+      http2Origin: true
+      originServerName: "external.${SECRET_DOMAIN}"
+    service: https://cilium-gateway-external.kube-system-svc.cluster.local:443
 
   - hostname: "${SECRET_DOMAIN_BLOGCOM}"
-    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+    originRequest:
+      http2Origin: true
+      originServerName: "external.${SECRET_DOMAIN}"
+    service: https://cilium-gateway-external.kube-system-svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN_BLOGCOM}"
-    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
-
-  # Plex migrated to Gateway API
-  - hostname: "plex.${SECRET_DOMAIN_MEDIA}"
-    service: https://172.16.8.3
+    originRequest:
+      http2Origin: true
+      originServerName: "external.${SECRET_DOMAIN}"
+    service: https://cilium-gateway-external.kube-system-svc.cluster.local:443
 
   - hostname: "${SECRET_DOMAIN_MEDIA}"
-    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+    originRequest:
+      http2Origin: true
+      originServerName: "external.${SECRET_DOMAIN}"
+    service: https://cilium-gateway-external.kube-system-svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN_MEDIA}"
-    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+    originRequest:
+      http2Origin: true
+      originServerName: "external.${SECRET_DOMAIN}"
+    service: https://cilium-gateway-external.kube-system-svc.cluster.local:443
 
   - hostname: "${SECRET_DOMAIN_LAKE}"
-    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+    originRequest:
+      http2Origin: true
+      originServerName: "external.${SECRET_DOMAIN}"
+    service: https://cilium-gateway-external.kube-system-svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN_LAKE}"
-    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+    originRequest:
+      http2Origin: true
+      originServerName: "external.${SECRET_DOMAIN}"
+    service: https://cilium-gateway-external.kube-system-svc.cluster.local:443
 
   - hostname: "${SECRET_DOMAIN_YOYO}"
-    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+    originRequest:
+      http2Origin: true
+      originServerName: "external.${SECRET_DOMAIN}"
+    service: https://cilium-gateway-external.kube-system-svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN_YOYO}"
-    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+    originRequest:
+      http2Origin: true
+      originServerName: "external.${SECRET_DOMAIN}"
+    service: https://cilium-gateway-external.kube-system-svc.cluster.local:443
 
   - hostname: "${SECRET_DOMAIN_BON}"
-    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+    originRequest:
+      http2Origin: true
+      originServerName: "external.${SECRET_DOMAIN}"
+    service: https://cilium-gateway-external.kube-system-svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN_BON}"
-    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+    originRequest:
+      http2Origin: true
+      originServerName: "external.${SECRET_DOMAIN}"
+    service: https://cilium-gateway-external.kube-system-svc.cluster.local:443
 
   - service: http_status:404
 
