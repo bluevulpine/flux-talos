@@ -346,22 +346,22 @@ spec:
           foldersFromFilesStructure: true
         env:
           REQ_USERNAME: admin
+        envValueFrom:
           REQ_PASSWORD:
-            valueFrom:
-              secretKeyRef:
-                name: grafana-secret
-                key: GF_SECURITY_ADMIN_PASSWORD
+            secretKeyRef:
+              name: grafana-secret
+              key: GF_SECURITY_ADMIN_PASSWORD
       datasources:
         enabled: true
         searchNamespace: ALL
         labelValue: ""
         env:
           REQ_USERNAME: admin
+        envValueFrom:
           REQ_PASSWORD:
-            valueFrom:
-              secretKeyRef:
-                name: grafana-secret
-                key: GF_SECURITY_ADMIN_PASSWORD
+            secretKeyRef:
+              name: grafana-secret
+              key: GF_SECURITY_ADMIN_PASSWORD
     plugins:
       - grafana-clock-panel
       - grafana-piechart-panel
