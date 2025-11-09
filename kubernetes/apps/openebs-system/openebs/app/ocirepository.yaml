@@ -10,8 +10,8 @@ spec:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    tag: 4.3.3
-  url: oci://ghcr.io/home-operations/charts-mirror/openebs
+    tag: 4.1.1
+  url: oci://ghcr.io/home-operations/charts-mirror/localpv-provisioner
   verify:
     provider: cosign
     matchOIDCIdentity:
