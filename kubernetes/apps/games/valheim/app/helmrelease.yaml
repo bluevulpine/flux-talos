@@ -68,12 +68,12 @@ spec:
               AUTO_UPDATE_PAUSE_WITH_PLAYERS: 1
               SCHEDULED_RESTART: 1
               SCHEDULED_RESTART_SCHEDULE: "0 9 * * *" # every day at 9am
-              AUTO_BACKUP: 0
-              AUTO_BACKUP_SCHEDULE: "*/15 * * * *"
+              AUTO_BACKUP: 1
+              AUTO_BACKUP_SCHEDULE: "0 */2 * * *"
               AUTO_BACKUP_REMOVE_OLD: 1
-              AUTO_BACKUP_DAYS_TO_LIVE: 3
-              AUTO_BACKUP_ON_UPDATE: 0
-              AUTO_BACKUP_ON_SHUTDOWN: 0
+              AUTO_BACKUP_DAYS_TO_LIVE: 2
+              AUTO_BACKUP_ON_UPDATE: 1
+              AUTO_BACKUP_ON_SHUTDOWN: 1
               HTTP_PORT: 80
             resources:
               requests:
