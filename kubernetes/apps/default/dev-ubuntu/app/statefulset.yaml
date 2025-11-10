@@ -40,6 +40,10 @@ spec:
               set -e
               echo "Starting Ubuntu development environment setup..."
 
+              # Fix apt permissions
+              mkdir -p /var/lib/apt/lists/partial
+              chmod 755 /var/lib/apt/lists/partial
+
               # Update system and install essential packages
               apt-get update && apt-get install -y \
                 openssh-server \
