@@ -10,7 +10,7 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - port: 22
+    - port: 2222
       targetPort: ssh
       protocol: TCP
       name: ssh

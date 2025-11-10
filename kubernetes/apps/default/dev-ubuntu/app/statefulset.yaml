@@ -37,18 +37,18 @@ spec:
             - /init
 
           ports:
-            - containerPort: 22
+            - containerPort: 2222
               name: ssh
           readinessProbe:
             tcpSocket:
-              port: 22
+              port: 2222
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
           livenessProbe:
             tcpSocket:
-              port: 22
+              port: 2222
             initialDelaySeconds: 60
             periodSeconds: 30
             timeoutSeconds: 5
