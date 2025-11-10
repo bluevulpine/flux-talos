@@ -1,0 +1,25 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/podmonitor_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: cloudnative-pg
+  labels:
+    prometheus: k8s
+    role: alert-rules
+spec:
+  selector:
+    matchLabels:
+      cnpg.io/cluster: postgres16
+  podTargetLabels: ["cnpg.io/cluster"]
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      # Ref: https://github.com/cloudnative-pg/cloudnative-pg/issues/2501
+      metricRelabelings:
+        - sourceLabels: ["cluster"]
+          targetLabel: cnpg_cluster
+          action: replace
+        - regex: cluster
+          action: labeldrop
