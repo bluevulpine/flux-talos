@@ -39,7 +39,7 @@ machine:
     disableSearchDomain: true
   install:
     disk: /dev/vda
-    image: factory.talos.dev/metal-installer/b408686a927bd79b39b6539d9d9bc59c9ec31a65b177a807192c211bd7219605:v1.10.6
+    image: factory.talos.dev/metal-installer/b408686a927bd79b39b6539d9d9bc59c9ec31a65b177a807192c211bd7219605:v1.11.5
     wipe: false
   files:
     - content: |-

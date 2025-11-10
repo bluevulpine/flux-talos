@@ -39,7 +39,7 @@ machine:
     disableSearchDomain: true
   install:
     disk: /dev/sda
-    image: factory.talos.dev/installer/c59ebdd33eb0b789e4b1cf27ded85a1aa1a7ac09231d9f9e5f39aafa12a50cbe:v1.8.3
+    image: factory.talos.dev/installer/c59ebdd33eb0b789e4b1cf27ded85a1aa1a7ac09231d9f9e5f39aafa12a50cbe:v1.11.5
     wipe: false
   files:
     - content: |-

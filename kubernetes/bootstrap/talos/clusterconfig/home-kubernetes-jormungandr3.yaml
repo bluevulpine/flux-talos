@@ -41,7 +41,7 @@ machine:
     disableSearchDomain: true
   install:
     disk: /dev/sda
-    image: factory.talos.dev/metal-installer/7b14b901bb2541b031b9b440aa6c261d199f238d5cc02fdf2e774b41610fa49b:v1.10.6
+    image: factory.talos.dev/metal-installer/7b14b901bb2541b031b9b440aa6c261d199f238d5cc02fdf2e774b41610fa49b:v1.11.5
     wipe: false
   files:
     - content: |-
