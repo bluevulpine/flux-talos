@@ -30,96 +30,12 @@ spec:
         - name: ubuntu-dev
           image: lscr.io/linuxserver/openssh-server:latest
           securityContext:
-            privileged: true
+            runAsUser: 0
+            runAsGroup: 0
+            allowPrivilegeEscalation: false
           command:
-            - /bin/bash
-            - -c
-            - |
-              set -e
-              echo "Starting Ubuntu development environment setup..."
+            - /init
 
-              # Install additional packages
-              apt-get update && apt-get install -y \
-                zsh \
-                curl \
-                wget \
-                git \
-                vim \
-                nano \
-                htop \
-                tree \
-                unzip \
-                build-essential \
-                locales \
-                sudo \
-                && rm -rf /var/lib/apt/lists/*
-
-              # Configure locale
-              locale-gen en_US.UTF-8
-
-              # Create dev user with sudo privileges if not exists
-              if ! id "abc" &>/dev/null; then
-                usermod -l dev abc || useradd -m -s /bin/zsh -G sudo dev
-                echo "dev:dev" | chpasswd
-                echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-                echo "Created dev user"
-              fi
-
-              # Ensure proper ownership of home directory
-              mkdir -p /home/dev
-              chown -R dev:dev /home/dev
-
-              # Copy setup scripts to dev home
-              cat > /home/dev/setup-dev-tools.sh << 'EOF'
-              #!/bin/bash
-              set -e
-              echo "Setting up additional development tools..."
-
-              # Install Homebrew if not present
-              if [ ! -d "/home/linuxbrew/.linuxbrew" ]; then
-                export NONINTERACTIVE=1
-                /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-                echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.zshrc
-                echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc
-              fi
-
-              # Source Homebrew environment
-              eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-
-              # Install Oh My Zsh if not present
-              if [ ! -d "~/.oh-my-zsh" ]; then
-                sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-                sed -i 's/ZSH_THEME="robbyrussell"/ZSH_THEME="agnoster"/' ~/.zshrc
-              fi
-
-              # Install common development tools via Homebrew
-              brew install \
-                gh \
-                kubectl \
-                helm \
-                node \
-                python \
-                jq \
-                yq \
-                fzf \
-                ripgrep \
-                bat \
-                exa \
-                fd \
-                delta \
-                lazygit \
-                neovim
-
-              echo "Development tools installation complete!"
-              echo "Restart your shell or run 'source ~/.zshrc' to apply changes"
-              EOF
-
-              chmod +x /home/dev/setup-dev-tools.sh
-              chown dev:dev /home/dev/setup-dev-tools.sh
-
-              echo "Setup complete. Starting services..."
-              # Let the base image handle SSH startup
-              exec /init
           ports:
             - containerPort: 22
               name: ssh
