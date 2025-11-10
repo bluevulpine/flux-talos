@@ -28,11 +28,9 @@ spec:
         fsGroup: 1000
       containers:
         - name: ubuntu-dev
-          image: ubuntu:24.04
+          image: lscr.io/linuxserver/openssh-server:latest
           securityContext:
-            runAsUser: 0
-            runAsGroup: 0
-            allowPrivilegeEscalation: true
+            privileged: true
           command:
             - /bin/bash
             - -c
@@ -40,14 +38,9 @@ spec:
               set -e
               echo "Starting Ubuntu development environment setup..."
 
-              # Fix apt permissions
-              mkdir -p /var/lib/apt/lists/partial
-              chmod 755 /var/lib/apt/lists/partial
-
-              # Update system and install essential packages
+              # Install additional packages
               apt-get update && apt-get install -y \
-                openssh-server \
-                sudo \
+                zsh \
                 curl \
                 wget \
                 git \
@@ -57,64 +50,24 @@ spec:
                 tree \
                 unzip \
                 build-essential \
-                ca-certificates \
-                gnupg \
-                lsb-release \
-                zsh \
                 locales \
-                software-properties-common \
-                apt-transport-https \
+                sudo \
                 && rm -rf /var/lib/apt/lists/*
 
               # Configure locale
               locale-gen en_US.UTF-8
-              update-locale LANG=en_US.UTF-8
 
               # Create dev user with sudo privileges if not exists
-              if ! id "dev" &>/dev/null; then
-                useradd -m -s /bin/zsh -G sudo dev
+              if ! id "abc" &>/dev/null; then
+                usermod -l dev abc || useradd -m -s /bin/zsh -G sudo dev
                 echo "dev:dev" | chpasswd
                 echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
                 echo "Created dev user"
               fi
 
               # Ensure proper ownership of home directory
+              mkdir -p /home/dev
               chown -R dev:dev /home/dev
-
-              # Configure SSH
-              mkdir -p /var/run/sshd
-              sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config
-              sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-              sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config
-              sed -i 's/#Port 22/Port 22/' /etc/ssh/sshd_config
-
-              # Install Homebrew as dev user if not already installed
-              if [ ! -d "/home/linuxbrew/.linuxbrew" ]; then
-                echo "Installing Homebrew..."
-                su - dev -c "
-                  export NONINTERACTIVE=1
-                  /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"
-                "
-              fi
-
-              # Configure Homebrew environment for dev user
-              su - dev -c "
-                if ! grep -q 'brew shellenv' ~/.zshrc; then
-                  echo 'eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\"' >> ~/.zshrc
-                fi
-                if ! grep -q 'brew shellenv' ~/.bashrc; then
-                  echo 'eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\"' >> ~/.bashrc
-                fi
-              "
-
-              # Install Oh My Zsh for dev user if not already installed
-              if [ ! -d "/home/dev/.oh-my-zsh" ]; then
-                echo "Installing Oh My Zsh..."
-                su - dev -c "
-                  sh -c \"\$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\" \"\" --unattended
-                  sed -i 's/ZSH_THEME=\"robbyrussell\"/ZSH_THEME=\"agnoster\"/' ~/.zshrc
-                "
-              fi
 
               # Copy setup scripts to dev home
               cat > /home/dev/setup-dev-tools.sh << 'EOF'
@@ -122,8 +75,22 @@ spec:
               set -e
               echo "Setting up additional development tools..."
 
+              # Install Homebrew if not present
+              if [ ! -d "/home/linuxbrew/.linuxbrew" ]; then
+                export NONINTERACTIVE=1
+                /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+                echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.zshrc
+                echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc
+              fi
+
               # Source Homebrew environment
               eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+              # Install Oh My Zsh if not present
+              if [ ! -d "~/.oh-my-zsh" ]; then
+                sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+                sed -i 's/ZSH_THEME="robbyrussell"/ZSH_THEME="agnoster"/' ~/.zshrc
+              fi
 
               # Install common development tools via Homebrew
               brew install \
@@ -150,18 +117,9 @@ spec:
               chmod +x /home/dev/setup-dev-tools.sh
               chown dev:dev /home/dev/setup-dev-tools.sh
 
-              echo "Setup complete. Starting SSH daemon..."
-              # Start SSH daemon and keep container running
-              service ssh start
-
-              # Health check loop
-              while true; do
-                if ! pgrep sshd > /dev/null; then
-                  echo "SSH daemon stopped, restarting..."
-                  service ssh start
-                fi
-                sleep 30
-              done
+              echo "Setup complete. Starting services..."
+              # Let the base image handle SSH startup
+              exec /init
           ports:
             - containerPort: 22
               name: ssh
@@ -194,6 +152,20 @@ spec:
               mountPath: /home/linuxbrew
               subPath: homebrew
           env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: "America/Chicago"
+            - name: PASSWORD_ACCESS
+              value: "true"
+            - name: USER_PASSWORD
+              value: "dev"
+            - name: USER_NAME
+              value: "dev"
+            - name: SUDO_ACCESS
+              value: "true"
             - name: DEBIAN_FRONTEND
               value: noninteractive
             - name: LANG
