@@ -12,7 +12,7 @@ machine:
     - 127.0.0.1
     - talos.flyingfox-decibel.ts.net
   kubelet:
-    image: ghcr.io/siderolabs/kubelet:v1.33.4
+    image: ghcr.io/siderolabs/kubelet:v1.34.1
     extraArgs:
       image-gc-high-threshold: "55"
       image-gc-low-threshold: "50"
