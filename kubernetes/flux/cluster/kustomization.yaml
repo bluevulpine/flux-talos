@@ -1,0 +1,11 @@
+---
+# This kustomization is for flux-local testing purposes only
+# It includes the necessary resources for flux-local to resolve dependencies
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ks.yaml
+  - gitrepository.yaml
+  - cluster-settings.yaml
+  - cluster-secrets.yaml
+  - sops-age.yaml
