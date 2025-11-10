@@ -1,0 +1,206 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: dev-ubuntu
+  namespace: default
+  labels:
+    app.kubernetes.io/name: dev-ubuntu
+    app.kubernetes.io/instance: dev-ubuntu
+spec:
+  serviceName: dev-ubuntu
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dev-ubuntu
+      app.kubernetes.io/instance: dev-ubuntu
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dev-ubuntu
+        app.kubernetes.io/instance: dev-ubuntu
+      annotations:
+        tailscale.com/expose: "true"
+        tailscale.com/hostname: "dev-ubuntu"
+        tailscale.com/tags: "tag:k8s"
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: ubuntu-dev
+          image: ubuntu:24.04
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              echo "Starting Ubuntu development environment setup..."
+
+              # Update system and install essential packages
+              apt-get update && apt-get install -y \
+                openssh-server \
+                sudo \
+                curl \
+                wget \
+                git \
+                vim \
+                nano \
+                htop \
+                tree \
+                unzip \
+                build-essential \
+                ca-certificates \
+                gnupg \
+                lsb-release \
+                zsh \
+                locales \
+                software-properties-common \
+                apt-transport-https \
+                && rm -rf /var/lib/apt/lists/*
+
+              # Configure locale
+              locale-gen en_US.UTF-8
+              update-locale LANG=en_US.UTF-8
+
+              # Create dev user with sudo privileges if not exists
+              if ! id "dev" &>/dev/null; then
+                useradd -m -s /bin/zsh -G sudo dev
+                echo "dev:dev" | chpasswd
+                echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+                echo "Created dev user"
+              fi
+
+              # Ensure proper ownership of home directory
+              chown -R dev:dev /home/dev
+
+              # Configure SSH
+              mkdir -p /var/run/sshd
+              sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config
+              sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+              sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+              sed -i 's/#Port 22/Port 22/' /etc/ssh/sshd_config
+
+              # Install Homebrew as dev user if not already installed
+              if [ ! -d "/home/linuxbrew/.linuxbrew" ]; then
+                echo "Installing Homebrew..."
+                su - dev -c "
+                  export NONINTERACTIVE=1
+                  /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"
+                "
+              fi
+
+              # Configure Homebrew environment for dev user
+              su - dev -c "
+                if ! grep -q 'brew shellenv' ~/.zshrc; then
+                  echo 'eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\"' >> ~/.zshrc
+                fi
+                if ! grep -q 'brew shellenv' ~/.bashrc; then
+                  echo 'eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\"' >> ~/.bashrc
+                fi
+              "
+
+              # Install Oh My Zsh for dev user if not already installed
+              if [ ! -d "/home/dev/.oh-my-zsh" ]; then
+                echo "Installing Oh My Zsh..."
+                su - dev -c "
+                  sh -c \"\$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\" \"\" --unattended
+                  sed -i 's/ZSH_THEME=\"robbyrussell\"/ZSH_THEME=\"agnoster\"/' ~/.zshrc
+                "
+              fi
+
+              # Copy setup scripts to dev home
+              cat > /home/dev/setup-dev-tools.sh << 'EOF'
+              #!/bin/bash
+              set -e
+              echo "Setting up additional development tools..."
+
+              # Source Homebrew environment
+              eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+              # Install common development tools via Homebrew
+              brew install \
+                gh \
+                kubectl \
+                helm \
+                node \
+                python \
+                jq \
+                yq \
+                fzf \
+                ripgrep \
+                bat \
+                exa \
+                fd \
+                delta \
+                lazygit \
+                neovim
+
+              echo "Development tools installation complete!"
+              echo "Restart your shell or run 'source ~/.zshrc' to apply changes"
+              EOF
+
+              chmod +x /home/dev/setup-dev-tools.sh
+              chown dev:dev /home/dev/setup-dev-tools.sh
+
+              echo "Setup complete. Starting SSH daemon..."
+              # Start SSH daemon and keep container running
+              service ssh start
+
+              # Health check loop
+              while true; do
+                if ! pgrep sshd > /dev/null; then
+                  echo "SSH daemon stopped, restarting..."
+                  service ssh start
+                fi
+                sleep 30
+              done
+          ports:
+            - containerPort: 22
+              name: ssh
+          readinessProbe:
+            tcpSocket:
+              port: 22
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: 22
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+          volumeMounts:
+            - name: dev-storage
+              mountPath: /home/dev
+              subPath: home
+            - name: dev-storage
+              mountPath: /home/linuxbrew
+              subPath: homebrew
+          env:
+            - name: DEBIAN_FRONTEND
+              value: noninteractive
+            - name: LANG
+              value: en_US.UTF-8
+            - name: LC_ALL
+              value: en_US.UTF-8
+      restartPolicy: Always
+  volumeClaimTemplates:
+    - metadata:
+        name: dev-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-hostpath
+        resources:
+          requests:
+            storage: 50Gi

@@ -7,3 +7,4 @@ components:
   - ../../components/common
 resources:
   - ./namespace.yaml
+  - ./dev-ubuntu/ks.yaml
