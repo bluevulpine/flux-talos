@@ -7,11 +7,11 @@ spec:
   interval: 30m
   chartRef:
     kind: OCIRepository
-    name: cloudflared
+    name: cloudflare-tunnel
   values:
     controllers:
       cloudflare-tunnel-quic:
-        replicas: 1  # Single replica for testing
+        replicas: 0  # Disabled: QUIC tunnel has backend connectivity issues
         strategy: RollingUpdate
         annotations:
           reloader.stakater.com/auto: "true"
@@ -29,7 +29,7 @@ spec:
               TUNNEL_ID:
                 valueFrom:
                   secretKeyRef:
-                    name: cloudflared-secret
+                    name: cloudflare-tunnel-secret
                     key: TUNNEL_ID
             args:
               - tunnel
@@ -81,14 +81,14 @@ spec:
       config:
         enabled: true
         type: configMap
-        name: cloudflared-configmap
+        name: cloudflare-tunnel-configmap
         globalMounts:
           - path: /etc/cloudflared/config/config.yaml
             subPath: config.yaml
             readOnly: true
       creds:
         type: secret
-        name: cloudflared-secret
+        name: cloudflare-tunnel-secret
         globalMounts:
           - path: /etc/cloudflared/creds/credentials.json
             subPath: credentials.json

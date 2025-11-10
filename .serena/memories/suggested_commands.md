@@ -6,6 +6,6 @@ Common commands:
 - kubectl get certificates -A                # Check cert-manager Certificates
 - kubectl describe certificate -n kube-system ${SECRET_DOMAIN/./-}-production
 - kubectl get gateways -A; kubectl get httproutes -A             # Gateway API resources
-- kubectl -n network logs deploy/cloudflared -f   # Tunnel logs
+- kubectl -n network logs deploy/cloudflare-tunnel -f   # Tunnel logs
 - kubectl -n network get ingress,svc                     # Legacy ingress state
 - flux reconcile kustomization -n flux-system <name>     # Force reconcile

@@ -8,7 +8,7 @@ components:
   - ../../components/psa-privileged
 resources:
   - ./namespace.yaml
-  - ./cloudflared/ks.yaml
+  - ./cloudflare-tunnel/ks.yaml
   - ./echo-server/ks.yaml
   - ./external-dns/ks.yaml
   - ./tailscale/ks.yaml

@@ -27,7 +27,7 @@ I've tried some hyper-converged cluster storage paradigms, using mayastor, longh
 - [actions-runner-controller](https://github.com/actions/actions-runner-controller): Self-hosted Github runners.
 - [cert-manager](https://github.com/cert-manager/cert-manager): Creates SSL certificates utilizing Let's Encrypt and Cloudflare DNS.
 - [cilium](https://github.com/cilium/cilium): Internal Kubernetes container networking interface.
-- [cloudflared](https://github.com/cloudflare/cloudflared): Enables Cloudflare secure access to certain ingresses.
+- [cloudflare-tunnel](https://github.com/cloudflare/cloudflared): Enables Cloudflare secure access to certain ingresses.
 - [external-dns](https://github.com/kubernetes-sigs/external-dns): Automatically syncs ingress DNS records to a DNS provider.
 - [external-secrets](https://github.com/external-secrets/external-secrets): Managed Kubernetes secrets using [Bitwarden Secrets Manager Cache](https://github.com/rippleFCL/bws-cache). BWSC seems a bit unstable, so I have a cronjob set to restart it daily.
 - [ingress-nginx](https://github.com/kubernetes/ingress-nginx): Kubernetes ingress controller using NGINX as a reverse proxy and load balancer.
