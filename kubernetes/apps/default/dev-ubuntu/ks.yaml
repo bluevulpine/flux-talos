@@ -9,8 +9,7 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  dependsOn:
-    - name: tailscale-operator
+
   path: ./kubernetes/apps/default/dev-ubuntu/app
   prune: true
   sourceRef:
