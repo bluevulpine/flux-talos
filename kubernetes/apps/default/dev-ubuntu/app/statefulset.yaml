@@ -200,7 +200,7 @@ spec:
         name: dev-storage
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: local-hostpath
+        storageClassName: openebs-hostpath
         resources:
           requests:
             storage: 50Gi
