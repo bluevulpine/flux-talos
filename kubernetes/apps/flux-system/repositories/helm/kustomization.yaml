@@ -7,3 +7,4 @@ resources:
   - ./kubernetes-sigs-nfd.yaml
 
   - ./seaweedfs.yaml
+  - ./sonatype.yaml

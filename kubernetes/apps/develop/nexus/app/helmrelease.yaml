@@ -1,0 +1,99 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app nexus
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: nexus-repository-manager
+      version: 64.2.0
+      sourceRef:
+        kind: HelmRepository
+        name: sonatype
+        namespace: flux-system
+      interval: 15m
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  dependsOn:
+    - name: nexus-secret
+      namespace: develop
+  values:
+    # Nexus configuration
+    nexus:
+      # Use PostgreSQL instead of embedded H2
+      properties:
+        override: true
+        data:
+          nexus.datastore.enabled: true
+          nexus.datastore.nexus.type: jdbc
+      
+      # Security configuration
+      security:
+        randomAdminPassword: false
+      
+      # Resource configuration
+      resources:
+        requests:
+          cpu: 500m
+          memory: 2Gi
+        limits:
+          cpu: 2000m
+          memory: 4Gi
+      
+      # Environment variables from secret
+      env:
+        - name: NEXUS_SECURITY_RANDOMPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nexus-secret
+              key: NEXUS_SECURITY_RANDOMPASSWORD
+        - name: NEXUS_SECURITY_INITIAL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nexus-secret
+              key: NEXUS_SECURITY_INITIAL_PASSWORD
+        - name: NEXUS_DATASTORE_NEXUS_JDBCURL
+          valueFrom:
+            secretKeyRef:
+              name: nexus-secret
+              key: NEXUS_DATASTORE_NEXUS_JDBCURL
+        - name: NEXUS_DATASTORE_NEXUS_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: nexus-secret
+              key: NEXUS_DATASTORE_NEXUS_USERNAME
+        - name: NEXUS_DATASTORE_NEXUS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nexus-secret
+              key: NEXUS_DATASTORE_NEXUS_PASSWORD
+    
+    # Persistence configuration
+    persistence:
+      enabled: true
+      existingClaim: nexus-data
+    
+    # Service configuration
+    service:
+      type: ClusterIP
+      port: 8081
+    
+    # Ingress disabled (using HTTPRoute instead)
+    ingress:
+      enabled: false
+    
+    # Security context
+    securityContext:
+      runAsUser: 997
+      runAsGroup: 997
+      fsGroup: 997
