@@ -29,7 +29,7 @@ spec:
     limits:
       memory: 4Gi
   monitoring:
-    enabled: true
+    enablePodMonitor: true
 
   backup:
     retentionPolicy: 7d
