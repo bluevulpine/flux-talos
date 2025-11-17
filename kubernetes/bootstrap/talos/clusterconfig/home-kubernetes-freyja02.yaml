@@ -1,0 +1,105 @@
+version: v1alpha1
+debug: false
+persist: true
+machine:
+  type: worker
+  token: bfdwhi.u4zig0fvw5mj9uy8
+  ca:
+    crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJQekNCOHFBREFnRUNBaEVBM3E1aE1iUWhZZ2RkWHEySUMvNDRQVEFGQmdNclpYQXdFREVPTUF3R0ExVUUKQ2hNRmRHRnNiM013SGhjTk1qUXdNekEzTURVMU1EVTNXaGNOTXpRd016QTFNRFUxTURVM1dqQVFNUTR3REFZRApWUVFLRXdWMFlXeHZjekFxTUFVR0F5dGxjQU1oQUtsVmUwVjVqUDc2UzQxZWFOc2liczQ0dktvaG53T05pSktxCm1FUWhSZ084bzJFd1h6QU9CZ05WSFE4QkFmOEVCQU1DQW9Rd0hRWURWUjBsQkJZd0ZBWUlLd1lCQlFVSEF3RUcKQ0NzR0FRVUZCd01DTUE4R0ExVWRFd0VCL3dRRk1BTUJBZjh3SFFZRFZSME9CQllFRk1ScUd6T2gzak5YMndHZwp5OS9CejVKTms4MEtNQVVHQXl0bGNBTkJBTXJNbTcyTEl4ZjZnaVpnUGx2Y05naGZGdjJJQmdCRzkzYitjaWJrCnU5dTFxUkdGd0cybUc4bUpUSUF3aUFOT2tlR2FWRDNkcWdKS1V1ZjdlbnE4endJPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+    key: ""
+  certSANs:
+    - 10.0.10.30
+    - 127.0.0.1
+    - talos.flyingfox-decibel.ts.net
+  kubelet:
+    image: ghcr.io/siderolabs/kubelet:v1.30.2
+    extraArgs:
+      image-gc-high-threshold: "55"
+      image-gc-low-threshold: "50"
+    extraMounts:
+      - destination: /var/openebs/local
+        type: bind
+        source: /var/openebs/local
+        options:
+          - bind
+          - rshared
+          - rw
+    defaultRuntimeSeccompProfileEnabled: true
+    nodeIP:
+      validSubnets:
+        - 10.0.10.0/24
+    disableManifestsDirectory: true
+  network:
+    hostname: freyja02
+    interfaces:
+      - interface: eth0
+        addresses:
+          - 10.0.10.32/24
+        routes:
+          - network: 0.0.0.0/0
+            gateway: 10.0.10.1
+        mtu: 1500
+        dhcp: false
+    disableSearchDomain: true
+  install:
+    disk: /dev/sda
+    image: factory.talos.dev/installer/385bde5bbbcfc231f8bdb46211eed312add827ca45ec16bcb9c6850996d63175:v1.7.5
+    wipe: false
+  files:
+    - content: |-
+        [plugins."io.containerd.grpc.v1.cri"]
+          enable_unprivileged_ports = true
+          enable_unprivileged_icmp = true
+        [plugins."io.containerd.grpc.v1.cri".containerd]
+          discard_unpacked_layers = false
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+          discard_unpacked_layers = false
+      permissions: 0o0
+      path: /etc/cri/conf.d/20-customization.part
+      op: create
+  time:
+    disabled: false
+    servers:
+      - ntp1.wiktel.com
+      - ntp2.wiktel.com
+      - time.cloudflare.com
+  sysctls:
+    fs.inotify.max_queued_events: "65536"
+    fs.inotify.max_user_instances: "8192"
+    fs.inotify.max_user_watches: "524288"
+    net.core.rmem_max: "2500000"
+    net.core.wmem_max: "2500000"
+  features:
+    rbac: true
+    stableHostname: true
+    apidCheckExtKeyUsage: true
+    diskQuotaSupport: true
+    kubePrism:
+      enabled: true
+      port: 7445
+    hostDNS:
+      enabled: true
+cluster:
+  id: wRcoS9HpZS3trhkOrwnx6_7709HofSltMZ6_oAEApTQ=
+  secret: xaP/SINjxQMyLvIpmI+HQ4w1A3GJ15liQX7dSz2RBC0=
+  controlPlane:
+    endpoint: https://10.0.10.30:6443
+  network:
+    cni:
+      name: none
+    dnsDomain: cluster.local
+    podSubnets:
+      - 10.69.0.0/16
+    serviceSubnets:
+      - 10.96.0.0/16
+  token: pctyd8.s2omn3ie4gcuczm1
+  ca:
+    crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJpakNDQVMrZ0F3SUJBZ0lRSjhGaXhKdkdrRStEYUNZdDdBdURwVEFLQmdncWhrak9QUVFEQWpBVk1STXcKRVFZRFZRUUtFd3ByZFdKbGNtNWxkR1Z6TUI0WERUSTBNRE13TnpBMU5UQTFOMW9YRFRNME1ETXdOVEExTlRBMQpOMW93RlRFVE1CRUdBMVVFQ2hNS2EzVmlaWEp1WlhSbGN6QlpNQk1HQnlxR1NNNDlBZ0VHQ0NxR1NNNDlBd0VICkEwSUFCTlRFVmlMYUZpVnJ4L25wSVVCSVVkK3hmQWtYMXJ6MFE1YVVBeWxHN0QzY0d1WmZNWGRCdFBHK1NCZ0oKMmd6UkNoaFNMQVo1cGpyV0JsdXlUUGdnTWpLallUQmZNQTRHQTFVZER3RUIvd1FFQXdJQ2hEQWRCZ05WSFNVRQpGakFVQmdnckJnRUZCUWNEQVFZSUt3WUJCUVVIQXdJd0R3WURWUjBUQVFIL0JBVXdBd0VCL3pBZEJnTlZIUTRFCkZnUVV3dGFNRk5sbDcyaGUxVEhEZFRJWXE1cmlFSDR3Q2dZSUtvWkl6ajBFQXdJRFNRQXdSZ0loQUlQK3p5enkKZ3hVbmVFazlvV0wzMUUrWnVRaE1na05MUHlxbmU4aWVsT2dXQWlFQTd3NlZDampVcEwrS1k4VTZRYm11YWtFUwplRlU0ZHFUNGlaU043OEVQR2hVPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+    key: ""
+  discovery:
+    enabled: true
+    registries:
+      kubernetes:
+        disabled: false
+      service:
+        disabled: false
