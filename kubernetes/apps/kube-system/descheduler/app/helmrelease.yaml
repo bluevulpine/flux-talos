@@ -46,8 +46,7 @@ spec:
                   cpu: 50
                   memory: 50
                   pods: 50
-            # NEW: Remove duplicate pods to spread replicas across nodes
-            - name: RemoveDuplicates
+
             # EXISTING: Constraint violation strategies (unchanged)
             - name: RemovePodsViolatingInterPodAntiAffinity
             - name: RemovePodsViolatingNodeAffinity
@@ -69,8 +68,6 @@ spec:
                 - RemovePodsViolatingTopologySpreadConstraint
             deschedule:
               enabled:
-                # NEW: Enable duplicate removal strategy
-                - RemoveDuplicates
                 # EXISTING: Keep constraint violation strategies
                 - RemovePodsViolatingInterPodAntiAffinity
                 - RemovePodsViolatingNodeAffinity
