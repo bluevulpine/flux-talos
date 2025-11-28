@@ -30,8 +30,25 @@ spec:
               args:
                 evictFailedBarePods: true
                 evictLocalStoragePods: true
-                evictSystemCriticalPods: true
+                # Changed from true to false for safer operation in homelab environment
+                evictSystemCriticalPods: false
                 nodeFit: true
+            # NEW: Load balancing strategy to address pod distribution imbalance
+            - name: LowNodeUtilization
+              args:
+                # Nodes below these thresholds are considered underutilized
+                thresholds:
+                  cpu: 20
+                  memory: 20
+                  pods: 20
+                # Nodes above these thresholds will have pods evicted
+                targetThresholds:
+                  cpu: 50
+                  memory: 50
+                  pods: 50
+            # NEW: Remove duplicate pods to spread replicas across nodes
+            - name: RemoveDuplicates
+            # EXISTING: Constraint violation strategies (unchanged)
             - name: RemovePodsViolatingInterPodAntiAffinity
             - name: RemovePodsViolatingNodeAffinity
               args:
@@ -46,9 +63,15 @@ spec:
           plugins:
             balance:
               enabled:
+                # NEW: Enable load balancing strategies
+                - LowNodeUtilization
+                # EXISTING: Keep topology spread constraint balancing
                 - RemovePodsViolatingTopologySpreadConstraint
             deschedule:
               enabled:
+                # NEW: Enable duplicate removal strategy
+                - RemoveDuplicates
+                # EXISTING: Keep constraint violation strategies
                 - RemovePodsViolatingInterPodAntiAffinity
                 - RemovePodsViolatingNodeAffinity
                 - RemovePodsViolatingNodeTaints
