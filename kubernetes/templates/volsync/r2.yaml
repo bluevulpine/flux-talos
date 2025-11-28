@@ -36,7 +36,9 @@ spec:
     repository: "${APP}-volsync-r2-secret"
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-longhorn-snapclass}"
     cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-4Gi}
-    cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-openebs-hostpath}"
+    # Changed from openebs-hostpath to vault-nfs to reduce node disk I/O pressure
+    # and leverage centralized NFS storage for backup cache operations
+    cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-vault-nfs}"
     cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
     storageClassName: "${VOLSYNC_STORAGECLASS:-longhorn}"
     accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
@@ -59,7 +61,9 @@ spec:
     repository: "${APP:=temp}-volsync-r2-secret"
     copyMethod: Snapshot # must be Snapshot
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-longhorn-snapclass}"
-    cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-openebs-hostpath}"
+    # Changed from openebs-hostpath to vault-nfs to reduce node disk I/O pressure
+    # and leverage centralized NFS storage for restore cache operations
+    cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-vault-nfs}"
     cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
     cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-8Gi}
     storageClassName: "${VOLSYNC_STORAGECLASS:-longhorn}"
