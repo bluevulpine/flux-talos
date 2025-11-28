@@ -20,6 +20,10 @@ spec:
   uninstall:
     keepHistory: false
   values:
+    defaultPodOptions:
+      nodeSelector:
+        kubernetes.io/arch: amd64
+
     controllers:
       main:
         type: deployment
