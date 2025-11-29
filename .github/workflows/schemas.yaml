@@ -21,7 +21,7 @@ permissions:
 jobs:
   main:
     name: Schemas
-    runs-on: home-ops-runner
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
