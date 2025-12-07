@@ -100,6 +100,31 @@ nodes:
             mtu: 1500
     schematic: *pischematic
     extensionServices: *extensionServices
+    volumes:
+      - name: EPHEMERAL
+        provisioning:
+            grow: false
+            diskSelector:
+                match: disk.model == "2115"
+            maxSize: 100GiB
+    # userVolumes:
+    #   - name: data-1
+    #     provisioning:
+    #         diskSelector:
+    #             match: disk.model == "2115"
+    #         grow: true
+    #         minSize: 100GiB
+    #     filesystem:
+    #         type: xfs
+    #     encryption:
+    #         provider: luks2 # schema says this is an error but it's what the app actually wants
+    #         keys:
+    #             - slot: 0
+    #               tpm: {}
+    #             - slot: 1
+    #               static:
+    #                 passphrase: ${SECRET_VOLUME_KEY}
+
 
   - hostname: "brokkr01"
     ipAddress: "10.0.10.38"
