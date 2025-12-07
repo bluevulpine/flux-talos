@@ -1,4 +1,4 @@
-SECRET_TS_AUTHKEY: ENC[AES256_GCM,data:Z2D0alVS15iPQO8q4P0+C439rcXf3ofJA7fAy1Ui2s1zWEx5jU/+ZhcnDlmmcQGPcR2fkMYorvZJL3FB5dI=,iv:NnTDWlov803njR+hVaVRdPyVRYmIk6So+hEVCS6nrEE=,tag:aJ0QqIBH4ulPVGqlSYp/Eg==,type:str]
+SECRET_TS_AUTHKEY: ENC[AES256_GCM,data:7kNmD3BeP+xOjCuI9ze/wZULIbss7ZcZ2Hk8weDLcbnhv6fBCfVhUA71ylv4KRjYpWs/UxcFruKpqNCMeQ==,iv:UPJuj4Wsliusk87IdQyZ7QJ5LWKkq5CF7z1nXtwRC8Q=,tag:BH2+wGbX6NEfdWJZWr2B3w==,type:str]
 SECRET_VOLUME_KEY: ENC[AES256_GCM,data:4q9Q9bgMRYv+6UDjXXiKQXN0jcQLxwsgRR+ngz8OCTVpwIgXq+Pv1lFMeVpNvuZx2ejF1YfZwpbMYbo=,iv:B2TNUImo3PlYVI9HWfcFXZ6Vm6OM7zb/1An3T8GoA6c=,tag:nJCoKKX3LBy0cwS2+a/UHg==,type:str]
 sops:
     age:
@@ -11,7 +11,7 @@ sops:
             aVRyZ1F5VXVQZ1B1cDVhWmRYdXViaW8Kx04FGxTv74jai7dsBhlj2GxmmGKjKABU
             C56n6KPe/jDCS3vFQibkneGsRIfMg26KjNoQ0RKzO3/d8Cb4W59PqA==
             -----END AGE ENCRYPTED FILE-----
-    lastmodified: "2025-08-25T03:43:01Z"
-    mac: ENC[AES256_GCM,data:r+jVT5Gkea6zE6wGlhKpHnIOWWDu/UF1Zal4m/q5/qf831OlK7NA9/vJAZsKhIr45jjjUnPzapMBctoUtI5l1/bolWvXB/6sr6MpQekXvFJBO+S8NhGz/ChQ1KJT++WA71yBzjckDcvZaPVJCBzejBtTle6UkRITCRbzc/0BHho=,iv:RfhNQVaZCz8fBd2PP5TA1T8aBKLtQKd9TkfAOixWmpc=,tag:hpJvSwSWP8zuvCrGpoVcUA==,type:str]
+    lastmodified: "2025-11-21T04:41:50Z"
+    mac: ENC[AES256_GCM,data:Pws1euO27sau90KBJepiL91hflliAEw3BVejlQZ4VufXzTNPjYurInP/rkdv8+Wa6DtXWSLU20qPMNJ9eiYhVorvju/aE7i1GDVtoV+AnptT7nhBFtfGVKbZQlxE7PYGY2TdJOLTYvaE5ucY3B3IZUUR/2vGxqTKtTvV63xqbes=,iv:w38XYl+vsmGglAuwh1gLWbLuwtQDf819UxTNpHWOiv4=,tag:2XYYylmo75Rvs/Q2/IGhog==,type:str]
     unencrypted_suffix: _unencrypted
-    version: 3.10.2
+    version: 3.11.0
