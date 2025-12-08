@@ -6,6 +6,7 @@ metadata:
 spec:
   blocks:
     - cidr: "172.16.8.0/24"
+    - cidr: "2604:8500:b20b:2::8:0/125"
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/cilium.io/ciliumbgpadvertisement_v2.json
 apiVersion: cilium.io/v2
@@ -32,6 +33,11 @@ metadata:
 spec:
   families:
     - afi: ipv4
+      safi: unicast
+      advertisements:
+        matchLabels:
+          advertise: bgp
+    - afi: ipv6
       safi: unicast
       advertisements:
         matchLabels:

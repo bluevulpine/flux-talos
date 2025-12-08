@@ -1,0 +1,44 @@
+! -*- bgp -*-
+!
+hostname morpheus
+frr defaults traditional
+log file /var/log/frr/debug.log
+!
+router bgp 65510
+ bgp ebgp-requires-policy
+ bgp router-id 10.25.52.1
+ bgp log-neighbor-changes
+ maximum-paths 1
+ !
+ ! Peer group for talos bgp
+ neighbor talos peer-group
+ neighbor talos remote-as 65512
+ neighbor talos activate
+ neighbor talos soft-reconfiguration inbound
+ neighbor talos timers 15 45
+ neighbor talos timers connect 15
+ !
+ ! Neighbors for talos
+ bgp listen range 10.0.10.0/24 peer-group talos
+ !
+ address-family ipv4 unicast
+  redistribute connected
+  !
+  neighbor talos activate
+  neighbor talos route-map ALLOW-ALL in
+  neighbor talos route-map ALLOW-ALL out
+  neighbor talos next-hop-self
+ exit-address-family
+ !
+ ! IPv6 route exchange over IPv4 BGP sessions
+ address-family ipv6 unicast
+  redistribute connected
+  !
+  neighbor talos activate
+  neighbor talos route-map ALLOW-ALL in
+  neighbor talos route-map ALLOW-ALL out
+  neighbor talos next-hop-self
+ exit-address-family
+ !
+route-map ALLOW-ALL permit 10
+!
