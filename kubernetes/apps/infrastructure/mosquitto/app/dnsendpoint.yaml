@@ -11,3 +11,21 @@ spec:
       providerSpecific:
       - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
         value: "false"
+    - dnsName: "mqtt.${SECRET_DOMAIN_MEDIA}"
+      recordType: AAAA
+      targets: ["${SVC_MOSQUITTO_ADDR_IPV6}"]
+      providerSpecific:
+      - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+        value: "false"
+    - dnsName: "mqtt.${SECRET_DOMAIN}"
+      recordType: CNAME
+      targets: ["wheels.${SECRET_DOMAIN_MEDIA}"]
+      providerSpecific:
+      - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+        value: "false"
+    - dnsName: "mqtt.${SECRET_DOMAIN}"
+      recordType: AAAA
+      targets: ["${SVC_MOSQUITTO_ADDR_IPV6}"]
+      providerSpecific:
+      - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+        value: "false"
