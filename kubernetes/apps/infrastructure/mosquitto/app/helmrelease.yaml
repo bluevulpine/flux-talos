@@ -156,7 +156,21 @@ spec:
 
     defaultPodOptions:
       shareProcessNamespace: true
-      # Note: mosquitto requires Longhorn storage, cannot run on jormungandr4
+      tolerations:
+        - key: "node.kubernetes.io/low-power"
+          operator: "Equal"
+          value: "raspberry-pi"
+          effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: "kubernetes.io/hostname"
+                    operator: "In"
+                    values:
+                      - "jormungandr4"
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
