@@ -156,6 +156,21 @@ spec:
 
     defaultPodOptions:
       shareProcessNamespace: true
+      tolerations:
+        - key: "node.kubernetes.io/low-power"
+          operator: "Equal"
+          value: "raspberry-pi"
+          effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: "kubernetes.io/hostname"
+                    operator: "In"
+                    values:
+                      - "jormungandr4"
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -167,11 +182,7 @@ spec:
         type: LoadBalancer
         annotations:
           external-dns.alpha.kubernetes.io/hostname: "mqtt.${SECRET_DOMAIN_MEDIA},mqtt.${SECRET_DOMAIN}"
-          lbipam.cilium.io/ips: "${SVC_MOSQUITTO_ADDR},${SVC_MOSQUITTO_ADDR_IPV6}"
-        ipFamilyPolicy: PreferDualStack
-        ipFamilies:
-          - IPv4
-          - IPv6
+          lbipam.cilium.io/ips: "${SVC_MOSQUITTO_ADDR}"
         ports:
           mqtt:
             port: 1883
