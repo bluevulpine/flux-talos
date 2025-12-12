@@ -21,4 +21,6 @@ spec:
     defaultSettings:
       createDefaultDiskLabeledNodes: true
       defaultReplicaCount: "3"
+      # Allow system-managed components (CSI plugin, instance manager) on tainted nodes
+      taintToleration: "node.kubernetes.io/low-power=raspberry-pi:NoSchedule"
 
