@@ -59,21 +59,7 @@ spec:
               limits:
                 memory: 64Mi
         pod:
-          tolerations:
-            - key: "node.kubernetes.io/low-power"
-              operator: "Equal"
-              value: "raspberry-pi"
-              effect: "NoSchedule"
-          affinity:
-            nodeAffinity:
-              preferredDuringSchedulingIgnoredDuringExecution:
-                - weight: 100
-                  preference:
-                    matchExpressions:
-                      - key: "kubernetes.io/hostname"
-                        operator: "In"
-                        values:
-                          - "jormungandr4"
+          # Note: echo-server has issues on ARM/Pi, running on x86 nodes
           securityContext:
             runAsUser: 65534
             runAsGroup: 65534
