@@ -102,6 +102,15 @@ nodes:
     extensionServices: *extensionServices
     nodeTaints:
       node.kubernetes.io/low-power: "raspberry-pi:NoSchedule"
+    patches:
+      - |-
+        machine:
+          kubelet:
+            extraConfig:
+              registerWithTaints:
+                - key: "node.kubernetes.io/low-power"
+                  value: "raspberry-pi"
+                  effect: "NoSchedule"
     volumes:
       - name: EPHEMERAL
         provisioning:
