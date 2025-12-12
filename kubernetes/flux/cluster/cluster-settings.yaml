@@ -1,0 +1,10 @@
+---
+# This ConfigMap is created for flux-local testing purposes only
+# In the actual cluster, this is created during bootstrap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-settings
+  namespace: flux-system
+data:
+  TIMEZONE: "America/Chicago"
