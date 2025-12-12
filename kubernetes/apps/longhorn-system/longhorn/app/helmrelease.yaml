@@ -10,6 +10,14 @@ spec:
     kind: OCIRepository
     name: longhorn
   values:
+    # Allow Longhorn components to run on tainted nodes (for CSI volume mounts)
+    # Note: jormungandr4 has storage disabled but can still mount Longhorn volumes
+    global:
+      tolerations:
+        - key: "node.kubernetes.io/low-power"
+          operator: "Equal"
+          value: "raspberry-pi"
+          effect: "NoSchedule"
     defaultSettings:
       createDefaultDiskLabeledNodes: true
       defaultReplicaCount: "3"
