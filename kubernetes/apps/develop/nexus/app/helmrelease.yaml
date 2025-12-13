@@ -24,9 +24,8 @@ spec:
       retries: 3
   uninstall:
     keepHistory: false
-  dependsOn:
-    - name: nexus-secret
-      namespace: develop
+  # Note: depends on nexus-secret ExternalSecret being synced
+  # This is handled by the Kustomization dependency on external-secrets-stores
   values:
     # Nexus configuration
     nexus:
