@@ -153,7 +153,7 @@ spec:
               timeInterval: 1m
             isDefault: true
           - name: VictoriaLogs
-            type: victorialogs-datasource
+            type: victoriametrics-logs-datasource
             uid: victorialogs
             access: proxy
             url: http://victoria-logs-server.observability.svc.cluster.local:9428
@@ -349,12 +349,13 @@ spec:
         skipReload: true
     plugins:
       - grafana-clock-panel
-      - grafana-piechart-panel
-      - grafana-worldmap-panel
-      - natel-discrete-panel
+      # Removed deprecated Angular plugins:
+      # - grafana-piechart-panel (use native pie chart)
+      # - grafana-worldmap-panel (use geomap)
+      # - natel-discrete-panel (use state timeline)
       - pr0ps-trackmap-panel
       - vonage-status-panel
-      - victorialogs-datasource
+      - victoriametrics-logs-datasource
     serviceMonitor:
       enabled: true
     ingress:
