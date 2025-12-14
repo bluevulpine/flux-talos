@@ -16,20 +16,18 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/bjw-s/calibre-web
-              tag: 0.6.24@sha256:8be60fff85a42d2de53d596db6c7afcadf792f05bc052d61b9573f4a9be7b760
+              repository: ghcr.io/linuxserver/calibre-web
+              tag: 0.6.24
             env:
               TZ: America/Chicago
+              PUID: 568
+              PGID: 568
               CACHE_DIR: /cache
             probes:
               liveness:
                 enabled: true
               readiness:
                 enabled: true
-            securityContext:
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
-              capabilities: {drop: ["ALL"]}
             resources:
               requests:
                 cpu: 50m
@@ -38,9 +36,6 @@ spec:
                 memory: 512Mi
     defaultPodOptions:
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 568
-        runAsGroup: 568
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
     service:
