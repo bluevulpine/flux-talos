@@ -27,7 +27,7 @@ spec:
           app:
             image:
               repository: ghcr.io/onedr0p/lidarr-develop
-              tag: 2.8.2.4493@sha256:ec582de5b2158b5a5ca94e10322a6a7c4d53c2acaa1f6a77c75ad43d8a749db9
+              tag: 2.8.2.4493
             env:
               LIDARR__APP__INSTANCENAME: Lidarr
               LIDARR__APP__THEME: dark
