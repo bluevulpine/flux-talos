@@ -63,7 +63,9 @@ spec:
             securityContext:
               capabilities:
                 add: ["NET_ADMIN"]
-              allowPrivilegeEscalation: false
+              allowPrivilegeEscalation: true
+              runAsUser: 0
+              runAsNonRoot: false
             probes:
               liveness:
                 enabled: true
