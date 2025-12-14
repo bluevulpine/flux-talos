@@ -1,0 +1,74 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app unpackerr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  interval: 1h
+  values:
+    controllers:
+      unpackerr:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/unpackerr/unpackerr
+              tag: 0.14.5
+            env:
+              TZ: America/Chicago
+              UN_WEBSERVER_METRICS: "true"
+              UN_WEBSERVER_LOG_FILE: /logs/webserver.log
+              UN_LOG_FILE: /logs/unpackerr.log
+              UN_LOG_FILES: "10"
+              UN_LOG_FILE_MB: "10"
+              UN_INTERVAL: 1m
+              UN_START_DELAY: 1m
+              UN_RETRY_DELAY: 5m
+              UN_MAX_RETRIES: "3"
+              UN_PARALLEL: "1"
+              UN_FILE_MODE: "0644"
+              UN_DIR_MODE: "0755"
+            envFrom:
+              - secretRef:
+                  name: unpackerr-secret
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 1Gi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: unpackerr
+        ports:
+          http:
+            port: 5656
+    persistence:
+      logs:
+        type: emptyDir
+        globalMounts:
+          - path: /logs
+      media:
+        type: nfs
+        server: ${SECRET_NFS_SERVER:=temp}
+        path: ${SECRET_NFS_MEDIA:=temp}
+        globalMounts:
+          - path: /media
+

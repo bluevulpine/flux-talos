@@ -1,0 +1,136 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app qbittorrent
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  interval: 1h
+  values:
+    controllers:
+      qbittorrent:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/onedr0p/qbittorrent
+              tag: 5.0.4@sha256:17e7d28e16c8a3d266f54e73bcff7648635c696dc0d5c3eb7d44e3c59fe716a0
+            env:
+              TZ: America/Chicago
+              QBITTORRENT__PORT: &port 8080
+              QBITTORRENT__BT_PORT: &btport 50413
+              QBT_Preferences__WebUI__AuthSubnetWhitelistEnabled: true
+              QBT_Preferences__WebUI__AuthSubnetWhitelist: |-
+                10.42.0.0/16, 10.43.0.0/16, 172.16.0.0/16
+              QBT_Preferences__WebUI__LocalHostAuth: false
+              QBT_BitTorrent__Session__DefaultSavePath: /media/downloads/torrents
+              QBT_BitTorrent__Session__TempPath: /media/downloads/torrents/incomplete
+              QBT_BitTorrent__Session__TempPathEnabled: true
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                memory: 4Gi
+          # Gluetun VPN sidecar - all traffic routes through this
+          gluetun:
+            image:
+              repository: ghcr.io/qdm12/gluetun
+              tag: v3.40.0
+            envFrom:
+              - secretRef:
+                  name: qbittorrent-secret
+            env:
+              TZ: America/Chicago
+              VPN_INTERFACE: wg0
+              FIREWALL_INPUT_PORTS: *port
+              FIREWALL_VPN_INPUT_PORTS: *btport
+              DOT: "off"
+            securityContext:
+              capabilities:
+                add: ["NET_ADMIN"]
+              allowPrivilegeEscalation: false
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: *port
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  failureThreshold: 5
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: *port
+                  initialDelaySeconds: 10
+                  periodSeconds: 5
+                  failureThreshold: 30
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: qbittorrent
+        ports:
+          http:
+            port: *port
+      bittorrent:
+        controller: qbittorrent
+        type: LoadBalancer
+        annotations:
+          io.cilium/lb-ipam-ips: ${SVC_QBITTORRENT_ADDR}
+        ports:
+          bittorrent-tcp:
+            port: *btport
+            protocol: TCP
+          bittorrent-udp:
+            port: *btport
+            protocol: UDP
+    route:
+      app:
+        parentRefs:
+          - name: internal
+            namespace: kube-system
+            sectionName: https
+        hostnames:
+          - qbittorrent.${SECRET_DOMAIN}
+    persistence:
+      config:
+        existingClaim: *app
+      media:
+        type: nfs
+        server: ${SECRET_NFS_SERVER:=temp}
+        path: ${SECRET_NFS_MEDIA:=temp}
+        globalMounts:
+          - path: /media
+
