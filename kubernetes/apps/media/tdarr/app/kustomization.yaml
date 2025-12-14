@@ -6,6 +6,8 @@ resources:
   - ./externalsecret.yaml
   - ./ocirepository.yaml
   - ./helmrelease.yaml
-components:
-  - ../../../../components/volsync
+  - ./pvc.yaml
+# TODO: Re-enable volsync after initial setup
+# components:
+#   - ../../../../components/volsync
 

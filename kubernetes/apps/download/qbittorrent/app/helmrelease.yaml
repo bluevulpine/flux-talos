@@ -124,6 +124,10 @@ spec:
             sectionName: https
         hostnames:
           - qbittorrent.${SECRET_DOMAIN}
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 8080
     persistence:
       config:
         existingClaim: *app
