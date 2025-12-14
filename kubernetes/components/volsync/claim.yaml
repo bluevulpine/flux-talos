@@ -5,10 +5,12 @@ metadata:
   name: "${APP}"
 spec:
   accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
-  dataSourceRef:
-    kind: ReplicationDestination
-    apiGroup: volsync.backube
-    name: "${APP}-dst-r2"
+  # NOTE: dataSourceRef removed for initial deployment when no backup exists
+  # To restore from backup, manually set dataSourceRef to the ReplicationDestination
+  # dataSourceRef:
+  #   kind: ReplicationDestination
+  #   apiGroup: volsync.backube
+  #   name: "${APP}-dst-r2"
   resources:
     requests:
       storage: "${VOLSYNC_CAPACITY:-20Gi}"
