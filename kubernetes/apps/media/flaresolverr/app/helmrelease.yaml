@@ -37,9 +37,12 @@ spec:
                   timeoutSeconds: 1
                   failureThreshold: 3
               readiness: *probes
+            # Flaresolverr needs write access to /.local for Chrome profile
             securityContext:
               allowPrivilegeEscalation: false
               capabilities: {drop: ["ALL"]}
+              runAsUser: 0
+              runAsNonRoot: false
             resources:
               requests:
                 cpu: 50m
@@ -48,9 +51,6 @@ spec:
                 memory: 2Gi
     defaultPodOptions:
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 568
-        runAsGroup: 568
         fsGroup: 568
     service:
       app:
