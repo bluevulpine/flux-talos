@@ -38,9 +38,9 @@ spec:
                   failureThreshold: 3
               readiness: *probes
             # Flaresolverr needs write access to /.local for Chrome profile
+            # and execute permissions on chromedriver
             securityContext:
-              allowPrivilegeEscalation: false
-              capabilities: {drop: ["ALL"]}
+              allowPrivilegeEscalation: true
               runAsUser: 0
               runAsNonRoot: false
             resources:
