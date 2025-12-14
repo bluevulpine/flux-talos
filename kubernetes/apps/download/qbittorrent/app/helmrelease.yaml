@@ -18,8 +18,8 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/onedr0p/qbittorrent
-              tag: 5.0.4@sha256:17e7d28e16c8a3d266f54e73bcff7648635c696dc0d5c3eb7d44e3c59fe716a0
+              repository: ghcr.io/home-operations/qbittorrent
+              tag: rolling
             env:
               TZ: America/Chicago
               QBITTORRENT__PORT: &port 8080

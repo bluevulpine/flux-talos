@@ -18,7 +18,7 @@ spec:
         initContainers:
           01-init-db:
             image:
-              repository: ghcr.io/onedr0p/postgres-init
+              repository: ghcr.io/home-operations/postgres-init
               tag: 16
             envFrom:
               - secretRef:
@@ -26,8 +26,8 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/onedr0p/readarr-develop
-              tag: 0.4.10.2734@sha256:0b89c63db2014766dc6aade3941ba592bf114c90a2005299cf6898e354ce5ee8
+              repository: ghcr.io/home-operations/readarr
+              tag: rolling
             env:
               READARR__APP__INSTANCENAME: Readarr-Ebooks
               READARR__APP__THEME: dark

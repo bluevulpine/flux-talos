@@ -18,8 +18,8 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/onedr0p/bazarr
-              tag: 1.4.5
+              repository: ghcr.io/home-operations/bazarr
+              tag: rolling
             env:
               BAZARR__PORT: &port 6767
               TZ: America/Chicago

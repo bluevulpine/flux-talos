@@ -41,8 +41,8 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/onedr0p/plex
-              tag: 1.41.2.9200-c6bbc1b53@sha256:1f28b5e5a964481f80e76db3c986082d2fc3bca2d16d2742704e9adf8349c79c
+              repository: ghcr.io/home-operations/plex
+              tag: rolling
             env:
               TZ: America/Chicago
               PLEX_ADVERTISE_URL: https://plex.${SECRET_DOMAIN_MEDIA}:443,http://${SVC_PLEX_ADDR}:32400
