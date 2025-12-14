@@ -19,7 +19,7 @@ spec:
           app:
             image:
               repository: ghcr.io/onedr0p/sabnzbd
-              tag: 4.4.1@sha256:341f5c0213de8879c2fbf40f0980e8dd8a273e87cef5e0a0de54d3d4c4693e67
+              tag: 4.4.1@sha256:36674664a94760ae934c09b1d97546a3e79a0f110edda88085e74778c26d68e3
             env:
               SABNZBD__PORT: &port 8080
               SABNZBD__HOST_WHITELIST_ENTRIES: >-
