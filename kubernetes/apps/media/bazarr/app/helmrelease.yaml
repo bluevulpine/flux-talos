@@ -19,7 +19,7 @@ spec:
           app:
             image:
               repository: ghcr.io/onedr0p/bazarr
-              tag: 1.4.5@sha256:77f6d7b756a3a5de2f27a0b88b36d2ff02d0892e8dad4363cfa6dfe55c24bcfc
+              tag: 1.4.5@sha256:a7bceefd6339f906b2955adf66dd8ada7c9d91b363b1389474652af9f7dd5840
             env:
               BAZARR__PORT: &port 6767
               TZ: America/Chicago
