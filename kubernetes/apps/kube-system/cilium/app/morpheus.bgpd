@@ -1,6 +1,7 @@
 ! -*- bgp -*-
 !
 hostname morpheus
+password zebra
 frr defaults traditional
 log file /var/log/frr/debug.log
 !
