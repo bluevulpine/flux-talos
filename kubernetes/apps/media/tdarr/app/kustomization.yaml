@@ -7,7 +7,6 @@ resources:
   - ./ocirepository.yaml
   - ./helmrelease.yaml
   - ./pvc.yaml
-# TODO: Re-enable volsync after initial setup
-# components:
-#   - ../../../../components/volsync
+components:
+  - ../../../../components/volsync
 
