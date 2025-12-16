@@ -76,7 +76,6 @@ spec:
     manual: restore-once
   kopia:
     repository: "${APP:=temp}-volsync-local-secret"
-    repositoryPVC: "${APP}-volsync-local-repo"
     copyMethod: Snapshot
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-longhorn-snapclass}"
     cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-vault-nfs}"
