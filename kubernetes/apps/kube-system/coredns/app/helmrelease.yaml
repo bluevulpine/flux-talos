@@ -27,6 +27,9 @@ spec:
             use_tcp: true
         port: 53
         plugins:
+          - name: acl # prevent ipv6 AAAA queries from resolving in-cluster
+            configBlock: |-
+              filter type AAAA
           - name: errors
           - name: health
             configBlock: |-
