@@ -20,6 +20,27 @@ mountOptions:
   - rsize=1048576
   - wsize=1048576
 ---
+# Storage class for local kopia backup repository on NFS
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: kopia-backup-nfs
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: ${SECRET_NFS_SERVER}
+  share: ${SECRET_NFS_KOPIA}
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+volumeBindingMode: Immediate
+mountOptions:
+  - hard
+  - intr
+  - noatime
+  - noresvport
+  - nfsvers=4.2
+  - rsize=1048576
+  - wsize=1048576
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
