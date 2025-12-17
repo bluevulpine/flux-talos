@@ -23,3 +23,4 @@ resources:
   - ./spegel/ks.yaml
   - ./reloader/ks.yaml
   - ./talos-backup/ks.yaml
+  - ./volsync-local-repo/ks.yaml
