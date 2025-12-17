@@ -1,0 +1,16 @@
+---
+# PersistentVolumeClaim for accessing the shared Kopia repository
+# This PVC is created in each namespace and binds to the static PV in kube-system
+# All apps reference this PVC for local backups to enable deduplication
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volsync-local-repo
+spec:
+  accessModes: ["ReadWriteMany"]
+  resources:
+    requests:
+      storage: 1Ti
+  volumeName: volsync-local-repo-pv
+  storageClassName: ""  # Bind to static PV, not dynamic provisioning
+
