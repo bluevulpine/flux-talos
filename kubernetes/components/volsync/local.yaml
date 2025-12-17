@@ -76,6 +76,9 @@ spec:
     manual: restore-once
   kopia:
     repository: "${APP:=temp}-volsync-local-secret"
+    # For filesystem-based Kopia repository on NFS, mount the repository PVC
+    # This allows the mover pod to read from the same NFS repository as the source
+    destinationPVC: "${APP}-volsync-local-repo"
     copyMethod: Snapshot
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-longhorn-snapclass}"
     cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-vault-nfs}"
