@@ -15,6 +15,8 @@ spec:
       data:
         # Kopia filesystem repository on local NFS
         # All apps share the same repository for deduplication
+        # Repository path is the mounted NFS share where Kopia stores backups
+        KOPIA_REPOSITORY: "filesystem:///mnt/kopia"
         KOPIA_PASSWORD: "{{ .VolSync__Local__KopiaPassword }}"
   dataFrom:
     - extract:
