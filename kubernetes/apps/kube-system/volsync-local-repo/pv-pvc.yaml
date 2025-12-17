@@ -1,0 +1,41 @@
+---
+# Static PersistentVolume for the shared Kopia repository
+# All apps across all namespaces reference this single PV for deduplication benefits
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: volsync-local-repo-pv
+spec:
+  capacity:
+    storage: 1Ti  # Capacity of the NFS share
+  accessModes: ["ReadWriteMany"]
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    server: 10.0.10.10
+    path: /mnt/tardis/kopia
+  mountOptions:
+    - hard
+    - intr
+    - noatime
+    - noresvport
+    - nfsvers=4.2
+    - rsize=1048576
+    - wsize=1048576
+---
+# Shared PersistentVolumeClaim for the Kopia repository
+# Created in kube-system namespace so it can be referenced from any namespace
+# All apps reference this single PVC instead of creating per-app PVCs
+# This ensures all backups go to the same repository for deduplication
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: volsync-local-repo
+  namespace: kube-system
+spec:
+  accessModes: ["ReadWriteMany"]
+  resources:
+    requests:
+      storage: 1Ti  # Must match PV capacity
+  volumeName: volsync-local-repo-pv
+  storageClassName: ""  # Bind to static PV, not dynamic provisioning
+
