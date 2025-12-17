@@ -22,19 +22,42 @@ spec:
     - extract:
         key: volsync-local-template
 ---
-# PVC to mount the NFS backup repository at /mnt/tardis/kopia
-# Each app gets its own PVC but they all point to the same NFS share
-# for deduplication benefits
+# Static PersistentVolume for the shared Kopia repository
+# All apps reference this single PV for deduplication benefits
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: volsync-local-repo-pv
+spec:
+  capacity:
+    storage: 1Ti  # Capacity of the NFS share
+  accessModes: ["ReadWriteMany"]
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    server: ${SECRET_NFS_SERVER}
+    path: ${SECRET_NFS_KOPIA}
+  mountOptions:
+    - hard
+    - intr
+    - noatime
+    - noresvport
+    - nfsvers=4.2
+    - rsize=1048576
+    - wsize=1048576
+---
+# Shared PersistentVolumeClaim for the Kopia repository
+# All apps reference this single PVC instead of creating per-app PVCs
+# This ensures all backups go to the same repository for deduplication
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: "${APP:=temp}-volsync-local-repo"
+  name: volsync-local-repo
 spec:
   accessModes: ["ReadWriteMany"]
   resources:
     requests:
-      storage: 1Gi  # Size doesn't matter for NFS, just needs to exist
-  storageClassName: kopia-backup-nfs
+      storage: 1Ti  # Must match PV capacity
+  volumeName: volsync-local-repo-pv
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/volsync.backube/replicationsource_v1alpha1.json
 apiVersion: volsync.backube/v1alpha1
@@ -49,8 +72,9 @@ spec:
   kopia:
     copyMethod: "${VOLSYNC_COPYMETHOD:-Snapshot}"
     repository: "${APP}-volsync-local-secret"
-    # Use filesystem-based repository via PVC
-    repositoryPVC: "${APP}-volsync-local-repo"
+    # Use shared filesystem-based repository via single PVC for all apps
+    # This enables deduplication across all workloads
+    repositoryPVC: "volsync-local-repo"
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-longhorn-snapclass}"
     cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-4Gi}
     cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-vault-nfs}"
@@ -78,9 +102,9 @@ spec:
     manual: restore-once
   kopia:
     repository: "${APP:=temp}-volsync-local-secret"
-    # For filesystem-based Kopia repository on NFS, mount the repository PVC
-    # This allows the mover pod to read from the same NFS repository as the source
-    destinationPVC: "${APP}-volsync-local-repo"
+    # For filesystem-based Kopia repository on NFS, mount the shared repository PVC
+    # All apps reference the same PVC for deduplication across workloads
+    destinationPVC: "volsync-local-repo"
     copyMethod: Snapshot
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-longhorn-snapclass}"
     cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-vault-nfs}"
