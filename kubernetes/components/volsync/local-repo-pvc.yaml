@@ -1,6 +1,7 @@
 ---
 # PersistentVolumeClaim for accessing the shared Kopia repository
 # This PVC is created in each namespace and binds to the static PV in kube-system
+# Multiple PVCs can bind to the same RWX PV simultaneously
 # All apps reference this PVC for local backups to enable deduplication
 apiVersion: v1
 kind: PersistentVolumeClaim

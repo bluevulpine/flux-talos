@@ -7,7 +7,7 @@ metadata:
   namespace: kube-system
 spec:
   interval: 1h
-  path: ./kubernetes/apps/kube-system/volsync-local-repo
+  path: ./kubernetes/apps/kube-system/volsync-local-repo/app
   prune: true
   sourceRef:
     kind: GitRepository
