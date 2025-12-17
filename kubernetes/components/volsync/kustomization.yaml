@@ -6,5 +6,4 @@ resources:
   - ./claim.yaml
   - ./r2.yaml
   - ./local.yaml
-  - ./local-repo-pvc.yaml
 

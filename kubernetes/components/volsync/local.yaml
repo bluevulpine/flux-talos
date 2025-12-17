@@ -1,4 +1,43 @@
 ---
+# All apps across all namespaces reference this single PV for deduplication benefits
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ${APP}-volsync-local-repo-pv
+spec:
+  capacity:
+    storage: 1Ti  # Capacity of the NFS share
+  accessModes: ["ReadWriteMany"]
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    server: ${SECRET_NFS_SERVER}
+    path: ${SECRET_NFS_KOPIA}
+  mountOptions:
+    - hard
+    - intr
+    - noatime
+    - noresvport
+    - nfsvers=4.2
+    - rsize=1048576
+    - wsize=1048576
+---
+# Shared PersistentVolumeClaim for the Kopia repository
+# Created in kube-system namespace so it can be referenced from any namespace
+# All apps reference this single PVC instead of creating per-app PVCs
+# This ensures all backups go to the same repository for deduplication
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ${APP}-volsync-local-repo
+  namespace: kube-system
+spec:
+  accessModes: ["ReadWriteMany"]
+  resources:
+    requests:
+      storage: 1Ti  # Must match PV capacity
+  volumeName: ${APP}-volsync-local-repo-pv
+  storageClassName: ""  # Empty string to prevent dynamic provisioning
+---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/external-secrets.io/externalsecret_v1.json
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
@@ -16,7 +55,7 @@ spec:
         # Kopia filesystem repository on local NFS
         # All apps share the same repository for deduplication
         # Repository path is the mounted NFS share where Kopia stores backups
-        KOPIA_REPOSITORY: "filesystem:///mnt/kopia"
+        KOPIA_REPOSITORY: "filesystem:///restore/data"
         KOPIA_PASSWORD: "{{ .VolSync__Local__KopiaPassword }}"
   dataFrom:
     - extract:
@@ -42,7 +81,7 @@ spec:
     # Use shared filesystem-based repository via single PVC for all apps
     # This enables deduplication across all workloads
     # PVC is created in each namespace but binds to the same static PV
-    repositoryPVC: "volsync-local-repo"
+    repositoryPVC: "${APP}-volsync-local-repo"
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-longhorn-snapclass}"
     cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-4Gi}
     cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-vault-nfs}"
@@ -73,7 +112,7 @@ spec:
     # For filesystem-based Kopia repository on NFS, mount the shared repository PVC
     # All apps reference the same PVC for deduplication across workloads
     # PVC is created in each namespace but binds to the same static PV
-    destinationPVC: "volsync-local-repo"
+    destinationPVC: "${APP}-volsync-local-repo"
     copyMethod: Snapshot
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-longhorn-snapclass}"
     cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-vault-nfs}"
