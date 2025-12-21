@@ -1,0 +1,28 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: truenas-nfs
+provisioner: org.democratic-csi.truenas
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  fsType: nfs
+  detachedVolumesFromSnapshots: "false"
+mountOptions:
+  - noatime
+  - nfsvers=3
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: truenas-iscsi
+provisioner: org.democratic-csi.truenas
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  fsType: ext4
+  detachedVolumesFromSnapshots: "false"
+
