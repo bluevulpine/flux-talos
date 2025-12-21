@@ -23,7 +23,7 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 10Gi
+      VOLSYNC_CAPACITY: 4Gi
       VOLSYNC_STORAGECLASS: longhorn
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
 
