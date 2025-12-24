@@ -15,3 +15,8 @@ done
 """
 glob = ["*.just", ".justfile"]
 stage_fixed = true
+
+[pre-commit.commands.gitleaks]
+run = "gitleaks protect --staged --verbose --redact"
+glob = ["*"]
+exclude = ["*.sops.yaml"]
