@@ -40,7 +40,9 @@ spec:
     cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-4Gi}
     cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-vault-nfs}"
     cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
-    storageClassName: "${VOLSYNC_STORAGECLASS:-longhorn}"
+    # Use 1-replica storage for temporary clone volumes (faster provisioning, less contention)
+    # Source PVCs remain on 3-replica storage for data safety
+    storageClassName: "${VOLSYNC_CLONE_STORAGECLASS:-longhorn-1-replica}"
     accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
     moverSecurityContext:
       runAsUser: ${VOLSYNC_RUN_AS_USER:-568}

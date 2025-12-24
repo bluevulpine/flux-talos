@@ -6,5 +6,6 @@ resources:
   - ../disks/brokkr02.yaml
   - ../disks/brokkr03.yaml
   - ./snapshotclass.yaml
+  - ./storageclass-1-replica.yaml
   - ./httproute.yaml
 

@@ -1,0 +1,27 @@
+---
+# StorageClass with 1 replica for temporary VolSync clone volumes
+# This reduces provisioning time and rebuild contention during backup operations
+# Source application PVCs should continue using the standard 'longhorn' StorageClass (3 replicas)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-1-replica
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/component: storage
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  # Single replica for temporary backup clone volumes
+  numberOfReplicas: "1"
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  fsType: ext4
+  dataLocality: disabled
+  disableRevisionCounter: "true"
+  dataEngine: v1
+  backupTargetName: default
+  unmapMarkSnapChainRemoved: ignored
+
