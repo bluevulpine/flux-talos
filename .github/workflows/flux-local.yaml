@@ -99,11 +99,14 @@ jobs:
 
       - name: Generate Diff
         id: diff
-        run: |-
+        run: |
           delimiter="$(openssl rand -hex 16)"
-          echo "diff<<${delimiter}" >> $GITHUB_OUTPUT
-          cat diff.patch >> $GITHUB_OUTPUT
-          echo "${delimiter}" >> $GITHUB_OUTPUT
+          {
+            echo "diff<<${delimiter}"
+            cat diff.patch
+            echo ""
+            echo "${delimiter}"
+          } >> "$GITHUB_OUTPUT"
 
       - if: ${{ steps.diff.outputs.diff != '' }}
         name: Add Comment
