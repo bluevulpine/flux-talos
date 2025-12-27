@@ -8,5 +8,5 @@ components:
 resources:
   - ./namespace.yaml
   - ./democratic-csi/ks.yaml
-  - ./seaweedfs/ks.yaml
-  - ./seaweedfs-jobs/ks.yaml
+  # - ./seaweedfs/ks.yaml  # Removed - Thanos migrated to Garage S3; Loki removed
+  # - ./seaweedfs-jobs/ks.yaml  # Removed - depends on seaweedfs
