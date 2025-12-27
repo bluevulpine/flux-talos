@@ -1,10 +1,10 @@
 ---
-# ConfigMap for Thanos SeaweedFS S3 bucket configuration
+# ConfigMap for Thanos Garage S3 bucket configuration
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: thanos-bucket
 data:
   BUCKET_NAME: "thanos"
-  BUCKET_HOST: "seaweedfs-s3.storage.svc.cluster.local:8333"
+  # BUCKET_HOST now comes from ExternalSecret (Garage__Host)
   BUCKET_REGION: "us-east-1"

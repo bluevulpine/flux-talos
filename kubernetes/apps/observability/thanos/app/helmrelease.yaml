@@ -27,7 +27,7 @@ spec:
       name: thanos-bucket
       valuesKey: BUCKET_NAME
     - targetPath: objstoreConfig.value.config.endpoint
-      kind: ConfigMap
+      kind: Secret
       name: thanos-bucket
       valuesKey: BUCKET_HOST
     - targetPath: objstoreConfig.value.config.region
@@ -47,10 +47,7 @@ spec:
       value:
         type: s3
         config:
-          insecure: true
-          http_config:
-            tls_config:
-              insecure_skip_verify: true
+          insecure: true  # Garage S3 API uses HTTP
     additionalEndpoints:
       - dnssrv+_grpc._tcp.kube-prometheus-stack-thanos-discovery.observability.svc.cluster.local
     additionalReplicaLabels: ["__replica__"]
