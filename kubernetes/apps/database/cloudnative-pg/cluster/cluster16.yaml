@@ -85,7 +85,8 @@ spec:
             key: s3-access-key-id
           secretAccessKey:
             name: *secretName
-            key: s3-secret-access-key    # for initdb restore
+            key: s3-secret-access-key
+    # for initdb restore
     # - name: old-cluster
     #   connectionParameters:
     #     host: postgres16-rw.default.svc.cluster.local
