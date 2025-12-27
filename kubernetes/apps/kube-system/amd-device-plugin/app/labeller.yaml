@@ -1,0 +1,110 @@
+---
+# AMD GPU Node Labeller
+# Automatically labels nodes with AMD GPU properties for scheduling
+# Source: https://github.com/ROCm/k8s-device-plugin
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: amd-gpu-labeller
+  labels:
+    app.kubernetes.io/name: amd-device-plugin
+    app.kubernetes.io/component: labeller
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: amd-gpu-labeller
+  labels:
+    app.kubernetes.io/name: amd-device-plugin
+    app.kubernetes.io/component: labeller
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["watch", "get", "list", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: amd-gpu-labeller
+  labels:
+    app.kubernetes.io/name: amd-device-plugin
+    app.kubernetes.io/component: labeller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: amd-gpu-labeller
+subjects:
+  - kind: ServiceAccount
+    name: amd-gpu-labeller
+    namespace: kube-system
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: amdgpu-labeller
+  labels:
+    app.kubernetes.io/name: amd-device-plugin
+    app.kubernetes.io/component: labeller
+spec:
+  selector:
+    matchLabels:
+      name: amdgpu-labeller
+  template:
+    metadata:
+      labels:
+        name: amdgpu-labeller
+        app.kubernetes.io/name: amd-device-plugin
+        app.kubernetes.io/component: labeller
+    spec:
+      serviceAccountName: amd-gpu-labeller
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      priorityClassName: system-node-critical
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+      containers:
+        - name: labeller
+          image: docker.io/rocm/k8s-device-plugin:labeller-latest
+          imagePullPolicy: Always
+          workingDir: /root
+          command: ["./k8s-node-labeller"]
+          args:
+            - "-vram"
+            - "-cu-count"
+            - "-simd-count"
+            - "-device-id"
+            - "-family"
+            - "-product-name"
+          env:
+            - name: DS_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          securityContext:
+            privileged: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 20Mi
+            limits:
+              cpu: 100m
+              memory: 50Mi
+          volumeMounts:
+            - name: sys
+              mountPath: /sys
+              readOnly: true
+            - name: dev
+              mountPath: /dev
+      volumes:
+        - name: sys
+          hostPath:
+            path: /sys
+            type: Directory
+        - name: dev
+          hostPath:
+            path: /dev
+            type: Directory
+
