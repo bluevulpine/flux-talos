@@ -6,3 +6,5 @@ resources:
   - ./helmrelease.yaml
   - ./httproute.yaml
   - ./externalsecret.yaml
+components:
+  - ../../../../components/gatus/external

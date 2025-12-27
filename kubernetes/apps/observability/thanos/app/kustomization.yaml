@@ -9,6 +9,8 @@ resources:
   - ./ocirepository.yaml
   - ./httproute.yaml
   # - ./pushsecret.yaml
+components:
+  - ../../../../components/gatus/guarded
 configMapGenerator:
   - name: thanos-cache-configmap
     files:

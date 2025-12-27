@@ -11,3 +11,5 @@ resources:
   - ./alertmanagerconfig.yaml
   - ./externalsecret.yaml
   - ./httproute.yaml
+components:
+  - ../../../../components/gatus/guarded
