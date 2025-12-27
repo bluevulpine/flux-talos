@@ -16,6 +16,7 @@ resources:
   - ./descheduler/ks.yaml
   # - ./nvidia-device-plugin/ks.yaml  # Removed - no NVIDIA hardware in cluster
   - ./amd-device-plugin/ks.yaml
+  - ./multus/ks.yaml
 
   - ./metrics-server/ks.yaml
   - ./node-feature-discovery/ks.yaml
