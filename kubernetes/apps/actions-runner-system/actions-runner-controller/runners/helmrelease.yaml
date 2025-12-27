@@ -33,8 +33,9 @@ spec:
   values:
     runnerScaleSetName: arc-runner-set-flux-talos
     githubConfigUrl: https://github.com/bluevulpine/flux-talos
-    minRunners: 1
-    maxRunners: 2
+    # Scale to zero when no jobs are queued (ARC has built-in autoscaling)
+    minRunners: 0
+    maxRunners: 3
     containerMode:
       type: dind
     template:
