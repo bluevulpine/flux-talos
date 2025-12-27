@@ -50,7 +50,7 @@ spec:
           gluetun:
             image:
               repository: ghcr.io/qdm12/gluetun
-              tag: v3.40.4
+              tag: v3.41.0
             envFrom:
               - secretRef:
                   name: qbittorrent-secret
