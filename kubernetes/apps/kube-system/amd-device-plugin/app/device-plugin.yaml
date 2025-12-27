@@ -1,0 +1,60 @@
+---
+# AMD GPU Device Plugin DaemonSet
+# Exposes AMD GPUs as schedulable resources (amd.com/gpu)
+# Source: https://github.com/ROCm/k8s-device-plugin
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: amdgpu-device-plugin
+  labels:
+    app.kubernetes.io/name: amd-device-plugin
+    app.kubernetes.io/component: device-plugin
+spec:
+  selector:
+    matchLabels:
+      name: amdgpu-device-plugin
+  template:
+    metadata:
+      labels:
+        name: amdgpu-device-plugin
+        app.kubernetes.io/name: amd-device-plugin
+        app.kubernetes.io/component: device-plugin
+    spec:
+      restartPolicy: Always
+      nodeSelector:
+        kubernetes.io/arch: amd64
+        # Only deploy on nodes with AMD GPUs
+        amd.com/gpu: "true"
+      priorityClassName: system-node-critical
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+      containers:
+        - name: device-plugin
+          image: docker.io/rocm/k8s-device-plugin:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 20Mi
+            limits:
+              cpu: 100m
+              memory: 50Mi
+          volumeMounts:
+            - name: device-plugins
+              mountPath: /var/lib/kubelet/device-plugins
+            - name: sys
+              mountPath: /sys
+              readOnly: true
+      volumes:
+        - name: device-plugins
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: sys
+          hostPath:
+            path: /sys
+

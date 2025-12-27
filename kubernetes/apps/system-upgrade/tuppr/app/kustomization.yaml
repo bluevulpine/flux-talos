@@ -6,10 +6,3 @@ resources:
   - ./helmrelease.yaml
   - ./ocirepository.yaml
 
-  - ./prometheusrule.yaml
-  - ./scrapeconfig.yaml
-  - ./alertmanagerconfig.yaml
-  - ./externalsecret.yaml
-  - ./httproute.yaml
-components:
-  - ../../../../components/gatus/guarded

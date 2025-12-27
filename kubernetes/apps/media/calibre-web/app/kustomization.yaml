@@ -7,4 +7,5 @@ resources:
   - ./helmrelease.yaml
 components:
   - ../../../../components/volsync
+  - ../../../../components/gatus/guarded
 

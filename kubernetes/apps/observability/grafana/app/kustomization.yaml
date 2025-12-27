@@ -5,3 +5,5 @@ resources:
   - ./externalsecret.yaml
   - ./helmrelease.yaml
   - ./ocirepository.yaml
+components:
+  - ../../../../components/gatus/guarded
