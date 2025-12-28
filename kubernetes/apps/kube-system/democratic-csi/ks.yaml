@@ -11,7 +11,7 @@ spec:
   dependsOn:
     - name: external-secrets-stores
       namespace: external-secrets
-  path: ./kubernetes/apps/storage/democratic-csi/app
+  path: ./kubernetes/apps/kube-system/democratic-csi/app
   prune: true
   sourceRef:
     kind: GitRepository
