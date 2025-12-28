@@ -26,5 +26,3 @@ spec:
       NS: infrastructure
       VOLSYNC_CAPACITY: 10Gi
       VOLSYNC_CACHE_CAPACITY: 10Gi
-      VOLSYNC_STORAGECLASS: longhorn
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass

@@ -26,6 +26,3 @@ spec:
     substitute:
       APP: *app
       VOLSYNC_CAPACITY: 4Gi
-      VOLSYNC_STORAGECLASS: longhorn
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
-
