@@ -34,18 +34,15 @@ metadata:
 spec:
   sourcePVC: "${APP:=temp}"
   trigger:
-    # More frequent backups to local repo (every 2 hours)
     schedule: "0 */2 * * *"
   kopia:
     copyMethod: "${VOLSYNC_COPYMETHOD:-Snapshot}"
     repository: "${APP}-volsync-local-secret"
-    volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-longhorn-snapclass}"
+    volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-truenas-nfs-snapclass}"
     cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-4Gi}
-    cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-vault-nfs}"
+    cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-truenas-nfs}"
     cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
-    # Use 1-replica storage for temporary clone volumes (faster provisioning, less contention)
-    # Source PVCs remain on 3-replica storage for data safety
-    storageClassName: "${VOLSYNC_CLONE_STORAGECLASS:-longhorn-1-replica}"
+    storageClassName: "${VOLSYNC_CLONE_STORAGECLASS:-truenas-nfs}"
     accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
     moverSecurityContext:
       runAsUser: ${VOLSYNC_RUN_AS_USER:-568}
@@ -69,11 +66,11 @@ spec:
   kopia:
     repository: "${APP:=temp}-volsync-local-secret"
     copyMethod: Snapshot
-    volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-longhorn-snapclass}"
-    cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-vault-nfs}"
+    volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-truenas-nfs-snapclass}"
+    cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-truenas-nfs}"
     cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
     cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-8Gi}
-    storageClassName: "${VOLSYNC_STORAGECLASS:-longhorn}"
+    storageClassName: "${VOLSYNC_STORAGECLASS:-truenas-nfs}"
     accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
     capacity: "${VOLSYNC_CAPACITY:-20Gi}"
     moverSecurityContext:

@@ -12,5 +12,5 @@ spec:
   resources:
     requests:
       storage: "${VOLSYNC_CAPACITY:-20Gi}"
-  storageClassName: "${VOLSYNC_STORAGECLASS:-longhorn}"
+  storageClassName: "${VOLSYNC_STORAGECLASS:-truenas-nfs}"
 
