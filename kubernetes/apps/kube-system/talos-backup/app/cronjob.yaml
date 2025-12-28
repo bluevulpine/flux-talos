@@ -13,7 +13,8 @@ spec:
             kubernetes.io/arch: amd64
           containers:
             - name: talos-backup
-              image: ghcr.io/siderolabs/talos-backup:v0.1.0-alpha.0-1-g17b8780
+              # renovate: datasource=docker depName=ghcr.io/siderolabs/talos-backup
+              image: ghcr.io/siderolabs/talos-backup:v0.1.0-beta.3
               workingDir: /tmp
               imagePullPolicy: Always
               envFrom:
