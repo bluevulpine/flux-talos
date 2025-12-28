@@ -7,13 +7,13 @@ spec:
   endpoints:
     - dnsName: "mqtt.${SECRET_DOMAIN_MEDIA}"
       recordType: CNAME
-      targets: ["wheels.${SECRET_DOMAIN_MEDIA}"]
+      targets: ["wheels.${SECRET_DOMAIN}"]
       providerSpecific:
       - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
         value: "false"
     - dnsName: "mqtt.${SECRET_DOMAIN}"
       recordType: CNAME
-      targets: ["wheels.${SECRET_DOMAIN_MEDIA}"]
+      targets: ["wheels.${SECRET_DOMAIN}"]
       providerSpecific:
       - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
         value: "false"
