@@ -72,7 +72,10 @@ spec:
           shareMapallGroup: ""
     controller:
       driver:
-        image: docker.io/democraticcsi/democratic-csi:next
+        image:
+          registry: ghcr.io/democratic-csi/democratic-csi
+          tag: next
+          pullPolicy: IfNotPresent
       resources:
         requests:
           cpu: 50m
@@ -81,7 +84,10 @@ spec:
           memory: 512Mi
     node:
       driver:
-        image: docker.io/democraticcsi/democratic-csi:next
+        image:
+          registry: ghcr.io/democratic-csi/democratic-csi
+          tag: next
+          pullPolicy: IfNotPresent
       resources:
         requests:
           cpu: 50m
