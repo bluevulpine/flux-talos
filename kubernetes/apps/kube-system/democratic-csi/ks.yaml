@@ -3,22 +3,22 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app seaweedfs-jobs
+  name: &app democratic-csi
 spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
   dependsOn:
-    - name: seaweedfs
-      namespace: storage
-  path: ./kubernetes/apps/storage/seaweedfs-jobs/app
+    - name: external-secrets-stores
+      namespace: external-secrets
+  path: ./kubernetes/apps/storage/democratic-csi/app
   prune: true
   sourceRef:
     kind: GitRepository
     name: home-kubernetes
     namespace: flux-system
-  targetNamespace: storage
-  wait: false
+  targetNamespace: kube-system
+  wait: true
   interval: 30m
   retryInterval: 1m
   timeout: 5m
@@ -26,3 +26,9 @@ spec:
     substitute:
       APP: *app
       NS: storage
+    substituteFrom:
+      - kind: ConfigMap
+        name: cluster-settings
+      - kind: Secret
+        name: cluster-secrets
+
