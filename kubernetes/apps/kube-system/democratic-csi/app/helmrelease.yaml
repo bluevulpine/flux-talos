@@ -40,7 +40,7 @@ spec:
           - rsize=1048576
           - wsize=1048576
     volumeSnapshotClasses:
-      - name: truenas-nfs
+      - name: truenas-nfs-snapclass
         parameters:
           detachedSnapshots: "true"
     driver:
