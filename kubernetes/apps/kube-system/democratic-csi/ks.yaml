@@ -3,7 +3,7 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app democratic-csi
+  name: &app democratic-csi-secrets
 spec:
   commonMetadata:
     labels:
@@ -11,6 +11,40 @@ spec:
   dependsOn:
     - name: external-secrets-stores
       namespace: external-secrets
+  path: ./kubernetes/apps/kube-system/democratic-csi/secrets
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: kube-system
+  wait: true
+  interval: 30m
+  retryInterval: 1m
+  timeout: 5m
+  postBuild:
+    substitute:
+      APP: *app
+      NS: storage
+    substituteFrom:
+      - kind: ConfigMap
+        name: cluster-settings
+      - kind: Secret
+        name: cluster-secrets
+
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app democratic-csi
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    - name: democratic-csi-secrets
+      namespace: kube-system
   path: ./kubernetes/apps/kube-system/democratic-csi/app
   prune: true
   sourceRef:
