@@ -9,8 +9,8 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   dependsOn:
-    - name: longhorn
-      namespace: longhorn-system
+    - name: democratic-csi
+      namespace: kube-system
     - name: external-secrets-stores
       namespace: external-secrets
   interval: 1h
@@ -26,6 +26,7 @@ spec:
     substitute:
       APP: *app
       VOLSYNC_CAPACITY: 5Gi
-      VOLSYNC_STORAGECLASS: longhorn
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
-
+      VOLSYNC_STORAGECLASS: truenas-nfs
+      VOLSYNC_CACHE_CLASS: truenas-nfs
+      VOLSYNC_CLONE_STORAGECLASS: truenas-nfs
+      VOLSYNC_SNAPSHOTCLASS: truenas-nfs-snapclass

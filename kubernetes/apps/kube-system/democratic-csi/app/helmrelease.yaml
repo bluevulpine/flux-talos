@@ -21,16 +21,16 @@ spec:
   values:
     csiDriver:
       name: org.democratic-csi.truenas
+      storageCapacity: true
     storageClasses:
       - name: truenas-nfs
         defaultClass: false
-        reclaimPolicy: Retain
+        reclaimPolicy: Delete
         accessModes: ["ReadWriteMany"]
         volumeBindingMode: Immediate
         allowVolumeExpansion: true
         parameters:
           fsType: nfs
-          detachedVolumesFromSnapshots: "false"
         mountOptions:
           - hard
           - intr
@@ -41,8 +41,7 @@ spec:
           - wsize=1048576
     volumeSnapshotClasses:
       - name: truenas-nfs-snapclass
-        parameters:
-          detachedSnapshots: "true"
+        deletionPolicy: Delete
     driver:
       config:
         driver: freenas-api-nfs
@@ -61,6 +60,10 @@ spec:
           datasetPermissionsMode: "0777"
           datasetPermissionsUser: 0
           datasetPermissionsGroup: 0
+          datasetProperties:
+            "org.freenas:description": "{{ parameters.[csi.storage.k8s.io/pvc/namespace] }}/{{ parameters.[csi.storage.k8s.io/pvc/name] }}"
+          cli:
+            sudoEnabled: true
         nfs:
           shareHost: ${SECRET_NFS_SERVER}
           shareAlldirs: false
@@ -70,28 +73,18 @@ spec:
           shareMaprootGroup: root
           shareMapallUser: ""
           shareMapallGroup: ""
+          shareCommentTemplate: "{{ parameters.[csi.storage.k8s.io/pvc/namespace] }}-{{ parameters.[csi.storage.k8s.io/pvc/name] }}"
+
     controller:
       driver:
         image:
           registry: ghcr.io/democratic-csi/democratic-csi
           tag: next
           pullPolicy: IfNotPresent
-      resources:
-        requests:
-          cpu: 50m
-          memory: 128Mi
-        limits:
-          memory: 512Mi
+
     node:
       driver:
         image:
           registry: ghcr.io/democratic-csi/democratic-csi
           tag: next
           pullPolicy: IfNotPresent
-      resources:
-        requests:
-          cpu: 50m
-          memory: 128Mi
-        limits:
-          memory: 256Mi
-
