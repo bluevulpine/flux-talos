@@ -65,7 +65,8 @@ spec:
           operator: Exists
       containers:
         - name: labeller
-          image: docker.io/rocm/k8s-device-plugin:labeller-latest
+          # renovate: datasource=docker depName=rocm/k8s-device-plugin
+          image: docker.io/rocm/k8s-device-plugin:labeller-1.31.0.9@sha256:7917397c7f3114b6244391d39f99a162d6c9377751b8bd6ce47f0fa112e7a1c7
           imagePullPolicy: Always
           workingDir: /root
           command: ["./k8s-node-labeller"]

@@ -28,7 +28,8 @@ spec:
         fsGroup: 1000
       containers:
         - name: ubuntu-dev
-          image: lscr.io/linuxserver/openssh-server:latest
+          # renovate: datasource=docker depName=lscr.io/linuxserver/openssh-server
+          image: lscr.io/linuxserver/openssh-server:10.0_p1-r10-ls212@sha256:c6d85b0c137a9920a7769ea00c0052a7779b4ec1e556db49b2700e5f1850fb40
           securityContext:
             runAsUser: 0
             runAsGroup: 0
