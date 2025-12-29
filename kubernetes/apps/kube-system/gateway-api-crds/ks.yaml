@@ -8,7 +8,7 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   interval: 1h
-  path: ./config/crd/standard
+  path: ./config/crd
   prune: true
   retryInterval: 2m
   sourceRef:
