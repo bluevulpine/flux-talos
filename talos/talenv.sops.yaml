@@ -1,5 +1,6 @@
 SECRET_TS_AUTHKEY: ENC[AES256_GCM,data:7kNmD3BeP+xOjCuI9ze/wZULIbss7ZcZ2Hk8weDLcbnhv6fBCfVhUA71ylv4KRjYpWs/UxcFruKpqNCMeQ==,iv:UPJuj4Wsliusk87IdQyZ7QJ5LWKkq5CF7z1nXtwRC8Q=,tag:BH2+wGbX6NEfdWJZWr2B3w==,type:str]
 SECRET_VOLUME_KEY: ENC[AES256_GCM,data:4q9Q9bgMRYv+6UDjXXiKQXN0jcQLxwsgRR+ngz8OCTVpwIgXq+Pv1lFMeVpNvuZx2ejF1YfZwpbMYbo=,iv:B2TNUImo3PlYVI9HWfcFXZ6Vm6OM7zb/1An3T8GoA6c=,tag:nJCoKKX3LBy0cwS2+a/UHg==,type:str]
+SECRET_DOMAIN: ENC[AES256_GCM,data:QvrLUOKkDr6EMTkpE0ZA,iv:3wg8ug+YHWIL8bUTv4pfO93yunvkY/8xG/iLwDWA0uY=,tag:9l4okqrZoyngA0P4GPnHRg==,type:str]
 sops:
     age:
         - recipient: age1ww3u7me5lwxtgqcd8djkv485q30wu7k40hs9e2acg8qvdw4e8spq9t5dem
@@ -11,7 +12,7 @@ sops:
             aVRyZ1F5VXVQZ1B1cDVhWmRYdXViaW8Kx04FGxTv74jai7dsBhlj2GxmmGKjKABU
             C56n6KPe/jDCS3vFQibkneGsRIfMg26KjNoQ0RKzO3/d8Cb4W59PqA==
             -----END AGE ENCRYPTED FILE-----
-    lastmodified: "2025-11-21T04:41:50Z"
-    mac: ENC[AES256_GCM,data:Pws1euO27sau90KBJepiL91hflliAEw3BVejlQZ4VufXzTNPjYurInP/rkdv8+Wa6DtXWSLU20qPMNJ9eiYhVorvju/aE7i1GDVtoV+AnptT7nhBFtfGVKbZQlxE7PYGY2TdJOLTYvaE5ucY3B3IZUUR/2vGxqTKtTvV63xqbes=,iv:w38XYl+vsmGglAuwh1gLWbLuwtQDf819UxTNpHWOiv4=,tag:2XYYylmo75Rvs/Q2/IGhog==,type:str]
+    lastmodified: "2025-12-30T19:34:39Z"
+    mac: ENC[AES256_GCM,data:l7+gbou35yB0itqir0QEz7GSAbV2bFA2bD/jCgQMJJ78JkjHbDzBPaGtae10uFBtpl/qqhI9jTlURHThQVVWLBVT2SJsrdiypQ/abQ1q9fQX8BU85TImWtWG1cICO8wzlNGKgvVtEu+1GcRqEYElQI0sfgKpL1xdj7enFpX+NYY=,iv:wVP/2b5kuRODMQqCeEhskPL2DqamuF7LPCAM8qDQDt0=,tag:BY7lqDEJD2Hlk6EEKqYMeA==,type:str]
     unencrypted_suffix: _unencrypted
     version: 3.11.0
