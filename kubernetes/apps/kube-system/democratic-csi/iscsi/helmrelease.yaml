@@ -1,0 +1,126 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app democratic-csi-iscsi
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: democratic-csi
+    namespace: kube-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    csiDriver:
+      # MUST be unique from the NFS driver (org.democratic-csi.truenas)
+      name: org.democratic-csi.truenas-iscsi
+      storageCapacity: true
+
+    storageClasses:
+      - name: truenas-iscsi
+        defaultClass: false
+        reclaimPolicy: Delete
+        volumeBindingMode: Immediate
+        allowVolumeExpansion: true
+        parameters:
+          # XFS recommended for block storage performance
+          fsType: xfs
+        mountOptions: []
+        secrets:
+          provisioner-secret:
+          controller-publish-secret:
+          node-stage-secret:
+            # Uncomment for CHAP authentication:
+            # node-db.node.session.auth.authmethod: CHAP
+            # node-db.node.session.auth.username: <username>
+            # node-db.node.session.auth.password: <password>
+          node-publish-secret:
+          controller-expand-secret:
+
+    volumeSnapshotClasses:
+      - name: truenas-iscsi-snapclass
+        deletionPolicy: Delete
+        parameters:
+          # Detached snapshots recommended for iSCSI
+          detachedSnapshots: "true"
+
+    driver:
+      config:
+        driver: freenas-api-iscsi
+        instance_id: *app
+        httpConnection:
+          protocol: https
+          host: ${SECRET_NFS_SERVER}
+          port: 443
+          apiKey: ${DEMOCRATIC_CSI_API_KEY}
+          allowInsecure: false
+        zfs:
+          # Separate dataset paths from NFS to avoid conflicts
+          datasetParentName: apps/democratic-csi/iscsi/v
+          detachedSnapshotsDatasetParentName: apps/democratic-csi/iscsi/s
+          # zvol-specific settings
+          zvolCompression: ""      # Inherit from parent (or: lz4, gzip-9, etc.)
+          zvolDedup: ""            # Inherit from parent (or: on, off, verify)
+          zvolEnableReservation: false
+          zvolBlocksize: ""        # Default 16K (or: 512, 1K, 2K, 4K, 8K, 16K, 64K, 128K)
+          datasetProperties:
+            "org.freenas:description": "{{ parameters.[csi.storage.k8s.io/pvc/namespace] }}/{{ parameters.[csi.storage.k8s.io/pvc/name] }}"
+        iscsi:
+          targetPortal: "${SECRET_NFS_SERVER}:3260"
+          targetPortals: []  # Additional portals for multipath
+          interface: ""      # Leave empty to omit -I with iscsiadm
+          # Naming - MUST be unique across deployments
+          namePrefix: csi-
+          nameSuffix: "-k8s"
+          targetGroups:
+            - targetGroupPortalGroup: 2
+              targetGroupInitiatorGroup: 3
+              targetGroupAuthType: None
+              targetGroupAuthGroup:
+          # Extent settings
+          extentInsecureTpc: true
+          extentXenCompat: false
+          extentDisablePhysicalBlocksize: true
+          extentBlocksize: 512
+          extentRpm: "SSD"
+          extentAvailThreshold: 0
+
+    controller:
+      driver:
+        image:
+          registry: ghcr.io/democratic-csi/democratic-csi
+          # renovate: datasource=docker depName=ghcr.io/democratic-csi/democratic-csi
+          tag: next
+          pullPolicy: IfNotPresent
+
+    node:
+      # Required for Talos iSCSI support
+      hostPID: true
+      driver:
+        image:
+          registry: ghcr.io/democratic-csi/democratic-csi
+          # renovate: datasource=docker depName=ghcr.io/democratic-csi/democratic-csi
+          tag: next
+          pullPolicy: IfNotPresent
+        extraEnv:
+          - name: ISCSIADM_HOST_STRATEGY
+            value: nsenter
+          - name: ISCSIADM_HOST_PATH
+            value: /usr/local/sbin/iscsiadm
+        iscsiDirHostPath: /usr/local/etc/iscsi
+        iscsiDirHostPathType: ""
+      tolerations:
+        - key: "node.kubernetes.io/low-power"
+          operator: "Equal"
+          value: "raspberry-pi"
+          effect: "NoSchedule"
+

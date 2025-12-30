@@ -111,6 +111,9 @@ nodes:
                 - key: "node.kubernetes.io/low-power"
                   value: "raspberry-pi"
                   effect: "NoSchedule"
+          kernel:
+            modules:
+              - name: nvme_tcp
     volumes:
       - name: EPHEMERAL
         provisioning:
