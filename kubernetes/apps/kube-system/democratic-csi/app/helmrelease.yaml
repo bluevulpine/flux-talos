@@ -88,3 +88,8 @@ spec:
           registry: ghcr.io/democratic-csi/democratic-csi
           tag: next
           pullPolicy: IfNotPresent
+      tolerations:
+        - key: "node.kubernetes.io/low-power"
+          operator: "Equal"
+          value: "raspberry-pi"
+          effect: "NoSchedule"
