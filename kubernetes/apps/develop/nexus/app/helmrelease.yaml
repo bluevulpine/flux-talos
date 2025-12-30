@@ -86,6 +86,15 @@ spec:
     # Requires 'privileged' PodSecurity on the develop namespace
     chownDataDir: true
 
+    # Init container to create PostgreSQL database and user
+    # Uses INIT_POSTGRES_* env vars from nexus-secret
+    extraInitContainers:
+      - name: init-db
+        image: ghcr.io/home-operations/postgres-init:rolling
+        envFrom:
+          - secretRef:
+              name: nexus-secret
+
     # Metrics for Prometheus
     metrics:
       enabled: true
