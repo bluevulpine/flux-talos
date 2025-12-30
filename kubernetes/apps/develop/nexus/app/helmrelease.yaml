@@ -207,37 +207,9 @@ spec:
         # ========================================
         # DOCKER REGISTRY PROXIES
         # ========================================
-        # Docker Hub (docker.io / registry-1.docker.io)
-        - name: docker-hub-proxy
-          format: docker
-          type: proxy
-          online: true
-          storage:
-            blobStoreName: docker
-            strictContentTypeValidation: true
-          proxy:
-            remoteUrl: https://registry-1.docker.io
-            contentMaxAge: 1440
-            metadataMaxAge: 1440
-          negativeCache:
-            enabled: true
-            timeToLive: 1440
-          httpClient:
-            blocked: false
-            autoBlock: true
-          docker:
-            v1Enabled: false
-            forceBasicAuth: false
-            httpPort: 5001
-          dockerProxy:
-            indexType: HUB
-            cacheForeignLayers: true
-          cleanup:
-            policyNames:
-              - docker-cleanup
-
-        # GitHub Container Registry (ghcr.io)
-        - name: ghcr-proxy
+        # Shared defaults for Docker proxy repositories (REGISTRY index type)
+        - &docker-proxy-defaults
+          name: ghcr-proxy
           format: docker
           type: proxy
           online: true
@@ -265,150 +237,80 @@ spec:
             policyNames:
               - docker-cleanup
 
+        # Docker Hub (docker.io / registry-1.docker.io) - uses HUB index type
+        - <<: *docker-proxy-defaults
+          name: docker-hub-proxy
+          proxy:
+            remoteUrl: https://registry-1.docker.io
+            contentMaxAge: 1440
+            metadataMaxAge: 1440
+          docker:
+            v1Enabled: false
+            forceBasicAuth: false
+            httpPort: 5001
+          dockerProxy:
+            indexType: HUB
+            cacheForeignLayers: true
+
         # Quay.io
-        - name: quay-proxy
-          format: docker
-          type: proxy
-          online: true
-          storage:
-            blobStoreName: docker
-            strictContentTypeValidation: true
+        - <<: *docker-proxy-defaults
+          name: quay-proxy
           proxy:
             remoteUrl: https://quay.io
             contentMaxAge: 1440
             metadataMaxAge: 1440
-          negativeCache:
-            enabled: true
-            timeToLive: 1440
-          httpClient:
-            blocked: false
-            autoBlock: true
           docker:
             v1Enabled: false
             forceBasicAuth: false
             httpPort: 5003
-          dockerProxy:
-            indexType: REGISTRY
-            cacheForeignLayers: true
-          cleanup:
-            policyNames:
-              - docker-cleanup
 
         # LinuxServer.io Container Registry (lscr.io)
-        - name: lscr-proxy
-          format: docker
-          type: proxy
-          online: true
-          storage:
-            blobStoreName: docker
-            strictContentTypeValidation: true
+        - <<: *docker-proxy-defaults
+          name: lscr-proxy
           proxy:
             remoteUrl: https://lscr.io
             contentMaxAge: 1440
             metadataMaxAge: 1440
-          negativeCache:
-            enabled: true
-            timeToLive: 1440
-          httpClient:
-            blocked: false
-            autoBlock: true
           docker:
             v1Enabled: false
             forceBasicAuth: false
             httpPort: 5004
-          dockerProxy:
-            indexType: REGISTRY
-            cacheForeignLayers: true
-          cleanup:
-            policyNames:
-              - docker-cleanup
 
         # Google Container Registry mirror (mirror.gcr.io)
-        - name: gcr-mirror-proxy
-          format: docker
-          type: proxy
-          online: true
-          storage:
-            blobStoreName: docker
-            strictContentTypeValidation: true
+        - <<: *docker-proxy-defaults
+          name: gcr-mirror-proxy
           proxy:
             remoteUrl: https://mirror.gcr.io
             contentMaxAge: 1440
             metadataMaxAge: 1440
-          negativeCache:
-            enabled: true
-            timeToLive: 1440
-          httpClient:
-            blocked: false
-            autoBlock: true
           docker:
             v1Enabled: false
             forceBasicAuth: false
             httpPort: 5005
-          dockerProxy:
-            indexType: REGISTRY
-            cacheForeignLayers: true
-          cleanup:
-            policyNames:
-              - docker-cleanup
 
         # AWS ECR Public (public.ecr.aws)
-        - name: ecr-public-proxy
-          format: docker
-          type: proxy
-          online: true
-          storage:
-            blobStoreName: docker
-            strictContentTypeValidation: true
+        - <<: *docker-proxy-defaults
+          name: ecr-public-proxy
           proxy:
             remoteUrl: https://public.ecr.aws
             contentMaxAge: 1440
             metadataMaxAge: 1440
-          negativeCache:
-            enabled: true
-            timeToLive: 1440
-          httpClient:
-            blocked: false
-            autoBlock: true
           docker:
             v1Enabled: false
             forceBasicAuth: false
             httpPort: 5006
-          dockerProxy:
-            indexType: REGISTRY
-            cacheForeignLayers: true
-          cleanup:
-            policyNames:
-              - docker-cleanup
 
         # Chainguard Registry (cgr.dev)
-        - name: chainguard-proxy
-          format: docker
-          type: proxy
-          online: true
-          storage:
-            blobStoreName: docker
-            strictContentTypeValidation: true
+        - <<: *docker-proxy-defaults
+          name: chainguard-proxy
           proxy:
             remoteUrl: https://cgr.dev
             contentMaxAge: 1440
             metadataMaxAge: 1440
-          negativeCache:
-            enabled: true
-            timeToLive: 1440
-          httpClient:
-            blocked: false
-            autoBlock: true
           docker:
             v1Enabled: false
             forceBasicAuth: false
             httpPort: 5007
-          dockerProxy:
-            indexType: REGISTRY
-            cacheForeignLayers: true
-          cleanup:
-            policyNames:
-              - docker-cleanup
 
         # Docker Group - combines all Docker proxies into single endpoint on port 5000
         - name: docker-group
