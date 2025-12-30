@@ -49,6 +49,7 @@ jobs:
             --all-namespaces
             --enable-helm
             --path /github/workspace/kubernetes/flux/cluster
+            --skip-invalid-kustomization-paths
             --verbose
 
   diff:
@@ -95,6 +96,7 @@ jobs:
             --limit-bytes 10000
             --all-namespaces
             --sources "flux-system"
+            --skip-invalid-kustomization-paths
             --output-file diff.patch
 
       - name: Generate Diff
