@@ -20,3 +20,6 @@ spec:
     spegel:
       containerdSock: /run/containerd/containerd.sock
       containerdRegistryConfigPath: /etc/cri/conf.d/hosts
+      # Keep existing mirror configuration (Nexus) and prepend Spegel
+      # This creates the chain: Spegel → Nexus → Upstream
+      prependExisting: true

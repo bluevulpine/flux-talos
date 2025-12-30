@@ -105,11 +105,33 @@ spec:
     service:
       type: ClusterIP
       port: 8081
-      # Docker registry port for the group repository
+      # Docker registry ports for each proxy repository
+      # Each proxy has its own port for proper per-registry mirroring
       additionalPorts:
         - port: 5000
           name: docker
           containerPort: 5000
+        - port: 5001
+          name: docker-hub
+          containerPort: 5001
+        - port: 5002
+          name: ghcr
+          containerPort: 5002
+        - port: 5003
+          name: quay
+          containerPort: 5003
+        - port: 5004
+          name: lscr
+          containerPort: 5004
+        - port: 5005
+          name: gcr
+          containerPort: 5005
+        - port: 5006
+          name: ecr
+          containerPort: 5006
+        - port: 5007
+          name: cgr
+          containerPort: 5007
 
     # Ingress disabled (using HTTPRoute instead)
     ingress:
@@ -206,6 +228,7 @@ spec:
           docker:
             v1Enabled: false
             forceBasicAuth: false
+            httpPort: 5001
           dockerProxy:
             indexType: HUB
             cacheForeignLayers: true
@@ -234,6 +257,7 @@ spec:
           docker:
             v1Enabled: false
             forceBasicAuth: false
+            httpPort: 5002
           dockerProxy:
             indexType: REGISTRY
             cacheForeignLayers: true
@@ -262,6 +286,7 @@ spec:
           docker:
             v1Enabled: false
             forceBasicAuth: false
+            httpPort: 5003
           dockerProxy:
             indexType: REGISTRY
             cacheForeignLayers: true
@@ -290,6 +315,7 @@ spec:
           docker:
             v1Enabled: false
             forceBasicAuth: false
+            httpPort: 5004
           dockerProxy:
             indexType: REGISTRY
             cacheForeignLayers: true
@@ -318,6 +344,7 @@ spec:
           docker:
             v1Enabled: false
             forceBasicAuth: false
+            httpPort: 5005
           dockerProxy:
             indexType: REGISTRY
             cacheForeignLayers: true
@@ -346,6 +373,7 @@ spec:
           docker:
             v1Enabled: false
             forceBasicAuth: false
+            httpPort: 5006
           dockerProxy:
             indexType: REGISTRY
             cacheForeignLayers: true
@@ -374,6 +402,7 @@ spec:
           docker:
             v1Enabled: false
             forceBasicAuth: false
+            httpPort: 5007
           dockerProxy:
             indexType: REGISTRY
             cacheForeignLayers: true
