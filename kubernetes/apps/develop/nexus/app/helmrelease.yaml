@@ -82,8 +82,9 @@ spec:
       retainDeleted: false  # Delete PVC when StatefulSet is deleted
       retainScaled: true
 
-    # Run chown on data dir for proper permissions
-    chownDataDir: true
+    # Disable chown init container - violates PodSecurity "restricted"
+    # Longhorn respects fsGroup (200) for ownership, so this isn't needed
+    chownDataDir: false
 
     # Metrics for Prometheus
     metrics:
