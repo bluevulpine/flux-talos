@@ -18,7 +18,7 @@ spec:
             image:
               repository: ghcr.io/linuxserver/calibre-web
               # renovate: datasource=docker depName=ghcr.io/linuxserver/calibre-web versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(-ls(?<build>\d+))?$
-              tag: 0.6.25
+              tag: 5.33.2@sha256:60f5cf63215a8511a906371ab34bff4c339d5f87c194324cb7d561845d2baae1
             env:
               TZ: America/Chicago
               PUID: 568
