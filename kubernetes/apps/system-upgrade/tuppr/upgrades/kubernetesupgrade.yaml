@@ -19,4 +19,10 @@ spec:
       kind: Volume
       expr: |-
         status.state == "attached" && status.robustness == "healthy"
+    # Wait for democratic-csi volumes to be properly attached (not pending)
+    - apiVersion: storage.k8s.io/v1
+      kind: VolumeAttachment
+      description: "Ensure democratic-csi volumes are attached"
+      expr: |-
+        spec.attacher != "org.democratic-csi.truenas" || status.attached == true
 
