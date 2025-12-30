@@ -426,7 +426,7 @@ patches:
     machine:
       files:
         - op: create
-          path: /etc/cri/conf.d/20-customization.part
+          path: /var/cri/conf.d/20-customization.part
           content: |-
             [plugins."io.containerd.cri.v1.images"]
               discard_unpacked_layers = false
@@ -517,8 +517,8 @@ patches:
   - |-
     machine:
       files:
-        - op: overwrite
-          path: /etc/nfsmount.conf
+        - op: create
+          path: /var/etc/nfsmount.conf
           permissions: 0o644
           content: |
             [ NFSMount_Global_Options ]
@@ -532,94 +532,32 @@ patches:
   # Creating the chain: Spegel → Nexus → Upstream
   - |-
     machine:
-      files:
-        # Docker Hub (docker.io)
-        - op: create
-          path: /etc/cri/conf.d/hosts/docker.io/hosts.toml
-          permissions: 0o644
-          content: |
-            server = "https://registry-1.docker.io"
-
-            [host."https://docker-hub.nexus.${SECRET_DOMAIN}"]
-              capabilities = ["pull", "resolve"]
-              skip_verify = false
-
-        # GitHub Container Registry (ghcr.io)
-        - op: create
-          path: /etc/cri/conf.d/hosts/ghcr.io/hosts.toml
-          permissions: 0o644
-          content: |
-            server = "https://ghcr.io"
-
-            [host."https://ghcr.nexus.${SECRET_DOMAIN}"]
-              capabilities = ["pull", "resolve"]
-              skip_verify = false
-
-        # Quay.io
-        - op: create
-          path: /etc/cri/conf.d/hosts/quay.io/hosts.toml
-          permissions: 0o644
-          content: |
-            server = "https://quay.io"
-
-            [host."https://quay.nexus.${SECRET_DOMAIN}"]
-              capabilities = ["pull", "resolve"]
-              skip_verify = false
-
-        # LinuxServer.io Container Registry (lscr.io)
-        - op: create
-          path: /etc/cri/conf.d/hosts/lscr.io/hosts.toml
-          permissions: 0o644
-          content: |
-            server = "https://lscr.io"
-
-            [host."https://lscr.nexus.${SECRET_DOMAIN}"]
-              capabilities = ["pull", "resolve"]
-              skip_verify = false
-
-        # Google Container Registry mirror (gcr.io)
-        - op: create
-          path: /etc/cri/conf.d/hosts/gcr.io/hosts.toml
-          permissions: 0o644
-          content: |
-            server = "https://gcr.io"
-
-            [host."https://gcr.nexus.${SECRET_DOMAIN}"]
-              capabilities = ["pull", "resolve"]
-              skip_verify = false
-
-        # Kubernetes Registry (registry.k8s.io) - uses gcr mirror
-        - op: create
-          path: /etc/cri/conf.d/hosts/registry.k8s.io/hosts.toml
-          permissions: 0o644
-          content: |
-            server = "https://registry.k8s.io"
-
-            [host."https://gcr.nexus.${SECRET_DOMAIN}"]
-              capabilities = ["pull", "resolve"]
-              skip_verify = false
-
-        # AWS ECR Public (public.ecr.aws)
-        - op: create
-          path: /etc/cri/conf.d/hosts/public.ecr.aws/hosts.toml
-          permissions: 0o644
-          content: |
-            server = "https://public.ecr.aws"
-
-            [host."https://ecr.nexus.${SECRET_DOMAIN}"]
-              capabilities = ["pull", "resolve"]
-              skip_verify = false
-
-        # Chainguard Registry (cgr.dev)
-        - op: create
-          path: /etc/cri/conf.d/hosts/cgr.dev/hosts.toml
-          permissions: 0o644
-          content: |
-            server = "https://cgr.dev"
-
-            [host."https://cgr.nexus.${SECRET_DOMAIN}"]
-              capabilities = ["pull", "resolve"]
-              skip_verify = false
+      registries:
+        mirrors:
+          docker.io:
+            endpoints:
+              - https://docker-hub.nexus.${SECRET_DOMAIN}
+          ghcr.io:
+            endpoints:
+              - https://ghcr.nexus.${SECRET_DOMAIN}
+          quay.io:
+            endpoints:
+              - https://quay.nexus.${SECRET_DOMAIN}
+          lscr.io:
+            endpoints:
+              - https://lscr.nexus.${SECRET_DOMAIN}
+          gcr.io:
+            endpoints:
+              - https://gcr.nexus.${SECRET_DOMAIN}
+          registry.k8s.io:
+            endpoints:
+              - https://gcr.nexus.${SECRET_DOMAIN}
+          public.ecr.aws:
+            endpoints:
+              - https://ecr.nexus.${SECRET_DOMAIN}
+          cgr.dev:
+            endpoints:
+              - https://cgr.nexus.${SECRET_DOMAIN}
 
 controlPlane:
   patches:
