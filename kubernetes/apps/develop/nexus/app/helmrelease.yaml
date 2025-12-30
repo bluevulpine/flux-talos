@@ -73,25 +73,6 @@ spec:
         cpu: 2000m
         memory: 6Gi
 
-    # Security contexts for PodSecurity "restricted" compliance
-    # Nexus runs as user 200 (nexus) by default
-    podSecurityContext:
-      runAsNonRoot: true
-      fsGroup: 200
-      seccompProfile:
-        type: RuntimeDefault
-
-    securityContext:
-      privileged: false
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      runAsNonRoot: true
-      runAsUser: 200
-      runAsGroup: 200
-      capabilities:
-        drop:
-          - ALL
-
     # Persistence - StatefulSet volumeClaimTemplate
     # Using longhorn-1-replica since this is cache data (no backup needed)
     persistence:
@@ -101,9 +82,9 @@ spec:
       retainDeleted: false  # Delete PVC when StatefulSet is deleted
       retainScaled: true
 
-    # Disable chown init container - violates PodSecurity "restricted"
-    # Longhorn respects fsGroup (200) for ownership, so this isn't needed
-    chownDataDir: false
+    # Enable chown init container to fix PVC ownership
+    # Requires 'privileged' PodSecurity on the develop namespace
+    chownDataDir: true
 
     # Metrics for Prometheus
     metrics:
