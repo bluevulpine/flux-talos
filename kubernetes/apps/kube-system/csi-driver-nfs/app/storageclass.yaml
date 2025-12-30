@@ -13,7 +13,6 @@ allowVolumeExpansion: true
 volumeBindingMode: Immediate
 mountOptions:
   - hard
-  - intr
   - noatime
   - noresvport
   - nfsvers=4.2

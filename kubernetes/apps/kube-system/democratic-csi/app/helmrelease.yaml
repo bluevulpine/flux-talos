@@ -33,7 +33,6 @@ spec:
           fsType: nfs
         mountOptions:
           - hard
-          - intr
           - noatime
           - noresvport
           - nfsvers=4.2
