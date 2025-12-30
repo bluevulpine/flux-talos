@@ -8,11 +8,12 @@ spec:
   interval: 30m
   chart:
     spec:
-      chart: nexus-repository-manager
-      version: 64.2.0
+      # renovate: registryUrl=https://stevehipwell.github.io/helm-charts/
+      chart: nexus3
+      version: 5.17.1
       sourceRef:
         kind: HelmRepository
-        name: sonatype
+        name: stevehipwell
         namespace: flux-system
       interval: 15m
   install:
@@ -24,75 +25,621 @@ spec:
       retries: 3
   uninstall:
     keepHistory: false
-  # Note: depends on nexus-secret ExternalSecret being synced
-  # This is handled by the Kustomization dependency on external-secrets-stores
   values:
-    # Nexus configuration
-    nexus:
-      # Use PostgreSQL instead of embedded H2
-      properties:
-        override: true
-        data:
-          nexus.datastore.enabled: true
-          nexus.datastore.nexus.type: jdbc
-      
-      # Security configuration
-      security:
-        randomAdminPassword: false
-      
-      # Resource configuration
-      resources:
-        requests:
-          cpu: 500m
-          memory: 2Gi
-        limits:
-          cpu: 2000m
-          memory: 4Gi
-      
-      # Environment variables from secret
-      env:
-        - name: NEXUS_SECURITY_RANDOMPASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: nexus-secret
-              key: NEXUS_SECURITY_RANDOMPASSWORD
-        - name: NEXUS_SECURITY_INITIAL_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: nexus-secret
-              key: NEXUS_SECURITY_INITIAL_PASSWORD
-        - name: NEXUS_DATASTORE_NEXUS_JDBCURL
-          valueFrom:
-            secretKeyRef:
-              name: nexus-secret
-              key: NEXUS_DATASTORE_NEXUS_JDBCURL
-        - name: NEXUS_DATASTORE_NEXUS_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: nexus-secret
-              key: NEXUS_DATASTORE_NEXUS_USERNAME
-        - name: NEXUS_DATASTORE_NEXUS_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: nexus-secret
-              key: NEXUS_DATASTORE_NEXUS_PASSWORD
-    
-    # Persistence configuration
+    # Image configuration
+    # renovate: datasource=docker depName=sonatype/nexus3
+    image:
+      repository: docker.io/sonatype/nexus3
+      tag: 3.87.1
+
+    # JVM memory settings - 2GB heap with 4GB direct memory for blob operations
+    install4jAddVmParams: "-Xms2048m -Xmx2048m -XX:MaxDirectMemorySize=4096m"
+
+    # Nexus properties - enable external PostgreSQL datastore
+    # The actual connection details are passed via environment variables
+    properties:
+      - nexus.datastore.enabled=true
+
+    # Environment variables from secret for PostgreSQL connection
+    # Nexus reads these at startup for database configuration
+    env:
+      - name: NEXUS_SECURITY_RANDOMPASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: nexus-secret
+            key: NEXUS_SECURITY_RANDOMPASSWORD
+      - name: NEXUS_DATASTORE_NEXUS_JDBCURL
+        valueFrom:
+          secretKeyRef:
+            name: nexus-secret
+            key: NEXUS_DATASTORE_NEXUS_JDBCURL
+      - name: NEXUS_DATASTORE_NEXUS_USERNAME
+        valueFrom:
+          secretKeyRef:
+            name: nexus-secret
+            key: NEXUS_DATASTORE_NEXUS_USERNAME
+      - name: NEXUS_DATASTORE_NEXUS_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: nexus-secret
+            key: NEXUS_DATASTORE_NEXUS_PASSWORD
+
+    # Resource configuration
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 6Gi
+
+    # Persistence - StatefulSet volumeClaimTemplate
+    # Using longhorn-1-replica since this is cache data (no backup needed)
     persistence:
       enabled: true
-      existingClaim: nexus-data
-    
+      storageClass: longhorn-1-replica
+      size: 100Gi
+      retainDeleted: false  # Delete PVC when StatefulSet is deleted
+      retainScaled: true
+
+    # Enable chown init container to fix PVC ownership
+    # Requires 'privileged' PodSecurity on the develop namespace
+    chownDataDir: true
+
+    # Init container to create PostgreSQL database and user
+    # Uses INIT_POSTGRES_* env vars from nexus-secret
+    extraInitContainers:
+      - name: init-db
+        image: ghcr.io/home-operations/postgres-init:rolling
+        envFrom:
+          - secretRef:
+              name: nexus-secret
+
+    # Metrics for Prometheus
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: false  # Using separate ServiceMonitor
+
     # Service configuration
     service:
       type: ClusterIP
       port: 8081
-    
+      # Docker registry port for the group repository
+      additionalPorts:
+        - port: 5000
+          name: docker
+          containerPort: 5000
+
     # Ingress disabled (using HTTPRoute instead)
     ingress:
       enabled: false
-    
-    # Security context
-    securityContext:
-      runAsUser: 997
-      runAsGroup: 997
-      fsGroup: 997
+
+    # Root password from secret for config job
+    rootPassword:
+      secret: nexus-secret
+      key: NEXUS_SECURITY_INITIAL_PASSWORD
+
+    # ========================================
+    # DECLARATIVE CONFIGURATION
+    # ========================================
+    config:
+      enabled: true
+
+      # Enable anonymous access for Docker pulls (containerd needs this)
+      anonymous:
+        enabled: true
+        roles:
+          - nx-anonymous
+          - nx-metrics
+
+      # Enable required authentication realms
+      realms:
+        enabled: true
+        values:
+          - NexusAuthenticatingRealm
+          - DockerToken
+          - NpmToken
+
+      # Blob stores - separate by artifact type for different retention policies
+      blobStores:
+        # Docker images - largest, most aggressive cleanup
+        - name: docker
+          type: file
+          path: /nexus-data/blobs/docker
+        # APT packages - moderate size, longer retention
+        - name: apt
+          type: file
+          path: /nexus-data/blobs/apt
+        # npm/PyPI packages - moderate size
+        - name: packages
+          type: file
+          path: /nexus-data/blobs/packages
+
+      # Cleanup policies to prevent unbounded storage growth
+      cleanup:
+        # Docker images not downloaded in 30 days
+        - name: docker-cleanup
+          notes: "Remove Docker layers not downloaded in 30 days"
+          format: docker
+          mode: delete
+          criteria:
+            lastDownloaded: "2592000"  # 30 days in seconds
+        # APT packages not downloaded in 90 days
+        - name: apt-cleanup
+          notes: "Remove APT packages not downloaded in 90 days"
+          format: apt
+          mode: delete
+          criteria:
+            lastDownloaded: "7776000"  # 90 days in seconds
+        # npm/PyPI packages not downloaded in 60 days
+        - name: packages-cleanup
+          notes: "Remove npm/PyPI packages not downloaded in 60 days"
+          format: ALL_FORMATS
+          mode: delete
+          criteria:
+            lastDownloaded: "5184000"  # 60 days in seconds
+
+      # Repository configuration
+      repos:
+        # ========================================
+        # DOCKER REGISTRY PROXIES
+        # ========================================
+        # Docker Hub (docker.io / registry-1.docker.io)
+        - name: docker-hub-proxy
+          format: docker
+          type: proxy
+          online: true
+          storage:
+            blobStoreName: docker
+            strictContentTypeValidation: true
+          proxy:
+            remoteUrl: https://registry-1.docker.io
+            contentMaxAge: 1440
+            metadataMaxAge: 1440
+          negativeCache:
+            enabled: true
+            timeToLive: 1440
+          httpClient:
+            blocked: false
+            autoBlock: true
+          docker:
+            v1Enabled: false
+            forceBasicAuth: false
+          dockerProxy:
+            indexType: HUB
+            cacheForeignLayers: true
+          cleanup:
+            policyNames:
+              - docker-cleanup
+
+        # GitHub Container Registry (ghcr.io)
+        - name: ghcr-proxy
+          format: docker
+          type: proxy
+          online: true
+          storage:
+            blobStoreName: docker
+            strictContentTypeValidation: true
+          proxy:
+            remoteUrl: https://ghcr.io
+            contentMaxAge: 1440
+            metadataMaxAge: 1440
+          negativeCache:
+            enabled: true
+            timeToLive: 1440
+          httpClient:
+            blocked: false
+            autoBlock: true
+          docker:
+            v1Enabled: false
+            forceBasicAuth: false
+          dockerProxy:
+            indexType: REGISTRY
+            cacheForeignLayers: true
+          cleanup:
+            policyNames:
+              - docker-cleanup
+
+        # Quay.io
+        - name: quay-proxy
+          format: docker
+          type: proxy
+          online: true
+          storage:
+            blobStoreName: docker
+            strictContentTypeValidation: true
+          proxy:
+            remoteUrl: https://quay.io
+            contentMaxAge: 1440
+            metadataMaxAge: 1440
+          negativeCache:
+            enabled: true
+            timeToLive: 1440
+          httpClient:
+            blocked: false
+            autoBlock: true
+          docker:
+            v1Enabled: false
+            forceBasicAuth: false
+          dockerProxy:
+            indexType: REGISTRY
+            cacheForeignLayers: true
+          cleanup:
+            policyNames:
+              - docker-cleanup
+
+        # LinuxServer.io Container Registry (lscr.io)
+        - name: lscr-proxy
+          format: docker
+          type: proxy
+          online: true
+          storage:
+            blobStoreName: docker
+            strictContentTypeValidation: true
+          proxy:
+            remoteUrl: https://lscr.io
+            contentMaxAge: 1440
+            metadataMaxAge: 1440
+          negativeCache:
+            enabled: true
+            timeToLive: 1440
+          httpClient:
+            blocked: false
+            autoBlock: true
+          docker:
+            v1Enabled: false
+            forceBasicAuth: false
+          dockerProxy:
+            indexType: REGISTRY
+            cacheForeignLayers: true
+          cleanup:
+            policyNames:
+              - docker-cleanup
+
+        # Google Container Registry mirror (mirror.gcr.io)
+        - name: gcr-mirror-proxy
+          format: docker
+          type: proxy
+          online: true
+          storage:
+            blobStoreName: docker
+            strictContentTypeValidation: true
+          proxy:
+            remoteUrl: https://mirror.gcr.io
+            contentMaxAge: 1440
+            metadataMaxAge: 1440
+          negativeCache:
+            enabled: true
+            timeToLive: 1440
+          httpClient:
+            blocked: false
+            autoBlock: true
+          docker:
+            v1Enabled: false
+            forceBasicAuth: false
+          dockerProxy:
+            indexType: REGISTRY
+            cacheForeignLayers: true
+          cleanup:
+            policyNames:
+              - docker-cleanup
+
+        # AWS ECR Public (public.ecr.aws)
+        - name: ecr-public-proxy
+          format: docker
+          type: proxy
+          online: true
+          storage:
+            blobStoreName: docker
+            strictContentTypeValidation: true
+          proxy:
+            remoteUrl: https://public.ecr.aws
+            contentMaxAge: 1440
+            metadataMaxAge: 1440
+          negativeCache:
+            enabled: true
+            timeToLive: 1440
+          httpClient:
+            blocked: false
+            autoBlock: true
+          docker:
+            v1Enabled: false
+            forceBasicAuth: false
+          dockerProxy:
+            indexType: REGISTRY
+            cacheForeignLayers: true
+          cleanup:
+            policyNames:
+              - docker-cleanup
+
+        # Chainguard Registry (cgr.dev)
+        - name: chainguard-proxy
+          format: docker
+          type: proxy
+          online: true
+          storage:
+            blobStoreName: docker
+            strictContentTypeValidation: true
+          proxy:
+            remoteUrl: https://cgr.dev
+            contentMaxAge: 1440
+            metadataMaxAge: 1440
+          negativeCache:
+            enabled: true
+            timeToLive: 1440
+          httpClient:
+            blocked: false
+            autoBlock: true
+          docker:
+            v1Enabled: false
+            forceBasicAuth: false
+          dockerProxy:
+            indexType: REGISTRY
+            cacheForeignLayers: true
+          cleanup:
+            policyNames:
+              - docker-cleanup
+
+        # Docker Group - combines all Docker proxies into single endpoint on port 5000
+        - name: docker-group
+          format: docker
+          type: group
+          online: true
+          storage:
+            blobStoreName: docker
+            strictContentTypeValidation: true
+          group:
+            memberNames:
+              - docker-hub-proxy
+              - ghcr-proxy
+              - quay-proxy
+              - lscr-proxy
+              - gcr-mirror-proxy
+              - ecr-public-proxy
+              - chainguard-proxy
+          docker:
+            v1Enabled: false
+            forceBasicAuth: false
+            httpPort: 5000
+
+        # ========================================
+        # PACKAGE MANAGER PROXIES
+        # ========================================
+        # npm Registry
+        - name: npm-proxy
+          format: npm
+          type: proxy
+          online: true
+          storage:
+            blobStoreName: packages
+            strictContentTypeValidation: true
+          proxy:
+            remoteUrl: https://registry.npmjs.org
+            contentMaxAge: 1440
+            metadataMaxAge: 1440
+          negativeCache:
+            enabled: true
+            timeToLive: 1440
+          httpClient:
+            blocked: false
+            autoBlock: true
+          cleanup:
+            policyNames:
+              - packages-cleanup
+
+        # PyPI Registry
+        - name: pypi-proxy
+          format: pypi
+          type: proxy
+          online: true
+          storage:
+            blobStoreName: packages
+            strictContentTypeValidation: true
+          proxy:
+            remoteUrl: https://pypi.org
+            contentMaxAge: 1440
+            metadataMaxAge: 1440
+          negativeCache:
+            enabled: true
+            timeToLive: 1440
+          httpClient:
+            blocked: false
+            autoBlock: true
+          cleanup:
+            policyNames:
+              - packages-cleanup
+
+        # ========================================
+        # APT REPOSITORY PROXIES (for DietPi/Raspberry Pi)
+        # ========================================
+        # Debian Main Repository
+        - name: apt-debian
+          format: apt
+          type: proxy
+          online: true
+          storage:
+            blobStoreName: apt
+            strictContentTypeValidation: true
+          proxy:
+            remoteUrl: http://deb.debian.org/debian/
+            contentMaxAge: 1440
+            metadataMaxAge: 1440
+          negativeCache:
+            enabled: true
+            timeToLive: 1440
+          httpClient:
+            blocked: false
+            autoBlock: true
+          apt:
+            distribution: bookworm
+            flat: false
+          cleanup:
+            policyNames:
+              - apt-cleanup
+
+        # Debian Security Repository
+        - name: apt-debian-security
+          format: apt
+          type: proxy
+          online: true
+          storage:
+            blobStoreName: apt
+            strictContentTypeValidation: true
+          proxy:
+            remoteUrl: http://deb.debian.org/debian-security/
+            contentMaxAge: 1440
+            metadataMaxAge: 1440
+          negativeCache:
+            enabled: true
+            timeToLive: 1440
+          httpClient:
+            blocked: false
+            autoBlock: true
+          apt:
+            distribution: bookworm-security
+            flat: false
+          cleanup:
+            policyNames:
+              - apt-cleanup
+
+        # DietPi Repository
+        - name: apt-dietpi
+          format: apt
+          type: proxy
+          online: true
+          storage:
+            blobStoreName: apt
+            strictContentTypeValidation: true
+          proxy:
+            remoteUrl: https://dietpi.com/apt
+            contentMaxAge: 1440
+            metadataMaxAge: 1440
+          negativeCache:
+            enabled: true
+            timeToLive: 1440
+          httpClient:
+            blocked: false
+            autoBlock: true
+          apt:
+            distribution: bookworm
+            flat: false
+          cleanup:
+            policyNames:
+              - apt-cleanup
+
+        # Docker CE Repository
+        - name: apt-docker
+          format: apt
+          type: proxy
+          online: true
+          storage:
+            blobStoreName: apt
+            strictContentTypeValidation: true
+          proxy:
+            remoteUrl: https://download.docker.com/linux/debian/
+            contentMaxAge: 1440
+            metadataMaxAge: 1440
+          negativeCache:
+            enabled: true
+            timeToLive: 1440
+          httpClient:
+            blocked: false
+            autoBlock: true
+          apt:
+            distribution: bookworm
+            flat: false
+          cleanup:
+            policyNames:
+              - apt-cleanup
+
+        # Raspberry Pi Repository
+        - name: apt-raspberrypi
+          format: apt
+          type: proxy
+          online: true
+          storage:
+            blobStoreName: apt
+            strictContentTypeValidation: true
+          proxy:
+            remoteUrl: https://archive.raspberrypi.com/debian
+            contentMaxAge: 1440
+            metadataMaxAge: 1440
+          negativeCache:
+            enabled: true
+            timeToLive: 1440
+          httpClient:
+            blocked: false
+            autoBlock: true
+          apt:
+            distribution: bookworm
+            flat: false
+          cleanup:
+            policyNames:
+              - apt-cleanup
+
+        # Tailscale Repository
+        - name: apt-tailscale
+          format: apt
+          type: proxy
+          online: true
+          storage:
+            blobStoreName: apt
+            strictContentTypeValidation: true
+          proxy:
+            remoteUrl: https://pkgs.tailscale.com/stable/debian
+            contentMaxAge: 1440
+            metadataMaxAge: 1440
+          negativeCache:
+            enabled: true
+            timeToLive: 1440
+          httpClient:
+            blocked: false
+            autoBlock: true
+          apt:
+            distribution: bookworm
+            flat: false
+          cleanup:
+            policyNames:
+              - apt-cleanup
+
+      # Scheduled tasks for maintenance
+      tasks:
+        # Run cleanup policies daily at 2 AM
+        - name: "Cleanup service"
+          typeId: repository.cleanup
+          crontab: "0 0 2 * * ?"
+          attributes: {}
+
+        # Purge incomplete Docker uploads daily at 3 AM
+        - name: "Docker cleanup uploads"
+          typeId: repository.docker.upload-purge
+          crontab: "0 0 3 * * ?"
+          attributes:
+            age: "24"
+
+        # Docker garbage collection daily at 4 AM
+        - name: "Docker garbage collection"
+          typeId: repository.docker.gc
+          crontab: "0 0 4 * * ?"
+          attributes:
+            repositoryName: "*"
+
+        # Compact blob stores weekly on Sunday at 5 AM
+        - name: "Compact docker blob store"
+          typeId: blobstore.compact
+          crontab: "0 0 5 ? * SUN"
+          attributes:
+            blobStoreName: docker
+
+        - name: "Compact apt blob store"
+          typeId: blobstore.compact
+          crontab: "0 30 5 ? * SUN"
+          attributes:
+            blobStoreName: apt
+
+        - name: "Compact packages blob store"
+          typeId: blobstore.compact
+          crontab: "0 0 6 ? * SUN"
+          attributes:
+            blobStoreName: packages

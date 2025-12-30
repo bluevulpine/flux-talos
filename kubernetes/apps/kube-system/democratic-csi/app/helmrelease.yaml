@@ -79,6 +79,7 @@ spec:
       driver:
         image:
           registry: ghcr.io/democratic-csi/democratic-csi
+          # renovate: datasource=docker depName=ghcr.io/democratic-csi/democratic-csi
           tag: next
           pullPolicy: IfNotPresent
 
@@ -86,6 +87,7 @@ spec:
       driver:
         image:
           registry: ghcr.io/democratic-csi/democratic-csi
+          # renovate: datasource=docker depName=ghcr.io/democratic-csi/democratic-csi
           tag: next
           pullPolicy: IfNotPresent
       tolerations:

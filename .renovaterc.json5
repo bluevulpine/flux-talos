@@ -3,6 +3,7 @@
   extends: [
     "config:recommended",
     "docker:enableMajor",
+    "docker:pinDigests",
     "helpers:pinGitHubActionDigests",
     "github>bluevulpine/flux-talos//.renovate/autoMerge.json5",
     "github>bluevulpine/flux-talos//.renovate/changelogs.json5",

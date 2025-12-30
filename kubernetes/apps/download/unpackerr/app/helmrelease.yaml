@@ -19,6 +19,7 @@ spec:
           app:
             image:
               repository: ghcr.io/unpackerr/unpackerr
+              # renovate: datasource=docker depName=ghcr.io/unpackerr/unpackerr
               tag: 0.14.5
             env:
               TZ: America/Chicago
