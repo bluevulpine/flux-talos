@@ -1,11 +1,22 @@
 ---
+# Nexus blob store cache - NOT backed up with VolSync
+# Rationale:
+# 1. All configuration is declarative in HelmRelease (repos, blob stores, cleanup, realms)
+# 2. PostgreSQL database is backed up separately via Barman
+# 3. All repositories are proxies - cached artifacts can be re-fetched from upstream
+# 4. No hosted repositories with unique data
+# If this PVC is lost, Nexus recreates blob stores and re-caches on demand.
+# Using 1-replica storage class since data is ephemeral cache.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: nexus-data
+  labels:
+    # Explicit label to indicate this is ephemeral cache data
+    backup.home.arpa/enabled: "false"
 spec:
   accessModes: ["ReadWriteOnce"]
   resources:
     requests:
       storage: 100Gi
-  storageClassName: longhorn
+  storageClassName: longhorn-1-replica

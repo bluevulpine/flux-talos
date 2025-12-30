@@ -10,14 +10,13 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: nexus-repository-manager
+      app.kubernetes.io/name: nexus3
+      app.kubernetes.io/instance: nexus
   endpoints:
-    - port: nexus-service
+    - port: http
       path: /service/metrics/prometheus
       interval: 30s
       # Nexus metrics require authentication
-      # This will need to be configured with proper credentials
-      # For now, we'll monitor basic connectivity
       basicAuth:
         username:
           name: nexus-secret

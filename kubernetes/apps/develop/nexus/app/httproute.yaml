@@ -18,5 +18,22 @@ spec:
       sectionName: https
   rules:
     - backendRefs:
-        - name: nexus-nexus-repository-manager
+        - name: nexus-nexus3
           port: 8081
+---
+# Docker Registry HTTPRoute - for pulling images via HTTPS
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: nexus-docker
+spec:
+  hostnames: ["docker.${SECRET_DOMAIN}"]
+  parentRefs:
+    - name: internal
+      namespace: kube-system
+      sectionName: https
+  rules:
+    - backendRefs:
+        - name: nexus-nexus3
+          port: 5000
