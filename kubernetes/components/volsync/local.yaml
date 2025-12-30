@@ -44,6 +44,7 @@ spec:
     cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
     storageClassName: "${VOLSYNC_CLONE_STORAGECLASS:-truenas-nfs}"
     accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
+    capacity: "${VOLSYNC_CAPACITY:-20Gi}"
     moverSecurityContext:
       runAsUser: ${VOLSYNC_RUN_AS_USER:-568}
       runAsGroup: ${VOLSYNC_RUN_AS_GROUP:-568}
