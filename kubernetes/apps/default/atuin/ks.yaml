@@ -26,7 +26,3 @@ spec:
     substitute:
       APP: *app
       VOLSYNC_CAPACITY: 5Gi
-      VOLSYNC_STORAGECLASS: truenas-nfs
-      VOLSYNC_CACHE_CLASS: truenas-nfs
-      VOLSYNC_CLONE_STORAGECLASS: truenas-nfs
-      VOLSYNC_SNAPSHOTCLASS: truenas-nfs-snapclass

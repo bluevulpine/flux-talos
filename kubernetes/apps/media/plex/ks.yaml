@@ -28,8 +28,6 @@ spec:
       GATUS_DOMAIN: ${SECRET_DOMAIN_MEDIA:-temp}
       VOLSYNC_CAPACITY: 100Gi
       VOLSYNC_CACHE_CAPACITY: 30Gi
-      VOLSYNC_STORAGECLASS: longhorn
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
 ---
 # # yaml-language-server: $schema=https://kube-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 # apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -60,8 +58,6 @@ spec:
 #     substitute:
 #       APP: *app
 #       VOLSYNC_CAPACITY: 10Gi
-#       VOLSYNC_STORAGECLASS: longhorn
-#       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
 ---
 # yaml-language-server: $schema=https://kube-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -114,5 +110,3 @@ spec:
     substitute:
       APP: *app
       VOLSYNC_CAPACITY: 2Gi
-      VOLSYNC_STORAGECLASS: longhorn
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
