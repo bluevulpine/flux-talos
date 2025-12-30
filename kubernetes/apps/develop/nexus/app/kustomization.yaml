@@ -11,7 +11,7 @@ components:
 
 resources:
   - ./externalsecret.yaml
-  - ./pvc.yaml
+  # PVC managed by StatefulSet volumeClaimTemplate (longhorn-1-replica)
   - ./helmrelease.yaml
   - ./httproute.yaml
   - ./servicemonitor.yaml

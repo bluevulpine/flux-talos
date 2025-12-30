@@ -73,21 +73,17 @@ spec:
         cpu: 2000m
         memory: 6Gi
 
-    # Persistence - use existing PVC
+    # Persistence - StatefulSet volumeClaimTemplate
+    # Using longhorn-1-replica since this is cache data (no backup needed)
     persistence:
-      enabled: false  # We use extraVolumes for existing PVC
+      enabled: true
+      storageClass: longhorn-1-replica
+      size: 100Gi
+      retainDeleted: false  # Delete PVC when StatefulSet is deleted
+      retainScaled: true
 
-    extraVolumes:
-      - name: nexus-data
-        persistentVolumeClaim:
-          claimName: nexus-data
-
-    extraVolumeMounts:
-      - name: nexus-data
-        mountPath: /nexus-data
-
-    # Don't need chown with existing data
-    chownDataDir: false
+    # Run chown on data dir for proper permissions
+    chownDataDir: true
 
     # Metrics for Prometheus
     metrics:
