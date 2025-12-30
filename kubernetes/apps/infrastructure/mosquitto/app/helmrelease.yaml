@@ -17,6 +17,7 @@ spec:
           init-passwd:
             image:
               repository: public.ecr.aws/docker/library/eclipse-mosquitto
+              # renovate: datasource=docker depName=public.ecr.aws/docker/library/eclipse-mosquitto
               tag: 2.0.22
             command:
               - sh
@@ -32,6 +33,7 @@ spec:
           app:
             image:
               repository: public.ecr.aws/docker/library/eclipse-mosquitto
+              # renovate: datasource=docker depName=public.ecr.aws/docker/library/eclipse-mosquitto
               tag: 2.0.22
             env:
               TZ: "${TIMEZONE}"
@@ -47,6 +49,7 @@ spec:
           hasher:
             image:
               repository: public.ecr.aws/docker/library/eclipse-mosquitto
+              # renovate: datasource=docker depName=public.ecr.aws/docker/library/eclipse-mosquitto
               tag: 2.0.22
             securityContext:
               allowPrivilegeEscalation: false

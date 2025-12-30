@@ -50,6 +50,7 @@ spec:
           gluetun:
             image:
               repository: ghcr.io/qdm12/gluetun
+              # renovate: datasource=docker depName=ghcr.io/qdm12/gluetun
               tag: v3.41.0
             envFrom:
               - secretRef:

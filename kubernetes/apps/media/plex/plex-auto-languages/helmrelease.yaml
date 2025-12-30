@@ -26,6 +26,7 @@ spec:
           app:
             image:
               repository: remirigal/plex-auto-languages
+              # renovate: datasource=docker depName=remirigal/plex-auto-languages
               tag: v1.2.3
             env:
               TZ: ${TIMEZONE}

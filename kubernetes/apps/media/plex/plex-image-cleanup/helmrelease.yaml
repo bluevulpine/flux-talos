@@ -30,6 +30,7 @@ spec:
           app:
             image:
               repository: docker.io/meisnate12/plex-image-cleanup
+              # renovate: datasource=docker depName=docker.io/meisnate12/plex-image-cleanup
               tag: v1.0.2
             env:
               PLEX_URL: http://plex.media.svc.cluster.local:32400
