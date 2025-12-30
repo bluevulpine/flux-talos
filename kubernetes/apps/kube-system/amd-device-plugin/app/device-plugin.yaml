@@ -31,7 +31,8 @@ spec:
           operator: Exists
       containers:
         - name: device-plugin
-          image: docker.io/rocm/k8s-device-plugin:latest
+          # renovate: datasource=docker depName=rocm/k8s-device-plugin
+          image: docker.io/rocm/k8s-device-plugin:1.31.0.9@sha256:26212c665aab415019cfca7a7f1a5c495a306c1e1e03c88f67dfcfda8e81b6e5
           imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
