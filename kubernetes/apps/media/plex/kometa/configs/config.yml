@@ -65,8 +65,8 @@ libraries:
       - overlays
     collection_files:
       - repo: TV Shows.yml
-      - pmm: basic
-      - pmm: imdb
+      - default: basic
+      - default: imdb
     overlay_files:
       - remove_overlays: false
       - repo: TV Shows - Overlays - Charts.yml
@@ -117,7 +117,7 @@ settings:
   playlist_exclude_user:
   playlist_report: false
   verify_ssl: true
-  custom_repo: https://github.com/joryirving/home-ops/tree/main/kubernetes/main/apps/media/plex/kometa/custom/
+  custom_repo: https://github.com/bluevulpine/flux-talos/tree/main/kubernetes/apps/media/plex/kometa/custom/
   check_nightly: false
   show_unconfigured: true
   playlist_exclude_users:
@@ -141,7 +141,7 @@ omdb:
   cache_expiration: 60
 
 plex:
-  url: http://plex.media:32400
+  url: http://plex.media.svc.cluster.local:32400
   token: <<PLEX_API_KEY>>
   timeout: 60
   clean_bundles: false
@@ -149,7 +149,7 @@ plex:
   optimize: false
 
 radarr:
-  url: http://radarr.downloads
+  url: http://radarr.media.svc.cluster.local:7878
   token: <<RADARR_API_KEY>>
   add_missing: false
   add_existing: false
@@ -164,7 +164,7 @@ radarr:
   upgrade_existing: false
 
 sonarr:
-  url: http://sonarr.downloads
+  url: http://sonarr.media.svc.cluster.local:8989
   token: <<SONARR_API_KEY>>
   add_missing: false
   add_existing: false
@@ -182,7 +182,7 @@ sonarr:
   upgrade_existing: false
 
 tautulli:
-  url: http://tautulli.media
+  url: http://tautulli.media.svc.cluster.local:80
   apikey: <<TAUTULLI_API_KEY>>
 
 tmdb:
