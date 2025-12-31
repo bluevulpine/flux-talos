@@ -38,6 +38,23 @@ spec:
           nfsMount: "true"
         annotations:
           reloader.stakater.com/auto: "true"
+        initContainers:
+          init-permissions:
+            image:
+              repository: busybox
+              tag: latest
+            command:
+              - /bin/sh
+              - -c
+              - |
+                echo "Fixing ownership on /config..."
+                chown -R 568:568 /config
+                chmod -R u+rwX /config
+                echo "Permissions fixed."
+            securityContext:
+              runAsUser: 0
+              runAsGroup: 0
+              runAsNonRoot: false
         containers:
           app:
             image:
