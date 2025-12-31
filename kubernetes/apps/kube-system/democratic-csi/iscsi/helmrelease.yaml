@@ -116,8 +116,9 @@ spec:
             value: nsenter
           - name: ISCSIADM_HOST_PATH
             value: /usr/local/sbin/iscsiadm
-        iscsiDirHostPath: /usr/local/etc/iscsi
-        iscsiDirHostPathType: ""
+        # Talos stores iSCSI config in /var/etc/iscsi (writable), not /usr/local/etc/iscsi (read-only)
+        iscsiDirHostPath: /var/etc/iscsi
+        iscsiDirHostPathType: DirectoryOrCreate
       tolerations:
         - key: "node.kubernetes.io/low-power"
           operator: "Equal"
