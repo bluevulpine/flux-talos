@@ -29,7 +29,7 @@ spec:
       VOLSYNC_RUN_AS_USER: "1000"
       VOLSYNC_RUN_AS_GROUP: "1000"
       VOLSYNC_FS_GROUP: "1000"
-      VOLSYNC_STORAGECLASS: longhorn
-      VOLSYNC_CACHE_CLASS: longhorn-1-replica
-      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      VOLSYNC_STORAGECLASS: truenas-iscsi
+      VOLSYNC_CACHE_CLASS: truenas-iscsi
+      VOLSYNC_CLONE_STORAGECLASS: truenas-iscsi
+      VOLSYNC_SNAPSHOTCLASS: truenas-iscsi-snapclass
