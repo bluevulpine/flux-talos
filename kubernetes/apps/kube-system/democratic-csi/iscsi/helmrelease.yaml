@@ -75,7 +75,7 @@ spec:
           datasetProperties:
             "org.freenas:description": "{{ parameters.[csi.storage.k8s.io/pvc/namespace] }}/{{ parameters.[csi.storage.k8s.io/pvc/name] }}"
         iscsi:
-          targetPortal: "${SECRET_NFS_SERVER}:3260"
+          targetPortal: "${SECRET_NFS_SERVER}:3261"
           targetPortals: []  # Additional portals for multipath
           interface: ""      # Leave empty to omit -I with iscsiadm
           # Naming - MUST be unique across deployments
