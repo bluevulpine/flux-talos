@@ -50,8 +50,8 @@ spec:
       - name: truenas-iscsi-snapclass
         deletionPolicy: Delete
         parameters:
-          # Detached snapshots recommended for iSCSI
-          detachedSnapshots: "true"
+          # Detached snapshots disabled due to encryption inheritance issues
+          detachedSnapshots: "false"
 
     driver:
       config:
