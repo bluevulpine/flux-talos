@@ -25,7 +25,7 @@ spec:
               tag: 7.5.2
             args: ["sync"]
             env:
-              TZ: America/Chicago
+              TZ: "${TIMEZONE}"
             envFrom:
               - secretRef:
                   name: recyclarr-secret

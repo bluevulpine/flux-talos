@@ -20,7 +20,7 @@ spec:
               # renovate: datasource=docker depName=ghcr.io/linuxserver/calibre-web versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(-ls(?<build>\d+))?$
               tag: 0.6.25
             env:
-              TZ: America/Chicago
+              TZ: "${TIMEZONE}"
               PUID: 568
               PGID: 568
               CACHE_DIR: /cache

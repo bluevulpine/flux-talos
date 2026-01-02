@@ -22,7 +22,7 @@ spec:
               # renovate: datasource=docker depName=ghcr.io/haveagitgat/tdarr
               tag: 2.58.02
             env:
-              TZ: America/Chicago
+              TZ: "${TIMEZONE}"
               PUID: "568"
               PGID: "568"
               UMASK_SET: "002"

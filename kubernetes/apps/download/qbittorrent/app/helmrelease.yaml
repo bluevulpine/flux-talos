@@ -21,7 +21,7 @@ spec:
               repository: ghcr.io/home-operations/qbittorrent
               tag: rolling
             env:
-              TZ: America/Chicago
+              TZ: "${TIMEZONE}"
               QBITTORRENT__PORT: &port 8080
               QBITTORRENT__BT_PORT: &btport 50413
               QBT_Preferences__WebUI__AuthSubnetWhitelistEnabled: true
@@ -56,7 +56,7 @@ spec:
               - secretRef:
                   name: qbittorrent-secret
             env:
-              TZ: America/Chicago
+              TZ: "${TIMEZONE}"
               VPN_INTERFACE: wg0
               FIREWALL_INPUT_PORTS: *port
               FIREWALL_VPN_INPUT_PORTS: *btport

@@ -22,7 +22,7 @@ spec:
               # renovate: datasource=docker depName=ghcr.io/jellyfin/jellyfin
               tag: 10.11.5
             env:
-              TZ: America/Chicago
+              TZ: "${TIMEZONE}"
               JELLYFIN_PublishedServerUrl: https://jellyfin.${SECRET_DOMAIN}
             probes:
               liveness: &probes

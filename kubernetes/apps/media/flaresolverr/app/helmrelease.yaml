@@ -20,7 +20,7 @@ spec:
               # renovate: datasource=docker depName=ghcr.io/flaresolverr/flaresolverr
               tag: v3.4.6
             env:
-              TZ: America/Chicago
+              TZ: "${TIMEZONE}"
               LOG_LEVEL: info
               PORT: &port 8191
               PROMETHEUS_ENABLED: "true"

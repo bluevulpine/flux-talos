@@ -22,7 +22,7 @@ spec:
               tag: rolling
             env:
               BAZARR__PORT: &port 6767
-              TZ: America/Chicago
+              TZ: "${TIMEZONE}"
             envFrom:
               - secretRef:
                   name: bazarr-secret

@@ -20,7 +20,7 @@ spec:
               # renovate: datasource=docker depName=ghcr.io/advplyr/audiobookshelf
               tag: 2.32.1
             env:
-              TZ: America/Chicago
+              TZ: "${TIMEZONE}"
               PORT: &port 80
               AUDIOBOOKSHELF_UID: 568
               AUDIOBOOKSHELF_GID: 568

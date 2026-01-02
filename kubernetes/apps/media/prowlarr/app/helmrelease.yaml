@@ -36,7 +36,7 @@ spec:
               PROWLARR__LOG__DBENABLED: "False"
               PROWLARR__LOG__LEVEL: info
               PROWLARR__SERVER__PORT: &port 9696
-              TZ: America/Chicago
+              TZ: "${TIMEZONE}"
             envFrom:
               - secretRef:
                   name: prowlarr-secret

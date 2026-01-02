@@ -22,7 +22,7 @@ spec:
               # renovate: datasource=docker depName=ghcr.io/notifiarr/notifiarr
               tag: v0.9.1
             env:
-              TZ: America/Chicago
+              TZ: "${TIMEZONE}"
               DN_BIND_ADDR: 0.0.0.0:5454
               DN_LOG_FILE: ""
               DN_LOG_FILE_MB: "0"

@@ -29,7 +29,7 @@ spec:
                 sabnzbd.download.svc.cluster,
                 sabnzbd.download.svc.cluster.local,
                 sabnzbd.${SECRET_DOMAIN}
-              TZ: America/Chicago
+              TZ: "${TIMEZONE}"
             envFrom:
               - secretRef:
                   name: sabnzbd-secret

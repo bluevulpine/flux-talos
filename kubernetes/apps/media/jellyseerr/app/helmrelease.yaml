@@ -22,7 +22,7 @@ spec:
               # renovate: datasource=docker depName=docker.io/fallenbagel/jellyseerr
               tag: 2.7.3
             env:
-              TZ: America/Chicago
+              TZ: "${TIMEZONE}"
               LOG_LEVEL: info
               PORT: &port 5055
             probes:
