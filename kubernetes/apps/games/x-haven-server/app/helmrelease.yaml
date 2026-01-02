@@ -30,9 +30,9 @@ spec:
         containers:
           app:
             image:
-              repository: docker.io/aschneem/x-haven-server
-              # renovate: datasource=docker depName=docker.io/aschneem/x-haven-server
-              tag: latest@sha256:3f0d6b2064f2439972dc08192a7be86046494f3859c515e83885b3b30b656f8b
+              repository: ghcr.io/tarmslitaren/x-haven-server
+              # renovate: datasource=docker depName=dghcr.io/tarmslitaren/x-haven-server
+              tag: 1.13.4@sha256:be092dbb3ea7707beff63c49b2b7695a47c03071896365a93c7d7bfcf77bcabd
             env:
               TZ: "${TIMEZONE}"
             ports:
