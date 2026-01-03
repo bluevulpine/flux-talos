@@ -25,4 +25,5 @@ spec:
   postBuild:
     substitute:
       APP: *app
+      NS: default
       VOLSYNC_CAPACITY: 5Gi

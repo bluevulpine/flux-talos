@@ -7,4 +7,4 @@ resources:
   - ./httproute.yaml
   - ./externalsecret.yaml
 components:
-  - ../../../../components/gatus/external
+  - ../../../../components/gatus-external

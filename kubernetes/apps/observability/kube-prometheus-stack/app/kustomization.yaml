@@ -12,4 +12,4 @@ resources:
   - ./externalsecret.yaml
   - ./httproute.yaml
 components:
-  - ../../../../components/gatus/guarded
+  - ../../../../components/gatus-guarded

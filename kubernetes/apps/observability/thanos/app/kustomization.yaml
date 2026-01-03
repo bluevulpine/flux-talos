@@ -10,7 +10,7 @@ resources:
   - ./httproute.yaml
   # - ./pushsecret.yaml
 components:
-  - ../../../../components/gatus/guarded
+  - ../../../../components/gatus-guarded
 configMapGenerator:
   - name: thanos-cache-configmap
     files:

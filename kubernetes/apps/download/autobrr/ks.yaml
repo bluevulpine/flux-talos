@@ -25,5 +25,6 @@ spec:
   postBuild:
     substitute:
       APP: *app
+      NS: download
       VOLSYNC_CAPACITY: 1Gi
 

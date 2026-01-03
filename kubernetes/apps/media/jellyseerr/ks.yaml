@@ -23,4 +23,5 @@ spec:
   postBuild:
     substitute:
       APP: *app
+      NS: media
       VOLSYNC_CAPACITY: 4Gi
