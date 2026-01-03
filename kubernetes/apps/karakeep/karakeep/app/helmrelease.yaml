@@ -1,0 +1,158 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app karakeep
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: karakeep
+  interval: 1h
+  values:
+    controllers:
+      karakeep:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom: &envFrom
+              - secretRef:
+                  name: karakeep-secret
+        containers:
+          app:
+            image:
+              repository: ghcr.io/karakeep-app/karakeep
+              # renovate: datasource=docker depName=ghcr.io/karakeep-app/karakeep
+              tag: 0.24.1
+            env:
+              TZ: "${TIMEZONE}"
+              # Server configuration
+              NEXTAUTH_URL: https://karakeep.${SECRET_DOMAIN}
+              NEXTAUTH_URL_INTERNAL: http://localhost:3000
+              # Meilisearch configuration
+              MEILI_ADDR: http://localhost:7700
+              # Browser configuration for screenshots
+              BROWSER_WEB_URL: http://localhost:9222
+              # Data directory
+              DATA_DIR: /data
+              # Disable signups after initial setup (can be changed later)
+              DISABLE_SIGNUPS: "false"
+              # Disable password auth if using OAuth exclusively
+              DISABLE_PASSWORD_AUTH: "false"
+              # OAuth configuration for Authelia
+              OAUTH_WELLKNOWN_URL: https://auth.${SECRET_DOMAIN}/.well-known/openid-configuration
+              OAUTH_PROVIDER_NAME: Authelia
+              OAUTH_SCOPE: openid email profile
+              OAUTH_ALLOW_DANGEROUS_EMAIL_ACCOUNT_LINKING: "true"
+            envFrom: *envFrom
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/v1/health
+                    port: &port 3000
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+          # Meilisearch sidecar for full-text search
+          meilisearch:
+            image:
+              repository: docker.io/getmeili/meilisearch
+              # renovate: datasource=docker depName=docker.io/getmeili/meilisearch
+              tag: v1.14.0
+            env:
+              MEILI_ENV: production
+              MEILI_NO_ANALYTICS: "true"
+              MEILI_DB_PATH: /meili_data
+            envFrom: *envFrom
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 1Gi
+          # Headless Chrome for web page screenshots
+          chrome:
+            image:
+              repository: gcr.io/zenika-hub/alpine-chrome
+              # renovate: datasource=docker depName=gcr.io/zenika-hub/alpine-chrome
+              tag: "124"
+            command:
+              - chromium-browser
+            args:
+              - --headless
+              - --no-sandbox
+              - --disable-gpu
+              - --disable-dev-shm-usage
+              - --remote-debugging-address=0.0.0.0
+              - --remote-debugging-port=9222
+              - --hide-scrollbars
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 1Gi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: karakeep
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        parentRefs:
+          - name: internal
+            namespace: kube-system
+            sectionName: https
+        hostnames:
+          - karakeep.${SECRET_DOMAIN}
+    persistence:
+      data:
+        existingClaim: *app
+        globalMounts:
+          - path: /data
+      meili-data:
+        type: persistentVolumeClaim
+        accessMode: ReadWriteOnce
+        size: 5Gi
+        storageClass: longhorn
+        globalMounts:
+          - path: /meili_data
+      tmp:
+        type: emptyDir
+

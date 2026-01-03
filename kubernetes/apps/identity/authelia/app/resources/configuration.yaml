@@ -77,3 +77,12 @@ identity_providers:
         scopes: ["openid", "profile", "groups", "email"]
         redirect_uris: ["https://grafana.${SECRET_DOMAIN}/login/generic_oauth"]
         userinfo_signed_response_alg: none
+      - client_name: Karakeep
+        client_id: karakeep
+        client_secret: "$${KARAKEEP_OAUTH_CLIENT_SECRET}"
+        public: false
+        authorization_policy: two_factor
+        pre_configured_consent_duration: 1y
+        scopes: ["openid", "profile", "email"]
+        redirect_uris: ["https://karakeep.${SECRET_DOMAIN}/api/auth/callback/custom"]
+        userinfo_signed_response_alg: none
