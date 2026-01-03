@@ -22,5 +22,4 @@ spec:
       APP: *app
       NS: media
       GATUS_SUBDOMAIN: ebooks
-      GATUS_STATUS: "302"
       VOLSYNC_CAPACITY: 1Gi

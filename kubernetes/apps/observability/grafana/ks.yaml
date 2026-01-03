@@ -23,4 +23,3 @@ spec:
     substitute:
       APP: *app
       NS: observability
-      GATUS_STATUS: "302"

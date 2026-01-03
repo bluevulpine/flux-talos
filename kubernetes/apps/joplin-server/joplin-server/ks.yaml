@@ -24,4 +24,3 @@ spec:
       APP: *app
       NS: joplin-server
       GATUS_SUBDOMAIN: joplin
-      GATUS_STATUS: "302"
