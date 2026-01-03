@@ -13,5 +13,11 @@
       matchPackageNames: ["/factory\\.talos\\.dev/"],
       overridePackageName: "ghcr.io/siderolabs/installer",
     },
+    {
+      description: "Calibre-Web: Only allow 0.x versions (5.x is a different versioning scheme)",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/linuxserver/calibre-web"],
+      allowedVersions: "/^0\\./",
+    },
   ],
 }
