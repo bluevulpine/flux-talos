@@ -14,16 +14,24 @@ metadata:
     gethomepage.dev/widget.key: "{{ `{{HOMEPAGE_VAR_PLEX_TOKEN}}` }}"
 
 spec:
-  hostnames: ["plex.${SECRET_DOMAIN_MEDIA}"]
+  hostnames:
+    - "plex.${SECRET_DOMAIN_MEDIA}"
+    - "plex.${SECRET_DOMAIN}"
   parentRefs:
-    # External gateway - accessible via Cloudflare tunnel
+    # Media domain (funb.us) - external and internal
     - name: external
       namespace: kube-system
       sectionName: https-media
-    # Internal gateway - direct internal access with A record
     - name: internal
       namespace: kube-system
       sectionName: https-media
+    # Base domain (derekjacobs.dev) - external and internal
+    - name: external
+      namespace: kube-system
+      sectionName: https
+    - name: internal
+      namespace: kube-system
+      sectionName: https
   rules:
     - backendRefs:
         - name: plex

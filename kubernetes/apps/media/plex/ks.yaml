@@ -25,7 +25,6 @@ spec:
     substitute:
       APP: *app
       GATUS_PATH: /web/index.html
-      GATUS_DOMAIN: ${SECRET_DOMAIN_MEDIA:-temp}
       VOLSYNC_CAPACITY: 100Gi
       VOLSYNC_CACHE_CAPACITY: 30Gi
       VOLSYNC_STORAGECLASS: longhorn

@@ -61,10 +61,19 @@ spec:
       app:
         hostnames:
           - "tautulli.${SECRET_DOMAIN_MEDIA}"
+          - "tautulli.${SECRET_DOMAIN}"
         parentRefs:
+          # Media domain (funb.us) - internal only currently
           - name: internal
             namespace: kube-system
             sectionName: https-media
+          # Base domain (derekjacobs.dev) - external and internal
+          - name: external
+            namespace: kube-system
+            sectionName: https
+          - name: internal
+            namespace: kube-system
+            sectionName: https
         rules:
           - backendRefs:
               - port: *port
