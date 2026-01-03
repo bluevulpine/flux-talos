@@ -13,4 +13,4 @@ spec:
   rules:
     - backendRefs:
         - name: thanos-query-frontend
-          port: 9090
+          port: 10902
