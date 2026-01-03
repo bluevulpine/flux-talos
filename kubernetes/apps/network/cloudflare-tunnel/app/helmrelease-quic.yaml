@@ -1,4 +1,16 @@
 ---
+# QUIC Tunnel Configuration
+# -------------------------
+# This tunnel uses QUIC (UDP) transport for lower latency and better performance.
+# Cloudflare automatically routes traffic through QUIC when available, with HTTP/2 as failover.
+#
+# IMPORTANT: hostNetwork is REQUIRED for QUIC to work.
+# Cilium's BPF masquerading breaks QUIC UDP connections - the handshake fails when traffic
+# goes through Cilium's pod networking. Using hostNetwork bypasses Cilium's BPF NAT layer
+# and allows QUIC to function correctly.
+#
+# Verified: QUIC works from local machines on the same network, but fails from pods
+# using Cilium pod networking. hostNetwork is the permanent workaround.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -11,7 +23,7 @@ spec:
   values:
     controllers:
       cloudflare-tunnel-quic:
-        replicas: 1  # Testing: hostNetwork to bypass Cilium BPF NAT
+        replicas: 1
         strategy: RollingUpdate
         annotations:
           reloader.stakater.com/auto: "true"
@@ -25,8 +37,8 @@ spec:
               NO_AUTOUPDATE: true
               TUNNEL_CRED_FILE: /etc/cloudflared/creds/credentials.json
               TUNNEL_METRICS: 0.0.0.0:8080
-              TUNNEL_TRANSPORT_PROTOCOL: quic # Force QUIC for investigation
-              TUNNEL_POST_QUANTUM: true # Enable post-quantum for QUIC testing
+              TUNNEL_TRANSPORT_PROTOCOL: quic
+              TUNNEL_POST_QUANTUM: true  # Post-quantum cryptography for QUIC
               TUNNEL_ID:
                 valueFrom:
                   secretKeyRef:
@@ -65,8 +77,9 @@ spec:
               limits:
                 memory: 256Mi
     defaultPodOptions:
-      hostNetwork: true  # Test: bypass Cilium BPF NAT for QUIC
-      dnsPolicy: ClusterFirstWithHostNet  # Required when using hostNetwork
+      # hostNetwork required: Cilium BPF masquerading breaks QUIC UDP connections
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet  # Required for cluster DNS resolution with hostNetwork
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
