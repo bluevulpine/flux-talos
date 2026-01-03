@@ -21,4 +21,5 @@ spec:
     substitute:
       APP: *app
       NS: media
+      GATUS_SUBDOMAIN: audiobooks
       VOLSYNC_CAPACITY: 5Gi

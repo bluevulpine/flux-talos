@@ -24,4 +24,6 @@ spec:
     substitute:
       APP: *app
       NS: media
+      GATUS_SUBDOMAIN: requests
+      GATUS_STATUS: "307"
       VOLSYNC_CAPACITY: 4Gi
