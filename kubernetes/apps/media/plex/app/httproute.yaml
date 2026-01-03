@@ -16,7 +16,12 @@ metadata:
 spec:
   hostnames: ["plex.${SECRET_DOMAIN_MEDIA}"]
   parentRefs:
+    # External gateway - accessible via Cloudflare tunnel
     - name: external
+      namespace: kube-system
+      sectionName: https-media
+    # Internal gateway - direct internal access with A record
+    - name: internal
       namespace: kube-system
       sectionName: https-media
   rules:

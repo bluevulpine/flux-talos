@@ -7,7 +7,12 @@ metadata:
 spec:
   hostnames: ["kromgo.${SECRET_DOMAIN}"]
   parentRefs:
+    # External gateway - accessible via Cloudflare tunnel
     - name: external
+      namespace: kube-system
+      sectionName: https
+    # Internal gateway - direct internal access with A record
+    - name: internal
       namespace: kube-system
       sectionName: https
   rules:
