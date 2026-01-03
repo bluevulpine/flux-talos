@@ -10,7 +10,7 @@ spec:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    # renovate: datasource=github-releases depName=actions/actions-runner-controller digestVersion=disabled
-    tag: 0.13.1@sha256:39f9b61ee7e2865d7b8dd0e4e28b7c1a065765fc2ce5bf90874dd8e8be8ee2b2
+    digest: sha256:39f9b61ee7e2865d7b8dd0e4e28b7c1a065765fc2ce5bf90874dd8e8be8ee2b2
+    tag: 0.13.1
   url: oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
 
