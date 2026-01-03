@@ -2,6 +2,12 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   packageRules: [
     {
+      description: "Disable digest pinning for Helm charts in OCI registries",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["/\\/charts\\//"],
+      pinDigests: false,
+    },
+    {
       description: "Override Helmfile Dependency Name",
       matchDatasources: ["docker"],
       matchManagers: ["helmfile"],
