@@ -63,14 +63,11 @@ spec:
           - "tautulli.${SECRET_DOMAIN_MEDIA}"
           - "tautulli.${SECRET_DOMAIN}"
         parentRefs:
-          # Media domain (funb.us) - internal only currently
+          # Media domain (funb.us) - internal only
           - name: internal
             namespace: kube-system
             sectionName: https-media
-          # Base domain (derekjacobs.dev) - external and internal
-          - name: external
-            namespace: kube-system
-            sectionName: https
+          # Base domain (derekjacobs.dev) - internal only (for Gatus monitoring)
           - name: internal
             namespace: kube-system
             sectionName: https
