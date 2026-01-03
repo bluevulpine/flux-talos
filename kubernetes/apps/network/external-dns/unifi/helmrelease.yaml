@@ -57,6 +57,11 @@ spec:
       - --ignore-ingress-tls-spec
       - --crd-source-apiversion=externaldns.k8s.io/v1alpha1
       - --crd-source-kind=DNSEndpoint
+      # Filter to only watch internal gateway for split-horizon DNS
+      # External gateway has CNAME target annotation for Cloudflare
+      # Internal gateway publishes A records with direct IPs
+      - --gateway-namespace=kube-system
+      - --gateway-name=internal
     policy: sync
     sources: ["service", "gateway-httproute"]
     txtOwnerId: main
