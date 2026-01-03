@@ -27,4 +27,4 @@ spec:
     substitute:
       APP: *app
       GATUS_PATH: /
-      GATUS_DOMAIN: ${SECRET_DOMAIN}
+      NS: develop
