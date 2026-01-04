@@ -1,0 +1,57 @@
+---
+# Service for Garage web UI - routes to external IP
+apiVersion: v1
+kind: Service
+metadata:
+  name: garage
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 30186
+      protocol: TCP
+---
+# EndpointSlice for Garage web UI
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: garage-1
+  labels:
+    kubernetes.io/service-name: garage
+addressType: IPv4
+ports:
+  - name: http
+    port: 30186
+    protocol: TCP
+endpoints:
+  - addresses:
+      - "10.0.10.11"
+---
+# Service for Garage S3 API - routes to external IP
+apiVersion: v1
+kind: Service
+metadata:
+  name: garage-s3
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 30188
+      protocol: TCP
+---
+# EndpointSlice for Garage S3 API
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: garage-s3-1
+  labels:
+    kubernetes.io/service-name: garage-s3
+addressType: IPv4
+ports:
+  - name: http
+    port: 30188
+    protocol: TCP
+endpoints:
+  - addresses:
+      - "10.0.10.10"
+
