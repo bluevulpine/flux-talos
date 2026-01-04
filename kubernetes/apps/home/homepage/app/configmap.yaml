@@ -57,15 +57,7 @@ data:
               type: truenas
               url: {{HOMEPAGE_VAR_TRUENAS_HOST}}
               key: {{HOMEPAGE_VAR_TRUENAS_APIKEY}}
-        - Proxmox:
-            href: https://proxmox.${SECRET_DOMAIN}
-            icon: proxmox.png
-            description: Proxmox VE
-            widget:
-              type: proxmox
-              url: https://proxmox.${SECRET_DOMAIN}
-              username: {{HOMEPAGE_VAR_PROXMOX_API_USER}}
-              password: {{HOMEPAGE_VAR_PROXMOX_API_KEY}}
+
     - Home:
         - Home Assistant:
             href: https://hass.${SECRET_DOMAIN}

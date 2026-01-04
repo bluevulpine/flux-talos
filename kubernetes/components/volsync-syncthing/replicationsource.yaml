@@ -1,0 +1,32 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/volsync.backube/replicationsource_v1alpha1.json
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: "${APP:=temp}-syncthing"
+  labels:
+    app.kubernetes.io/name: "${APP:=temp}"
+    app.kubernetes.io/component: syncthing-replication
+spec:
+  sourcePVC: "${APP:=temp}"
+  syncthing:
+    # Service type for Syncthing data connection
+    # ClusterIP: for in-cluster peer communication
+    # LoadBalancer: for cross-cluster/external peer communication
+    serviceType: "${SYNCTHING_SERVICE_TYPE:-ClusterIP}"
+
+    # Configuration PVC settings
+    # Stores Syncthing's database, keys, and configuration
+    configCapacity: "${SYNCTHING_CONFIG_CAPACITY:-1Gi}"
+    configStorageClassName: "${SYNCTHING_CONFIG_STORAGECLASS:-${VOLSYNC_STORAGECLASS}}"
+    configVolumeAccessModes:
+      - "${SYNCTHING_CONFIG_ACCESSMODES:-ReadWriteOnce}"
+
+    # Remote peer configuration
+    # The peer credentials are retrieved from the ExternalSecret
+    # Device ID and address are templated from the secret
+    peers:
+      - ID: "${SYNCTHING_REMOTE_DEVICE_ID}"
+        address: "tcp://${SYNCTHING_REMOTE_ADDRESS}:${SYNCTHING_REMOTE_PORT:-22000}"
+        introducer: ${SYNCTHING_REMOTE_INTRODUCER:-false}
+
