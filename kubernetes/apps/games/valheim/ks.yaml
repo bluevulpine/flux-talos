@@ -26,10 +26,10 @@ spec:
       APP_UID: "1000"
       APP_GID: "1000"
       VOLSYNC_CAPACITY: 30Gi
-      VOLSYNC_STORAGECLASS: longhorn
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
-      VOLSYNC_CACHE_CLASS: longhorn-1-replica
-      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_STORAGECLASS: truenas-iscsi
+      VOLSYNC_SNAPSHOTCLASS: truenas-iscsi-snapclass
+      VOLSYNC_CACHE_CLASS: truenas-iscsi
+      VOLSYNC_CLONE_STORAGECLASS: truenas-iscsi
       VOLSYNC_RUN_AS_USER: "1000"
       VOLSYNC_RUN_AS_GROUP: "1000"
       VOLSYNC_FS_GROUP: "1000"
