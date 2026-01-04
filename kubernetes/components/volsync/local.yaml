@@ -34,7 +34,7 @@ metadata:
 spec:
   sourcePVC: "${APP:=temp}"
   trigger:
-    schedule: "0 */2 * * *"
+    schedule: "*/15 * * * *"
   kopia:
     copyMethod: "${VOLSYNC_COPYMETHOD:-Snapshot}"
     repository: "${APP}-volsync-local-secret"
@@ -51,10 +51,11 @@ spec:
       fsGroup: ${VOLSYNC_FS_GROUP:-568}
     # Kopia retention policy - more aggressive for local backups
     retain:
-      hourly: 24
-      daily: 7
-      weekly: 4
-      monthly: 3
+      latest: 48 # every 15 minutes, ~12 hours
+      hourly: 96 # every hour, ~4 days
+      daily: 30
+      weekly: 12
+      monthly: 12
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/volsync.backube/replicationdestination_v1alpha1.json
 apiVersion: volsync.backube/v1alpha1
