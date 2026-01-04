@@ -6,9 +6,9 @@ metadata:
     app.kubernetes.io/name: homepage
 data:
   bookmarks.yaml: |
-    - Communitcate:
+    - Communicate:
         - Discord:
-            - icon: discord.png # https://github.com/walkxcode/dashboard-icons
+            - icon: discord.png
               href: 'https://discord.com/app'
     - Media:
         - YouTube:
@@ -33,17 +33,182 @@ data:
         - Cloudflared:
             href: https://dash.cloudflare.com/
             icon: cloudflare-zero-trust.png
-            description: Cloudflared Tunnel
+            description: Cloudflare Tunnel
             widget:
               type: cloudflared
               accountid: {{HOMEPAGE_VAR_CLOUDFLARED_ACCOUNTID}}
               tunnelid: {{HOMEPAGE_VAR_CLOUDFLARED_TUNNELID}}
               key: {{HOMEPAGE_VAR_CLOUDFLARED_API_TOKEN}}
+        - Unifi:
+            href: https://unifi.ui.com
+            icon: unifi.png
+            description: Unifi Network
+            widget:
+              type: unifi
+              url: https://192.168.1.1
+              username: {{HOMEPAGE_VAR_UNIFI_USERNAME}}
+              password: {{HOMEPAGE_VAR_UNIFI_PASSWORD}}
     - Infrastructure:
         - TrueNAS:
             href: {{HOMEPAGE_VAR_TRUENAS_HOST}}
             icon: truenas.png
             description: TrueNAS Scale
+            widget:
+              type: truenas
+              url: {{HOMEPAGE_VAR_TRUENAS_HOST}}
+              key: {{HOMEPAGE_VAR_TRUENAS_APIKEY}}
+        - Proxmox:
+            href: https://proxmox.${SECRET_DOMAIN}
+            icon: proxmox.png
+            description: Proxmox VE
+            widget:
+              type: proxmox
+              url: https://proxmox.${SECRET_DOMAIN}
+              username: {{HOMEPAGE_VAR_PROXMOX_API_USER}}
+              password: {{HOMEPAGE_VAR_PROXMOX_API_KEY}}
+    - Home:
+        - Home Assistant:
+            href: https://hass.${SECRET_DOMAIN}
+            icon: home-assistant.png
+            description: Home Automation
+            widget:
+              type: homeassistant
+              url: https://hass.${SECRET_DOMAIN}
+              key: {{HOMEPAGE_VAR_HASS_TOKEN}}
+    - Video:
+        - Plex:
+            href: https://plex.${SECRET_DOMAIN}
+            icon: plex.png
+            description: Plex Media Server
+            widget:
+              type: plex
+              url: http://plex.media.svc.cluster.local:32400
+              key: {{HOMEPAGE_VAR_PLEX_TOKEN}}
+        - Jellyfin:
+            href: https://jellyfin.${SECRET_DOMAIN}
+            icon: jellyfin.png
+            description: Jellyfin Media Server
+            widget:
+              type: jellyfin
+              url: http://jellyfin.media.svc.cluster.local:8096
+              key: {{HOMEPAGE_VAR_JELLYFIN_TOKEN}}
+              enableBlocks: true
+              enableNowPlaying: true
+        - Tautulli:
+            href: https://tautulli.${SECRET_DOMAIN}
+            icon: tautulli.png
+            description: Plex Monitoring
+            widget:
+              type: tautulli
+              url: http://tautulli.media.svc.cluster.local:80
+              key: {{HOMEPAGE_VAR_TAUTULLI_TOKEN}}
+        - Jellyseerr:
+            href: https://requests.${SECRET_DOMAIN}
+            icon: jellyseerr.png
+            description: Media Requests
+            widget:
+              type: jellyseerr
+              url: http://jellyseerr.media.svc.cluster.local:5055
+    - Downloads:
+        - SABnzbd:
+            href: https://sabnzbd.${SECRET_DOMAIN}
+            icon: sabnzbd.png
+            description: Usenet Downloader
+            widget:
+              type: sabnzbd
+              url: http://sabnzbd.download.svc.cluster.local:8080
+              key: {{HOMEPAGE_VAR_SABNZBD_TOKEN}}
+        - qBittorrent:
+            href: https://qbittorrent.${SECRET_DOMAIN}
+            icon: qbittorrent.png
+            description: Torrent Client
+            widget:
+              type: qbittorrent
+              url: http://qbittorrent.download.svc.cluster.local:8080
+              username: {{HOMEPAGE_VAR_QBITTORRENT_USERNAME}}
+              password: {{HOMEPAGE_VAR_QBITTORRENT_PASSWORD}}
+        - Autobrr:
+            href: https://autobrr.${SECRET_DOMAIN}
+            icon: autobrr.png
+            description: Torrent Automation
+            widget:
+              type: autobrr
+              url: http://autobrr.download.svc.cluster.local:7474
+              key: {{HOMEPAGE_VAR_AUTOBRR_TOKEN}}
+        - Prowlarr:
+            href: https://prowlarr.${SECRET_DOMAIN}
+            icon: prowlarr.png
+            description: Indexer Manager
+            widget:
+              type: prowlarr
+              url: http://prowlarr.media.svc.cluster.local:9696
+              key: {{HOMEPAGE_VAR_PROWLARR_TOKEN}}
+        - Sonarr:
+            href: https://sonarr.${SECRET_DOMAIN}
+            icon: sonarr.png
+            description: TV Shows
+            widget:
+              type: sonarr
+              url: http://sonarr.media.svc.cluster.local:8989
+              key: {{HOMEPAGE_VAR_SONARR_TOKEN}}
+        - Radarr:
+            href: https://radarr.${SECRET_DOMAIN}
+            icon: radarr.png
+            description: Movies
+            widget:
+              type: radarr
+              url: http://radarr.media.svc.cluster.local:7878
+              key: {{HOMEPAGE_VAR_RADARR_TOKEN}}
+        - Lidarr:
+            href: https://lidarr.${SECRET_DOMAIN}
+            icon: lidarr.png
+            description: Music
+            widget:
+              type: lidarr
+              url: http://lidarr.media.svc.cluster.local:8686
+              key: {{HOMEPAGE_VAR_LIDARR_TOKEN}}
+        - Bazarr:
+            href: https://bazarr.${SECRET_DOMAIN}
+            icon: bazarr.png
+            description: Subtitles
+            widget:
+              type: bazarr
+              url: http://bazarr.media.svc.cluster.local:6767
+              key: {{HOMEPAGE_VAR_BAZARR_TOKEN}}
+    - Books:
+        - Readarr Audiobooks:
+            href: https://readarr-audiobooks.${SECRET_DOMAIN}
+            icon: readarr.png
+            description: Audiobooks
+            widget:
+              type: readarr
+              url: http://readarr-audiobooks.media.svc.cluster.local:8787
+              key: {{HOMEPAGE_VAR_READARR_AUDIOBOOKS_TOKEN}}
+        - Readarr Ebooks:
+            href: https://readarr-ebooks.${SECRET_DOMAIN}
+            icon: readarr.png
+            description: Ebooks
+            widget:
+              type: readarr
+              url: http://readarr-ebooks.media.svc.cluster.local:8787
+              key: {{HOMEPAGE_VAR_READARR_EBOOKS_TOKEN}}
+    - Observability:
+        - Grafana:
+            href: https://grafana.${SECRET_DOMAIN}
+            icon: grafana.png
+            description: Metrics Dashboard
+            widget:
+              type: grafana
+              url: http://grafana.observability.svc.cluster.local:80
+              username: {{HOMEPAGE_VAR_GRAFANA_USERNAME}}
+              password: {{HOMEPAGE_VAR_GRAFANA_PASSWORD}}
+        - Gatus:
+            href: https://status.${SECRET_DOMAIN}
+            icon: gatus.png
+            description: Service Status
+            widget:
+              type: gatus
+              url: http://gatus.observability.svc.cluster.local:80
 
   settings.yaml: |
     title: Dashboard
@@ -55,34 +220,32 @@ data:
     layout:
       Network:
         style: row
-        columns: 3
+        columns: 2
         icon: mdi-network
-      Calendar:
-        style: column
-        icon: mdi-calendar
+      Infrastructure:
+        style: row
+        columns: 2
+        icon: mdi-server
+      Home:
+        style: row
+        columns: 3
+        icon: mdi-home-analytics
       Video:
-        style: column
+        style: row
+        columns: 4
         icon: mdi-play-circle
+      Downloads:
+        style: row
+        columns: 4
+        icon: mdi-download-circle
       Books:
         style: row
         columns: 2
         icon: mdi-book
-      Infrastructure:
-        style: row
-        columns: 5
-        icon: mdi-server
       Observability:
         style: row
-        columns: 5
+        columns: 2
         icon: mdi-chart-line
-      Home:
-        style: row
-        columns: 5
-        icon: mdi-home-analytics
-      Downloads:
-        style: row
-        columns: 3
-        icon: mdi-download-circle
   widgets.yaml: |
     - search:
         provider: [duckduckgo]
