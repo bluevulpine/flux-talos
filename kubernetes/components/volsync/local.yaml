@@ -67,6 +67,8 @@ spec:
     manual: restore-once
   kopia:
     repository: "${APP:=temp}-volsync-local-secret"
+    sourceIdentity:
+      sourceName: "${APP:=temp}-local" # Matches ReplicationSource name
     copyMethod: Snapshot
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-truenas-nfs-snapclass}"
     cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-truenas-nfs}"
