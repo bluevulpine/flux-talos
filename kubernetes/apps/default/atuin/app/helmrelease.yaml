@@ -83,4 +83,9 @@ spec:
             sectionName: https
         hostnames:
           - atuin.${SECRET_DOMAIN}
+    persistence:
+      config:
+        type: emptyDir
+        globalMounts:
+          - path: /config
 
