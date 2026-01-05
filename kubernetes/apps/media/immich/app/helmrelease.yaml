@@ -28,7 +28,7 @@ spec:
             image:
               repository: ghcr.io/immich-app/immich-server
               # renovate: datasource=docker depName=ghcr.io/immich-app/immich-server
-              tag: v1.134.1
+              tag: v2.4.1
             env:
               TZ: "${TIMEZONE}"
               IMMICH_WORKERS_INCLUDE: "api"
@@ -67,7 +67,7 @@ spec:
             image:
               repository: ghcr.io/immich-app/immich-machine-learning
               # renovate: datasource=docker depName=ghcr.io/immich-app/immich-machine-learning
-              tag: v1.134.1
+              tag: v2.4.1
             env:
               TZ: "${TIMEZONE}"
               IMMICH_LOG_LEVEL: log
@@ -97,7 +97,7 @@ spec:
             image:
               repository: ghcr.io/immich-app/immich-server
               # renovate: datasource=docker depName=ghcr.io/immich-app/immich-server
-              tag: v1.134.1
+              tag: v2.4.1
             env:
               TZ: "${TIMEZONE}"
               IMMICH_WORKERS_EXCLUDE: "api"
