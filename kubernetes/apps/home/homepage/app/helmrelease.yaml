@@ -21,9 +21,10 @@ spec:
     keepHistory: false
   values:
     serviceAccount:
-      create: true
-      name: homepage
+      homepage:
+        enabled: true
     defaultPodOptions:
+      serviceAccountName: homepage
       tolerations:
         - key: "node.kubernetes.io/low-power"
           operator: "Equal"
