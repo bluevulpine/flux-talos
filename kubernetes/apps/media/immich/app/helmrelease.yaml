@@ -1,0 +1,173 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app immich
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: immich
+  interval: 1h
+  values:
+    controllers:
+      immich:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          01-init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom:
+              - secretRef:
+                  name: immich-secret
+        containers:
+          app:
+            image:
+              repository: ghcr.io/immich-app/immich-server
+              # renovate: datasource=docker depName=ghcr.io/immich-app/immich-server
+              tag: v1.134.1
+            env:
+              TZ: "${TIMEZONE}"
+              IMMICH_WORKERS_INCLUDE: "api"
+              IMMICH_LOG_LEVEL: log
+              IMMICH_MEDIA_LOCATION: /usr/src/app/upload
+              # Machine learning URL - points to ML sidecar
+              IMMICH_MACHINE_LEARNING_URL: http://localhost:3003
+            envFrom:
+              - secretRef:
+                  name: immich-secret
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/server/ping
+                    port: &port 2283
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 4Gi
+          # Machine learning sidecar - CPU only
+          machine-learning:
+            image:
+              repository: ghcr.io/immich-app/immich-machine-learning
+              # renovate: datasource=docker depName=ghcr.io/immich-app/immich-machine-learning
+              tag: v1.134.1
+            env:
+              TZ: "${TIMEZONE}"
+              IMMICH_LOG_LEVEL: log
+              # Use CPU for ML (no GPU acceleration)
+              MACHINE_LEARNING_WORKERS: "1"
+              MACHINE_LEARNING_WORKER_TIMEOUT: "120"
+            envFrom:
+              - secretRef:
+                  name: immich-secret
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 4Gi
+      # Microservices controller for background jobs
+      microservices:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/immich-app/immich-server
+              # renovate: datasource=docker depName=ghcr.io/immich-app/immich-server
+              tag: v1.134.1
+            env:
+              TZ: "${TIMEZONE}"
+              IMMICH_WORKERS_EXCLUDE: "api"
+              IMMICH_LOG_LEVEL: log
+              IMMICH_MEDIA_LOCATION: /usr/src/app/upload
+              IMMICH_MACHINE_LEARNING_URL: http://immich:3003
+            envFrom:
+              - secretRef:
+                  name: immich-secret
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 4Gi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: immich
+        ports:
+          http:
+            port: *port
+          ml:
+            port: 3003
+    route:
+      app:
+        parentRefs:
+          - name: internal
+            namespace: kube-system
+            sectionName: https
+        hostnames:
+          - photos.${SECRET_DOMAIN}
+    persistence:
+      config:
+        existingClaim: *app
+        advancedMounts:
+          immich:
+            app:
+              - path: /usr/src/app/upload
+            machine-learning:
+              - path: /usr/src/app/upload
+          microservices:
+            app:
+              - path: /usr/src/app/upload
+      # Photo library on NFS - for large iCloud library
+      library:
+        type: nfs
+        server: ${SECRET_NFS_SERVER:=temp}
+        path: /mnt/blockbuster/media/photos
+        globalMounts:
+          - path: /usr/src/app/external
+            readOnly: false
+      # ML cache directory
+      cache:
+        type: emptyDir
+        advancedMounts:
+          immich:
+            machine-learning:
+              - path: /.cache
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
