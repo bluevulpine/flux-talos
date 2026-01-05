@@ -1,0 +1,40 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/volsync.backube/kopiamaintenance_v1alpha1.json
+apiVersion: volsync.backube/v1alpha1
+kind: KopiaMaintenance
+metadata:
+  name: kopia-maintenance-r2
+spec:
+  # Repository configuration - references the secret with connection details
+  repository:
+    repository: kopia-maintenance-r2-secret
+    repositoryType: s3
+
+  # Run maintenance daily at 3:00 AM
+  # Staggered 1 hour after local maintenance to avoid resource contention
+  trigger:
+    schedule: "0 3 * * *"
+
+  # Keep history of maintenance jobs for debugging
+  successfulJobsHistoryLimit: 3
+
+  # Resource limits for maintenance pod
+  # R2 maintenance may take longer due to network latency
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 1Gi
+
+  # Security context matching VolSync defaults
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 568
+    runAsGroup: 568
+    fsGroup: 568
+
+  # Maintenance job timeout (3 hours default)
+  # R2 may need more time due to network operations
+  activeDeadlineSeconds: 10800
+
