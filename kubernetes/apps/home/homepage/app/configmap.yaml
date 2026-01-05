@@ -111,6 +111,7 @@ data:
             widget:
               type: jellyseerr
               url: http://jellyseerr.media.svc.cluster.local:5055
+              key: {{HOMEPAGE_VAR_JELLYSEERR_TOKEN}}
     - Downloads:
         - SABnzbd:
             href: https://sabnzbd.${SECRET_DOMAIN}
