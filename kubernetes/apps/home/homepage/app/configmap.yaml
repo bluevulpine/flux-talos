@@ -287,7 +287,7 @@ data:
         format:
           maximumFractionDigits: 1
     - unifi_console:
-        url: https://192.168.1.1
+        url: https://10.0.10.1
         username: {{HOMEPAGE_VAR_UNIFI_USERNAME}}
         password: {{HOMEPAGE_VAR_UNIFI_PASSWORD}}
     - longhorn:
