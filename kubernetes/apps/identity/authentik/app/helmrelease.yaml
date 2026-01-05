@@ -29,47 +29,47 @@ spec:
         - name: AUTHENTIK_SECRET_KEY
           valueFrom:
             secretKeyRef:
-              name: authentik-secret
+              name: authentik
               key: AUTHENTIK_SECRET_KEY
         - name: AUTHENTIK_BOOTSTRAP_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: authentik-secret
+              name: authentik
               key: AUTHENTIK_BOOTSTRAP_PASSWORD
         - name: AUTHENTIK_BOOTSTRAP_TOKEN
           valueFrom:
             secretKeyRef:
-              name: authentik-secret
+              name: authentik
               key: AUTHENTIK_BOOTSTRAP_TOKEN
         - name: AUTHENTIK_BOOTSTRAP_EMAIL
           valueFrom:
             secretKeyRef:
-              name: authentik-secret
+              name: authentik
               key: AUTHENTIK_BOOTSTRAP_EMAIL
         - name: AUTHENTIK_POSTGRESQL__HOST
           valueFrom:
             secretKeyRef:
-              name: authentik-secret
+              name: authentik
               key: AUTHENTIK_POSTGRESQL__HOST
         - name: AUTHENTIK_POSTGRESQL__NAME
           valueFrom:
             secretKeyRef:
-              name: authentik-secret
+              name: authentik
               key: AUTHENTIK_POSTGRESQL__NAME
         - name: AUTHENTIK_POSTGRESQL__USER
           valueFrom:
             secretKeyRef:
-              name: authentik-secret
+              name: authentik
               key: AUTHENTIK_POSTGRESQL__USER
         - name: AUTHENTIK_POSTGRESQL__PASSWORD
           valueFrom:
             secretKeyRef:
-              name: authentik-secret
+              name: authentik
               key: AUTHENTIK_POSTGRESQL__PASSWORD
         - name: AUTHENTIK_REDIS__HOST
           valueFrom:
             secretKeyRef:
-              name: authentik-secret
+              name: authentik
               key: AUTHENTIK_REDIS__HOST
 
     authentik:
@@ -89,7 +89,7 @@ spec:
           image: ghcr.io/home-operations/postgres-init:rolling
           envFrom:
             - secretRef:
-                name: authentik-secret
+                name: authentik
       resources:
         requests:
           cpu: 50m
