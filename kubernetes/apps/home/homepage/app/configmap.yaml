@@ -248,6 +248,9 @@ data:
         style: row
         columns: 2
         icon: mdi-chart-line
+    providers:
+      longhorn:
+        url: http://longhorn-frontend.longhorn-system.svc.cluster.local
   widgets.yaml: |
     - search:
         provider: [duckduckgo]
@@ -282,7 +285,12 @@ data:
         cache: 5
         format:
           maximumFractionDigits: 1
-    - truenas:
-        label: TrueNAS
-        url: {{HOMEPAGE_VAR_TRUENAS_HOST}}
-        key: {{HOMEPAGE_VAR_TRUENAS_APIKEY}}
+    - unifi_console:
+        url: https://192.168.1.1
+        username: {{HOMEPAGE_VAR_UNIFI_USERNAME}}
+        password: {{HOMEPAGE_VAR_UNIFI_PASSWORD}}
+    - longhorn:
+        expanded: false
+        total: true
+        labels: true
+        nodes: false
