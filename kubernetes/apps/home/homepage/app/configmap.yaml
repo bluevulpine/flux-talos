@@ -58,6 +58,16 @@ data:
               url: {{HOMEPAGE_VAR_TRUENAS_HOST}}
               key: {{HOMEPAGE_VAR_TRUENAS_APIKEY}}
 
+    - Photos:
+        - Immich:
+            href: https://photos.${SECRET_DOMAIN}
+            icon: immich.png
+            description: Photo Management
+            widget:
+              type: immich
+              url: http://immich.media.svc.cluster.local:2283
+              key: {{HOMEPAGE_VAR_IMMICH_TOKEN}}
+              version: 2
     - Home:
         - Home Assistant:
             href: http://homeassistant.${SECRET_DOMAIN_MEDIA}:8123/
@@ -101,6 +111,7 @@ data:
             widget:
               type: jellyseerr
               url: http://jellyseerr.media.svc.cluster.local:5055
+              key: {{HOMEPAGE_VAR_JELLYSEERR_TOKEN}}
     - Downloads:
         - SABnzbd:
             href: https://sabnzbd.${SECRET_DOMAIN}
@@ -116,7 +127,7 @@ data:
             description: Torrent Client
             widget:
               type: qbittorrent
-              url: http://qbittorrent.download.svc.cluster.local:8080
+              url: http://qbittorrent-app.download.svc.cluster.local:8080
               username: {{HOMEPAGE_VAR_QBITTORRENT_USERNAME}}
               password: {{HOMEPAGE_VAR_QBITTORRENT_PASSWORD}}
         - Autobrr:
@@ -238,6 +249,9 @@ data:
         style: row
         columns: 2
         icon: mdi-chart-line
+    providers:
+      longhorn:
+        url: http://longhorn-frontend.longhorn-system.svc.cluster.local
   widgets.yaml: |
     - search:
         provider: [duckduckgo]
@@ -272,6 +286,12 @@ data:
         cache: 5
         format:
           maximumFractionDigits: 1
-    - truenas:
-        url: {{HOMEPAGE_VAR_TRUENAS_HOST}}
-        key: {{HOMEPAGE_VAR_TRUENAS_APIKEY}}
+    - unifi_console:
+        url: https://192.168.1.1
+        username: {{HOMEPAGE_VAR_UNIFI_USERNAME}}
+        password: {{HOMEPAGE_VAR_UNIFI_PASSWORD}}
+    - longhorn:
+        expanded: false
+        total: true
+        labels: true
+        nodes: false

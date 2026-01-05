@@ -7,4 +7,5 @@ resources:
   - ./httproute.yaml
   - ./ocirepository.yaml
 components:
+  - ../../../../components/externalsecret-refresh
   - ../../../../components/gatus-guarded

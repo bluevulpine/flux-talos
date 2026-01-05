@@ -10,6 +10,8 @@ kind: Component
 #   components:
 #     - ../../../../components/volsync-r2-restore
 # Then set VOLSYNC_RESTORE_SOURCE: r2 in postBuild.substitute
+components:
+  - ../externalsecret-refresh
 resources:
   - ./claim.yaml
   - ./r2.yaml
