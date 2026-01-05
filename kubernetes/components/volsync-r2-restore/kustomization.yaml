@@ -1,0 +1,10 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+# Optional component for disaster recovery scenarios
+# Include this only when you need to restore from R2 cloud backup
+# Requires the main volsync component to be included (creates R2 secret)
+resources:
+  - ./replicationdestination.yaml
+

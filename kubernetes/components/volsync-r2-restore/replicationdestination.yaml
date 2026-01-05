@@ -1,0 +1,27 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/volsync.backube/replicationdestination_v1alpha1.json
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationDestination
+metadata:
+  name: "${APP:=temp}-dst-r2"
+spec:
+  trigger:
+    manual: restore-once
+  kopia:
+    repository: "${APP:=temp}-volsync-r2-secret"
+    sourceIdentity:
+      # Uses unified naming: app@namespace (not app-r2@namespace)
+      sourceName: "${APP:=temp}"
+    copyMethod: Snapshot
+    volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-truenas-nfs-snapclass}"
+    cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-truenas-nfs}"
+    cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
+    cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-8Gi}
+    storageClassName: "${VOLSYNC_STORAGECLASS:-truenas-nfs}"
+    accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
+    capacity: "${VOLSYNC_CAPACITY:-20Gi}"
+    moverSecurityContext:
+      runAsUser: ${VOLSYNC_RUN_AS_USER:-568}
+      runAsGroup: ${VOLSYNC_RUN_AS_GROUP:-568}
+      fsGroup: ${VOLSYNC_FS_GROUP:-568}
+

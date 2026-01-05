@@ -2,6 +2,14 @@
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
+# Main VolSync component for backup operations
+# - Local: ReplicationSource (every 15min) + ReplicationDestination (for restores)
+# - R2: ReplicationSource only (daily backup to cloud)
+#
+# For disaster recovery from R2, also include:
+#   components:
+#     - ../../../../components/volsync-r2-restore
+# Then set VOLSYNC_RESTORE_SOURCE: r2 in postBuild.substitute
 resources:
   - ./claim.yaml
   - ./r2.yaml

@@ -1,4 +1,3 @@
-
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/external-secrets.io/externalsecret_v1.json
 apiVersion: external-secrets.io/v1
@@ -15,7 +14,7 @@ spec:
       engineVersion: v2
       data:
         # Kopia uses a single repository for all apps (maximizes deduplication)
-        # Each app is identified by username (app-namespace) and hostname (namespace)
+        # Each app is identified by username (app@namespace) - unified naming
         KOPIA_REPOSITORY: "{{ .VolSync__Local__KopiaRepository }}"
         KOPIA_PASSWORD: "{{ .VolSync__Local__KopiaPassword }}"
         AWS_ACCESS_KEY_ID: "{{ .VolSync__Local__AwsAccessKeyId }}"
@@ -38,6 +37,9 @@ spec:
   kopia:
     copyMethod: "${VOLSYNC_COPYMETHOD:-Snapshot}"
     repository: "${APP}-volsync-local-secret"
+    # Unified snapshot identity: app@namespace (same for both local and R2)
+    # This allows snapshots to be restored from either repository
+    username: "${APP:=temp}"
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-truenas-nfs-snapclass}"
     cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-4Gi}
     cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-truenas-nfs}"
@@ -68,7 +70,8 @@ spec:
   kopia:
     repository: "${APP:=temp}-volsync-local-secret"
     sourceIdentity:
-      sourceName: "${APP:=temp}-local" # Matches ReplicationSource name
+      # Unified snapshot identity: app@namespace (matches ReplicationSource username)
+      sourceName: "${APP:=temp}"
     copyMethod: Snapshot
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-truenas-nfs-snapclass}"
     cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-truenas-nfs}"

@@ -14,7 +14,7 @@ spec:
       engineVersion: v2
       data:
         # Kopia uses a single repository for all apps (maximizes deduplication)
-        # Each app is identified by username (app-namespace) and hostname (namespace)
+        # Each app is identified by username (app@namespace) - unified naming
         KOPIA_REPOSITORY: "{{ .VolSync__R2__KopiaRepository }}"
         KOPIA_PASSWORD: "{{ .VolSync__R2__KopiaPassword }}"
         AWS_ACCESS_KEY_ID: "{{ .VolSync__R2__AwsAccessKeyId }}"
@@ -36,6 +36,9 @@ spec:
   kopia:
     copyMethod: "${VOLSYNC_COPYMETHOD:-Snapshot}"
     repository: "${APP}-volsync-r2-secret"
+    # Unified snapshot identity: app@namespace (same for both local and R2)
+    # This allows snapshots to be restored from either repository
+    username: "${APP:=temp}"
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-truenas-nfs-snapclass}"
     cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-4Gi}
     cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-truenas-nfs}"
@@ -47,35 +50,12 @@ spec:
       runAsUser: ${VOLSYNC_RUN_AS_USER:-568}
       runAsGroup: ${VOLSYNC_RUN_AS_GROUP:-568}
       fsGroup: ${VOLSYNC_FS_GROUP:-568}
-    # Kopia retention policy
+    # Kopia retention policy for cloud backup (less aggressive than local)
     retain:
       hourly: 6
       daily: 7
       weekly: 4
       monthly: 3
----
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/volsync.backube/replicationdestination_v1alpha1.json
-apiVersion: volsync.backube/v1alpha1
-kind: ReplicationDestination
-metadata:
-  name: "${APP:=temp}-dst-r2"
-spec:
-  trigger:
-    manual: restore-once
-  kopia:
-    repository: "${APP:=temp}-volsync-r2-secret"
-    sourceIdentity:
-      sourceName: "${APP:=temp}-r2"  # Matches ReplicationSource name
-    copyMethod: Snapshot
-    volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-truenas-nfs-snapclass}"
-    cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-truenas-nfs}"
-    cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
-    cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-8Gi}
-    storageClassName: "${VOLSYNC_STORAGECLASS:-truenas-nfs}"
-    accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
-    capacity: "${VOLSYNC_CAPACITY:-20Gi}"
-    moverSecurityContext:
-      runAsUser: ${VOLSYNC_RUN_AS_USER:-568}
-      runAsGroup: ${VOLSYNC_RUN_AS_GROUP:-568}
-      fsGroup: ${VOLSYNC_FS_GROUP:-568}
+# NOTE: ReplicationDestination for R2 is in separate optional component
+# kubernetes/components/volsync-r2-restore for disaster recovery scenarios
 
