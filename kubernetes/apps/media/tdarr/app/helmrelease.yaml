@@ -58,8 +58,10 @@ spec:
               requests:
                 cpu: 100m
                 memory: 512Mi
+                amd.com/gpu: 1
               limits:
                 memory: 4Gi
+                amd.com/gpu: 1
     defaultPodOptions:
       securityContext:
         runAsNonRoot: false
@@ -67,6 +69,10 @@ spec:
         runAsGroup: 0
         fsGroup: 0
         fsGroupChangePolicy: OnRootMismatch
+        # 44 = video, 109 = render (for GPU access)
+        supplementalGroups: [44, 109]
+      nodeSelector:
+        feature.node.kubernetes.io/pci-0300_1002.present: "true"
     service:
       app:
         controller: tdarr
@@ -102,4 +108,10 @@ spec:
         type: emptyDir
         globalMounts:
           - path: /temp
+      # GPU device access for hardware transcoding
+      dri:
+        type: hostPath
+        hostPath: /dev/dri
+        globalMounts:
+          - path: /dev/dri
 

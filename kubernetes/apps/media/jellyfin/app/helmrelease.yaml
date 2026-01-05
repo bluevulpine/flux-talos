@@ -41,8 +41,10 @@ spec:
               requests:
                 cpu: 100m
                 memory: 512Mi
+                amd.com/gpu: 1
               limits:
                 memory: 4Gi
+                amd.com/gpu: 1
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
@@ -50,8 +52,10 @@ spec:
         runAsGroup: 568
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
-        # Needed for hardware transcoding if you add GPU later
-        supplementalGroups: [44, 105, 10000]
+        # 44 = video, 105 = kvm, 109 = render (for GPU access), 10000 = media
+        supplementalGroups: [44, 105, 109, 10000]
+      nodeSelector:
+        feature.node.kubernetes.io/pci-0300_1002.present: "true"
     service:
       app:
         controller: jellyfin
@@ -87,4 +91,10 @@ spec:
         globalMounts:
           - path: /media
             readOnly: true
+      # GPU device access for hardware transcoding
+      dri:
+        type: hostPath
+        hostPath: /dev/dri
+        globalMounts:
+          - path: /dev/dri
 
