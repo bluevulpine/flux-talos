@@ -7,4 +7,5 @@ resources:
   - ./httproute.yaml
   - ./externalsecret.yaml
 components:
+  - ../../../../components/externalsecret-refresh
   - ../../../../components/gatus-external
