@@ -9,8 +9,8 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   dependsOn:
-    - name: democratic-csi-nfs
-      namespace: kube-system
+    - name: cloudnative-pg-cluster
+      namespace: database
     - name: external-secrets-stores
       namespace: external-secrets
   interval: 1h
@@ -26,4 +26,3 @@ spec:
     substitute:
       APP: *app
       NS: default
-      VOLSYNC_CAPACITY: 5Gi
