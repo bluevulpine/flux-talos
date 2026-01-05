@@ -33,7 +33,7 @@ metadata:
 spec:
   sourcePVC: "${APP:=temp}"
   trigger:
-    schedule: "*/15 * * * *"
+    schedule: "*/30 * * * *"
   kopia:
     copyMethod: "${VOLSYNC_COPYMETHOD:-Snapshot}"
     repository: "${APP}-volsync-local-secret"
