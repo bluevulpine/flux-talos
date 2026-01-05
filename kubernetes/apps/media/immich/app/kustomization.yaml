@@ -7,6 +7,6 @@ resources:
   - ./ocirepository.yaml
   - ./helmrelease.yaml
 components:
-  - ../../../../components/volsync
+  # volsync removed - using NFS with NAS-level backups
   - ../../../../components/gatus-guarded
 

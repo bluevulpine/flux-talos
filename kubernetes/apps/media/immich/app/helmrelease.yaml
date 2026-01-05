@@ -141,24 +141,13 @@ spec:
         hostnames:
           - photos.${SECRET_DOMAIN}
     persistence:
-      config:
-        existingClaim: *app
-        advancedMounts:
-          immich:
-            app:
-              - path: /usr/src/app/upload
-            machine-learning:
-              - path: /usr/src/app/upload
-          microservices:
-            app:
-              - path: /usr/src/app/upload
-      # Photo library on NFS - for large iCloud library
+      # Main media storage on NFS - large capacity for iCloud library
       library:
         type: nfs
         server: ${SECRET_NFS_SERVER:=temp}
         path: /mnt/blockbuster/media/photos
         globalMounts:
-          - path: /usr/src/app/external
+          - path: /usr/src/app/upload
             readOnly: false
       # ML cache directory
       cache:
