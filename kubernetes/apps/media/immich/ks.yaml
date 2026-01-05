@@ -28,6 +28,7 @@ spec:
     substitute:
       APP: *app
       NS: media
+      GATUS_SUBDOMAIN: photos
       VOLSYNC_CAPACITY: 10Gi
       VOLSYNC_STORAGECLASS: truenas-nfs
       VOLSYNC_SNAPSHOTCLASS: truenas-nfs-snapclass
