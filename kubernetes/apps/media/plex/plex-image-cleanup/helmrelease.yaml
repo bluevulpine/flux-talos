@@ -24,7 +24,7 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
         cronjob:
-          schedule: "30 8 * * *"
+          schedule: "30 8 1 1,4,7,10 *"  # Quarterly: 1st of Jan, Apr, Jul, Oct at 8:30 AM
           successfulJobsHistory: 1
         containers:
           app:
