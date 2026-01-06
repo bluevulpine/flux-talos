@@ -10,4 +10,5 @@ resources:
   - ./atuin/ks.yaml
   - ./joplin-server/ks.yaml
   - ./karakeep/ks.yaml
+  - ./obsidian/ks.yaml
 
