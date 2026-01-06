@@ -13,13 +13,13 @@ spec:
       namespace: external-secrets
     - name: cloudnative-pg-cluster
       namespace: database
-  path: ./kubernetes/apps/karakeep/karakeep/app
+  path: ./kubernetes/apps/productivity/karakeep/app
   prune: true
   sourceRef:
     kind: GitRepository
     name: home-kubernetes
     namespace: flux-system
-  targetNamespace: karakeep
+  targetNamespace: productivity
   wait: false
   interval: 30m
   retryInterval: 1m
@@ -27,6 +27,6 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      NS: karakeep
+      NS: productivity
       VOLSYNC_CAPACITY: 10Gi
 

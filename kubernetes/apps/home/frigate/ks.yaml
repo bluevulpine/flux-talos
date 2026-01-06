@@ -14,7 +14,7 @@ spec:
     - name: external-secrets-stores
       namespace: external-secrets
     - name: mosquitto
-      namespace: infrastructure
+      namespace: home
   interval: 1h
   path: ./kubernetes/apps/home/frigate/app
   prune: true

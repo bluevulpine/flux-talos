@@ -9,3 +9,4 @@ resources:
   - ./namespace.yaml
   - ./frigate/ks.yaml
   - ./homepage/ks.yaml
+  - ./mosquitto/ks.yaml

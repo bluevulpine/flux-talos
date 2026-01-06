@@ -7,6 +7,9 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
+  dependsOn:
+    - name: external-secrets-stores
+      namespace: external-secrets
   path: ./kubernetes/apps/home/homepage/app
   prune: true
   sourceRef:

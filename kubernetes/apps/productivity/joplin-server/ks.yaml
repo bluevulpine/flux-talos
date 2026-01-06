@@ -1,9 +1,9 @@
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app lldap
+  name: &app joplin-server
 spec:
   commonMetadata:
     labels:
@@ -13,13 +13,13 @@ spec:
       namespace: database
     - name: external-secrets-stores
       namespace: external-secrets
-  path: ./kubernetes/apps/identity/lldap/app
+  path: ./kubernetes/apps/productivity/joplin-server/app
   prune: true
   sourceRef:
     kind: GitRepository
     name: home-kubernetes
     namespace: flux-system
-  targetNamespace: identity
+  targetNamespace: productivity
   wait: true
   interval: 30m
   retryInterval: 1m
@@ -27,4 +27,5 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      NS: identity
+      NS: productivity
+      GATUS_SUBDOMAIN: joplin
