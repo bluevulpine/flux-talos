@@ -23,6 +23,6 @@ roleRef:
   name: actions-runner-controller-rbac-manager
 subjects:
   - kind: ServiceAccount
-    name: actions-runner-controller-gha-rs-controller
+    name: actions-runner-controller
     namespace: actions-runner-system
 
