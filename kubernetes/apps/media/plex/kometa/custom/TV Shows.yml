@@ -172,7 +172,7 @@ collections:
   IMDb Top 250:
     template: {name: Charts}
     imdb_search:
-      type: tv_series,tv_miniseries
+      type: tv_series,tv_mini_series
       votes.gte: 50000
     limit: 250
   TMDb Most Popular:

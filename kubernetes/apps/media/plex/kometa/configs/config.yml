@@ -13,11 +13,12 @@ libraries:
     overlay_files:
       - remove_overlays: false
       - repo: Anime - Overlays - Charts.yml
-      - repo: TV Shows - Overlays - Networks.yml
-      - repo: TV Shows - Overlays - Ratings.yml
-      - repo: TV Shows - Overlays - Statuses.yml
-      - repo: TV Shows - Overlays - Streaming Services.yml
-      - repo: TV Shows - Overlays - Studios.yml
+      - default: ribbon
+      - default: ratings
+      - default: status
+      - default: network
+      - default: streaming
+      - default: studio
     operations:
       mass_genre_update: tmdb
       mass_content_rating_update: omdb
@@ -25,8 +26,8 @@ libraries:
       mass_critic_rating_update: mdb_metacritic
       mass_user_rating_update: imdb
     sonarr:
-      root_folder_path: /data/media/anime
-      quality_profile: HD - Anime
+      root_folder_path: /media/video/Anime
+      quality_profile: Remux-1080p - Anime
       series_type: anime
 
   Movies:
@@ -46,10 +47,10 @@ libraries:
       - remove_overlays: false
       - repo: Movies - Overlays - Charts.yml
       - repo: Movies - Overlays - Oscars.yml
-      - repo: Movies - Overlays - Ratings.yml
-      - repo: Movies - Overlays - Stand-up.yml
-      - repo: Movies - Overlays - Streaming Services.yml
-      - repo: Movies - Overlays - Studios.yml
+      - default: ribbon
+      - default: ratings
+      - default: streaming
+      - default: studio
     operations:
       mass_genre_update: imdb
       mass_content_rating_update: omdb
@@ -70,11 +71,12 @@ libraries:
     overlay_files:
       - remove_overlays: false
       - repo: TV Shows - Overlays - Charts.yml
-      - repo: TV Shows - Overlays - Networks.yml
-      - repo: TV Shows - Overlays - Ratings.yml
-      - repo: TV Shows - Overlays - Statuses.yml
-      - repo: TV Shows - Overlays - Streaming Services.yml
-      - repo: TV Shows - Overlays - Studios.yml
+      - default: ribbon
+      - default: ratings
+      - default: status
+      - default: network
+      - default: streaming
+      - default: studio
     operations:
       mass_genre_update: tmdb
       mass_content_rating_update: omdb
@@ -153,10 +155,10 @@ radarr:
   token: <<RADARR_API_KEY>>
   add_missing: false
   add_existing: false
-  root_folder_path: /data/media/movies
+  root_folder_path: /media/video/Movies
   monitor: true
   availability: announced
-  quality_profile: HD
+  quality_profile: HD Bluray + WEB
   tag:
   search: false
   radarr_path:
@@ -168,9 +170,9 @@ sonarr:
   token: <<SONARR_API_KEY>>
   add_missing: false
   add_existing: false
-  root_folder_path: /data/media/tv
+  root_folder_path: /media/video/TV
   monitor: all
-  quality_profile: HD
+  quality_profile: WEB-1080p
   language_profile: English
   series_type: standard
   season_folder: true
