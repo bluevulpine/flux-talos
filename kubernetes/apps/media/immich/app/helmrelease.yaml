@@ -74,6 +74,9 @@ spec:
               # Use CPU for ML (no GPU acceleration)
               MACHINE_LEARNING_WORKERS: "1"
               MACHINE_LEARNING_WORKER_TIMEOUT: "120"
+              # HuggingFace needs writable home for download metadata
+              HF_HOME: /cache
+              MPLCONFIGDIR: /tmp/matplotlib
             envFrom:
               - secretRef:
                   name: immich-secret
