@@ -56,6 +56,15 @@ spec:
             env:
               - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
                 value: "false"
+              # Set tool cache to writable location
+              - name: RUNNER_TOOL_CACHE
+                value: /home/runner/_work/_tool
+            volumeMounts:
+              - name: tool-cache
+                mountPath: /home/runner/_work/_tool
+        volumes:
+          - name: tool-cache
+            emptyDir: {}
         serviceAccountName: *name
 
     controllerServiceAccount:
