@@ -150,8 +150,12 @@ spec:
           - path: /usr/src/app/upload
             readOnly: false
       # ML cache directory - must be /cache to match MACHINE_LEARNING_CACHE_FOLDER
+      # PVC to persist downloaded models across restarts (no volsync needed)
       cache:
-        type: emptyDir
+        type: persistentVolumeClaim
+        accessMode: ReadWriteOnce
+        size: 10Gi
+        storageClass: longhorn
         advancedMounts:
           immich:
             machine-learning:
