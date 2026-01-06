@@ -149,13 +149,13 @@ spec:
         globalMounts:
           - path: /usr/src/app/upload
             readOnly: false
-      # ML cache directory
+      # ML cache directory - must be /cache to match MACHINE_LEARNING_CACHE_FOLDER
       cache:
         type: emptyDir
         advancedMounts:
           immich:
             machine-learning:
-              - path: /.cache
+              - path: /cache
       tmp:
         type: emptyDir
         globalMounts:
