@@ -51,4 +51,11 @@ spec:
         existingClaim: *app
         globalMounts:
           - path: /config
+      config-file:
+        type: configMap
+        name: recyclarr-configmap
+        globalMounts:
+          - path: /config/recyclarr.yml
+            subPath: recyclarr.yml
+            readOnly: true
 
