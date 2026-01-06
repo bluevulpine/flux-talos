@@ -1,0 +1,118 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app gitea
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: gitea
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    controllers:
+      gitea:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom: &envFrom
+              - secretRef:
+                  name: gitea-secret
+        containers:
+          app:
+            image:
+              repository: gitea/gitea
+              # renovate: datasource=docker depName=gitea/gitea
+              tag: 1.23.6-rootless
+            env:
+              TZ: "${TIMEZONE}"
+              # Database configuration
+              GITEA__database__DB_TYPE: postgres
+              GITEA__database__HOST: postgres16-rw.database.svc.cluster.local:5432
+              GITEA__database__NAME: gitea
+              # Server configuration
+              GITEA__server__DOMAIN: gitea.${SECRET_DOMAIN}
+              GITEA__server__ROOT_URL: https://gitea.${SECRET_DOMAIN}
+              GITEA__server__HTTP_PORT: "3000"
+              GITEA__server__SSH_PORT: "2222"
+              GITEA__server__SSH_LISTEN_PORT: "2222"
+              GITEA__server__LFS_START_SERVER: "true"
+              # Security
+              GITEA__security__INSTALL_LOCK: "true"
+              # Service settings
+              GITEA__service__DISABLE_REGISTRATION: "true"
+              GITEA__service__REQUIRE_SIGNIN_VIEW: "false"
+              # Mailer
+              GITEA__mailer__ENABLED: "true"
+              GITEA__mailer__PROTOCOL: smtp
+              GITEA__mailer__SMTP_ADDR: smtp-relay.infrastructure.svc.cluster.local
+              GITEA__mailer__SMTP_PORT: "25"
+              GITEA__mailer__FROM: "gitea@${SECRET_DOMAIN}"
+              # Actions (for later)
+              GITEA__actions__ENABLED: "true"
+              # Cache/Session with in-memory (can upgrade to Redis/Dragonfly later)
+              GITEA__cache__ADAPTER: memory
+              GITEA__session__PROVIDER: memory
+            envFrom: *envFrom
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/healthz
+                    port: &port 3000
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probes
+    service:
+      app:
+        controller: gitea
+        ports:
+          http:
+            port: *port
+      ssh:
+        controller: gitea
+        type: LoadBalancer
+        annotations:
+          external-dns.alpha.kubernetes.io/hostname: "git.${SECRET_DOMAIN}"
+          lbipam.cilium.io/ips: "${SVC_GITEA_SSH_ADDR}"
+        ports:
+          ssh:
+            port: 22
+            targetPort: 2222
+            protocol: TCP
+    persistence:
+      data:
+        existingClaim: gitea
+        globalMounts:
+          - path: /var/lib/gitea
+      config:
+        type: emptyDir
+        globalMounts:
+          - path: /etc/gitea
+    ingress:
+      app:
+        enabled: false
+

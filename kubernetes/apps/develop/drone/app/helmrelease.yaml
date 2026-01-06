@@ -1,0 +1,136 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app drone
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: drone
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    controllers:
+      # Drone Server
+      server:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom:
+              - secretRef:
+                  name: drone-secret
+        containers:
+          app:
+            image:
+              repository: drone/drone
+              # renovate: datasource=docker depName=drone/drone
+              tag: "2"
+            env:
+              TZ: "${TIMEZONE}"
+              # Server configuration
+              DRONE_SERVER_HOST: drone.${SECRET_DOMAIN}
+              DRONE_SERVER_PROTO: https
+              # Gitea integration
+              DRONE_GITEA_SERVER: https://gitea.${SECRET_DOMAIN}
+              # Database
+              DRONE_DATABASE_DRIVER: postgres
+              # User management
+              DRONE_USER_CREATE: "username:admin,admin:true"
+              # Logging
+              DRONE_LOGS_DEBUG: "false"
+              DRONE_LOGS_TRACE: "false"
+            envFrom:
+              - secretRef:
+                  name: drone-secret
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: &port 80
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probes
+
+      # Drone Kubernetes Runner
+      runner:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: drone/drone-runner-kube
+              # renovate: datasource=docker depName=drone/drone-runner-kube
+              tag: latest
+            env:
+              TZ: "${TIMEZONE}"
+              # Runner configuration
+              DRONE_RPC_HOST: drone-server.develop.svc.cluster.local
+              DRONE_RPC_PROTO: http
+              DRONE_NAMESPACE_DEFAULT: develop
+              DRONE_RUNNER_CAPACITY: "2"
+              DRONE_RUNNER_NAME: drone-runner-kube
+              # Debug
+              DRONE_TRACE: "false"
+              DRONE_DEBUG: "false"
+            envFrom:
+              - secretRef:
+                  name: drone-secret
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
+        serviceAccount:
+          identifier: drone-runner
+
+    serviceAccount:
+      drone-runner:
+        enabled: true
+
+    service:
+      server:
+        controller: server
+        ports:
+          http:
+            port: *port
+
+    persistence:
+      # Drone server uses SQLite by default, but we use PostgreSQL
+      # so no persistent storage needed for server
+      data:
+        type: emptyDir
+        advancedMounts:
+          server:
+            app:
+              - path: /data
+
+    ingress:
+      app:
+        enabled: false
+

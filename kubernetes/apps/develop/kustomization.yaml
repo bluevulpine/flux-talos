@@ -7,4 +7,6 @@ components:
   - ../../components/common
 resources:
   - ./namespace.yaml
+  - ./drone/ks.yaml
+  - ./gitea/ks.yaml
   - ./nexus/ks.yaml
