@@ -19,7 +19,7 @@ spec:
   uninstall:
     keepHistory: false
   dependsOn:
-    - name: authelia
+    - name: authentik
       namespace: identity
     - name: kube-prometheus-stack
       namespace: observability
@@ -32,10 +32,9 @@ spec:
               name: &secret grafana-secret
     replicas: 1
     env:
-      GF_AUTH_GENERIC_OAUTH_API_URL: https://auth.${SECRET_DOMAIN}/api/oidc/userinfo
-      GF_AUTH_GENERIC_OAUTH_AUTH_URL: https://auth.${SECRET_DOMAIN}/api/oidc/authorization
-      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: grafana
-      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: https://auth.${SECRET_DOMAIN}/api/oidc/token
+      GF_AUTH_GENERIC_OAUTH_API_URL: https://sso.${SECRET_DOMAIN}/application/o/userinfo/
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: https://sso.${SECRET_DOMAIN}/application/o/authorize/
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: https://sso.${SECRET_DOMAIN}/application/o/token/
       GF_DATE_FORMATS_USE_BROWSER_LOCALE: true
       GF_EXPLORE_ENABLED: true
       GF_FEATURE_TOGGLES_ENABLE: publicDashboards
@@ -55,7 +54,7 @@ spec:
         oauth_allow_insecure_email_lookup: true
       auth.generic_oauth:
         enabled: true
-        name: Authelia
+        name: Authentik
         icon: signin
         scopes: openid profile email groups
         empty_scopes: false
