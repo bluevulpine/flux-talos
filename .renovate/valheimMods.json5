@@ -16,7 +16,7 @@
   ],
   "customDatasources": {
     "thunderstore-valheim": {
-      "defaultRegistryUrlTemplate": "https://valheim.thunderstore.io/api/v1/package/",
+      "defaultRegistryUrlTemplate": "https://thunderstore.io/c/valheim/api/v1/package/",
       "format": "json",
       "transformTemplates": [
         "{ \"releases\": $map($[full_name=\\\"{{packageName}}\\\"].versions, function($v) { { \"version\": $v.version_number, \"releaseTimestamp\": $v.date_created } }) }"
