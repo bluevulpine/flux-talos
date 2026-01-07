@@ -2,8 +2,8 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   packageRules: [
     {
-      description: "Disable digest pinning for Flux OCIRepository (Helm charts)",
-      matchManagers: ["flux"],
+      description: "Disable digest pinning for all docker images (hosted Renovate cannot authenticate to registries)",
+      matchDatasources: ["docker"],
       pinDigests: false,
     },
     {
@@ -23,16 +23,6 @@
       matchDatasources: ["docker"],
       matchPackageNames: ["ghcr.io/linuxserver/calibre-web"],
       allowedVersions: "/^0\\./",
-    },
-    {
-      description: "Disable digest pinning for packages with lookup issues",
-      matchDatasources: ["docker"],
-      matchPackageNames: [
-        "ghcr.io/tarmslitaren/x-haven-server",
-        "docker.io/mbround18/valheim",
-        "quay.io/thanos/thanos",
-      ],
-      pinDigests: false,
     },
     {
       description: "Ignore tailscale-node-remover (uses unversioned 'main' tag)",
