@@ -52,9 +52,9 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 512Mi
+                memory: 1Gi
               limits:
-                memory: 2Gi
+                memory: 4Gi
     # Note: linuxserver images run as root internally and use PUID/PGID
     # for file ownership, so we don't set pod security context
     service:
