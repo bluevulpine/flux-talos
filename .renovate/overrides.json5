@@ -2,11 +2,6 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   packageRules: [
     {
-      description: "Disable digest pinning for all docker images (hosted Renovate cannot authenticate to registries)",
-      matchDatasources: ["docker"],
-      pinDigests: false,
-    },
-    {
       description: "Override Helmfile Dependency Name",
       matchDatasources: ["docker"],
       matchManagers: ["helmfile"],
