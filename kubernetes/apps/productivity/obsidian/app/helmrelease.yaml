@@ -25,15 +25,13 @@ spec:
               TZ: "${TIMEZONE}"
               PUID: "568"
               PGID: "568"
-            envFrom:
-              - secretRef:
-                  name: obsidian-secret
             probes:
               liveness: &probes
                 enabled: true
                 custom: true
                 spec:
-                  tcpSocket:
+                  httpGet:
+                    path: /
                     port: &port 3000
                   initialDelaySeconds: 30
                   periodSeconds: 10
@@ -44,7 +42,8 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  tcpSocket:
+                  httpGet:
+                    path: /
                     port: *port
                   initialDelaySeconds: 10
                   periodSeconds: 5
