@@ -157,11 +157,7 @@ spec:
         globalMounts:
           - path: /data
       meili-data:
-        type: persistentVolumeClaim
-        accessMode: ReadWriteOnce
-        size: 5Gi
-        storageClass: longhorn
-        nameOverride: karakeep-meili
+        existingClaim: karakeep-meili
         advancedMounts:
           karakeep:
             meilisearch:
