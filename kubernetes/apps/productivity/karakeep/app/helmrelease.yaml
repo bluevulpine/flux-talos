@@ -151,8 +151,17 @@ spec:
         accessMode: ReadWriteOnce
         size: 5Gi
         storageClass: longhorn
-        globalMounts:
-          - path: /meili_data
+        nameOverride: karakeep-meili
+        advancedMounts:
+          karakeep:
+            meilisearch:
+              - path: /meili_data
       tmp:
         type: emptyDir
+      run:
+        type: emptyDir
+        advancedMounts:
+          karakeep:
+            app:
+              - path: /run
 
