@@ -54,9 +54,9 @@ spec:
               DISABLE_SIGNUPS: "false"
               # Disable password auth if using OAuth exclusively
               DISABLE_PASSWORD_AUTH: "false"
-              # OAuth configuration for Authelia
-              OAUTH_WELLKNOWN_URL: https://auth.${SECRET_DOMAIN}/.well-known/openid-configuration
-              OAUTH_PROVIDER_NAME: Authelia
+              # OAuth configuration for Authentik
+              OAUTH_WELLKNOWN_URL: https://sso.${SECRET_DOMAIN}/application/o/karakeep/.well-known/openid-configuration
+              OAUTH_PROVIDER_NAME: Authentik
               OAUTH_SCOPE: openid email profile
               OAUTH_ALLOW_DANGEROUS_EMAIL_ACCOUNT_LINKING: "true"
             envFrom: *envFrom
