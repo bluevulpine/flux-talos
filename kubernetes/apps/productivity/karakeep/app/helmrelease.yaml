@@ -23,6 +23,16 @@ spec:
             envFrom: &envFrom
               - secretRef:
                   name: karakeep-secret
+          # Fix /run permissions for s6-overlay which expects it to be owned by the app user
+          init-run-perms:
+            image:
+              repository: busybox
+              tag: latest
+            command: ["sh", "-c", "chown 568:568 /run && chmod 755 /run"]
+            securityContext:
+              runAsUser: 0
+              runAsGroup: 0
+              runAsNonRoot: false
         containers:
           app:
             image:
@@ -162,6 +172,8 @@ spec:
         type: emptyDir
         advancedMounts:
           karakeep:
+            init-run-perms:
+              - path: /run
             app:
               - path: /run
 
