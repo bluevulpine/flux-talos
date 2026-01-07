@@ -32,7 +32,7 @@ spec:
             image:
               repository: ghcr.io/tarmslitaren/x-haven-server
               # renovate: datasource=docker depName=ghcr.io/tarmslitaren/x-haven-server
-              tag: 1.13.4@sha256:be092dbb3ea7707beff63c49b2b7695a47c03071896365a93c7d7bfcf77bcabd
+              tag: 1.13.4
             env:
               TZ: "${TIMEZONE}"
             ports:

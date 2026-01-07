@@ -24,5 +24,21 @@
       matchPackageNames: ["ghcr.io/linuxserver/calibre-web"],
       allowedVersions: "/^0\\./",
     },
+    {
+      description: "Disable digest pinning for packages with lookup issues",
+      matchDatasources: ["docker"],
+      matchPackageNames: [
+        "ghcr.io/tarmslitaren/x-haven-server",
+        "docker.io/mbround18/valheim",
+        "quay.io/thanos/thanos",
+      ],
+      pinDigests: false,
+    },
+    {
+      description: "Ignore tailscale-node-remover (uses unversioned 'main' tag)",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["simonhaas/tailscale-node-remover"],
+      enabled: false,
+    },
   ],
 }
