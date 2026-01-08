@@ -66,11 +66,11 @@ spec:
       securityContext:
         runAsNonRoot: false
         runAsUser: 0
-        runAsGroup: 0
-        fsGroup: 0
+        runAsGroup: 568
+        fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
-        # 44 = video, 109 = render (for GPU access)
-        supplementalGroups: [44, 109]
+        # 44 = video, 109 = render (for GPU access), 568 = apps
+        supplementalGroups: [44, 109, 568]
       nodeSelector:
         feature.node.kubernetes.io/pci-0300_1002.present: "true"
     service:
