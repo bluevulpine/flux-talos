@@ -51,11 +51,14 @@ spec:
               readiness: *probes
             securityContext:
               # Removed privileged: true - using specific capabilities instead
-              allowPrivilegeEscalation: false
+              allowPrivilegeEscalation: true  # Required for s6-overlay setuid/setgid
               readOnlyRootFilesystem: false
               capabilities:
                 drop: ["ALL"]
                 add:
+                  # Required for s6-overlay user/group switching
+                  - SETUID
+                  - SETGID
                   # Required for USB device access (Coral TPU)
                   - SYS_RAWIO
             resources:
