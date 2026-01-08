@@ -50,7 +50,14 @@ spec:
                   failureThreshold: 5
               readiness: *probes
             securityContext:
-              privileged: true
+              # Removed privileged: true - using specific capabilities instead
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities:
+                drop: ["ALL"]
+                add:
+                  # Required for USB device access (Coral TPU)
+                  - SYS_RAWIO
             resources:
               requests:
                 cpu: 500m
@@ -61,9 +68,11 @@ spec:
       securityContext:
         runAsNonRoot: false
         runAsUser: 0
-        runAsGroup: 0
-        fsGroup: 0
+        runAsGroup: 568
+        fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
+        # 44 = video, 568 = apps (NFS media writes)
+        supplementalGroups: [44, 568]
       tolerations:
         - key: "node.kubernetes.io/low-power"
           operator: "Equal"
