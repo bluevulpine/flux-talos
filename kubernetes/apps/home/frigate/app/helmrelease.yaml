@@ -59,6 +59,9 @@ spec:
                   # Required for s6-overlay user/group switching
                   - SETUID
                   - SETGID
+                  - CHOWN
+                  - DAC_OVERRIDE
+                  - FOWNER
                   # Required for USB device access (Coral TPU)
                   - SYS_RAWIO
             resources:
