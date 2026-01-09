@@ -6,6 +6,7 @@ resources:
   - ./helmrepository.yaml
   - ./externalsecret.yaml
   - ./helmrelease.yaml
+  - ./httproute-outpost.yaml
   - ./referencegrant.yaml
 components:
   - ../../../../components/externalsecret-refresh

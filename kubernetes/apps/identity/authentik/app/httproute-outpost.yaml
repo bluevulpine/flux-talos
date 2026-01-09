@@ -1,0 +1,28 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# Route the outpost callback path to the outpost service
+# This is required for forward auth to work - the callback after authentication
+# needs to be handled by the outpost, not the authentik server
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: authentik-outpost
+spec:
+  hostnames:
+    - "sso.${SECRET_DOMAIN}"
+  parentRefs:
+    - name: internal
+      namespace: network
+      sectionName: https
+    - name: external
+      namespace: network
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /outpost.goauthentik.io
+      backendRefs:
+        - name: ak-outpost-sso-proxy
+          port: 9000
+
