@@ -75,9 +75,11 @@ spec:
 
     ## Gitea configuration
     gitea:
-      ## Admin user from secret
+      ## Admin user - skip creation since admin already exists
       admin:
         existingSecret: gitea-secret
+        email: "admin@gitea.local"
+        passwordMode: initialOnlyNoReset
 
       ## Metrics
       metrics:
