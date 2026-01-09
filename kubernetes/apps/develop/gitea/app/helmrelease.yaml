@@ -75,8 +75,9 @@ spec:
 
     ## Gitea configuration
     gitea:
+      ## Admin user - disabled since we're using SSO and already have an admin
       admin:
-        existingSecret: gitea-secret
+        existingSecret: ""
 
       ## Metrics
       metrics:
