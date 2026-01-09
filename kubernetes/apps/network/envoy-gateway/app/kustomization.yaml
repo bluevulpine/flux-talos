@@ -5,7 +5,6 @@ kind: Kustomization
 resources:
   - ./ocirepository.yaml
   - ./helmrelease.yaml
-  - ./envoy.yaml
-  - ./gateways.yaml
-  - ./securitypolicy.yaml
+  # Note: envoy.yaml, gateways.yaml and securitypolicy.yaml are deployed
+  # via a separate kustomization that depends on the HelmRelease for CRDs
 
