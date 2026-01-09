@@ -1,0 +1,321 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/gateway_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: external
+  namespace: network
+  annotations:
+    # TODO: Change to external.${SECRET_DOMAIN} after migration
+    external-dns.alpha.kubernetes.io/controller: none
+spec:
+  gatewayClassName: envoy
+  infrastructure:
+    annotations:
+      # TODO: Change to ${SVC_NGINX_EXTERNAL} after disabling Cilium Gateway API
+      lbipam.cilium.io/ips: "172.16.8.21"
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: "*.${SECRET_DOMAIN}"
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: "*.${SECRET_DOMAIN}"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: kube-system
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: http-blog
+      protocol: HTTP
+      port: 80
+      hostname: "*.${SECRET_DOMAIN_BLOG}"
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https-blog
+      protocol: HTTPS
+      port: 443
+      hostname: "*.${SECRET_DOMAIN_BLOG}"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: kube-system
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: http-blogcom
+      protocol: HTTP
+      port: 80
+      hostname: "*.${SECRET_DOMAIN_BLOGCOM}"
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https-blogcom
+      protocol: HTTPS
+      port: 443
+      hostname: "*.${SECRET_DOMAIN_BLOGCOM}"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: kube-system
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: http-media
+      protocol: HTTP
+      port: 80
+      hostname: "*.${SECRET_DOMAIN_MEDIA}"
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https-media
+      protocol: HTTPS
+      port: 443
+      hostname: "*.${SECRET_DOMAIN_MEDIA}"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: kube-system
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: http-lake
+      protocol: HTTP
+      port: 80
+      hostname: "*.${SECRET_DOMAIN_LAKE}"
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https-lake
+      protocol: HTTPS
+      port: 443
+      hostname: "*.${SECRET_DOMAIN_LAKE}"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: kube-system
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: http-yoyo
+      protocol: HTTP
+      port: 80
+      hostname: "*.${SECRET_DOMAIN_YOYO}"
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https-yoyo
+      protocol: HTTPS
+      port: 443
+      hostname: "*.${SECRET_DOMAIN_YOYO}"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: kube-system
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: http-bon
+      protocol: HTTP
+      port: 80
+      hostname: "*.${SECRET_DOMAIN_BON}"
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https-bon
+      protocol: HTTPS
+      port: 443
+      hostname: "*.${SECRET_DOMAIN_BON}"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: kube-system
+      allowedRoutes:
+        namespaces:
+          from: All
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/gateway_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: internal
+  namespace: network
+spec:
+  gatewayClassName: envoy
+  infrastructure:
+    annotations:
+      # TODO: Change to ${SVC_NGINX_INTERNAL} after disabling Cilium Gateway API
+      lbipam.cilium.io/ips: "172.16.8.20"
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: "*.${SECRET_DOMAIN}"
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: "*.${SECRET_DOMAIN}"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: kube-system
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: http-blog
+      protocol: HTTP
+      port: 80
+      hostname: "*.${SECRET_DOMAIN_BLOG}"
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https-blog
+      protocol: HTTPS
+      port: 443
+      hostname: "*.${SECRET_DOMAIN_BLOG}"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: kube-system
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: http-blogcom
+      protocol: HTTP
+      port: 80
+      hostname: "*.${SECRET_DOMAIN_BLOGCOM}"
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https-blogcom
+      protocol: HTTPS
+      port: 443
+      hostname: "*.${SECRET_DOMAIN_BLOGCOM}"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: kube-system
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: http-media
+      protocol: HTTP
+      port: 80
+      hostname: "*.${SECRET_DOMAIN_MEDIA}"
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https-media
+      protocol: HTTPS
+      port: 443
+      hostname: "*.${SECRET_DOMAIN_MEDIA}"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: kube-system
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: http-lake
+      protocol: HTTP
+      port: 80
+      hostname: "*.${SECRET_DOMAIN_LAKE}"
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https-lake
+      protocol: HTTPS
+      port: 443
+      hostname: "*.${SECRET_DOMAIN_LAKE}"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: kube-system
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: http-yoyo
+      protocol: HTTP
+      port: 80
+      hostname: "*.${SECRET_DOMAIN_YOYO}"
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https-yoyo
+      protocol: HTTPS
+      port: 443
+      hostname: "*.${SECRET_DOMAIN_YOYO}"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: kube-system
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: http-bon
+      protocol: HTTP
+      port: 80
+      hostname: "*.${SECRET_DOMAIN_BON}"
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https-bon
+      protocol: HTTPS
+      port: 443
+      hostname: "*.${SECRET_DOMAIN_BON}"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: kube-system
+      allowedRoutes:
+        namespaces:
+          from: All
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: https-redirect
+  namespace: network
+  annotations:
+    external-dns.alpha.kubernetes.io/controller: none
+spec:
+  parentRefs:
+    - name: external
+      namespace: network
+      sectionName: http
+    - name: internal
+      namespace: network
+      sectionName: http
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+
