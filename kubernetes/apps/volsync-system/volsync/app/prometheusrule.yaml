@@ -12,7 +12,7 @@ spec:
           annotations:
             summary: VolSync component has disappeared from Prometheus target discovery.
           expr: |
-            absent(up{job="volsync-metrics"})
+            absent(up{job="volsync-volsync-perfectra1n-metrics"})
           for: 15m
           labels:
             severity: critical
