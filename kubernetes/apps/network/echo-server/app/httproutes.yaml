@@ -1,5 +1,6 @@
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# No auth label - passes through without forward auth
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -21,12 +22,54 @@ spec:
           port: 8080
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# No auth label - passes through without forward auth
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: echo-server-internal
 spec:
   hostnames: ["echo-server-internal.${SECRET_DOMAIN}"]
+  parentRefs:
+    - name: internal
+      namespace: network
+      sectionName: https
+  rules:
+    - backendRefs:
+        - name: echo-server
+          port: 8080
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# With auth label - requires Authentik forward auth
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: echo-server-external-sso
+  labels:
+    auth: authentik
+spec:
+  hostnames: ["echo-server-external-sso.${SECRET_DOMAIN}"]
+  parentRefs:
+    - name: external
+      namespace: network
+      sectionName: https
+    - name: internal
+      namespace: network
+      sectionName: https
+  rules:
+    - backendRefs:
+        - name: echo-server
+          port: 8080
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# With auth label - requires Authentik forward auth
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: echo-server-internal-sso
+  labels:
+    auth: authentik
+spec:
+  hostnames: ["echo-server-internal-sso.${SECRET_DOMAIN}"]
   parentRefs:
     - name: internal
       namespace: network
