@@ -13,6 +13,7 @@ resources:
   - ./fluent-bit/ks.yaml
   - ./gatus/ks.yaml
   - ./grafana/ks.yaml
+  - ./graphite-exporter/ks.yaml
   - ./kromgo/ks.yaml
   - ./kube-prometheus-stack/ks.yaml
   # - ./loki/ks.yaml  # Removed - replaced by victoria-logs + fluent-bit
