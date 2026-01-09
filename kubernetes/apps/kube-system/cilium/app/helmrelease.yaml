@@ -43,6 +43,16 @@ spec:
       enabled: true
     envoy:
       enabled: true
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 1000m
+          memory: 512Mi
+      extraArgs:
+        - --concurrency
+        - "4"
     gatewayAPI:
       enabled: true
     hubble:
@@ -85,6 +95,9 @@ spec:
     loadBalancer:
       algorithm: maglev
       mode: dsr
+      l7:
+        backend: envoy
+        algorithm: round_robin
     localRedirectPolicy: true
     operator:
       replicas: 1
