@@ -1,7 +1,7 @@
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.envoyproxy.io/securitypolicy_v1alpha1.json
 # SecurityPolicy for Authentik Forward Auth
-# This policy applies ext_authz to all routes attached to the internal gateway
+# This policy applies ext_authz to all routes attached to both gateways
 # Requests will be authenticated via Authentik's outpost before reaching backends
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
@@ -9,11 +9,14 @@ metadata:
   name: authentik-forward-auth
   namespace: network
 spec:
-  # Target the internal gateway - all HTTPRoutes attached to it will require auth
+  # Target both gateways - Cloudflare tunnel only hides IP, doesn't handle auth
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
       name: internal
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: external
   extAuth:
     http:
       backendRefs:
