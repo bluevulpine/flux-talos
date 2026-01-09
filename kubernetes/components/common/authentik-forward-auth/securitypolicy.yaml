@@ -15,6 +15,14 @@ spec:
       matchLabels:
         auth: authentik
   extAuth:
+    # Headers to send TO the ext_authz service (required for session cookies!)
+    headersToExtAuth:
+      - accept
+      - cookie
+      - authorization
+      - x-forwarded-proto
+      - x-forwarded-host
+      - x-forwarded-for
     http:
       backendRefs:
         - name: ak-outpost-sso-proxy
@@ -30,4 +38,5 @@ spec:
         - x-authentik-name
         - x-authentik-uid
         - authorization
+        - set-cookie
 
