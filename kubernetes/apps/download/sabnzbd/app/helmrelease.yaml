@@ -71,9 +71,11 @@ spec:
             port: *port
     route:
       app:
+        labels:
+          auth: authentik
         parentRefs:
           - name: internal
-            namespace: kube-system
+            namespace: network
             sectionName: https
         hostnames:
           - sabnzbd.${SECRET_DOMAIN}

@@ -54,7 +54,7 @@ spec:
         - --concurrency
         - "4"
     gatewayAPI:
-      enabled: true
+      enabled: false
     hubble:
       enabled: true
       metrics:

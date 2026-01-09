@@ -106,10 +106,10 @@ spec:
           kind: HTTPRoute
           parentRefs:
             - name: internal
-              namespace: kube-system
+              namespace: network
               sectionName: https
             - name: external
-              namespace: kube-system
+              namespace: network
               sectionName: https
           hostnames:
             - "authentik.${SECRET_DOMAIN}"

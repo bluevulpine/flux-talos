@@ -14,7 +14,7 @@ spec:
   hostnames: ["nexus.${SECRET_DOMAIN}"]
   parentRefs:
     - name: internal
-      namespace: kube-system
+      namespace: network
       sectionName: https
   rules:
     - backendRefs:
@@ -31,7 +31,7 @@ spec:
   hostnames: ["docker.nexus.${SECRET_DOMAIN}"]
   parentRefs:
     - name: internal
-      namespace: kube-system
+      namespace: network
       sectionName: https
   rules:
     - backendRefs:
@@ -48,7 +48,7 @@ spec:
   hostnames: ["docker-hub.nexus.${SECRET_DOMAIN}"]
   parentRefs:
     - name: internal
-      namespace: kube-system
+      namespace: network
       sectionName: https
   rules:
     - backendRefs:
@@ -65,7 +65,7 @@ spec:
   hostnames: ["ghcr.nexus.${SECRET_DOMAIN}"]
   parentRefs:
     - name: internal
-      namespace: kube-system
+      namespace: network
       sectionName: https
   rules:
     - backendRefs:
@@ -82,7 +82,7 @@ spec:
   hostnames: ["quay.nexus.${SECRET_DOMAIN}"]
   parentRefs:
     - name: internal
-      namespace: kube-system
+      namespace: network
       sectionName: https
   rules:
     - backendRefs:
@@ -99,7 +99,7 @@ spec:
   hostnames: ["lscr.nexus.${SECRET_DOMAIN}"]
   parentRefs:
     - name: internal
-      namespace: kube-system
+      namespace: network
       sectionName: https
   rules:
     - backendRefs:
@@ -116,7 +116,7 @@ spec:
   hostnames: ["gcr.nexus.${SECRET_DOMAIN}"]
   parentRefs:
     - name: internal
-      namespace: kube-system
+      namespace: network
       sectionName: https
   rules:
     - backendRefs:
@@ -133,7 +133,7 @@ spec:
   hostnames: ["ecr.nexus.${SECRET_DOMAIN}"]
   parentRefs:
     - name: internal
-      namespace: kube-system
+      namespace: network
       sectionName: https
   rules:
     - backendRefs:
@@ -150,7 +150,7 @@ spec:
   hostnames: ["cgr.nexus.${SECRET_DOMAIN}"]
   parentRefs:
     - name: internal
-      namespace: kube-system
+      namespace: network
       sectionName: https
   rules:
     - backendRefs:

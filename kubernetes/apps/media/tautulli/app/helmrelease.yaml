@@ -65,11 +65,11 @@ spec:
         parentRefs:
           # Media domain (funb.us) - internal only
           - name: internal
-            namespace: kube-system
+            namespace: network
             sectionName: https-media
           # Base domain (derekjacobs.dev) - internal only (for Gatus monitoring)
           - name: internal
-            namespace: kube-system
+            namespace: network
             sectionName: https
         rules:
           - backendRefs:

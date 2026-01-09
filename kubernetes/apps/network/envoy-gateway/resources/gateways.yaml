@@ -12,8 +12,7 @@ spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
-      # TODO: Change to ${SVC_NGINX_EXTERNAL} after disabling Cilium Gateway API
-      lbipam.cilium.io/ips: "172.16.8.21"
+      lbipam.cilium.io/ips: ${SVC_NGINX_EXTERNAL}
   listeners:
     - name: http
       protocol: HTTP
@@ -159,8 +158,7 @@ spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
-      # TODO: Change to ${SVC_NGINX_INTERNAL} after disabling Cilium Gateway API
-      lbipam.cilium.io/ips: "172.16.8.20"
+      lbipam.cilium.io/ips: ${SVC_NGINX_INTERNAL}
   listeners:
     - name: http
       protocol: HTTP

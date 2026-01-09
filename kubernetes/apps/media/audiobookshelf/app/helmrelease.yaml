@@ -66,7 +66,7 @@ spec:
       app:
         parentRefs:
           - name: internal
-            namespace: kube-system
+            namespace: network
             sectionName: https
         hostnames:
           - audiobooks.${SECRET_DOMAIN}

@@ -69,7 +69,7 @@ spec:
       app:
         parentRefs:
           - name: internal
-            namespace: kube-system
+            namespace: network
             sectionName: https
         hostnames:
           - jellyfin.${SECRET_DOMAIN}

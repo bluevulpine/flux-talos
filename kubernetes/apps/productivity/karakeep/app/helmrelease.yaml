@@ -150,7 +150,7 @@ spec:
       app:
         parentRefs:
           - name: internal
-            namespace: kube-system
+            namespace: network
             sectionName: https
         hostnames:
           - karakeep.${SECRET_DOMAIN}

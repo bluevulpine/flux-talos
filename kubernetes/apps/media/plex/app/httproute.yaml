@@ -20,17 +20,17 @@ spec:
   parentRefs:
     # Media domain (funb.us) - external and internal
     - name: external
-      namespace: kube-system
+      namespace: network
       sectionName: https-media
     - name: internal
-      namespace: kube-system
+      namespace: network
       sectionName: https-media
     # Base domain (derekjacobs.dev) - external and internal
     - name: external
-      namespace: kube-system
+      namespace: network
       sectionName: https
     - name: internal
-      namespace: kube-system
+      namespace: network
       sectionName: https
   rules:
     - backendRefs:
