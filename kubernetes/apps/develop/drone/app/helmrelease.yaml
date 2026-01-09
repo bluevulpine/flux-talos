@@ -24,6 +24,9 @@ spec:
         type: deployment
         annotations:
           reloader.stakater.com/auto: "true"
+        # Use default service account (not drone-runner)
+        serviceAccount:
+          identifier: default
         initContainers:
           init-db:
             image:
@@ -110,6 +113,10 @@ spec:
           identifier: drone-runner
 
     serviceAccount:
+      # Default SA for server (uses existing 'default' SA in namespace)
+      default:
+        enabled: false
+      # Custom SA for runner with RBAC permissions
       drone-runner:
         enabled: true
 
