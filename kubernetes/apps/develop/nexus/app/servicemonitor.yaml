@@ -16,11 +16,11 @@ spec:
     - port: http
       path: /service/metrics/prometheus
       interval: 30s
-      # Nexus metrics require authentication
+      # Nexus metrics require authentication (admin user)
       basicAuth:
         username:
           name: nexus-secret
-          key: NEXUS_DATASTORE_NEXUS_USERNAME
+          key: NEXUS_ADMIN_USERNAME
         password:
           name: nexus-secret
           key: NEXUS_SECURITY_INITIAL_PASSWORD
