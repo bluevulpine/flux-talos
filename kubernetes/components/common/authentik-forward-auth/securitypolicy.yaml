@@ -7,7 +7,6 @@ apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
   name: authentik-forward-auth
-  namespace: network
 spec:
   # Target HTTPRoutes with auth label - selective forward auth
   targetSelectors:

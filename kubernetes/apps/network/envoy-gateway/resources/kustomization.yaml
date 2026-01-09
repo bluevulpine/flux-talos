@@ -5,5 +5,5 @@ kind: Kustomization
 resources:
   - ./envoy.yaml
   - ./gateways.yaml
-  - ./securitypolicy.yaml
+  # securitypolicy.yaml removed - now deployed via common component in each namespace
 

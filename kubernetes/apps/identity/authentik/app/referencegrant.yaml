@@ -1,16 +1,48 @@
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/referencegrant_v1beta1.json
-# Allow SecurityPolicy in network namespace to reference Authentik outpost service
+# Allow SecurityPolicy from any namespace to reference Authentik outpost service
+# Each namespace with the common component gets a SecurityPolicy that targets
+# HTTPRoutes with auth: authentik label
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
   name: envoy-gateway-authentik
 spec:
   from:
+    # Network namespace (echo-server-*-sso test routes)
     - group: gateway.envoyproxy.io
       kind: SecurityPolicy
       namespace: network
+    # Media namespace (*arr apps, tdarr, calibre-web, notifiarr)
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: media
+    # Download namespace (autobrr, qbittorrent, sabnzbd)
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: download
+    # Home namespace (frigate)
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: home
+    # Longhorn-system namespace
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: longhorn-system
+    # Observability namespace (future use)
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: observability
+    # Develop namespace (future use)
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: develop
+    # Productivity namespace (future use)
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: productivity
   to:
     - group: ""
       kind: Service
+      name: ak-outpost-sso-proxy
 
