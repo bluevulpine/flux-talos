@@ -14,7 +14,7 @@ spec:
   parentRefs:
     # Internal gateway only - not exposed externally
     - name: internal
-      namespace: kube-system
+      namespace: network
       sectionName: https
   rules:
     - backendRefs:
@@ -31,7 +31,7 @@ spec:
   parentRefs:
     # Internal gateway only - not exposed externally
     - name: internal
-      namespace: kube-system
+      namespace: network
       sectionName: https
   rules:
     - backendRefs:

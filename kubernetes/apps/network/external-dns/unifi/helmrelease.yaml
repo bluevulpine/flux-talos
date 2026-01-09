@@ -60,7 +60,7 @@ spec:
       # Filter to only watch internal gateway for split-horizon DNS
       # External gateway has CNAME target annotation for Cloudflare
       # Internal gateway publishes A records with direct IPs
-      - --gateway-namespace=kube-system
+      - --gateway-namespace=network
       - --gateway-name=internal
     policy: sync
     sources: ["service", "gateway-httproute"]
