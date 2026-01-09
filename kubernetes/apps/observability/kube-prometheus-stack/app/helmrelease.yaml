@@ -29,6 +29,12 @@ spec:
     crds:
       enabled: true
     cleanPrometheusOperatorObjectNames: true
+    # Disable rules that depend on metrics we're dropping for cardinality reduction
+    defaultRules:
+      rules:
+        kubeApiserverBurnrate: false
+        kubeApiserverHistogram: false
+        kubeApiserverSlos: false
     alertmanager:
       ingress:
         enabled: false
