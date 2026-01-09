@@ -9,8 +9,7 @@ resources:
   - ./namespace.yaml
   - ./certificates/ks.yaml
   - ./democratic-csi/ks.yaml
-  - ./gateway-api-crds/ks.yaml
-  - ./gateway/ks.yaml
+  # gateway-api-crds and gateway removed - now managed by Envoy Gateway in network namespace
   - ./cilium/ks.yaml
   - ./coredns/ks.yaml
   - ./csi-driver-nfs/ks.yaml
