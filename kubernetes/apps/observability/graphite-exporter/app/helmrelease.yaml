@@ -31,7 +31,7 @@ spec:
           app:
             image:
               repository: prom/graphite-exporter
-              tag: v0.15.2
+              tag: v0.16.0
             args:
               - --graphite.mapping-config=/config/graphite_mapping.conf
               - --graphite.listen-address=:9109
