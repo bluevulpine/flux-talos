@@ -19,6 +19,7 @@ spec:
       sectionName: https
   rules:
     - backendRefs:
-        - name: gitea-app
+        # Official Gitea Helm chart creates service named <release>-http
+        - name: gitea-http
           port: 3000
 
