@@ -3,6 +3,8 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: graphite-exporter-mapping
+  labels:
+    substitution.flux.home.arpa/disabled: "true"
 data:
   graphite_mapping.conf: |
     mappings:
