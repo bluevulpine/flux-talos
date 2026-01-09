@@ -9,11 +9,11 @@ spec:
   parentRefs:
     # External gateway - accessible via Cloudflare tunnel
     - name: external
-      namespace: kube-system
+      namespace: network
       sectionName: https
     # Internal gateway - direct internal access with A record
     - name: internal
-      namespace: kube-system
+      namespace: network
       sectionName: https
   rules:
     - backendRefs:
@@ -29,7 +29,7 @@ spec:
   hostnames: ["echo-server-internal.${SECRET_DOMAIN}"]
   parentRefs:
     - name: internal
-      namespace: kube-system
+      namespace: network
       sectionName: https
   rules:
     - backendRefs:
