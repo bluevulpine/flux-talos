@@ -6,8 +6,9 @@ metadata:
   name: external
   namespace: network
   annotations:
-    # TODO: Change to external.${SECRET_DOMAIN} after migration
-    external-dns.alpha.kubernetes.io/controller: none
+    # Target annotation tells external-dns to create CNAME records pointing to
+    # the Cloudflare tunnel instead of A records to the private LoadBalancer IP
+    external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
 spec:
   gatewayClassName: envoy
   infrastructure:
