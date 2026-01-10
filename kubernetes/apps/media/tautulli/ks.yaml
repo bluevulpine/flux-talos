@@ -24,6 +24,8 @@ spec:
     substitute:
       APP: *app
       NS: media
+      GATUS_PORT: "80"
+      GATUS_SERVICE: tautulli
       GATUS_PATH: /home
       VOLSYNC_CAPACITY: 4Gi
       VOLSYNC_CACHE_CAPACITY: 4Gi

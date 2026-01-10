@@ -28,6 +28,8 @@ spec:
     substitute:
       APP: *app
       NS: productivity
+      GATUS_PORT: "3000"
+      GATUS_SERVICE: obsidian
       # VolSync configuration for Longhorn with 1-replica clones
       VOLSYNC_CAPACITY: 20Gi
       VOLSYNC_STORAGECLASS: longhorn

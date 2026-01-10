@@ -28,3 +28,5 @@ spec:
       APP: *app
       GATUS_PATH: /
       NS: develop
+      GATUS_PORT: "8081"
+      GATUS_SERVICE: nexus-nexus3

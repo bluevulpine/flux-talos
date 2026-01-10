@@ -22,4 +22,6 @@ spec:
       APP: *app
       NS: media
       GATUS_SUBDOMAIN: ebooks
+      GATUS_PORT: "8083"
+      GATUS_SERVICE: calibre-web
       VOLSYNC_CAPACITY: 1Gi

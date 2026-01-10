@@ -28,6 +28,8 @@ spec:
     substitute:
       APP: *app
       NS: home
+      GATUS_PORT: "5000"
+      GATUS_SERVICE: frigate
       VOLSYNC_CAPACITY: 10Gi
       VOLSYNC_STORAGECLASS: truenas-nfs
       VOLSYNC_SNAPSHOTCLASS: truenas-nfs-snapclass

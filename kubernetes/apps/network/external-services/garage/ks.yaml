@@ -23,4 +23,6 @@ spec:
     substitute:
       APP: *app
       NS: network
+      GATUS_PORT: "80"
+      GATUS_SERVICE: garage
 

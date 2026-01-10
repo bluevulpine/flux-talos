@@ -26,4 +26,6 @@ spec:
     substitute:
       APP: *app
       NS: media
+      GATUS_PORT: "8787"
+      GATUS_SERVICE: readarr-audiobooks
       VOLSYNC_CAPACITY: 4Gi

@@ -25,3 +25,5 @@ spec:
     substitute:
       APP: *app
       NS: home
+      GATUS_PORT: "3000"
+      GATUS_SERVICE: homepage

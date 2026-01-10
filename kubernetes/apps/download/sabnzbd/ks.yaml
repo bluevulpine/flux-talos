@@ -24,6 +24,8 @@ spec:
     substitute:
       APP: *app
       NS: download
+      GATUS_PORT: "8080"
+      GATUS_SERVICE: sabnzbd
       VOLSYNC_CAPACITY: 4Gi
       VOLSYNC_STORAGECLASS: truenas-iscsi
       VOLSYNC_CACHE_CLASS: truenas-iscsi

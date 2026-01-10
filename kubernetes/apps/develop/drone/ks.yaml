@@ -28,5 +28,7 @@ spec:
     substitute:
       APP: *app
       NS: develop
+      GATUS_PORT: "80"
+      GATUS_SERVICE: drone
       GATUS_SUBDOMAIN: drone
 

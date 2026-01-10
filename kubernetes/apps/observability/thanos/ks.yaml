@@ -28,3 +28,5 @@ spec:
     substitute:
       APP: *app
       NS: observability
+      GATUS_PORT: "10902"
+      GATUS_SERVICE: thanos-query-frontend

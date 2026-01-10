@@ -26,3 +26,5 @@ spec:
     substitute:
       APP: *app
       NS: observability
+      GATUS_PORT: "80"
+      GATUS_SERVICE: grafana

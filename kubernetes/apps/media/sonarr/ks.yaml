@@ -26,4 +26,6 @@ spec:
     substitute:
       APP: *app
       NS: media
+      GATUS_PORT: "8989"
+      GATUS_SERVICE: sonarr
       VOLSYNC_CAPACITY: 4Gi

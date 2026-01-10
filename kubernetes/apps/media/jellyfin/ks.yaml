@@ -24,4 +24,6 @@ spec:
     substitute:
       APP: *app
       NS: media
+      GATUS_PORT: "8096"
+      GATUS_SERVICE: jellyfin
       VOLSYNC_CAPACITY: 10Gi

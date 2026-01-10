@@ -26,6 +26,8 @@ spec:
     substitute:
       APP: *app
       NS: develop
+      GATUS_PORT: "3000"
+      GATUS_SERVICE: gitea-http
       GATUS_SUBDOMAIN: gitea
       VOLSYNC_CAPACITY: 10Gi
       VOLSYNC_STORAGECLASS: truenas-nfs

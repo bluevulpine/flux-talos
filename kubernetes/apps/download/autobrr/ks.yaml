@@ -26,5 +26,7 @@ spec:
     substitute:
       APP: *app
       NS: download
+      GATUS_PORT: "7474"
+      GATUS_SERVICE: autobrr
       VOLSYNC_CAPACITY: 1Gi
 

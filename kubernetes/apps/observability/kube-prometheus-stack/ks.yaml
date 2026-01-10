@@ -25,6 +25,8 @@ spec:
     substitute:
       APP: *app
       NS: observability
+      GATUS_PORT: "9090"
+      GATUS_SERVICE: kube-prometheus-stack-prometheus
       GATUS_SUBDOMAIN: prometheus
       # renovate: datasource=docker depName=quay.io/thanos/thanos
       THANOS_VERSION: v0.40.1

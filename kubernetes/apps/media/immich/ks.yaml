@@ -29,4 +29,6 @@ spec:
       APP: *app
       NS: media
       GATUS_SUBDOMAIN: photos
+      GATUS_PORT: "2283"
+      GATUS_SERVICE: immich
 

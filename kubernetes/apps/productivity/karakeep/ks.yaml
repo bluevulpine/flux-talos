@@ -28,5 +28,7 @@ spec:
     substitute:
       APP: *app
       NS: productivity
+      GATUS_PORT: "3000"
+      GATUS_SERVICE: karakeep
       VOLSYNC_CAPACITY: 10Gi
 

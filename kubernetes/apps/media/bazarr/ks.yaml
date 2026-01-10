@@ -24,4 +24,6 @@ spec:
     substitute:
       APP: *app
       NS: media
+      GATUS_PORT: "6767"
+      GATUS_SERVICE: bazarr
       VOLSYNC_CAPACITY: 4Gi
