@@ -8,4 +8,5 @@ components:
 resources:
   - ./namespace.yaml
   - ./cloudnative-pg/ks.yaml
+  - ./couchdb/ks.yaml
   - ./dragonfly/ks.yaml
