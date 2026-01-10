@@ -51,6 +51,7 @@ spec:
       runAsUser: ${VOLSYNC_RUN_AS_USER:-568}
       runAsGroup: ${VOLSYNC_RUN_AS_GROUP:-568}
       fsGroup: ${VOLSYNC_FS_GROUP:-568}
+      fsGroupChangePolicy: OnRootMismatch
     # Kopia retention policy - more aggressive for local backups
     retain:
       latest: 48 # every 15 minutes, ~12 hours
@@ -84,4 +85,4 @@ spec:
       runAsUser: ${VOLSYNC_RUN_AS_USER:-568}
       runAsGroup: ${VOLSYNC_RUN_AS_GROUP:-568}
       fsGroup: ${VOLSYNC_FS_GROUP:-568}
-
+      fsGroupChangePolicy: OnRootMismatch
