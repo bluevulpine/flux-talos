@@ -16,10 +16,8 @@ resources:
   - ./graphite-exporter/ks.yaml
   - ./kromgo/ks.yaml
   - ./kube-prometheus-stack/ks.yaml
-  # - ./loki/ks.yaml  # Removed - replaced by victoria-logs + fluent-bit
   - ./smartctl-exporter/ks.yaml
   # - ./snmp-exporter/ks.yaml
   - ./thanos/ks.yaml
   - ./unpoller/ks.yaml
-  # - ./vector/ks.yaml  # Removed - was sending to Loki which is disabled; fluent-bit handles log collection
   - ./victoria-logs/ks.yaml
