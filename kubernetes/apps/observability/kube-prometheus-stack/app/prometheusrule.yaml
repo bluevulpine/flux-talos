@@ -23,6 +23,30 @@ spec:
           expr: (kube_pod_container_status_restarts_total - kube_pod_container_status_restarts_total offset 10m >= 1) and ignoring (reason) min_over_time(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[10m]) == 1
           labels:
             severity: critical
+    - name: memory
+      rules:
+        - alert: ContainerMemoryNearLimit
+          annotations:
+            summary: Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }} is using {{ $value | humanizePercentage }} of its memory limit.
+          expr: |
+            (
+              container_memory_working_set_bytes{container!="", container!="POD"}
+              / on(namespace, pod, container) kube_pod_container_resource_limits{resource="memory"}
+            ) > 0.80
+          for: 5m
+          labels:
+            severity: warning
+        - alert: ContainerMemoryCritical
+          annotations:
+            summary: Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }} is using {{ $value | humanizePercentage }} of its memory limit. OOM kill imminent!
+          expr: |
+            (
+              container_memory_working_set_bytes{container!="", container!="POD"}
+              / on(namespace, pod, container) kube_pod_container_resource_limits{resource="memory"}
+            ) > 0.90
+          for: 2m
+          labels:
+            severity: critical
     - name: zfs
       rules:
         - alert: ZfsUnexpectedPoolState
