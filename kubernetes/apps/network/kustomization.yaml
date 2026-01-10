@@ -13,4 +13,5 @@ resources:
   - ./envoy-gateway/ks.yaml
   - ./external-dns/ks.yaml
   - ./external-services/garage/ks.yaml
+  - ./external-services/openspeedtest/ks.yaml
   - ./tailscale/ks.yaml
