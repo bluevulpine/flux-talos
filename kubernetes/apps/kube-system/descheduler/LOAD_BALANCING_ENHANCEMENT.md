@@ -1,29 +1,29 @@
-# Descheduler Load Balancing Enhancement
+# Descheduler Configuration
 
 ## Overview
 
-This enhancement adds load balancing strategies to the Kubernetes Descheduler v0.34.0 configuration to address severe pod distribution imbalance in the homelab cluster.
+The Kubernetes Descheduler is configured with load balancing and constraint violation strategies to maintain balanced pod distribution across the homelab cluster's worker nodes.
 
-## Problem Statement
+## Cluster Architecture
 
-**Current Pod Distribution:**
-- **brokkr01**: 72 pods (severely overloaded)
-- **brokkr02**: 21 pods (moderate load)
-- **brokkr03**: 19 pods (underutilized)
+### Node Roles
+| Node | Role | Taint |
+|------|------|-------|
+| brokkr01-03 | Worker | None |
+| jormungandr1-03 | Control Plane | `node-role.kubernetes.io/control-plane:NoSchedule` |
+| jormungandr4 | Control Plane | `node.kubernetes.io/low-power:NoSchedule` |
 
-**Root Cause:** The existing Descheduler configuration only handled constraint violations but lacked load balancing strategies for resource-based rebalancing.
+**Key constraint:** Pods can only be balanced across brokkr worker nodes. Control plane nodes are tainted and won't accept workloads.
 
-## Configuration Changes
+## Current Configuration
 
-### ✅ **New Strategies Added**
-
-#### 1. **LowNodeUtilization Strategy**
+### LowNodeUtilization Strategy
 ```yaml
 - name: LowNodeUtilization
   args:
     thresholds:
       cpu: 20      # Nodes below 20% are underutilized
-      memory: 20   # Nodes below 20% are underutilized  
+      memory: 20   # Nodes below 20% are underutilized
       pods: 20     # Nodes below 20% pod capacity are underutilized
     targetThresholds:
       cpu: 50      # Evict from nodes above 50% CPU
@@ -32,101 +32,84 @@ This enhancement adds load balancing strategies to the Kubernetes Descheduler v0
 ```
 
 **How it works:**
-- Identifies nodes below 20% utilization as underutilized
-- Evicts pods from nodes above 50% utilization
-- Moves pods from high-utilization to low-utilization nodes
+- Identifies nodes below thresholds as underutilized
+- Evicts pods from nodes above targetThresholds
+- Only evicts if there's a valid destination node (`nodeFit: true`)
 
-#### 2. **RemoveDuplicates Strategy**
+### Constraint Violation Strategies
+- **RemovePodsViolatingInterPodAntiAffinity** - Fixes anti-affinity violations
+- **RemovePodsViolatingNodeAffinity** - Fixes node affinity violations
+- **RemovePodsViolatingNodeTaints** - Removes pods from tainted nodes
+- **RemovePodsViolatingTopologySpreadConstraint** - Balances topology spread
+
+### Safety Settings
 ```yaml
-- name: RemoveDuplicates
+evictFailedBarePods: true       # Clean up failed pods
+evictLocalStoragePods: true     # Can evict pods with emptyDir
+evictSystemCriticalPods: false  # Protect critical system pods
+nodeFit: true                   # Only evict if pod can reschedule
 ```
 
-**How it works:**
-- Identifies multiple replicas of the same workload on a single node
-- Evicts duplicate pods to spread replicas across different nodes
-- Improves fault tolerance and resource distribution
+## Current State (2026-01-10)
 
-### ⚠️ **Safety Enhancement**
-```yaml
-evictSystemCriticalPods: false  # Changed from true
+### Pod Distribution
+| Node | Pods | CPU | Memory |
+|------|------|-----|--------|
+| brokkr01 | 55 | 9% | 20% |
+| brokkr02 | 69 | 12% | 20% |
+| brokkr03 | 53 | 51% | 31% |
+
+**Status:** ✅ Balanced - The original imbalance (72/21/19) from Nov 2025 has been resolved.
+
+### Why Evictions Are Limited Now
+
+The descheduler logs show:
+```
+"Skipping eviction for pod, doesn't tolerate node taint"
+"Total number of evictions/requests" evictedPods=0
 ```
 
-**Rationale:** Safer for homelab environment - prevents eviction of critical system pods.
+**Reasons:**
+1. Pod distribution is already balanced across worker nodes
+2. Pods can't move to control plane nodes (taint)
+3. `nodeFit: true` prevents evicting pods with nowhere to go
+4. Resource utilization is below targetThresholds
 
-### ✅ **Preserved Existing Strategies**
-- RemovePodsViolatingInterPodAntiAffinity
-- RemovePodsViolatingNodeAffinity  
-- RemovePodsViolatingNodeTaints
-- RemovePodsViolatingTopologySpreadConstraint
+## Monitoring
 
-## Expected Impact
-
-### **Immediate Effects (24-48 hours)**
-| Node | Current Pods | Expected Pods | Change |
-|------|--------------|---------------|---------|
-| **brokkr01** | 72 pods | ~35-40 pods | -45% |
-| **brokkr02** | 21 pods | ~35-40 pods | +70% |
-| **brokkr03** | 19 pods | ~35-40 pods | +85% |
-
-### **Performance Improvements**
-- **Reduced I/O pressure** on brokkr01 (addresses disk saturation issues)
-- **Better resource utilization** across all brokkr nodes
-- **Improved fault tolerance** through replica spreading
-- **More even CPU/memory distribution**
-
-### **Threshold Analysis**
-**Current brokkr01 utilization:**
-- CPU: 7% (1.3/16 cores) - Below 20% threshold ✅
-- Memory: 18% (10.7/61GB) - Below 20% threshold ✅  
-- Pods: 72 pods - Above 50% threshold ❌ (triggers eviction)
-
-**The pod count threshold will be the primary trigger for rebalancing.**
-
-## Monitoring & Validation
-
-### **Success Metrics**
 ```bash
-# Monitor pod distribution
-kubectl get pods -A -o wide | awk '{print $8}' | grep brokkr | sort | uniq -c
+# Pod distribution
+kubectl get pods -A -o wide --no-headers | awk '{print $8}' | grep brokkr | sort | uniq -c
 
-# Check Descheduler logs
-kubectl logs -n kube-system deployment/descheduler --tail=100
-
-# Monitor node utilization
+# Node utilization
 kubectl top nodes
+
+# Descheduler logs
+kubectl logs -n kube-system -l app.kubernetes.io/name=descheduler --tail=100
+
+# Check for evictions
+kubectl logs -n kube-system -l app.kubernetes.io/name=descheduler | grep -i evict
 ```
 
-### **Expected Log Messages**
-- "Evicted pod" messages for pods moved from brokkr01
-- "LowNodeUtilization" strategy execution logs
-- "RemoveDuplicates" strategy execution logs
+## Configuration Notes
 
-## Rollback Plan
+### Not Enabled (Available Options)
+- **RemoveDuplicates** - Spreads replicas across nodes (useful if added)
+- **HighNodeUtilization** - Consolidates pods (opposite of LowNodeUtilization)
+- **PodLifeTime** - Evicts long-running pods
 
-If issues arise, revert by removing the new strategies:
+### Threshold Considerations
+With only 3 worker nodes, aggressive thresholds can cause thrashing. Current 20/50 thresholds are conservative.
 
-```yaml
-# Remove these sections from pluginConfig:
-- name: LowNodeUtilization
-- name: RemoveDuplicates
+| Scenario | Recommendation |
+|----------|----------------|
+| More headroom needed | Raise targetThresholds to 60-70 |
+| More aggressive balancing | Lower thresholds to 15/40 |
+| Protect emptyDir data | Set `evictLocalStoragePods: false` |
 
-# Remove from plugins.balance.enabled:
-- LowNodeUtilization
+## History
 
-# Remove from plugins.deschedule.enabled:  
-- RemoveDuplicates
-
-# Revert safety setting:
-evictSystemCriticalPods: true
-```
-
-## Implementation Date
-Applied: 2025-11-28
-
-## Validation Checklist
-- [ ] Configuration syntax validated against descheduler/v1alpha2 schema
-- [ ] LowNodeUtilization thresholds confirmed (20%/50% are valid percentages)
-- [ ] RemoveDuplicates strategy confirmed as supported in v0.34.0
-- [ ] Safety setting (evictSystemCriticalPods: false) applied
-- [ ] All existing strategies preserved
-- [ ] 5-minute descheduling interval maintained
+| Date | Change |
+|------|--------|
+| 2025-11-28 | Added LowNodeUtilization, disabled evictSystemCriticalPods |
+| 2026-01-10 | Documented current balanced state, removed outdated predictions |
