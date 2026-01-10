@@ -14,132 +14,23 @@ spec:
   infrastructure:
     annotations:
       lbipam.cilium.io/ips: ${SVC_NGINX_EXTERNAL}
+  # Consolidated listeners - single HTTPS listener handles all domains to avoid
+  # HTTP/2 connection coalescing issues. When clients reuse TLS connections across
+  # domains (due to shared wildcard certificate), SNI may not match the Host header.
+  # By removing hostname restrictions, routing is based purely on HTTPRoute hostnames.
   listeners:
     - name: http
       protocol: HTTP
       port: 80
-      hostname: "*.${SECRET_DOMAIN}"
+      # No hostname restriction - HTTPRoutes filter by hostname
       allowedRoutes:
         namespaces:
           from: Same
     - name: https
       protocol: HTTPS
       port: 443
-      hostname: "*.${SECRET_DOMAIN}"
-      tls:
-        certificateRefs:
-          - kind: Secret
-            name: "${SECRET_DOMAIN/./-}-production-tls"
-            namespace: kube-system
-      allowedRoutes:
-        namespaces:
-          from: All
-    - name: http-blog
-      protocol: HTTP
-      port: 80
-      hostname: "*.${SECRET_DOMAIN_BLOG}"
-      allowedRoutes:
-        namespaces:
-          from: Same
-    - name: https-blog
-      protocol: HTTPS
-      port: 443
-      hostname: "*.${SECRET_DOMAIN_BLOG}"
-      tls:
-        certificateRefs:
-          - kind: Secret
-            name: "${SECRET_DOMAIN/./-}-production-tls"
-            namespace: kube-system
-      allowedRoutes:
-        namespaces:
-          from: All
-    - name: http-blogcom
-      protocol: HTTP
-      port: 80
-      hostname: "*.${SECRET_DOMAIN_BLOGCOM}"
-      allowedRoutes:
-        namespaces:
-          from: Same
-    - name: https-blogcom
-      protocol: HTTPS
-      port: 443
-      hostname: "*.${SECRET_DOMAIN_BLOGCOM}"
-      tls:
-        certificateRefs:
-          - kind: Secret
-            name: "${SECRET_DOMAIN/./-}-production-tls"
-            namespace: kube-system
-      allowedRoutes:
-        namespaces:
-          from: All
-    - name: http-media
-      protocol: HTTP
-      port: 80
-      hostname: "*.${SECRET_DOMAIN_MEDIA}"
-      allowedRoutes:
-        namespaces:
-          from: Same
-    - name: https-media
-      protocol: HTTPS
-      port: 443
-      hostname: "*.${SECRET_DOMAIN_MEDIA}"
-      tls:
-        certificateRefs:
-          - kind: Secret
-            name: "${SECRET_DOMAIN/./-}-production-tls"
-            namespace: kube-system
-      allowedRoutes:
-        namespaces:
-          from: All
-    - name: http-lake
-      protocol: HTTP
-      port: 80
-      hostname: "*.${SECRET_DOMAIN_LAKE}"
-      allowedRoutes:
-        namespaces:
-          from: Same
-    - name: https-lake
-      protocol: HTTPS
-      port: 443
-      hostname: "*.${SECRET_DOMAIN_LAKE}"
-      tls:
-        certificateRefs:
-          - kind: Secret
-            name: "${SECRET_DOMAIN/./-}-production-tls"
-            namespace: kube-system
-      allowedRoutes:
-        namespaces:
-          from: All
-    - name: http-yoyo
-      protocol: HTTP
-      port: 80
-      hostname: "*.${SECRET_DOMAIN_YOYO}"
-      allowedRoutes:
-        namespaces:
-          from: Same
-    - name: https-yoyo
-      protocol: HTTPS
-      port: 443
-      hostname: "*.${SECRET_DOMAIN_YOYO}"
-      tls:
-        certificateRefs:
-          - kind: Secret
-            name: "${SECRET_DOMAIN/./-}-production-tls"
-            namespace: kube-system
-      allowedRoutes:
-        namespaces:
-          from: All
-    - name: http-bon
-      protocol: HTTP
-      port: 80
-      hostname: "*.${SECRET_DOMAIN_BON}"
-      allowedRoutes:
-        namespaces:
-          from: Same
-    - name: https-bon
-      protocol: HTTPS
-      port: 443
-      hostname: "*.${SECRET_DOMAIN_BON}"
+      # No hostname restriction - HTTPRoutes filter by hostname
+      # This prevents HTTP/2 connection coalescing from causing 404s
       tls:
         certificateRefs:
           - kind: Secret
@@ -160,132 +51,17 @@ spec:
   infrastructure:
     annotations:
       lbipam.cilium.io/ips: ${SVC_NGINX_INTERNAL}
+  # Consolidated listeners - same as external Gateway
   listeners:
     - name: http
       protocol: HTTP
       port: 80
-      hostname: "*.${SECRET_DOMAIN}"
       allowedRoutes:
         namespaces:
           from: Same
     - name: https
       protocol: HTTPS
       port: 443
-      hostname: "*.${SECRET_DOMAIN}"
-      tls:
-        certificateRefs:
-          - kind: Secret
-            name: "${SECRET_DOMAIN/./-}-production-tls"
-            namespace: kube-system
-      allowedRoutes:
-        namespaces:
-          from: All
-    - name: http-blog
-      protocol: HTTP
-      port: 80
-      hostname: "*.${SECRET_DOMAIN_BLOG}"
-      allowedRoutes:
-        namespaces:
-          from: Same
-    - name: https-blog
-      protocol: HTTPS
-      port: 443
-      hostname: "*.${SECRET_DOMAIN_BLOG}"
-      tls:
-        certificateRefs:
-          - kind: Secret
-            name: "${SECRET_DOMAIN/./-}-production-tls"
-            namespace: kube-system
-      allowedRoutes:
-        namespaces:
-          from: All
-    - name: http-blogcom
-      protocol: HTTP
-      port: 80
-      hostname: "*.${SECRET_DOMAIN_BLOGCOM}"
-      allowedRoutes:
-        namespaces:
-          from: Same
-    - name: https-blogcom
-      protocol: HTTPS
-      port: 443
-      hostname: "*.${SECRET_DOMAIN_BLOGCOM}"
-      tls:
-        certificateRefs:
-          - kind: Secret
-            name: "${SECRET_DOMAIN/./-}-production-tls"
-            namespace: kube-system
-      allowedRoutes:
-        namespaces:
-          from: All
-    - name: http-media
-      protocol: HTTP
-      port: 80
-      hostname: "*.${SECRET_DOMAIN_MEDIA}"
-      allowedRoutes:
-        namespaces:
-          from: Same
-    - name: https-media
-      protocol: HTTPS
-      port: 443
-      hostname: "*.${SECRET_DOMAIN_MEDIA}"
-      tls:
-        certificateRefs:
-          - kind: Secret
-            name: "${SECRET_DOMAIN/./-}-production-tls"
-            namespace: kube-system
-      allowedRoutes:
-        namespaces:
-          from: All
-    - name: http-lake
-      protocol: HTTP
-      port: 80
-      hostname: "*.${SECRET_DOMAIN_LAKE}"
-      allowedRoutes:
-        namespaces:
-          from: Same
-    - name: https-lake
-      protocol: HTTPS
-      port: 443
-      hostname: "*.${SECRET_DOMAIN_LAKE}"
-      tls:
-        certificateRefs:
-          - kind: Secret
-            name: "${SECRET_DOMAIN/./-}-production-tls"
-            namespace: kube-system
-      allowedRoutes:
-        namespaces:
-          from: All
-    - name: http-yoyo
-      protocol: HTTP
-      port: 80
-      hostname: "*.${SECRET_DOMAIN_YOYO}"
-      allowedRoutes:
-        namespaces:
-          from: Same
-    - name: https-yoyo
-      protocol: HTTPS
-      port: 443
-      hostname: "*.${SECRET_DOMAIN_YOYO}"
-      tls:
-        certificateRefs:
-          - kind: Secret
-            name: "${SECRET_DOMAIN/./-}-production-tls"
-            namespace: kube-system
-      allowedRoutes:
-        namespaces:
-          from: All
-    - name: http-bon
-      protocol: HTTP
-      port: 80
-      hostname: "*.${SECRET_DOMAIN_BON}"
-      allowedRoutes:
-        namespaces:
-          from: Same
-    - name: https-bon
-      protocol: HTTPS
-      port: 443
-      hostname: "*.${SECRET_DOMAIN_BON}"
       tls:
         certificateRefs:
           - kind: Secret

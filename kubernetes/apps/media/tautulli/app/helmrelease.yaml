@@ -63,11 +63,6 @@ spec:
           - "tautulli.${SECRET_DOMAIN_MEDIA}"
           - "tautulli.${SECRET_DOMAIN}"
         parentRefs:
-          # Media domain (funb.us) - internal only
-          - name: internal
-            namespace: network
-            sectionName: https-media
-          # Base domain (derekjacobs.dev) - internal only (for Gatus monitoring)
           - name: internal
             namespace: network
             sectionName: https

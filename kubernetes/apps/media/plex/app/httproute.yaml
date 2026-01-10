@@ -18,14 +18,6 @@ spec:
     - "plex.${SECRET_DOMAIN_MEDIA}"
     - "plex.${SECRET_DOMAIN}"
   parentRefs:
-    # Media domain (funb.us) - external and internal
-    - name: external
-      namespace: network
-      sectionName: https-media
-    - name: internal
-      namespace: network
-      sectionName: https-media
-    # Base domain (derekjacobs.dev) - external and internal
     - name: external
       namespace: network
       sectionName: https
