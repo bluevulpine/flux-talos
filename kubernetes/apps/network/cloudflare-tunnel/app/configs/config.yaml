@@ -7,79 +7,79 @@ ingress:
     originRequest:
       http2Origin: true
       originServerName: "external.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local:443
+    service: https://external.network.svc.cluster.local:443
 
   - hostname: "*.${SECRET_DOMAIN}"
     originRequest:
       http2Origin: true
       originServerName: "external.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local:443
+    service: https://external.network.svc.cluster.local:443
 
   - hostname: "${SECRET_DOMAIN_BLOG}"
     originRequest:
       http2Origin: true
       originServerName: "external.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local:443
+    service: https://external.network.svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN_BLOG}"
     originRequest:
       http2Origin: true
       originServerName: "external.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local:443
+    service: https://external.network.svc.cluster.local:443
 
   - hostname: "${SECRET_DOMAIN_BLOGCOM}"
     originRequest:
       http2Origin: true
       originServerName: "external.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local:443
+    service: https://external.network.svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN_BLOGCOM}"
     originRequest:
       http2Origin: true
       originServerName: "external.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local:443
+    service: https://external.network.svc.cluster.local:443
 
   - hostname: "${SECRET_DOMAIN_MEDIA}"
     originRequest:
       http2Origin: true
       originServerName: "external.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local:443
+    service: https://external.network.svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN_MEDIA}"
     originRequest:
       http2Origin: true
       originServerName: "external.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local:443
+    service: https://external.network.svc.cluster.local:443
 
   - hostname: "${SECRET_DOMAIN_LAKE}"
     originRequest:
       http2Origin: true
       originServerName: "external.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local:443
+    service: https://external.network.svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN_LAKE}"
     originRequest:
       http2Origin: true
       originServerName: "external.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local:443
+    service: https://external.network.svc.cluster.local:443
 
   - hostname: "${SECRET_DOMAIN_YOYO}"
     originRequest:
       http2Origin: true
       originServerName: "external.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local:443
+    service: https://external.network.svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN_YOYO}"
     originRequest:
       http2Origin: true
       originServerName: "external.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local:443
+    service: https://external.network.svc.cluster.local:443
 
   - hostname: "${SECRET_DOMAIN_BON}"
     originRequest:
       http2Origin: true
       originServerName: "external.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local:443
+    service: https://external.network.svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN_BON}"
     originRequest:
       http2Origin: true
       originServerName: "external.${SECRET_DOMAIN}"
-    service: https://cilium-gateway-external.kube-system.svc.cluster.local:443
+    service: https://external.network.svc.cluster.local:443
 
   - service: http_status:404
 
