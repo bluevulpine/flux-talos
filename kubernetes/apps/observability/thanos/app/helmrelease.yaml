@@ -111,3 +111,9 @@ spec:
       extraArgs: ["--index-cache.config=$(THANOS_CACHE_CONFIG)"]
       persistence: *persistence
       podAnnotations: *podAnnotations
+      resources:
+        requests:
+          cpu: 10m
+          memory: 256Mi
+        limits:
+          memory: 512Mi
