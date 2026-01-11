@@ -20,8 +20,9 @@ spec:
     storageClassName: "${VOLSYNC_STORAGECLASS:-truenas-nfs}"
     accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
     capacity: "${VOLSYNC_CAPACITY:-20Gi}"
+    # Run mover as root to avoid slow recursive chown on restored volumes
     moverSecurityContext:
-      runAsUser: ${VOLSYNC_RUN_AS_USER:-568}
-      runAsGroup: ${VOLSYNC_RUN_AS_GROUP:-568}
-      fsGroup: ${VOLSYNC_FS_GROUP:-568}
+      runAsUser: ${VOLSYNC_RUN_AS_USER:-0}
+      runAsGroup: ${VOLSYNC_RUN_AS_GROUP:-0}
+      fsGroup: ${VOLSYNC_FS_GROUP:-0}
 

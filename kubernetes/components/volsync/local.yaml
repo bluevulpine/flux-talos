@@ -47,11 +47,12 @@ spec:
     storageClassName: "${VOLSYNC_CLONE_STORAGECLASS:-truenas-nfs}"
     accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
     capacity: "${VOLSYNC_CAPACITY:-20Gi}"
+    # Run mover as root to avoid slow recursive chown on cloned volumes
+    # This bypasses VolumePermissionChangeInProgress delays (10+ min on large volumes)
     moverSecurityContext:
-      runAsUser: ${VOLSYNC_RUN_AS_USER:-568}
-      runAsGroup: ${VOLSYNC_RUN_AS_GROUP:-568}
-      fsGroup: ${VOLSYNC_FS_GROUP:-568}
-      fsGroupChangePolicy: OnRootMismatch
+      runAsUser: ${VOLSYNC_RUN_AS_USER:-0}
+      runAsGroup: ${VOLSYNC_RUN_AS_GROUP:-0}
+      fsGroup: ${VOLSYNC_FS_GROUP:-0}
     # Kopia retention policy - more aggressive for local backups
     retain:
       latest: 48 # every 15 minutes, ~12 hours
@@ -81,8 +82,8 @@ spec:
     storageClassName: "${VOLSYNC_STORAGECLASS:-truenas-nfs}"
     accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
     capacity: "${VOLSYNC_CAPACITY:-20Gi}"
+    # Run mover as root to avoid slow recursive chown on restored volumes
     moverSecurityContext:
-      runAsUser: ${VOLSYNC_RUN_AS_USER:-568}
-      runAsGroup: ${VOLSYNC_RUN_AS_GROUP:-568}
-      fsGroup: ${VOLSYNC_FS_GROUP:-568}
-      fsGroupChangePolicy: OnRootMismatch
+      runAsUser: ${VOLSYNC_RUN_AS_USER:-0}
+      runAsGroup: ${VOLSYNC_RUN_AS_GROUP:-0}
+      fsGroup: ${VOLSYNC_FS_GROUP:-0}
