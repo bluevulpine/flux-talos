@@ -29,6 +29,10 @@ spec:
     crds:
       enabled: true
     cleanPrometheusOperatorObjectNames: true
+    # Use EndpointSlice instead of deprecated Endpoints API (Kubernetes v1.33+)
+    prometheusOperator:
+      kubeletEndpointsEnabled: false
+      kubeletEndpointSliceEnabled: true
     # Disable rules that depend on metrics we're dropping for cardinality reduction
     defaultRules:
       rules:
@@ -88,6 +92,8 @@ spec:
       thanosServiceMonitor:
         enabled: true
       prometheusSpec:
+        # Use EndpointSlice for service discovery (Kubernetes v1.33+ deprecation)
+        serviceDiscoveryRole: EndpointSlice
         podMetadata:
           annotations:
             secret.reloader.stakater.com/reload: &secret thanos-objstore-config
