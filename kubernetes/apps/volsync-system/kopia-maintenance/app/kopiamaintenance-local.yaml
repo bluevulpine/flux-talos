@@ -10,10 +10,11 @@ spec:
     repository: kopia-maintenance-local-secret
     repositoryType: s3
 
-  # Run maintenance daily at 2:00 AM
-  # Stagger with R2 maintenance (which runs at 3:00 AM) to avoid resource contention
+  # Run maintenance every 4 hours to keep up with high backup frequency
+  # (~30 apps × every 30 min = ~1,440 index blobs/day)
+  # R2 maintenance stays daily since it only gets 1 backup/app/day
   trigger:
-    schedule: "0 2 * * *"
+    schedule: "0 */4 * * *"
 
   # Keep history of maintenance jobs for debugging
   successfulJobsHistoryLimit: 3
