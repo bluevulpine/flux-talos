@@ -52,6 +52,7 @@ spec:
       runAsUser: ${VOLSYNC_RUN_AS_USER:-0}
       runAsGroup: ${VOLSYNC_RUN_AS_GROUP:-0}
       fsGroup: ${VOLSYNC_FS_GROUP:-0}
+      fsGroupChangePolicy: OnRootMismatch
     # Kopia retention policy for cloud backup (less aggressive than local)
     retain:
       hourly: 6

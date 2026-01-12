@@ -53,6 +53,7 @@ spec:
     defaultPodOptions:
       securityContext:
         fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
     service:
       app:
         controller: flaresolverr

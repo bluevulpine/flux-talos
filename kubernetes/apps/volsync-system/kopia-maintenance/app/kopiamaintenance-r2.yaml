@@ -33,6 +33,7 @@ spec:
     runAsUser: 568
     runAsGroup: 568
     fsGroup: 568
+    fsGroupChangePolicy: OnRootMismatch
 
   # Maintenance job timeout (3 hours default)
   # R2 may need more time due to network operations
