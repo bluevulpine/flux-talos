@@ -1,0 +1,127 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app nextcloud
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: nextcloud
+  interval: 1h
+  values:
+    controllers:
+      nextcloud:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom: &envFrom
+              - secretRef:
+                  name: nextcloud-secret
+        containers:
+          app:
+            image:
+              repository: nextcloud
+              # renovate: datasource=docker depName=nextcloud
+              tag: 32.0.3-apache
+            env:
+              TZ: "${TIMEZONE}"
+              # Database configuration
+              POSTGRES_HOST:
+                valueFrom:
+                  secretKeyRef:
+                    name: nextcloud-secret
+                    key: POSTGRES_HOST
+              POSTGRES_DB:
+                valueFrom:
+                  secretKeyRef:
+                    name: nextcloud-secret
+                    key: POSTGRES_DB
+              POSTGRES_USER:
+                valueFrom:
+                  secretKeyRef:
+                    name: nextcloud-secret
+                    key: POSTGRES_USER
+              POSTGRES_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: nextcloud-secret
+                    key: POSTGRES_PASSWORD
+              # Redis configuration
+              REDIS_HOST: dragonfly.database.svc.cluster.local
+              # Admin credentials
+              NEXTCLOUD_ADMIN_USER:
+                valueFrom:
+                  secretKeyRef:
+                    name: nextcloud-secret
+                    key: NEXTCLOUD_ADMIN_USER
+              NEXTCLOUD_ADMIN_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: nextcloud-secret
+                    key: NEXTCLOUD_ADMIN_PASSWORD
+              # Domain configuration
+              NEXTCLOUD_TRUSTED_DOMAINS: nextcloud.${SECRET_DOMAIN}
+              OVERWRITEPROTOCOL: https
+              OVERWRITECLIURL: https://nextcloud.${SECRET_DOMAIN}
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /status.php
+                    port: &port 80
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 2Gi
+    # Nextcloud Apache image runs as root and drops to www-data internally
+    # Do not set runAsNonRoot or runAsUser - let the image handle it
+    defaultPodOptions:
+      securityContext:
+        fsGroup: 33
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: nextcloud
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - nextcloud.${SECRET_DOMAIN}
+    persistence:
+      config:
+        existingClaim: *app
+        globalMounts:
+          - path: /var/www/html
+      data:
+        type: nfs
+        server: ${SECRET_NFS_SERVER:=temp}
+        path: /mnt/apps/kubernetes/nextcloud
+        globalMounts:
+          - path: /var/www/html/data
+            readOnly: false
+

@@ -1,0 +1,93 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app mealie
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: mealie
+  interval: 1h
+  values:
+    controllers:
+      mealie:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom: &envFrom
+              - secretRef:
+                  name: mealie-secret
+        containers:
+          app:
+            image:
+              repository: ghcr.io/mealie-recipes/mealie
+              # renovate: datasource=docker depName=ghcr.io/mealie-recipes/mealie
+              tag: v3.9.2
+            env:
+              TZ: "${TIMEZONE}"
+              ALLOW_SIGNUP: "false"
+              DB_ENGINE: postgres
+              BASE_URL: https://mealie.${SECRET_DOMAIN}
+              # OIDC configuration
+              OIDC_AUTH_ENABLED: "true"
+              OIDC_CONFIGURATION_URL: https://auth.${SECRET_DOMAIN}/application/o/mealie/.well-known/openid-configuration
+              OIDC_AUTO_REDIRECT: "false"
+              OIDC_ADMIN_GROUP: "mealie-admins"
+              OIDC_USER_GROUP: "mealie-users"
+            envFrom: *envFrom
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/app/about
+                    port: &port 9000
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+                  timeoutSeconds: 30
+                  failureThreshold: 5
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: mealie
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - mealie.${SECRET_DOMAIN}
+    persistence:
+      data:
+        existingClaim: *app
+        globalMounts:
+          - path: /app/data
+

@@ -1,0 +1,86 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app grocy
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: grocy
+  interval: 1h
+  values:
+    controllers:
+      grocy:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: lscr.io/linuxserver/grocy
+              # renovate: datasource=docker depName=lscr.io/linuxserver/grocy
+              tag: v4.5.0-ls311
+            env:
+              TZ: "${TIMEZONE}"
+              PUID: "568"
+              PGID: "568"
+              GROCY_REVERSE_PROXY_AUTH_HEADER: Remote-User
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: &port 80
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probes
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: *port
+                  initialDelaySeconds: 10
+                  periodSeconds: 5
+                  timeoutSeconds: 3
+                  failureThreshold: 30
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+    # Note: linuxserver images run as root internally and use PUID/PGID
+    # for file ownership, so we don't set pod security context
+    service:
+      app:
+        controller: grocy
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        labels:
+          auth: authentik
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - grocy.${SECRET_DOMAIN}
+        rules:
+          - backendRefs:
+              - name: grocy
+                port: *port
+    persistence:
+      config:
+        existingClaim: *app
+        globalMounts:
+          - path: /config
+

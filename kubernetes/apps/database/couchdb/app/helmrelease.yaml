@@ -88,8 +88,20 @@ spec:
         existingClaim: *app
         globalMounts:
           - path: /opt/couchdb/data
+      # ConfigMap with non-sensitive LiveSync configuration
       config:
-        type: emptyDir
+        type: configMap
+        name: couchdb-config
         globalMounts:
-          - path: /opt/couchdb/etc/local.d
+          - path: /opt/couchdb/etc/local.d/10-livesync.ini
+            subPath: 10-livesync.ini
+            readOnly: true
+      # Secret with sensitive configuration (chttpd_auth secret)
+      config-secrets:
+        type: secret
+        name: couchdb-secret
+        globalMounts:
+          - path: /opt/couchdb/etc/local.d/20-secrets.ini
+            subPath: 20-secrets.ini
+            readOnly: true
 

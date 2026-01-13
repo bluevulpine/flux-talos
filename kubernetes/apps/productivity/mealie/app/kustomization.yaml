@@ -4,12 +4,9 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ./ocirepository.yaml
-  - ./helmrelease.yaml
-  - ./httproute.yaml
   - ./externalsecret.yaml
-  - ./configmap.yaml
+  - ./helmrelease.yaml
 components:
   - ../../../../components/volsync
-  - ../../../../components/externalsecret-refresh
-  - ../../../../components/gatus-external
+  - ../../../../components/gatus-guarded
 

@@ -8,7 +8,10 @@ components:
 resources:
   - ./namespace.yaml
   - ./atuin/ks.yaml
+  - ./grocy/ks.yaml
   - ./joplin-server/ks.yaml
   - ./karakeep/ks.yaml
+  - ./mealie/ks.yaml
+  - ./nextcloud/ks.yaml
   - ./obsidian/ks.yaml
 

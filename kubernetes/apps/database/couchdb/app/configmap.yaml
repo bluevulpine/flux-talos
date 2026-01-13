@@ -1,0 +1,48 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/v1/configmap.json
+# CouchDB configuration for Obsidian LiveSync
+# Ref: https://github.com/vrtmrz/obsidian-livesync/blob/main/docs/setup_own_server.md
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: couchdb-config
+data:
+  # LiveSync-compatible configuration
+  # Note: Sensitive values (admin password hash, chttpd_auth secret) are injected
+  # via the externalsecret and mounted separately
+  10-livesync.ini: |
+    [couchdb]
+    ; Single node mode - no clustering needed for Obsidian sync
+    single_node = true
+    ; 50MB max document size for large vaults
+    max_document_size = 50000000
+
+    [chttpd]
+    bind_address = 0.0.0.0
+    port = 5984
+    ; Require authentication for all endpoints except /_up health check
+    require_valid_user_except_for_up = true
+    ; Enable CORS for Obsidian clients
+    enable_cors = true
+    ; 4GB max HTTP request size for large attachments
+    max_http_request_size = 4294967296
+
+    [httpd]
+    ; Enable CORS
+    enable_cors = true
+    ; Enable Basic Auth prompt - required for Obsidian LiveSync
+    WWW-Authenticate = Basic realm="couchdb"
+
+    [cors]
+    ; Allow credentials in CORS requests
+    credentials = true
+    ; Origins allowed by Obsidian LiveSync
+    ; - app://obsidian.md: Desktop Obsidian app
+    ; - capacitor://localhost: Mobile Obsidian app (iOS/Android)
+    ; - http://localhost: Local development/testing
+    origins = app://obsidian.md, capacitor://localhost, http://localhost
+
+    [cluster]
+    ; Single node deployment
+    n = 1
+
