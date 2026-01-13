@@ -5,6 +5,4 @@ kind: Kustomization
 resources:
   - ./service.yaml
   - ./httproute.yaml
-components:
-  - ../../../../../components/gatus-guarded
 

@@ -8,5 +8,4 @@ resources:
   - ./externalsecret.yaml
 components:
   - ../../../../components/externalsecret-refresh
-  - ../../../../components/gatus-guarded
 

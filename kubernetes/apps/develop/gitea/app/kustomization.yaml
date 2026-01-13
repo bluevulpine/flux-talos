@@ -8,5 +8,4 @@ resources:
   - ./httproute.yaml
 components:
   - ../../../../components/volsync
-  - ../../../../components/gatus-guarded
 

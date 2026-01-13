@@ -9,5 +9,4 @@ resources:
   - ./pvc.yaml
 components:
   - ../../../../components/volsync
-  - ../../../../components/gatus-guarded
 

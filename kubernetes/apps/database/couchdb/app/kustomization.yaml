@@ -11,5 +11,4 @@ resources:
 components:
   - ../../../../components/volsync
   - ../../../../components/externalsecret-refresh
-  - ../../../../components/gatus-external
 

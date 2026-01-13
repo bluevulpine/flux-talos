@@ -4,9 +4,18 @@ kind: ClusterRole
 metadata:
   name: gatus
 rules:
+  # Core resources for gatus-sidecar
   - apiGroups: [""]
-    resources: ["configmaps", "secrets"]
-    verbs: ["get", "watch", "list"]
+    resources: ["services"]
+    verbs: ["get", "list", "watch"]
+  # Gateway API resources
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes", "gateways"]
+    verbs: ["get", "list", "watch"]
+  # Ingress resources
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "ingressclasses"]
+    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

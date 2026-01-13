@@ -10,5 +10,4 @@ resources:
   - ./referencegrant.yaml
 components:
   - ../../../../components/externalsecret-refresh
-  - ../../../../components/gatus-external
 

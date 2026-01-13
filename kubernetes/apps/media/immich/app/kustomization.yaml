@@ -9,5 +9,4 @@ resources:
 components:
   - ../../../../components/externalsecret-refresh
   # volsync removed - using NFS with NAS-level backups
-  - ../../../../components/gatus-guarded
 
