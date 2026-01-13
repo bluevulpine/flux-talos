@@ -66,6 +66,7 @@ spec:
           gatus-sidecar:
             image:
               repository: ghcr.io/home-operations/gatus-sidecar
+              # renovate: datasource=docker depName=ghcr.io/home-operations/gatus-sidecar
               tag: main-83dc94f@sha256:105df2ffe71e32bdd4a46624c9e347a4b9d61f118af741b2a67cb92231ae707d
             args:
               - --auto-httproute
