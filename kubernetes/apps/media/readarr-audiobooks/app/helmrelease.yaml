@@ -73,6 +73,15 @@ spec:
     service:
       app:
         controller: readarr-audiobooks
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Readarr Audiobooks"
+          gethomepage.dev/group: "Books"
+          gethomepage.dev/icon: "readarr.png"
+          gethomepage.dev/description: "Audiobooks"
+          gethomepage.dev/widget.type: "readarr"
+          gethomepage.dev/widget.url: "http://readarr-audiobooks.media.svc.cluster.local:8787"
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_READARR_AUDIOBOOKS_TOKEN}}`}}"
         ports:
           http:
             port: *port

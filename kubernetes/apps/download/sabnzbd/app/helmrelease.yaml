@@ -66,6 +66,15 @@ spec:
     service:
       app:
         controller: sabnzbd
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "SABnzbd"
+          gethomepage.dev/group: "Downloads"
+          gethomepage.dev/icon: "sabnzbd.png"
+          gethomepage.dev/description: "Usenet Downloader"
+          gethomepage.dev/widget.type: "sabnzbd"
+          gethomepage.dev/widget.url: "http://sabnzbd.download.svc.cluster.local:8080"
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_SABNZBD_TOKEN}}`}}"
         ports:
           http:
             port: *port

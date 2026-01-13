@@ -73,6 +73,15 @@ spec:
     service:
       app:
         controller: readarr-ebooks
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Readarr Ebooks"
+          gethomepage.dev/group: "Books"
+          gethomepage.dev/icon: "readarr.png"
+          gethomepage.dev/description: "Ebooks"
+          gethomepage.dev/widget.type: "readarr"
+          gethomepage.dev/widget.url: "http://readarr-ebooks.media.svc.cluster.local:8787"
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_READARR_EBOOKS_TOKEN}}`}}"
         ports:
           http:
             port: *port

@@ -103,6 +103,14 @@ spec:
         type: LoadBalancer
         annotations:
           lbipam.cilium.io/ips: ${SVC_PLEX_ADDR:=temp}
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Plex"
+          gethomepage.dev/group: "Video"
+          gethomepage.dev/icon: "plex.png"
+          gethomepage.dev/description: "Plex Media Server"
+          gethomepage.dev/widget.type: "plex"
+          gethomepage.dev/widget.url: "http://plex.media.svc.cluster.local:32400"
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_PLEX_TOKEN}}`}}"
         externalTrafficPolicy: Cluster
         ports:
           http:

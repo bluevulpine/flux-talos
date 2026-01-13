@@ -360,6 +360,17 @@ spec:
       - pr0ps-trackmap-panel
       - vonage-status-panel
       - victoriametrics-logs-datasource
+    service:
+      annotations:
+        gethomepage.dev/enabled: "true"
+        gethomepage.dev/name: "Grafana"
+        gethomepage.dev/group: "Observability"
+        gethomepage.dev/icon: "grafana.png"
+        gethomepage.dev/description: "Metrics Dashboard"
+        gethomepage.dev/widget.type: "grafana"
+        gethomepage.dev/widget.url: "http://grafana.observability.svc.cluster.local:80"
+        gethomepage.dev/widget.username: "{{`{{HOMEPAGE_VAR_GRAFANA_USERNAME}}`}}"
+        gethomepage.dev/widget.password: "{{`{{HOMEPAGE_VAR_GRAFANA_PASSWORD}}`}}"
     serviceMonitor:
       enabled: true
     ingress:

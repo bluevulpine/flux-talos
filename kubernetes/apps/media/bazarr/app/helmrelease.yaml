@@ -59,6 +59,15 @@ spec:
     service:
       app:
         controller: bazarr
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Bazarr"
+          gethomepage.dev/group: "Downloads"
+          gethomepage.dev/icon: "bazarr.png"
+          gethomepage.dev/description: "Subtitles"
+          gethomepage.dev/widget.type: "bazarr"
+          gethomepage.dev/widget.url: "http://bazarr.media.svc.cluster.local:6767"
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_BAZARR_TOKEN}}`}}"
         ports:
           http:
             port: *port

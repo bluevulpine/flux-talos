@@ -130,6 +130,16 @@ spec:
     service:
       app:
         controller: immich
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Immich"
+          gethomepage.dev/group: "Photos"
+          gethomepage.dev/icon: "immich.png"
+          gethomepage.dev/description: "Photo Management"
+          gethomepage.dev/widget.type: "immich"
+          gethomepage.dev/widget.url: "http://immich.media.svc.cluster.local:2283"
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_IMMICH_TOKEN}}`}}"
+          gethomepage.dev/widget.version: "2"
         ports:
           http:
             port: *port
