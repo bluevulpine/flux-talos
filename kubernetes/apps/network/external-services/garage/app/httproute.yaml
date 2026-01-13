@@ -9,6 +9,8 @@ metadata:
     gethomepage.dev/group: Infrastructure
     gethomepage.dev/name: Garage
     gethomepage.dev/icon: https://garagehq.deuxfleurs.fr/images/garage-logo.svg
+    gatus.home-operations.com/endpoint: |
+      group: network
 spec:
   hostnames: ["garage.${SECRET_DOMAIN}"]
   parentRefs:
@@ -29,6 +31,7 @@ metadata:
   annotations:
     # S3 API returns 403 Forbidden on root path without credentials - that's expected
     gatus.home-operations.com/endpoint: |
+      group: network
       conditions:
         - "[STATUS] == 403"
 spec:

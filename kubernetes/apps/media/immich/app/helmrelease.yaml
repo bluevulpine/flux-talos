@@ -147,6 +147,9 @@ spec:
             port: 3003
     route:
       app:
+        annotations:
+          gatus.home-operations.com/endpoint: |
+            group: media
         parentRefs:
           - name: internal
             namespace: network

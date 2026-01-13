@@ -5,6 +5,8 @@ kind: HTTPRoute
 metadata:
   name: nexus
   annotations:
+    gatus.home-operations.com/endpoint: |
+      group: develop
     gethomepage.dev/enabled: "true"
     gethomepage.dev/group: Development
     gethomepage.dev/name: Nexus Repository

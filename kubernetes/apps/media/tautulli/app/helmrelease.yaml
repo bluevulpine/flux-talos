@@ -68,6 +68,9 @@ spec:
             port: *port
     route:
       app:
+        annotations:
+          gatus.home-operations.com/endpoint: |
+            group: media
         hostnames:
           - "tautulli.${SECRET_DOMAIN_MEDIA}"
           - "tautulli.${SECRET_DOMAIN}"

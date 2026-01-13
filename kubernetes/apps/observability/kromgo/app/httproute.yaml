@@ -7,6 +7,7 @@ metadata:
   annotations:
     # Kromgo returns 404 on root path - need to check a valid endpoint
     gatus.home-operations.com/endpoint: |
+      group: observability
       conditions:
         - "[STATUS] == 404"
 spec:

@@ -31,6 +31,29 @@ spec:
             envFrom: &envFrom
               - secretRef:
                   name: gatus-secret
+          # Native sidecar pattern (K8s 1.28+) - runs as initContainer with restartPolicy: Always
+          gatus-sidecar:
+            dependsOn: init-db
+            image:
+              repository: ghcr.io/home-operations/gatus-sidecar
+              # renovate: datasource=docker depName=ghcr.io/home-operations/gatus-sidecar
+              tag: main-83dc94f@sha256:105df2ffe71e32bdd4a46624c9e347a4b9d61f118af741b2a67cb92231ae707d
+            args:
+              - --auto-httproute
+              - --enable-httproute
+              - --auto-ingress
+              - --enable-ingress
+              - --enable-service
+            restartPolicy: Always
+            securityContext: &securityContext
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+              limits:
+                memory: 64Mi
         containers:
           app:
             image:
@@ -38,6 +61,7 @@ spec:
               tag: v5.34.0@sha256:3fff895e77d35ee62e898860f4613755bc2344127d93e3f326429d40270e2115
             env:
               TZ: "${TIMEZONE}"
+              GATUS_DELAY_START_SECONDS: 5
               GATUS_CONFIG_PATH: /config
               CUSTOM_WEB_PORT: &port 80
             envFrom: *envFrom
@@ -54,29 +78,10 @@ spec:
                   timeoutSeconds: 1
                   failureThreshold: 3
               readiness: *probes
-            securityContext: &securityContext
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
-            resources: &resources
-              requests:
-                cpu: 10m
-              limits:
-                memory: 128Mi
-          gatus-sidecar:
-            image:
-              repository: ghcr.io/home-operations/gatus-sidecar
-              # renovate: datasource=docker depName=ghcr.io/home-operations/gatus-sidecar
-              tag: main-83dc94f@sha256:105df2ffe71e32bdd4a46624c9e347a4b9d61f118af741b2a67cb92231ae707d
-            args:
-              - --auto-httproute
-              - --auto-ingress
-              - --output=/config/gatus-sidecar.yaml
             securityContext: *securityContext
             resources:
               requests:
                 cpu: 10m
-                memory: 64Mi
               limits:
                 memory: 128Mi
         pod:

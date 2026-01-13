@@ -7,6 +7,7 @@ metadata:
   annotations:
     # Webhook returns 404 when accessed without proper payload - that's expected
     gatus.home-operations.com/endpoint: |
+      group: infrastructure
       conditions:
         - "[STATUS] == 404"
 spec:

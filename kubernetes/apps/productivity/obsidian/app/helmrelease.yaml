@@ -67,6 +67,9 @@ spec:
             port: 3001
     route:
       app:
+        annotations:
+          gatus.home-operations.com/endpoint: |
+            group: productivity
         parentRefs:
           - name: internal
             namespace: network

@@ -79,6 +79,9 @@ spec:
             port: *port
     route:
       app:
+        annotations:
+          gatus.home-operations.com/endpoint: |
+            group: productivity
         parentRefs:
           - name: internal
             namespace: network

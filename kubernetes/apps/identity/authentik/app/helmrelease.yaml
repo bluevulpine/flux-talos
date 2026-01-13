@@ -104,6 +104,9 @@ spec:
         main:
           enabled: true
           kind: HTTPRoute
+          annotations:
+            gatus.home-operations.com/endpoint: |
+              group: identity
           parentRefs:
             - name: internal
               namespace: network

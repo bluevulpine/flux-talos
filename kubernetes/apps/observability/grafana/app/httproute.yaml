@@ -5,6 +5,8 @@ kind: HTTPRoute
 metadata:
   name: grafana
   annotations:
+    gatus.home-operations.com/endpoint: |
+      group: observability
     gethomepage.dev/enabled: "true"
     gethomepage.dev/icon: grafana.png
     gethomepage.dev/name: Grafana

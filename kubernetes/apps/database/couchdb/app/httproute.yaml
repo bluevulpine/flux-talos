@@ -7,6 +7,7 @@ metadata:
   annotations:
     # CouchDB returns 401 on root path when require_valid_user is enabled
     gatus.home-operations.com/endpoint: |
+      group: database
       conditions:
         - "[STATUS] == 401"
 spec:

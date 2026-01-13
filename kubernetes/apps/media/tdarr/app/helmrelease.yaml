@@ -83,6 +83,9 @@ spec:
             port: *serverPort
     route:
       app:
+        annotations:
+          gatus.home-operations.com/endpoint: |
+            group: media
         labels:
           auth: authentik
         parentRefs:

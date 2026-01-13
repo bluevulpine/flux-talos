@@ -5,6 +5,8 @@ kind: HTTPRoute
 metadata:
   name: prometheus
   annotations:
+    gatus.home-operations.com/endpoint: |
+      group: observability
     gethomepage.dev/enabled: "true"
     gethomepage.dev/icon: prometheus.png
     gethomepage.dev/name: Prometheus
@@ -26,6 +28,8 @@ kind: HTTPRoute
 metadata:
   name: alertmanager
   annotations:
+    gatus.home-operations.com/endpoint: |
+      group: observability
     gethomepage.dev/enabled: "true"
     gethomepage.dev/icon: alertmanager.png
     gethomepage.dev/name: Alert-Manager
