@@ -27,6 +27,9 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: nexus-docker
+  annotations:
+    # Docker registry proxies - disable individual monitoring, main nexus route covers it
+    gatus.home-operations.com/enabled: "false"
 spec:
   hostnames: ["docker.nexus.${SECRET_DOMAIN}"]
   parentRefs:
@@ -44,6 +47,8 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: nexus-docker-hub
+  annotations:
+    gatus.home-operations.com/enabled: "false"
 spec:
   hostnames: ["docker-hub.nexus.${SECRET_DOMAIN}"]
   parentRefs:
@@ -61,6 +66,8 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: nexus-ghcr
+  annotations:
+    gatus.home-operations.com/enabled: "false"
 spec:
   hostnames: ["ghcr.nexus.${SECRET_DOMAIN}"]
   parentRefs:
@@ -78,6 +85,8 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: nexus-quay
+  annotations:
+    gatus.home-operations.com/enabled: "false"
 spec:
   hostnames: ["quay.nexus.${SECRET_DOMAIN}"]
   parentRefs:
@@ -95,6 +104,8 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: nexus-lscr
+  annotations:
+    gatus.home-operations.com/enabled: "false"
 spec:
   hostnames: ["lscr.nexus.${SECRET_DOMAIN}"]
   parentRefs:
@@ -112,6 +123,8 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: nexus-gcr
+  annotations:
+    gatus.home-operations.com/enabled: "false"
 spec:
   hostnames: ["gcr.nexus.${SECRET_DOMAIN}"]
   parentRefs:
@@ -129,6 +142,8 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: nexus-ecr
+  annotations:
+    gatus.home-operations.com/enabled: "false"
 spec:
   hostnames: ["ecr.nexus.${SECRET_DOMAIN}"]
   parentRefs:
@@ -146,6 +161,8 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: nexus-cgr
+  annotations:
+    gatus.home-operations.com/enabled: "false"
 spec:
   hostnames: ["cgr.nexus.${SECRET_DOMAIN}"]
   parentRefs:

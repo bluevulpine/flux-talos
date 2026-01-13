@@ -115,6 +115,9 @@ spec:
         className: tailscale
         annotations:
           tailscale.com/funnel: "true"
+          # Override URL - gatus-sidecar uses short hostname which isn't resolvable
+          gatus.home-operations.com/endpoint: |
+            url: https://echo-server-tailscale.flyingfox-decibel.ts.net
         hosts:
           - host: &hostTailscale "{{ .Release.Name }}-tailscale"
             paths:

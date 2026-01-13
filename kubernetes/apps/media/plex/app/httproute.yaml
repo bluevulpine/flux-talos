@@ -12,7 +12,10 @@ metadata:
     gethomepage.dev/widget.type: plex
     gethomepage.dev/widget.url: http://plex.media.svc.cluster.local:32400
     gethomepage.dev/widget.key: "{{ `{{HOMEPAGE_VAR_PLEX_TOKEN}}` }}"
-
+    # Plex returns 401 on root path without auth token - that's expected
+    gatus.home-operations.com/endpoint: |
+      conditions:
+        - "[STATUS] == 401"
 spec:
   hostnames:
     - "plex.${SECRET_DOMAIN_MEDIA}"

@@ -10,6 +10,10 @@ metadata:
     gethomepage.dev/name: Drone CI
     gethomepage.dev/icon: drone.png
     gethomepage.dev/description: Continuous Integration
+    # Drone returns 303 redirect on root path - that's expected
+    gatus.home-operations.com/endpoint: |
+      conditions:
+        - "[STATUS] == 303"
 spec:
   hostnames: ["drone.${SECRET_DOMAIN}"]
   parentRefs:
@@ -19,6 +23,6 @@ spec:
       sectionName: https
   rules:
     - backendRefs:
-        - name: drone-server
+        - name: drone
           port: 80
 
