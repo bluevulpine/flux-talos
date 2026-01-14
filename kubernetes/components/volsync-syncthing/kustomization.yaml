@@ -2,9 +2,28 @@
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
-# Note: The ExternalSecret for Syncthing peer config must be created in a separate
-# Kustomization that runs first, so the secret is available for substituteFrom.
-# See valheim/syncthing-secret/ for an example.
+# VolSync Syncthing ReplicationSource Component
+#
+# PREREQUISITES:
+# 1. Create an ExternalSecret in a SEPARATE Kustomization that runs first:
+#    - Name: ${APP}-volsync-syncthing-secret
+#    - Keys: SYNCTHING_REMOTE_DEVICE_ID, SYNCTHING_REMOTE_ADDRESS, SYNCTHING_REMOTE_PORT
+#    - See valheim/syncthing-secret/ for an example
+#
+# 2. The main app Kustomization must:
+#    - dependsOn the secret's Kustomization
+#    - Include cluster-settings, cluster-secrets, AND the syncthing secret in substituteFrom
+#
+# REQUIRED VARIABLES (via Flux postBuild.substituteFrom):
+# - SYNCTHING_REMOTE_DEVICE_ID: Remote peer's Syncthing device ID
+# - SYNCTHING_REMOTE_ADDRESS: Remote peer's address (IP or hostname)
+# - SYNCTHING_REMOTE_PORT: Remote peer's port (default: 22000)
+#
+# OPTIONAL VARIABLES:
+# - SYNCTHING_SERVICE_TYPE: ClusterIP or LoadBalancer (default: ClusterIP)
+# - SYNCTHING_CONFIG_CAPACITY: Config PVC size (default: 1Gi)
+# - SYNCTHING_CONFIG_STORAGECLASS: Storage class for config (default: VOLSYNC_STORAGECLASS)
+# - SYNCTHING_REMOTE_INTRODUCER: Whether peer is an introducer (default: false)
 resources:
   - ./replicationsource.yaml
 
