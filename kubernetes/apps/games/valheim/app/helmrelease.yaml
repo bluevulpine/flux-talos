@@ -124,5 +124,8 @@ spec:
         existingClaim: "${APP}"
         globalMounts:
           - path: /home/steam/.config/unity3d/IronGate/Valheim
+          # BepInEx mod configurations - backed up via VolSync + synced via Syncthing
+          - path: /home/steam/valheim/BepInEx/config
+            subPath: bepinex-config
 
 
