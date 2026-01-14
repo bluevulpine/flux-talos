@@ -2,7 +2,9 @@
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
+# Note: The ExternalSecret for Syncthing peer config must be created in a separate
+# Kustomization that runs first, so the secret is available for substituteFrom.
+# See valheim/syncthing-secret/ for an example.
 resources:
-  - ./externalsecret.yaml
   - ./replicationsource.yaml
 
