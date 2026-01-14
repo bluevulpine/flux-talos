@@ -70,6 +70,11 @@ spec:
         annotations:
           gatus.home-operations.com/endpoint: |
             group: productivity
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Obsidian LiveSync"
+          gethomepage.dev/group: "Productivity"
+          gethomepage.dev/icon: "obsidian.png"
+          gethomepage.dev/description: "Notes Sync"
         parentRefs:
           - name: internal
             namespace: network

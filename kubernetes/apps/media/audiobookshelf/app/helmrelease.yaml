@@ -67,6 +67,14 @@ spec:
         annotations:
           gatus.home-operations.com/endpoint: |
             group: media
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Audiobookshelf"
+          gethomepage.dev/group: "Books"
+          gethomepage.dev/icon: "audiobookshelf.png"
+          gethomepage.dev/description: "Audiobooks & Podcasts"
+          gethomepage.dev/widget.type: "audiobookshelf"
+          gethomepage.dev/widget.url: "http://audiobookshelf.media.svc.cluster.local:80"
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_AUDIOBOOKSHELF_TOKEN}}`}}"
         parentRefs:
           - name: internal
             namespace: network

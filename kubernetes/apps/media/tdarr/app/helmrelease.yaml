@@ -86,6 +86,13 @@ spec:
         annotations:
           gatus.home-operations.com/endpoint: |
             group: media
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Tdarr"
+          gethomepage.dev/group: "Media"
+          gethomepage.dev/icon: "tdarr.png"
+          gethomepage.dev/description: "Transcode Automation"
+          gethomepage.dev/widget.type: "tdarr"
+          gethomepage.dev/widget.url: "http://tdarr.media.svc.cluster.local:8265"
         labels:
           auth: authentik
         parentRefs:

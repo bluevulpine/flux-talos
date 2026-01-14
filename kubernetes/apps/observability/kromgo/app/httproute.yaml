@@ -10,6 +10,11 @@ metadata:
       group: observability
       conditions:
         - "[STATUS] == 404"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Kromgo"
+    gethomepage.dev/group: "Observability"
+    gethomepage.dev/icon: "kromgo.png"
+    gethomepage.dev/description: "Prometheus Metrics Badges"
 spec:
   hostnames: ["kromgo.${SECRET_DOMAIN}"]
   parentRefs:

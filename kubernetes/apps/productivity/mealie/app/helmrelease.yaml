@@ -82,6 +82,14 @@ spec:
         annotations:
           gatus.home-operations.com/endpoint: |
             group: productivity
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Mealie"
+          gethomepage.dev/group: "Productivity"
+          gethomepage.dev/icon: "mealie.png"
+          gethomepage.dev/description: "Recipe Manager"
+          gethomepage.dev/widget.type: "mealie"
+          gethomepage.dev/widget.url: "http://mealie.productivity.svc.cluster.local:9000"
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_MEALIE_TOKEN}}`}}"
         parentRefs:
           - name: internal
             namespace: network

@@ -109,6 +109,15 @@ spec:
         annotations:
           gatus.home-operations.com/endpoint: |
             group: productivity
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Nextcloud"
+          gethomepage.dev/group: "Productivity"
+          gethomepage.dev/icon: "nextcloud.png"
+          gethomepage.dev/description: "File Sync & Collaboration"
+          gethomepage.dev/widget.type: "nextcloud"
+          gethomepage.dev/widget.url: "http://nextcloud.productivity.svc.cluster.local:80"
+          gethomepage.dev/widget.username: "{{`{{HOMEPAGE_VAR_NEXTCLOUD_USERNAME}}`}}"
+          gethomepage.dev/widget.password: "{{`{{HOMEPAGE_VAR_NEXTCLOUD_PASSWORD}}`}}"
         parentRefs:
           - name: internal
             namespace: network

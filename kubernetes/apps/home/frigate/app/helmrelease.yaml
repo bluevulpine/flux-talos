@@ -105,6 +105,13 @@ spec:
         annotations:
           gatus.home-operations.com/endpoint: |
             group: home
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Frigate"
+          gethomepage.dev/group: "Home"
+          gethomepage.dev/icon: "frigate.png"
+          gethomepage.dev/description: "NVR & Object Detection"
+          gethomepage.dev/widget.type: "frigate"
+          gethomepage.dev/widget.url: "http://frigate.home.svc.cluster.local:5000"
         labels:
           auth: authentik
         parentRefs:

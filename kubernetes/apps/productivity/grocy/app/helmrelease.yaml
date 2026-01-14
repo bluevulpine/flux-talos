@@ -69,6 +69,14 @@ spec:
         annotations:
           gatus.home-operations.com/endpoint: |
             group: productivity
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Grocy"
+          gethomepage.dev/group: "Productivity"
+          gethomepage.dev/icon: "grocy.png"
+          gethomepage.dev/description: "Household Management"
+          gethomepage.dev/widget.type: "grocy"
+          gethomepage.dev/widget.url: "http://grocy.productivity.svc.cluster.local:80"
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_GROCY_TOKEN}}`}}"
         labels:
           auth: authentik
         parentRefs:

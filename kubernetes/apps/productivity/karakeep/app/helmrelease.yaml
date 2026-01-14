@@ -151,6 +151,11 @@ spec:
         annotations:
           gatus.home-operations.com/endpoint: |
             group: productivity
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Karakeep"
+          gethomepage.dev/group: "Productivity"
+          gethomepage.dev/icon: "karakeep.png"
+          gethomepage.dev/description: "Bookmark Manager"
         parentRefs:
           - name: internal
             namespace: network

@@ -7,6 +7,11 @@ metadata:
   annotations:
     gatus.home-operations.com/endpoint: |
       group: productivity
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Joplin Server"
+    gethomepage.dev/group: "Productivity"
+    gethomepage.dev/icon: "joplin.png"
+    gethomepage.dev/description: "Notes Sync Server"
 spec:
   hostnames: ["joplin.${SECRET_DOMAIN}"]
   parentRefs:

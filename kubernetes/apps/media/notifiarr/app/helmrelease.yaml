@@ -63,6 +63,11 @@ spec:
         annotations:
           gatus.home-operations.com/endpoint: |
             group: media
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Notifiarr"
+          gethomepage.dev/group: "Media"
+          gethomepage.dev/icon: "notifiarr.png"
+          gethomepage.dev/description: "Notifications"
         labels:
           auth: authentik
         parentRefs:

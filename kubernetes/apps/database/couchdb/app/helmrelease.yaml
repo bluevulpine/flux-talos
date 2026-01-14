@@ -83,6 +83,20 @@ spec:
         ports:
           http:
             port: *port
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "CouchDB"
+          gethomepage.dev/group: "Database"
+          gethomepage.dev/icon: "couchdb.png"
+          gethomepage.dev/description: "Document Database"
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - couchdb.${SECRET_DOMAIN}
     persistence:
       data:
         existingClaim: *app
