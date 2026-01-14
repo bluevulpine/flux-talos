@@ -104,16 +104,6 @@ spec:
     service:
       app:
         controller: qbittorrent
-        annotations:
-          gethomepage.dev/enabled: "true"
-          gethomepage.dev/name: "qBittorrent"
-          gethomepage.dev/group: "Downloads"
-          gethomepage.dev/icon: "qbittorrent.png"
-          gethomepage.dev/description: "Torrent Client"
-          gethomepage.dev/widget.type: "qbittorrent"
-          gethomepage.dev/widget.url: "http://qbittorrent-app.download.svc.cluster.local:8080"
-          gethomepage.dev/widget.username: "{{`{{HOMEPAGE_VAR_QBITTORRENT_USERNAME}}`}}"
-          gethomepage.dev/widget.password: "{{`{{HOMEPAGE_VAR_QBITTORRENT_PASSWORD}}`}}"
         ports:
           http:
             port: *port
@@ -134,6 +124,15 @@ spec:
         annotations:
           gatus.home-operations.com/endpoint: |
             group: download
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "qBittorrent"
+          gethomepage.dev/group: "Downloads"
+          gethomepage.dev/icon: "qbittorrent.png"
+          gethomepage.dev/description: "Torrent Client"
+          gethomepage.dev/widget.type: "qbittorrent"
+          gethomepage.dev/widget.url: "http://qbittorrent-app.download.svc.cluster.local:8080"
+          gethomepage.dev/widget.username: "{{`{{HOMEPAGE_VAR_QBITTORRENT_USERNAME}}`}}"
+          gethomepage.dev/widget.password: "{{`{{HOMEPAGE_VAR_QBITTORRENT_PASSWORD}}`}}"
         labels:
           auth: authentik
         parentRefs:

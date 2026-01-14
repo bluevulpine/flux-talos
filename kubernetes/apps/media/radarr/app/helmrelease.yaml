@@ -73,15 +73,6 @@ spec:
     service:
       app:
         controller: radarr
-        annotations:
-          gethomepage.dev/enabled: "true"
-          gethomepage.dev/name: "Radarr"
-          gethomepage.dev/group: "Downloads"
-          gethomepage.dev/icon: "radarr.png"
-          gethomepage.dev/description: "Movies"
-          gethomepage.dev/widget.type: "radarr"
-          gethomepage.dev/widget.url: "http://radarr.media.svc.cluster.local:7878"
-          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_RADARR_TOKEN}}`}}"
         ports:
           http:
             port: *port
@@ -90,6 +81,14 @@ spec:
         annotations:
           gatus.home-operations.com/endpoint: |
             group: media
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Radarr"
+          gethomepage.dev/group: "Downloads"
+          gethomepage.dev/icon: "radarr.png"
+          gethomepage.dev/description: "Movies"
+          gethomepage.dev/widget.type: "radarr"
+          gethomepage.dev/widget.url: "http://radarr.media.svc.cluster.local:7878"
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_RADARR_TOKEN}}`}}"
         labels:
           auth: authentik
         parentRefs:

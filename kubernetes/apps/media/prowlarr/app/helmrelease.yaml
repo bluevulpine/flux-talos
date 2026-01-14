@@ -73,15 +73,6 @@ spec:
     service:
       app:
         controller: prowlarr
-        annotations:
-          gethomepage.dev/enabled: "true"
-          gethomepage.dev/name: "Prowlarr"
-          gethomepage.dev/group: "Downloads"
-          gethomepage.dev/icon: "prowlarr.png"
-          gethomepage.dev/description: "Indexer Manager"
-          gethomepage.dev/widget.type: "prowlarr"
-          gethomepage.dev/widget.url: "http://prowlarr.media.svc.cluster.local:9696"
-          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_PROWLARR_TOKEN}}`}}"
         ports:
           http:
             port: *port
@@ -90,6 +81,14 @@ spec:
         annotations:
           gatus.home-operations.com/endpoint: |
             group: media
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Prowlarr"
+          gethomepage.dev/group: "Downloads"
+          gethomepage.dev/icon: "prowlarr.png"
+          gethomepage.dev/description: "Indexer Manager"
+          gethomepage.dev/widget.type: "prowlarr"
+          gethomepage.dev/widget.url: "http://prowlarr.media.svc.cluster.local:9696"
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_PROWLARR_TOKEN}}`}}"
         labels:
           auth: authentik
         parentRefs:

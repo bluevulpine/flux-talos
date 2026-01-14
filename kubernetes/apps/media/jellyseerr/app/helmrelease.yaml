@@ -58,15 +58,6 @@ spec:
     service:
       app:
         controller: jellyseerr
-        annotations:
-          gethomepage.dev/enabled: "true"
-          gethomepage.dev/name: "Jellyseerr"
-          gethomepage.dev/group: "Video"
-          gethomepage.dev/icon: "jellyseerr.png"
-          gethomepage.dev/description: "Media Requests"
-          gethomepage.dev/widget.type: "jellyseerr"
-          gethomepage.dev/widget.url: "http://jellyseerr.media.svc.cluster.local:5055"
-          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_JELLYSEERR_TOKEN}}`}}"
         ports:
           http:
             port: *port
@@ -75,6 +66,14 @@ spec:
         annotations:
           gatus.home-operations.com/endpoint: |
             group: media
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Jellyseerr"
+          gethomepage.dev/group: "Video"
+          gethomepage.dev/icon: "jellyseerr.png"
+          gethomepage.dev/description: "Media Requests"
+          gethomepage.dev/widget.type: "jellyseerr"
+          gethomepage.dev/widget.url: "http://jellyseerr.media.svc.cluster.local:5055"
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_JELLYSEERR_TOKEN}}`}}"
         parentRefs:
           - name: internal
             namespace: network

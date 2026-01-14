@@ -54,15 +54,6 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
     service:
       app:
-        annotations:
-          gethomepage.dev/enabled: "true"
-          gethomepage.dev/name: "Tautulli"
-          gethomepage.dev/group: "Video"
-          gethomepage.dev/icon: "tautulli.png"
-          gethomepage.dev/description: "Plex Monitoring"
-          gethomepage.dev/widget.type: "tautulli"
-          gethomepage.dev/widget.url: "http://tautulli.media.svc.cluster.local:80"
-          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_TAUTULLI_TOKEN}}`}}"
         ports:
           http:
             port: *port
@@ -71,6 +62,14 @@ spec:
         annotations:
           gatus.home-operations.com/endpoint: |
             group: media
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Tautulli"
+          gethomepage.dev/group: "Video"
+          gethomepage.dev/icon: "tautulli.png"
+          gethomepage.dev/description: "Plex Monitoring"
+          gethomepage.dev/widget.type: "tautulli"
+          gethomepage.dev/widget.url: "http://tautulli.media.svc.cluster.local:80"
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_TAUTULLI_TOKEN}}`}}"
         hostnames:
           - "tautulli.${SECRET_DOMAIN_MEDIA}"
           - "tautulli.${SECRET_DOMAIN}"

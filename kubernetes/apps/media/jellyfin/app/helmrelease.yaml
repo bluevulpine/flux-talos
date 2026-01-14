@@ -62,6 +62,14 @@ spec:
         type: LoadBalancer
         annotations:
           io.cilium/lb-ipam-ips: ${SVC_JELLYFIN_ADDR}
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        annotations:
+          gatus.home-operations.com/endpoint: |
+            group: media
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: "Jellyfin"
           gethomepage.dev/group: "Video"
@@ -72,14 +80,6 @@ spec:
           gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_JELLYFIN_TOKEN}}`}}"
           gethomepage.dev/widget.enableBlocks: "true"
           gethomepage.dev/widget.enableNowPlaying: "true"
-        ports:
-          http:
-            port: *port
-    route:
-      app:
-        annotations:
-          gatus.home-operations.com/endpoint: |
-            group: media
         parentRefs:
           - name: internal
             namespace: network
