@@ -56,6 +56,9 @@ spec:
             target:
               group: kustomize.toolkit.fluxcd.io
               kind: Kustomization
+              # Exclude Kustomizations that define their own substituteFrom
+              # (e.g., those needing app-specific secrets for syncthing)
+              labelSelector: substitution.flux.home.arpa/disabled!=true
           - # Add HelmRelease defaults to all Kustomizations
             patch: |-
               apiVersion: kustomize.toolkit.fluxcd.io/v1

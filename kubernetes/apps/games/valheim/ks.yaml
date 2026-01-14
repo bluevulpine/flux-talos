@@ -4,6 +4,9 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: valheim-syncthing-secret
+  labels:
+    # Exclude from global substituteFrom patch - this kustomization creates the secret
+    substitution.flux.home.arpa/disabled: "true"
 spec:
   commonMetadata:
     labels:
@@ -28,6 +31,9 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: &app valheim
+  labels:
+    # Exclude from global substituteFrom patch - we define our own with syncthing secret
+    substitution.flux.home.arpa/disabled: "true"
 spec:
   commonMetadata:
     labels:
@@ -47,6 +53,11 @@ spec:
   interval: 30m
   retryInterval: 1m
   timeout: 5m
+  # Decryption must be specified since we're excluded from global patch
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
   postBuild:
     substitute:
       APP: *app
