@@ -28,7 +28,7 @@ data:
   docker.yaml: ""
   kubernetes.yaml: |
     mode: cluster
-    discoverServices: true
+    gateway: true
   # In-cluster services are auto-discovered via gethomepage.dev annotations
   # Only external services (not running in the cluster) are defined here
   services.yaml: |
