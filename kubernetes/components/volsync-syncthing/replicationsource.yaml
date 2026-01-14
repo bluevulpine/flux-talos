@@ -19,7 +19,7 @@ spec:
     # Stores Syncthing's database, keys, and configuration
     configCapacity: "${SYNCTHING_CONFIG_CAPACITY:-1Gi}"
     configStorageClassName: "${SYNCTHING_CONFIG_STORAGECLASS:-${VOLSYNC_STORAGECLASS}}"
-    configVolumeAccessModes:
+    configAccessModes:
       - "${SYNCTHING_CONFIG_ACCESSMODES:-ReadWriteOnce}"
 
     # Remote peer configuration
