@@ -36,7 +36,7 @@ spec:
               BASE_URL: https://mealie.${SECRET_DOMAIN}
               # OIDC configuration
               OIDC_AUTH_ENABLED: "true"
-              OIDC_CONFIGURATION_URL: https://auth.${SECRET_DOMAIN}/application/o/mealie/.well-known/openid-configuration
+              OIDC_CONFIGURATION_URL: https://sso.${SECRET_DOMAIN}/application/o/mealie/.well-known/openid-configuration
               OIDC_AUTO_REDIRECT: "false"
               OIDC_ADMIN_GROUP: "mealie-admins"
               OIDC_USER_GROUP: "mealie-users"
