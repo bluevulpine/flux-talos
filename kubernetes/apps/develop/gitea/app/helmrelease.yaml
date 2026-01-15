@@ -33,6 +33,8 @@ spec:
 
     ## Deployment configuration
     replicaCount: 1
+    strategy:
+      type: Recreate
 
     ## Service configuration
     service:
@@ -92,8 +94,8 @@ spec:
         - name: "Authentik"
           provider: "openidConnect"
           existingSecret: gitea-oauth-secret
-          autoDiscoverUrl: "https://authentik.${SECRET_DOMAIN}/application/o/gitea/.well-known/openid-configuration"
-          iconUrl: "https://authentik.${SECRET_DOMAIN}/static/dist/assets/icons/icon.png"
+          autoDiscoverUrl: "https://sso.${SECRET_DOMAIN}/application/o/gitea/.well-known/openid-configuration"
+          iconUrl: "https://sso.${SECRET_DOMAIN}/static/dist/assets/icons/icon.png"
           scopes: "openid email profile"
 
       ## Gitea app.ini configuration

@@ -34,7 +34,9 @@ spec:
   trigger:
     schedule: "0 0 * * *"
   kopia:
-    copyMethod: "${VOLSYNC_COPYMETHOD:-Snapshot}"
+    # Default to Direct for NFS (avoids TrueNAS clone bottleneck during concurrent backups)
+    # iSCSI workloads should override with VOLSYNC_COPYMETHOD: Snapshot
+    copyMethod: "${VOLSYNC_COPYMETHOD:-Direct}"
     repository: "${APP}-volsync-r2-secret"
     # Unified snapshot identity: app@namespace (same for both local and R2)
     # This allows snapshots to be restored from either repository
