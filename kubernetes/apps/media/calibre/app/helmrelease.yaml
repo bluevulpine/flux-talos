@@ -1,0 +1,84 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app calibre
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: calibre
+  interval: 1h
+  values:
+    controllers:
+      calibre:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/linuxserver/calibre
+              # renovate: datasource=docker depName=ghcr.io/linuxserver/calibre versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(-ls(?<build>\d+))?$
+              tag: 7.32.0
+            env:
+              TZ: "${TIMEZONE}"
+              PUID: 568
+              PGID: 568
+              # Set the library path within the mounted media volume
+              CLI_ARGS: "--with-library=/media/books/Calibre-Library"
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                memory: 2Gi
+    defaultPodOptions:
+      securityContext:
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: calibre
+        ports:
+          http:
+            port: 8080
+          https:
+            port: 8181
+          webserver:
+            port: 8081
+    route:
+      app:
+        annotations:
+          gatus.home-operations.com/endpoint: |
+            group: media
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Calibre"
+          gethomepage.dev/group: "Books"
+          gethomepage.dev/icon: "calibre.png"
+          gethomepage.dev/description: "eBook Manager"
+        labels:
+          auth: authentik
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - calibre.${SECRET_DOMAIN}
+    persistence:
+      config:
+        existingClaim: *app
+        globalMounts:
+          - path: /config
+      media:
+        type: nfs
+        server: ${SECRET_NFS_SERVER:=temp}
+        path: ${SECRET_NFS_MEDIA:=temp}
+        globalMounts:
+          - path: /media
+
