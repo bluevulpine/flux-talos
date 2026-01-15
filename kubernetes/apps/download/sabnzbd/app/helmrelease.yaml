@@ -74,6 +74,8 @@ spec:
         annotations:
           gatus.home-operations.com/endpoint: |
             group: download
+            headers:
+              Authorization: Basic $${GATUS_AUTHENTIK_BASIC_AUTH}
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: "SABnzbd"
           gethomepage.dev/group: "Downloads"
