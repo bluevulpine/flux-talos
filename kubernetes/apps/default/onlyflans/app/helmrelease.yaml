@@ -26,15 +26,8 @@ spec:
         containers:
           app:
             image:
-              repository: caddy
-              tag: 2-alpine
-            args:
-              - caddy
-              - file-server
-              - --root
-              - /srv
-              - --listen
-              - :8080
+              repository: nginxinc/nginx-unprivileged
+              tag: alpine
             probes:
               liveness: &probes
                 enabled: true
@@ -60,8 +53,8 @@ spec:
                 memory: 64Mi
         pod:
           securityContext:
-            runAsUser: 1000
-            runAsGroup: 1000
+            runAsUser: 101
+            runAsGroup: 101
             runAsNonRoot: true
             seccompProfile:
               type: RuntimeDefault
@@ -76,15 +69,15 @@ spec:
         type: configMap
         name: onlyflans-html
         globalMounts:
-          - path: /srv/index.html
+          - path: /usr/share/nginx/html/index.html
             subPath: index.html
             readOnly: true
-      caddy-config:
+      tmp:
         type: emptyDir
         globalMounts:
-          - path: /config
-      caddy-data:
+          - path: /tmp
+      cache:
         type: emptyDir
         globalMounts:
-          - path: /data
+          - path: /var/cache/nginx
 
