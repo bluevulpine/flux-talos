@@ -26,5 +26,5 @@ spec:
   rules:
     - backendRefs:
         - name: onlyflans
-          port: 80
+          port: 8080
 
