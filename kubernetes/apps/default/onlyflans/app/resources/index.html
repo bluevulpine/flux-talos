@@ -1,0 +1,1083 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Only Flans — Subscribe to sweetness</title>
+  <meta name="description" content="Only Flans: a parody creator platform, but for flan. Subscribe to sweetness." />
+
+  <style>
+    /* =========================
+       Only Flans — single-file mock
+       No external fonts/assets required
+       ========================= */
+
+    :root{
+      --bg0:#07060a;
+      --bg1:#0b0a12;
+      --card: rgba(255,255,255,.06);
+      --card2: rgba(255,255,255,.10);
+      --border: rgba(255,255,255,.14);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.70);
+      --faint: rgba(255,255,255,.55);
+
+      --caramel:#ffb35c;
+      --toffee:#ff7a45;
+      --berry:#ff4fd8;
+      --mint:#3fffd1;
+      --gold:#ffd37a;
+
+      --shadow: 0 18px 50px rgba(0,0,0,.50);
+      --shadow2: 0 12px 28px rgba(0,0,0,.45);
+      --ring: 0 0 0 1px rgba(255,255,255,.14), 0 0 0 6px rgba(255,179,92,.12);
+
+      --radius: 22px;
+      --radius2: 16px;
+      --max: 1180px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body{
+      margin:0;
+      color:var(--text);
+      background:
+        radial-gradient(900px 500px at 15% 10%, rgba(255,179,92,.20), transparent 55%),
+        radial-gradient(800px 500px at 85% 15%, rgba(255,79,216,.14), transparent 55%),
+        radial-gradient(800px 520px at 65% 90%, rgba(63,255,209,.10), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      font: 15.5px/1.55 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      overflow-x:hidden;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; }
+    .container{
+      width: min(var(--max), calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    /* subtle film grain */
+    .grain::before{
+      content:"";
+      position: fixed;
+      inset:0;
+      pointer-events:none;
+      opacity:.06;
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+      mix-blend-mode: overlay;
+      transform: translateZ(0);
+    }
+
+    /* =========================
+       Top bar
+       ========================= */
+    .topbar{
+      position: sticky;
+      top:0;
+      z-index: 50;
+      backdrop-filter: blur(16px);
+      background: linear-gradient(180deg, rgba(10,10,18,.78), rgba(10,10,18,.55));
+      border-bottom: 1px solid rgba(255,255,255,.10);
+    }
+    .nav{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding: 14px 0;
+      gap: 18px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap: 12px;
+      min-width: 230px;
+    }
+    .logo{
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background:
+        radial-gradient(65% 65% at 30% 25%, rgba(255,255,255,.45), transparent 55%),
+        radial-gradient(120% 120% at 50% 20%, rgba(255,179,92,.75), rgba(255,122,69,.55) 45%, rgba(255,79,216,.30) 90%),
+        linear-gradient(145deg, rgba(255,255,255,.14), rgba(255,255,255,.02));
+      box-shadow: var(--shadow2);
+      border: 1px solid rgba(255,255,255,.18);
+      position: relative;
+      overflow:hidden;
+    }
+    .logo::after{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      background: radial-gradient(90px 40px at 20% 10%, rgba(255,255,255,.40), transparent 60%);
+      transform: rotate(12deg);
+      opacity:.75;
+    }
+    .brand strong{
+      display:block;
+      font-size: 16px;
+      letter-spacing:.2px;
+    }
+    .brand span{
+      display:block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    .navlinks{
+      display:flex;
+      align-items:center;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content:center;
+    }
+    .pill{
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.12);
+      color: var(--muted);
+      transition: transform .18s ease, background .18s ease, border-color .18s ease;
+      white-space: nowrap;
+    }
+    .pill:hover{
+      transform: translateY(-1px);
+      background: rgba(255,255,255,.08);
+      border-color: rgba(255,255,255,.20);
+      color: rgba(255,255,255,.85);
+    }
+
+    .actions{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap: 10px;
+      min-width: 230px;
+    }
+    .btn{
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: rgba(255,255,255,.90);
+      padding: 9px 12px;
+      border-radius: 12px;
+      transition: transform .18s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease;
+      cursor:pointer;
+      user-select:none;
+    }
+    .btn:hover{
+      transform: translateY(-1px);
+      background: rgba(255,255,255,.09);
+      border-color: rgba(255,255,255,.22);
+    }
+    .btn:focus{ outline:none; box-shadow: var(--ring); }
+    .btn.primary{
+      border-color: rgba(255,179,92,.35);
+      background:
+        radial-gradient(120% 120% at 30% 10%, rgba(255,255,255,.40), transparent 55%),
+        linear-gradient(135deg, rgba(255,179,92,.92), rgba(255,122,69,.85) 45%, rgba(255,79,216,.55) 100%);
+      color: #1b0d07;
+      font-weight: 700;
+      box-shadow: 0 14px 40px rgba(255,122,69,.20);
+    }
+    .btn.primary:hover{
+      box-shadow: 0 18px 60px rgba(255,122,69,.26);
+      border-color: rgba(255,179,92,.55);
+    }
+
+    /* =========================
+       Hero
+       ========================= */
+    .hero{
+      padding: 46px 0 18px;
+      position: relative;
+    }
+    .hero-grid{
+      display:grid;
+      grid-template-columns: 1.12fr .88fr;
+      gap: 24px;
+      align-items: stretch;
+    }
+    .hero h1{
+      font-size: clamp(34px, 4.2vw, 56px);
+      line-height: 1.05;
+      margin: 0 0 14px;
+      letter-spacing: -0.6px;
+    }
+    .hero p{
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 16px;
+      max-width: 54ch;
+    }
+
+    .badge-row{
+      display:flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.12);
+      color: rgba(255,255,255,.82);
+      font-size: 12px;
+    }
+    .dot{
+      width: 8px;
+      height: 8px;
+      border-radius: 99px;
+      background: var(--caramel);
+      box-shadow: 0 0 0 4px rgba(255,179,92,.12);
+    }
+
+    .cta-row{
+      display:flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items:center;
+      margin-top: 10px;
+    }
+    .btn.ghost{
+      background: rgba(255,255,255,.03);
+      color: rgba(255,255,255,.85);
+    }
+
+    .subnote{
+      margin-top: 14px;
+      color: var(--faint);
+      font-size: 12.5px;
+    }
+    .subnote em{ color: rgba(255,255,255,.75); font-style: normal; }
+
+    /* Hero card right */
+    .hero-card{
+      border-radius: var(--radius);
+      background:
+        radial-gradient(120% 120% at 20% 10%, rgba(255,179,92,.20), transparent 60%),
+        radial-gradient(90% 90% at 80% 20%, rgba(255,79,216,.16), transparent 55%),
+        linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      position: relative;
+      min-height: 320px;
+    }
+    .hero-card::before{
+      content:"";
+      position:absolute;
+      inset:-80px -60px auto auto;
+      width: 240px;
+      height: 240px;
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.40), rgba(255,179,92,.55) 32%, rgba(255,122,69,.22) 62%, transparent 70%);
+      filter: blur(0px);
+      opacity:.75;
+      transform: rotate(18deg);
+    }
+    .hero-card::after{
+      content:"";
+      position:absolute;
+      inset:auto -120px -140px auto;
+      width: 360px;
+      height: 360px;
+      background: radial-gradient(circle at 35% 25%, rgba(63,255,209,.18), rgba(255,79,216,.10) 45%, transparent 70%);
+      transform: rotate(-12deg);
+      opacity:.75;
+    }
+
+    .hero-card-inner{
+      position:relative;
+      padding: 18px;
+      height: 100%;
+      display:flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .search{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(10,10,18,.55);
+      border: 1px solid rgba(255,255,255,.14);
+    }
+    .search input{
+      flex:1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: rgba(255,255,255,.92);
+      font-size: 14px;
+    }
+    .search input::placeholder{ color: rgba(255,255,255,.55); }
+
+    .mini-grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 2px;
+    }
+    .mini{
+      padding: 12px;
+      border-radius: var(--radius2);
+      background: rgba(10,10,18,.42);
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: 0 10px 22px rgba(0,0,0,.26);
+    }
+    .mini strong{
+      display:block;
+      font-size: 13px;
+      letter-spacing:.2px;
+      margin-bottom: 6px;
+    }
+    .mini span{
+      color: var(--muted);
+      font-size: 12.5px;
+      display:block;
+      line-height: 1.35;
+    }
+
+    .jiggle{
+      margin-top: auto;
+      border-radius: var(--radius2);
+      border: 1px solid rgba(255,255,255,.12);
+      background:
+        radial-gradient(120% 80% at 30% 20%, rgba(255,255,255,.22), transparent 60%),
+        radial-gradient(130% 80% at 65% 30%, rgba(255,179,92,.22), transparent 60%),
+        linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      padding: 14px;
+      display:flex;
+      gap: 12px;
+      align-items:center;
+      overflow:hidden;
+      position: relative;
+    }
+    .jiggle .cup{
+      width: 54px;
+      height: 54px;
+      border-radius: 16px;
+      background:
+        radial-gradient(55% 45% at 35% 30%, rgba(255,255,255,.38), transparent 55%),
+        linear-gradient(180deg, rgba(255,211,122,.95), rgba(255,179,92,.80) 45%, rgba(153,65,25,.45) 100%);
+      border: 1px solid rgba(255,255,255,.18);
+      box-shadow: 0 12px 26px rgba(0,0,0,.35);
+      position: relative;
+      animation: wobble 3.4s ease-in-out infinite;
+    }
+    .jiggle .cup::after{
+      content:"";
+      position:absolute;
+      inset: 8px 8px auto 8px;
+      height: 16px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.55), rgba(255,255,255,.12) 55%, transparent 60%);
+      opacity: .8;
+    }
+    .jiggle strong{ display:block; }
+    .jiggle small{ color: var(--muted); display:block; margin-top: 2px; }
+
+    @keyframes wobble{
+      0%, 100% { transform: rotate(-1.1deg) translateY(0px); }
+      50% { transform: rotate(1.2deg) translateY(-1px); }
+    }
+
+    /* =========================
+       Sections
+       ========================= */
+    section{
+      padding: 26px 0;
+    }
+    .section-title{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .section-title h2{
+      margin:0;
+      font-size: 20px;
+      letter-spacing: -0.2px;
+    }
+    .section-title p{
+      margin:0;
+      color: var(--muted);
+      font-size: 13px;
+      max-width: 52ch;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+    }
+
+    .card{
+      border-radius: var(--radius);
+      background:
+        radial-gradient(90% 90% at 20% 10%, rgba(255,255,255,.10), transparent 55%),
+        linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: var(--shadow2);
+      overflow:hidden;
+      position: relative;
+      transition: transform .2s ease, border-color .2s ease, background .2s ease;
+    }
+    .card:hover{
+      transform: translateY(-2px);
+      border-color: rgba(255,255,255,.20);
+      background:
+        radial-gradient(90% 90% at 20% 10%, rgba(255,255,255,.14), transparent 55%),
+        linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+    }
+
+    .card.pad{ padding: 16px; }
+
+    .creator-card{
+      grid-column: span 4;
+      min-height: 190px;
+    }
+    .creator-head{
+      display:flex;
+      align-items:flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .avatar{
+      width: 44px; height: 44px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.18);
+      box-shadow: 0 12px 26px rgba(0,0,0,.30);
+      background:
+        radial-gradient(50% 50% at 30% 25%, rgba(255,255,255,.44), transparent 55%),
+        linear-gradient(135deg, rgba(255,179,92,.80), rgba(255,122,69,.55) 45%, rgba(255,79,216,.38));
+    }
+    .handle{
+      display:flex;
+      flex-direction:column;
+      gap: 1px;
+      min-width: 0;
+    }
+    .handle strong{
+      font-size: 14px;
+      letter-spacing:.2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .handle span{
+      color: var(--muted);
+      font-size: 12.5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .creator-body{
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      margin-bottom: 12px;
+    }
+    .meta-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      margin-top: auto;
+    }
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.20);
+      color: rgba(255,255,255,.80);
+      font-size: 12px;
+    }
+    .tag .spark{
+      width: 7px; height:7px;
+      border-radius: 99px;
+      background: var(--mint);
+      box-shadow: 0 0 0 4px rgba(63,255,209,.10);
+    }
+
+    /* How it works cards */
+    .how-card{ grid-column: span 4; }
+    .how-card h3{
+      margin: 0 0 6px;
+      font-size: 15px;
+      letter-spacing: -0.15px;
+    }
+    .how-card p{
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .step{
+      width: 34px; height: 34px;
+      border-radius: 12px;
+      display:grid;
+      place-items:center;
+      margin-bottom: 10px;
+      background:
+        radial-gradient(60% 60% at 30% 30%, rgba(255,255,255,.35), transparent 55%),
+        linear-gradient(135deg, rgba(255,179,92,.70), rgba(255,79,216,.28));
+      border: 1px solid rgba(255,255,255,.18);
+      color: #1b0d07;
+      font-weight: 800;
+      box-shadow: 0 12px 30px rgba(0,0,0,.32);
+    }
+
+    /* Trending list */
+    .trend{
+      grid-column: span 6;
+      display:flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .trend-item{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap: 12px;
+      padding: 12px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      transition: transform .18s ease, border-color .18s ease, background .18s ease;
+    }
+    .trend-item:hover{
+      transform: translateY(-1px);
+      border-color: rgba(255,255,255,.20);
+      background: rgba(0,0,0,.22);
+    }
+    .trend-item strong{
+      display:block;
+      font-size: 13.5px;
+      letter-spacing: .1px;
+    }
+    .trend-item span{
+      color: var(--muted);
+      display:block;
+      font-size: 12.5px;
+      margin-top: 2px;
+    }
+    .kpi{
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.12);
+      color: rgba(255,255,255,.85);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    /* Creator tools grid */
+    .tools{ grid-column: span 12; }
+    .tool-grid{
+      display:grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .tool{
+      grid-column: span 4;
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      display:flex;
+      gap: 12px;
+      align-items:flex-start;
+    }
+    .tool i{
+      width: 36px; height: 36px;
+      border-radius: 14px;
+      display:grid;
+      place-items:center;
+      border: 1px solid rgba(255,255,255,.18);
+      background:
+        radial-gradient(60% 60% at 35% 30%, rgba(255,255,255,.32), transparent 55%),
+        linear-gradient(135deg, rgba(63,255,209,.22), rgba(255,79,216,.18));
+      box-shadow: 0 10px 24px rgba(0,0,0,.25);
+      font-style: normal;
+    }
+    .tool strong{ display:block; font-size: 13.5px; margin-top: 1px; }
+    .tool span{ display:block; color: var(--muted); font-size: 12.5px; line-height: 1.35; margin-top: 3px; }
+
+    /* Testimonials */
+    .quote{ grid-column: span 6; }
+    blockquote{
+      margin:0;
+      padding: 0;
+      color: rgba(255,255,255,.86);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    cite{
+      display:block;
+      margin-top: 10px;
+      color: var(--muted);
+      font-style: normal;
+      font-size: 12.5px;
+    }
+
+    /* Footer */
+    footer{
+      padding: 30px 0 44px;
+      border-top: 1px solid rgba(255,255,255,.10);
+      background: linear-gradient(180deg, rgba(10,10,18,.15), rgba(10,10,18,.45));
+    }
+    .foot{
+      display:grid;
+      grid-template-columns: 1.3fr .7fr;
+      gap: 18px;
+      align-items:start;
+    }
+    .foot small{ color: var(--muted); }
+    .foot-links{
+      display:flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content:flex-end;
+    }
+
+    /* =========================
+       Responsive
+       ========================= */
+    @media (max-width: 980px){
+      .hero-grid{ grid-template-columns: 1fr; }
+      .brand, .actions{ min-width: 0; }
+      .creator-card{ grid-column: span 6; }
+      .how-card{ grid-column: span 6; }
+      .trend{ grid-column: span 12; }
+      .quote{ grid-column: span 12; }
+      .tool{ grid-column: span 6; }
+      .foot{ grid-template-columns: 1fr; }
+      .foot-links{ justify-content:flex-start; }
+    }
+    @media (max-width: 620px){
+      .navlinks{ display:none; }
+      .creator-card{ grid-column: span 12; }
+      .how-card{ grid-column: span 12; }
+      .mini-grid{ grid-template-columns: 1fr; }
+      .tool{ grid-column: span 12; }
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce){
+      * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+
+<body class="grain">
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="container">
+      <nav class="nav" aria-label="Primary">
+        <a class="brand" href="#">
+          <div class="logo" aria-hidden="true"></div>
+          <div>
+            <strong>Only Flans</strong>
+            <span>Subscribe to sweetness</span>
+          </div>
+        </a>
+
+        <div class="navlinks" aria-label="Site">
+          <a class="pill" href="#explore">Explore</a>
+          <a class="pill" href="#creators">Creators</a>
+          <a class="pill" href="#trending">Trending</a>
+          <a class="pill" href="#tools">Become a Flanmaker</a>
+        </div>
+
+        <div class="actions">
+          <button class="btn" type="button">Log in</button>
+          <button class="btn primary" type="button">Sign up</button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <main>
+    <section class="hero">
+      <div class="container">
+        <div class="hero-grid">
+          <div>
+            <div class="badge-row">
+              <span class="badge"><span class="dot"></span> Fresh drops daily</span>
+              <span class="badge">🍮 18+ hours chilled</span>
+              <span class="badge">🔥 Torch-cam ready</span>
+            </div>
+
+            <h1>Your favorite creators.<br/>Their most indulgent flans.</h1>
+            <p>
+              A parody creator platform with one rule: everything is custard.
+              Unlock subscriber-only slices, behind-the-scenes prep, and
+              irresponsible amounts of caramel pour footage.
+            </p>
+
+            <div class="cta-row">
+              <button class="btn primary" type="button">🍮 Subscribe now</button>
+              <button class="btn ghost" type="button">🔥 Browse trending</button>
+              <button class="btn" type="button">🎥 Watch a wobble test</button>
+            </div>
+
+            <div class="subnote">
+              <em>Zero shame.</em> Extra caramel. <span aria-hidden="true">✦</span>
+              Consent policy: all flans must be properly set.
+            </div>
+          </div>
+
+          <aside class="hero-card" aria-label="Quick explore">
+            <div class="hero-card-inner">
+              <div class="search" role="search">
+                <span aria-hidden="true">🔎</span>
+                <input type="search" placeholder="Search flans, creators, flavors…" aria-label="Search" />
+                <button class="btn" type="button" style="padding:8px 10px; border-radius:12px;">Go</button>
+              </div>
+
+              <div class="mini-grid">
+                <div class="mini">
+                  <strong>Today’s vibe</strong>
+                  <span>Silky custard • loud caramel • low drama</span>
+                </div>
+                <div class="mini">
+                  <strong>Top category</strong>
+                  <span>Blowtorch Cam (4K) • “crispy top” edition</span>
+                </div>
+                <div class="mini">
+                  <strong>Fastest growing</strong>
+                  <span>Matcha • yuzu • “after dark” sea-salt caramel</span>
+                </div>
+                <div class="mini">
+                  <strong>Community rule</strong>
+                  <span>No cracks. No shame. Tip for extra pour.</span>
+                </div>
+              </div>
+
+              <div class="jiggle">
+                <div class="cup" aria-hidden="true"></div>
+                <div>
+                  <strong>Live wobble test</strong>
+                  <small>Subtle jiggle. Maximum satisfaction.</small>
+                </div>
+                <span style="margin-left:auto;" class="kpi">● LIVE</span>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- Creators -->
+    <section id="creators">
+      <div class="container">
+        <div class="section-title">
+          <div>
+            <h2>Featured Flanmakers</h2>
+            <p>Creators you can trust with your ramekins. Subscriber-only slices included.</p>
+          </div>
+          <a class="pill" href="#explore">View all →</a>
+        </div>
+
+        <div class="grid">
+          <article class="card pad creator-card">
+            <div class="creator-head">
+              <div class="avatar" aria-hidden="true"></div>
+              <div class="handle">
+                <strong>@VanillaVixen</strong>
+                <span>Classic crème caramel • Perfect wobble</span>
+              </div>
+            </div>
+            <div class="creator-body">
+              Precision bake, zero bubbles, scandalously smooth. Every post comes with
+              a “no-crack” technique clip and a slow-motion jiggle shot.
+            </div>
+            <div class="meta-row">
+              <span class="tag"><span class="spark"></span> Subscriber-only slices</span>
+              <button class="btn" type="button">Follow</button>
+            </div>
+          </article>
+
+          <article class="card pad creator-card">
+            <div class="creator-head">
+              <div class="avatar" aria-hidden="true" style="background:
+                radial-gradient(50% 50% at 30% 25%, rgba(255,255,255,.44), transparent 55%),
+                linear-gradient(135deg, rgba(255,79,216,.58), rgba(255,122,69,.55) 55%, rgba(255,179,92,.35));"></div>
+              <div class="handle">
+                <strong>@ChocoDom</strong>
+                <span>Dark chocolate • Aggressive ganache energy</span>
+              </div>
+            </div>
+            <div class="creator-body">
+              Deep cocoa, glossy tops, and a weekly “torch-and-pour” ritual.
+              New drop every Friday. Tip for the extra caramel ribbon.
+            </div>
+            <div class="meta-row">
+              <span class="tag"><span class="spark" style="background:var(--caramel); box-shadow: 0 0 0 4px rgba(255,179,92,.10);"></span> New drop Fridays</span>
+              <button class="btn" type="button">Follow</button>
+            </div>
+          </article>
+
+          <article class="card pad creator-card">
+            <div class="creator-head">
+              <div class="avatar" aria-hidden="true" style="background:
+                radial-gradient(50% 50% at 30% 25%, rgba(255,255,255,.44), transparent 55%),
+                linear-gradient(135deg, rgba(63,255,209,.45), rgba(255,79,216,.30) 55%, rgba(255,179,92,.22));"></div>
+              <div class="handle">
+                <strong>@MatchaMuse</strong>
+                <span>Earthy • Silky • Ethically whisked</span>
+              </div>
+            </div>
+            <div class="creator-body">
+              Matcha gradients, microfoam-level texture, and behind-the-scenes prep.
+              Includes “ramekin selection” content nobody asked for (everyone needed).
+            </div>
+            <div class="meta-row">
+              <span class="tag"><span class="spark"></span> Behind-the-scenes</span>
+              <button class="btn" type="button">Follow</button>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section id="explore">
+      <div class="container">
+        <div class="section-title">
+          <div>
+            <h2>How it works</h2>
+            <p>Subscribe, unlock, and support creators with tips for extra pour footage.</p>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="card pad how-card">
+            <div class="step">1</div>
+            <h3>Subscribe</h3>
+            <p>Pick your flanmakers and unlock their premium drops—recipes, prep vids, and wobble tests.</p>
+          </div>
+          <div class="card pad how-card">
+            <div class="step">2</div>
+            <h3>Unlock</h3>
+            <p>Get subscriber-only slices, torch-cam clips, and “no-crack” technique breakdowns.</p>
+          </div>
+          <div class="card pad how-card">
+            <div class="step">3</div>
+            <h3>Tip (“Pour more”)</h3>
+            <p>Send a tip for bonus caramel pours, custom flavors, or a personalized mold reveal.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Trending -->
+    <section id="trending">
+      <div class="container">
+        <div class="section-title">
+          <div>
+            <h2>Trending this week</h2>
+            <p>Hot (and chilled) content the algorithm can’t stop watching.</p>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="card pad trend">
+            <div class="trend-item">
+              <div>
+                <strong>🔥 Burnt Sugar Blowtorch Cam (4K)</strong>
+                <span>Audio on. Satisfying crackle. Extremely irresponsible.</span>
+              </div>
+              <div class="kpi">+48%</div>
+            </div>
+            <div class="trend-item">
+              <div>
+                <strong>🍊 Blood Orange Flan (limited batch)</strong>
+                <span>Bright citrus, silky finish, dangerously photogenic.</span>
+              </div>
+              <div class="kpi">#2</div>
+            </div>
+            <div class="trend-item">
+              <div>
+                <strong>🧂 Sea-Salt Caramel “After Dark”</strong>
+                <span>Deep caramel notes. Consent forms signed. Chill time respected.</span>
+              </div>
+              <div class="kpi">NEW</div>
+            </div>
+          </div>
+
+          <div class="card pad trend">
+            <div class="trend-item">
+              <div>
+                <strong>🍫 Double Cocoa Custard (zero cracks)</strong>
+                <span>Stress-tested in a water bath. Unreasonably smooth.</span>
+              </div>
+              <div class="kpi">Top 10</div>
+            </div>
+            <div class="trend-item">
+              <div>
+                <strong>🍵 Matcha Gradient Reveal</strong>
+                <span>Clean pour lines and a suspiciously perfect wobble curve.</span>
+              </div>
+              <div class="kpi">+31%</div>
+            </div>
+            <div class="trend-item">
+              <div>
+                <strong>🧪 “No Bubble” Technique Clip</strong>
+                <span>Strain twice. Tap gently. Chill longer than your enemies.</span>
+              </div>
+              <div class="kpi">Saved</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Creator tools -->
+    <section id="tools">
+      <div class="container">
+        <div class="section-title">
+          <div>
+            <h2>Creator tools</h2>
+            <p>Everything you need to monetize your custard-based artistry.</p>
+          </div>
+        </div>
+
+        <div class="card pad tools">
+          <div class="tool-grid">
+            <div class="tool">
+              <i aria-hidden="true">💳</i>
+              <div>
+                <strong>Monthly subscriptions</strong>
+                <span>Build a community around consistent drops and reliable wobble.</span>
+              </div>
+            </div>
+            <div class="tool">
+              <i aria-hidden="true">🍮</i>
+              <div>
+                <strong>One-off flan drops</strong>
+                <span>Limited batches, special molds, seasonal flavors, instant hype.</span>
+              </div>
+            </div>
+            <div class="tool">
+              <i aria-hidden="true">🔓</i>
+              <div>
+                <strong>Pay-per-slice</strong>
+                <span>Lock premium recipes and “after dark” caramel pours.</span>
+              </div>
+            </div>
+            <div class="tool">
+              <i aria-hidden="true">💧</i>
+              <div>
+                <strong>Tip jars (“Pour More”)</strong>
+                <span>Unlock bonus pours, extra syrup shots, or a second torch pass.</span>
+              </div>
+            </div>
+            <div class="tool">
+              <i aria-hidden="true">💬</i>
+              <div>
+                <strong>DM requests</strong>
+                <span>Custom flavors, mold reviews, and highly specific wobble tests.</span>
+              </div>
+            </div>
+            <div class="tool">
+              <i aria-hidden="true">📈</i>
+              <div>
+                <strong>Analytics</strong>
+                <span>Track churn, drop performance, and caramel engagement rate.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section>
+      <div class="container">
+        <div class="section-title">
+          <div>
+            <h2>Testimonials</h2>
+            <p>Real quotes from people who definitely didn’t take this too seriously.</p>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="card pad quote">
+            <blockquote>
+              “I came for the flan. I stayed for the mouthfeel.”
+            </blockquote>
+            <cite>— Anonymous subscriber</cite>
+          </div>
+
+          <div class="card pad quote">
+            <blockquote>
+              “This platform changed my relationship with ramekins.”
+            </blockquote>
+            <cite>— Professional pastry person</cite>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <div class="container">
+        <div class="foot">
+          <div>
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+              <div class="logo" aria-hidden="true" style="width:34px;height:34px;border-radius:12px;"></div>
+              <div>
+                <strong>Only Flans</strong><br/>
+                <small>All rights reserved. No flans were objectified. (Much.)</small>
+              </div>
+            </div>
+            <small>
+              Safety &amp; consent: all flans are <strong>18+ hours chilled</strong>. No cracks, no shame.
+              Allergens: eggs, dairy, and dangerously good decisions.
+            </small>
+          </div>
+
+          <div class="foot-links" aria-label="Footer">
+            <a class="pill" href="#">About</a>
+            <a class="pill" href="#">Safety &amp; Consent</a>
+            <a class="pill" href="#">Allergens</a>
+            <a class="pill" href="#">Terms</a>
+            <a class="pill" href="#">Contact</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    // Tiny flourish: smooth-scroll for in-page links
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', (e) => {
+        const id = a.getAttribute('href');
+        const el = document.querySelector(id);
+        if (!el) return;
+        e.preventDefault();
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+  </script>
+</body>
+</html>
+
