@@ -34,7 +34,7 @@ spec:
               - --root
               - /srv
               - --listen
-              - :80
+              - :8080
             probes:
               liveness: &probes
                 enabled: true
@@ -42,18 +42,27 @@ spec:
                 spec:
                   httpGet:
                     path: /
-                    port: &port 80
+                    port: &port 8080
                   initialDelaySeconds: 0
                   periodSeconds: 10
                   timeoutSeconds: 1
                   failureThreshold: 3
               readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
             resources:
               requests:
                 cpu: 10m
                 memory: 16Mi
               limits:
                 memory: 64Mi
+        pod:
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
     service:
       app:
         controller: onlyflans
