@@ -27,6 +27,9 @@ data:
     ; 4GB max HTTP request size for large attachments
     max_http_request_size = 4294967296
 
+    [chttpd_auth]
+    require_valid_user = true
+
     [httpd]
     ; Enable CORS
     enable_cors = true
@@ -40,7 +43,7 @@ data:
     ; - app://obsidian.md: Desktop Obsidian app
     ; - capacitor://localhost: Mobile Obsidian app (iOS/Android)
     ; - http://localhost: Local development/testing
-    origins = app://obsidian.md, capacitor://localhost, http://localhost
+    origins = app://obsidian.md,capacitor://localhost,http://localhost
 
     [cluster]
     ; Single node deployment
