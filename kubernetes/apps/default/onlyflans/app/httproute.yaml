@@ -15,7 +15,9 @@ metadata:
     gethomepage.dev/icon: "mdi-food"
     gethomepage.dev/description: "🍮 Flan content only"
 spec:
-  hostnames: ["onlyflans.${SECRET_DOMAIN}"]
+  hostnames:
+    - "onlyflans.${SECRET_DOMAIN}"
+    - "onlyflans.${SECRET_DOMAIN_BLOG}"
   parentRefs:
     - name: external
       namespace: network
