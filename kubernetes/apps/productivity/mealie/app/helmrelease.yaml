@@ -34,6 +34,12 @@ spec:
               ALLOW_SIGNUP: "false"
               DB_ENGINE: postgres
               BASE_URL: https://mealie.${SECRET_DOMAIN}
+              # SMTP configuration (in-cluster relay)
+              SMTP_HOST: smtp-relay.infrastructure.svc.cluster.local
+              SMTP_PORT: "25"
+              SMTP_AUTH_STRATEGY: "NONE"
+              SMTP_FROM_NAME: "Mealie"
+              SMTP_FROM_EMAIL: "mealie@${SECRET_DOMAIN}"
               # OIDC configuration
               OIDC_AUTH_ENABLED: "true"
               OIDC_CONFIGURATION_URL: https://sso.${SECRET_DOMAIN}/application/o/mealie/.well-known/openid-configuration
