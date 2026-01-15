@@ -11,6 +11,6 @@ spec:
     operation: copy
   ref:
     # renovate: datasource=docker depName=ghcr.io/bjw-s-labs/helm/app-template
-    tag: 4.6.0
+    tag: 4.6.1
   url: oci://ghcr.io/bjw-s-labs/helm/app-template
 
