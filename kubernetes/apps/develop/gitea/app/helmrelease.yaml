@@ -33,6 +33,8 @@ spec:
 
     ## Deployment configuration
     replicaCount: 1
+    strategy:
+      type: Recreate
 
     ## Service configuration
     service:
