@@ -67,6 +67,7 @@ spec:
       VOLSYNC_CAPACITY: 30Gi
       VOLSYNC_STORAGECLASS: truenas-iscsi
       VOLSYNC_SNAPSHOTCLASS: truenas-iscsi-snapclass
+      VOLSYNC_COPYMETHOD: Snapshot
       VOLSYNC_CACHE_CLASS: truenas-iscsi
       VOLSYNC_CLONE_STORAGECLASS: truenas-iscsi
       VOLSYNC_RUN_AS_USER: "1000"
