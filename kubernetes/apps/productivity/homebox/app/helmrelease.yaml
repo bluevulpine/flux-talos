@@ -31,6 +31,9 @@ spec:
               tag: latest@sha256:b6c1362ab0450ca8fc1a347c13614a0b4f5674e1ecfa9a57a8c456612921842b
             env:
               TZ: "${TIMEZONE}"
+              # Temp directory must be on same filesystem as /data for file uploads
+              # (rename() syscall fails across different filesystems)
+              TMPDIR: /data/.tmp
               # Application mode
               HBOX_MODE: production
               # Web server configuration
