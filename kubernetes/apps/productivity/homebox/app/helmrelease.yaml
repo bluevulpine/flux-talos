@@ -47,8 +47,9 @@ spec:
               HBOX_OPTIONS_TRUST_PROXY: "true"
               HBOX_OPTIONS_HOSTNAME: homebox.${SECRET_DOMAIN}
               # OIDC configuration for Authentik
+              # Note: Authentik provider must have Issuer Mode set to "Each Provider" for this to work
               HBOX_OIDC_ENABLED: "true"
-              HBOX_OIDC_ISSUER_URL: https://sso.${SECRET_DOMAIN}
+              HBOX_OIDC_ISSUER_URL: https://sso.${SECRET_DOMAIN}/application/o/homebox/
               HBOX_OIDC_SCOPE: "openid profile email groups"
               HBOX_OIDC_BUTTON_TEXT: "Sign in with Authentik"
               HBOX_OIDC_AUTO_REDIRECT: "false"
