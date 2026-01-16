@@ -33,17 +33,14 @@ spec:
               TZ: "${TIMEZONE}"
               # Application mode
               HBOX_MODE: production
-              # Storage path (explicitly set to mounted volume)
-              HBOX_STORAGE_CONN_STRING: "file:///data"
               # Web server configuration
               HBOX_WEB_PORT: "7745"
               HBOX_WEB_MAX_UPLOAD_SIZE: "50"
               # Database driver
               HBOX_DATABASE_DRIVER: postgres
               HBOX_DATABASE_SSL_MODE: disable
-              # Storage configuration
-              HBOX_STORAGE_CONN_STRING: "file:///./"
-              HBOX_STORAGE_PREFIX_PATH: /data
+              # Storage configuration - use mounted /data volume
+              HBOX_STORAGE_CONN_STRING: "file:///data"
               # Disable public registration
               HBOX_OPTIONS_ALLOW_REGISTRATION: "false"
               # Trust proxy headers for HTTPS
