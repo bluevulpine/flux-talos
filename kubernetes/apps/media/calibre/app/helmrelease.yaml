@@ -26,7 +26,7 @@ spec:
               PUID: 568
               PGID: 568
               # Set the library path within the mounted media volume
-              CLI_ARGS: "--with-library=/media/books/Calibre-Library"
+              CLI_ARGS: "--with-library=/media/ebooks/Calibre-Library"
             probes:
               liveness:
                 enabled: true
