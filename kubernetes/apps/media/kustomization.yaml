@@ -22,6 +22,7 @@ resources:
   - ./radarr/ks.yaml
   - ./readarr-audiobooks/ks.yaml
   - ./readarr-ebooks/ks.yaml
+  - ./rreading-glasses/ks.yaml
   - ./recyclarr/ks.yaml
   - ./sonarr/ks.yaml
   - ./tautulli/ks.yaml

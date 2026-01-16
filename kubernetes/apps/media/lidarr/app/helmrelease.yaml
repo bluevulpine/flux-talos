@@ -23,6 +23,25 @@ spec:
             envFrom:
               - secretRef:
                   name: lidarr-secret
+          02-init-metadata:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            env:
+              # Hosted hearring-aid metadata service (community MusicBrainz mirror)
+              LIDARR_METADATA_URL: https://api.musicinfo.pro/api/v0.4/
+            envFrom:
+              - secretRef:
+                  name: lidarr-secret
+            command: ["/bin/bash", "-c"]
+            args:
+              - |
+                # Update Lidarr config to use hearring-aid as metadata source
+                export PGPASSWORD="${LIDARR__POSTGRES__PASSWORD}"
+                psql -h "${LIDARR__POSTGRES__HOST}" -U "${LIDARR__POSTGRES__USER}" -d "${LIDARR__POSTGRES__MAINDB}" -c \
+                  "INSERT INTO \"Config\" (\"Key\", \"Value\") VALUES ('metadatasource', '${LIDARR_METADATA_URL}')
+                   ON CONFLICT (\"Key\") DO UPDATE SET \"Value\" = EXCLUDED.\"Value\";"
+                echo "Metadata source configured to ${LIDARR_METADATA_URL}"
         containers:
           app:
             image:

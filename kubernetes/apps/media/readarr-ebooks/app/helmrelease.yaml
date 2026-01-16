@@ -23,6 +23,30 @@ spec:
             envFrom:
               - secretRef:
                   name: readarr-ebooks-secret
+          02-init-metadata:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            env:
+              READARR_METADATA_URL: http://rreading-glasses.media.svc.cluster.local:8788
+            envFrom:
+              - secretRef:
+                  name: readarr-ebooks-secret
+            command: ["/bin/bash", "-c"]
+            args:
+              - |
+                # Wait for rreading-glasses service to be available
+                until curl -sf "${READARR_METADATA_URL}/health" > /dev/null 2>&1; do
+                  echo "Waiting for rreading-glasses..."
+                  sleep 5
+                done
+                echo "rreading-glasses is ready"
+                # Update Readarr config to use rreading-glasses as metadata source
+                export PGPASSWORD="${READARR__POSTGRES__PASSWORD}"
+                psql -h "${READARR__POSTGRES__HOST}" -U "${READARR__POSTGRES__USER}" -d "${READARR__POSTGRES__MAINDB}" -c \
+                  "INSERT INTO \"Config\" (\"Key\", \"Value\") VALUES ('metadataprovidersource', '${READARR_METADATA_URL}')
+                   ON CONFLICT (\"Key\") DO UPDATE SET \"Value\" = EXCLUDED.\"Value\";"
+                echo "Metadata source configured to ${READARR_METADATA_URL}"
         containers:
           app:
             image:
