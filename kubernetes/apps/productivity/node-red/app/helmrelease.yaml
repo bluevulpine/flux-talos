@@ -1,0 +1,71 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app node-red
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: node-red
+  interval: 1h
+  values:
+    controllers:
+      node-red:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: docker.io/nodered/node-red
+              tag: 4.1.3
+            env:
+              TZ: "${TIMEZONE}"
+              NODE_RED_ENABLE_PROJECTS: "true"
+              NODE_RED_ENABLE_SAFE_MODE: "false"
+            envFrom:
+              - secretRef:
+                  name: node-red-secret
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: &port 1880
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: node-red
+        ports:
+          http:
+            port: *port
+    persistence:
+      data:
+        existingClaim: *app
+        globalMounts:
+          - path: /data
+

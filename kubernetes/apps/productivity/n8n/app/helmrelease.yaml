@@ -1,0 +1,95 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app n8n
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: n8n
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+      remediateLastFailure: true
+  uninstall:
+    keepHistory: false
+  values:
+    controllers:
+      n8n:
+        strategy: RollingUpdate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom: &envFrom
+              - secretRef:
+                  name: n8n-secret
+        containers:
+          app:
+            image:
+              repository: docker.io/n8nio/n8n
+              tag: 1.123.16
+            env:
+              DB_TYPE: postgresdb
+              N8N_PORT: &port 5678
+              GENERIC_TIMEZONE: ${TIMEZONE}
+              N8N_PROTOCOL: https
+              N8N_HOST: n8n.${SECRET_DOMAIN}
+              WEBHOOK_URL: https://n8n.${SECRET_DOMAIN}
+            envFrom: *envFrom
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: *port
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 1
+                  failureThreshold: 3
+              readiness: *probes
+            securityContext:
+              runAsUser: 1000
+              runAsGroup: 1000
+              runAsNonRoot: true
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities:
+                drop: ["ALL"]
+    defaultPodOptions:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: *port
+    persistence:
+      config:
+        existingClaim: *app
+        globalMounts:
+          - path: /home/node/.n8n
+    ingress:
+      app:
+        enabled: false
+

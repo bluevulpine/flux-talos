@@ -1,0 +1,91 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app vaultwarden
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: vaultwarden
+  interval: 1h
+  values:
+    controllers:
+      vaultwarden:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: docker.io/vaultwarden/server
+              # renovate: datasource=docker depName=docker.io/vaultwarden/server
+              tag: 1.35.2
+            env:
+              # Domain configuration
+              DOMAIN: https://vaultwarden.${SECRET_DOMAIN}
+              TZ: "${TIMEZONE}"
+              # Security settings
+              SIGNUPS_ALLOWED: "false"
+              INVITATIONS_ALLOWED: "true"
+              SHOW_PASSWORD_HINT: "false"
+              # WebSocket for live sync
+              WEBSOCKET_ENABLED: "true"
+              # Server configuration
+              ROCKET_PORT: &port "8080"
+              # Data storage
+              DATA_FOLDER: /data
+              DATABASE_URL: /data/db.sqlite3
+              # Logging
+              LOG_LEVEL: info
+              # SMTP configuration (using internal smtp-relay)
+              SMTP_HOST: smtp-relay.infrastructure.svc.cluster.local
+              SMTP_PORT: "25"
+              SMTP_SECURITY: "off"
+              SMTP_FROM: vaultwarden@${SECRET_DOMAIN}
+              SMTP_FROM_NAME: Vaultwarden
+            envFrom:
+              - secretRef:
+                  name: vaultwarden-secret
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /alive
+                    port: *port
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 1
+                  failureThreshold: 3
+              readiness: *probes
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /alive
+                    port: *port
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+                  timeoutSeconds: 3
+                  failureThreshold: 30
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: *port
+    persistence:
+      data:
+        existingClaim: *app
+        globalMounts:
+          - path: /data
+
