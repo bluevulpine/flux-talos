@@ -23,6 +23,15 @@ spec:
             envFrom: &envFrom
               - secretRef:
                   name: homebox-secret
+        initContainers:
+          init-tmpdir:
+            image:
+              repository: busybox
+              tag: latest
+            command:
+              - /bin/sh
+              - -c
+              - mkdir -p /data/.tmp && chmod 1777 /data/.tmp
         containers:
           app:
             image:
