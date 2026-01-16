@@ -27,8 +27,8 @@ spec:
               HBC_HOMEBOX_URL: http://homebox.productivity.svc.cluster.local:7745
               # Public URL for links in chat responses
               HBC_LINK_BASE_URL: https://homebox.${SECRET_DOMAIN}
-              # LLM model configuration (Azure OpenAI compatible)
-              HBC_LLM_MODEL: gpt-4o-mini
+              # LLM model configuration (Azure OpenAI - GPT-5 mini recommended)
+              HBC_LLM_MODEL: gpt-5-mini
               # Server configuration
               HBC_SERVER_HOST: "0.0.0.0"
               HBC_SERVER_PORT: "8000"
