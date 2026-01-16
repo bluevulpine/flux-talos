@@ -9,6 +9,8 @@ resources:
   - ./namespace.yaml
   - ./atuin/ks.yaml
   - ./grocy/ks.yaml
+  - ./homebox/ks.yaml
+  - ./homebox-companion/ks.yaml
   - ./joplin-server/ks.yaml
   - ./karakeep/ks.yaml
   - ./mealie/ks.yaml

@@ -1,0 +1,95 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app homebox-companion
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: homebox-companion
+  interval: 1h
+  values:
+    controllers:
+      homebox-companion:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/duelion/homebox-companion
+              # renovate: datasource=docker depName=ghcr.io/duelion/homebox-companion
+              tag: v2.2.0
+            env:
+              TZ: "${TIMEZONE}"
+              # Homebox instance URL (internal cluster service)
+              HBC_HOMEBOX_URL: http://homebox.productivity.svc.cluster.local:7745
+              # Public URL for links in chat responses
+              HBC_LINK_BASE_URL: https://homebox.${SECRET_DOMAIN}
+              # LLM model configuration (Azure OpenAI compatible)
+              HBC_LLM_MODEL: gpt-4o-mini
+              # Server configuration
+              HBC_SERVER_HOST: "0.0.0.0"
+              HBC_SERVER_PORT: "8000"
+              HBC_LOG_LEVEL: INFO
+              # Disable update checks (managed by Flux)
+              HBC_DISABLE_UPDATE_CHECK: "true"
+              # Image quality for uploads
+              HBC_IMAGE_QUALITY: medium
+            envFrom:
+              - secretRef:
+                  name: homebox-companion-secret
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: &port 8000
+                  initialDelaySeconds: 15
+                  periodSeconds: 10
+                  timeoutSeconds: 10
+                  failureThreshold: 3
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: homebox-companion
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        annotations:
+          gatus.home-operations.com/endpoint: |
+            group: productivity
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Homebox Companion"
+          gethomepage.dev/group: "Productivity"
+          gethomepage.dev/icon: "mdi-package-variant-closed-plus"
+          gethomepage.dev/description: "AI Inventory Assistant"
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - homebox-companion.${SECRET_DOMAIN}
+

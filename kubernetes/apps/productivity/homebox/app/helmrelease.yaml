@@ -1,0 +1,118 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app homebox
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: homebox
+  interval: 1h
+  values:
+    controllers:
+      homebox:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom: &envFrom
+              - secretRef:
+                  name: homebox-secret
+        containers:
+          app:
+            image:
+              repository: ghcr.io/sysadminsmedia/homebox
+              # renovate: datasource=docker depName=ghcr.io/sysadminsmedia/homebox
+              tag: v0.22.3
+            env:
+              TZ: "${TIMEZONE}"
+              # Application mode
+              HBOX_MODE: production
+              # Web server configuration
+              HBOX_WEB_PORT: "7745"
+              HBOX_WEB_MAX_UPLOAD_SIZE: "50"
+              # Database driver
+              HBOX_DATABASE_DRIVER: postgres
+              HBOX_DATABASE_SSL_MODE: disable
+              # Storage configuration
+              HBOX_STORAGE_CONN_STRING: "file:///./"
+              HBOX_STORAGE_PREFIX_PATH: /data
+              # Disable public registration
+              HBOX_OPTIONS_ALLOW_REGISTRATION: "false"
+              # Trust proxy headers for HTTPS
+              HBOX_OPTIONS_TRUST_PROXY: "true"
+              HBOX_OPTIONS_HOSTNAME: homebox.${SECRET_DOMAIN}
+              # OIDC configuration for Authentik
+              HBOX_OIDC_ENABLED: "true"
+              HBOX_OIDC_ISSUER_URL: https://sso.${SECRET_DOMAIN}/application/o/homebox/
+              HBOX_OIDC_SCOPE: "openid profile email groups"
+              HBOX_OIDC_BUTTON_TEXT: "Sign in with Authentik"
+              HBOX_OIDC_AUTO_REDIRECT: "false"
+              HBOX_OPTIONS_ALLOW_LOCAL_LOGIN: "true"
+              # Disable analytics
+              HBOX_OPTIONS_ALLOW_ANALYTICS: "false"
+              HBOX_OPTIONS_GITHUB_RELEASE_CHECK: "false"
+            envFrom: *envFrom
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/v1/status
+                    port: &port 7745
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+                  timeoutSeconds: 30
+                  failureThreshold: 5
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: homebox
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        annotations:
+          gatus.home-operations.com/endpoint: |
+            group: productivity
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Homebox"
+          gethomepage.dev/group: "Productivity"
+          gethomepage.dev/icon: "homebox.png"
+          gethomepage.dev/description: "Home Inventory"
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - homebox.${SECRET_DOMAIN}
+    persistence:
+      data:
+        existingClaim: *app
+        globalMounts:
+          - path: /data
+
