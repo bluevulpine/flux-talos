@@ -33,6 +33,8 @@ spec:
               TZ: "${TIMEZONE}"
               # Application mode
               HBOX_MODE: production
+              # Storage path (explicitly set to mounted volume)
+              HBOX_STORAGE_CONN_STRING: "file:///data"
               # Web server configuration
               HBOX_WEB_PORT: "7745"
               HBOX_WEB_MAX_UPLOAD_SIZE: "50"
@@ -115,4 +117,8 @@ spec:
         existingClaim: *app
         globalMounts:
           - path: /data
+      cache:
+        type: emptyDir
+        globalMounts:
+          - path: /.cache
 
