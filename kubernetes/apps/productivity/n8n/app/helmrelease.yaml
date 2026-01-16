@@ -40,7 +40,7 @@ spec:
           app:
             image:
               repository: docker.io/n8nio/n8n
-              tag: 1.123.16
+              tag: 2.4.4
             env:
               DB_TYPE: postgresdb
               N8N_PORT: &port 5678
