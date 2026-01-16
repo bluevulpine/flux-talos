@@ -16,14 +16,6 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
-          init-db:
-            image:
-              repository: ghcr.io/home-operations/postgres-init
-              tag: rolling
-            envFrom: &envFrom
-              - secretRef:
-                  name: homebox-secret
-        initContainers:
           init-tmpdir:
             image:
               repository: busybox
@@ -32,6 +24,13 @@ spec:
               - /bin/sh
               - -c
               - mkdir -p /data/.tmp && chmod 1777 /data/.tmp
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom: &envFrom
+              - secretRef:
+                  name: homebox-secret
         containers:
           app:
             image:
