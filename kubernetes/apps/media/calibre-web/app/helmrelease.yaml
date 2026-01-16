@@ -67,6 +67,19 @@ spec:
             sectionName: https
         hostnames:
           - ebooks.${SECRET_DOMAIN}
+        # Kobo Sync Header Configuration
+        # Calibre-Web's ReverseProxied middleware (cps/reverseproxy.py) checks for the
+        # non-standard X-Scheme header instead of the standard X-Forwarded-Proto header
+        # to determine the URL scheme. Without this header, Kobo sync will fail because
+        # Calibre-Web generates incorrect download URLs (http:// instead of https://).
+        # Reference: https://devblog.yvn.no/posts/syncing-kobo-and-calibre-web/
+        rules:
+          - filters:
+              - type: RequestHeaderModifier
+                requestHeaderModifier:
+                  set:
+                    - name: X-Scheme
+                      value: https
     persistence:
       config:
         existingClaim: *app
