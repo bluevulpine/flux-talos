@@ -7,6 +7,9 @@ metadata:
 spec:
   providerRef:
     name: github-status
+  # Only report status for top-level Kustomization to avoid GitHub rate limiting
+  # (previously used name: "*" which triggered on ALL ~100+ Kustomizations)
   eventSources:
     - kind: Kustomization
-      name: "*"
+      name: cluster-apps
+      namespace: flux-system
