@@ -30,7 +30,7 @@ spec:
     # renovate: datasource=docker depName=sonatype/nexus3
     image:
       repository: docker.io/sonatype/nexus3
-      tag: 3.87.1
+      tag: 3.88.0
 
     # JVM memory settings - 2GB heap with 4GB direct memory for blob operations
     install4jAddVmParams: "-Xms2048m -Xmx2048m -XX:MaxDirectMemorySize=4096m"
