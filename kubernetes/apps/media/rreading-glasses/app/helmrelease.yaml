@@ -30,7 +30,8 @@ spec:
               # Use 'hardcover' tag for Hardcover metadata (higher quality, requires fresh Readarr DB)
               # Use 'latest' tag for GoodReads metadata (backward compatible)
               tag: hardcover
-            args:
+            command:
+              - /main
               - serve
               - --verbose
             env:
