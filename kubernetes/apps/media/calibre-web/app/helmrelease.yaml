@@ -139,7 +139,9 @@ spec:
         # X-Forwarded-Proto. Without it, download URLs use http:// instead of https://.
         # Reference: https://devblog.yvn.no/posts/syncing-kobo-and-calibre-web/
         rules:
-          - filters:
+          - backendRefs:
+              - identifier: app
+            filters:
               - type: RequestHeaderModifier
                 requestHeaderModifier:
                   set:
@@ -162,6 +164,8 @@ spec:
               - path:
                   type: PathPrefix
                   value: /kobo
+            backendRefs:
+              - identifier: app
             filters:
               - type: RequestHeaderModifier
                 requestHeaderModifier:
