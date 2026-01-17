@@ -4,6 +4,68 @@ apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: &app calibre-web
+  # ============================================================================
+  # CALIBRE-WEB SSO INTEGRATION WITH AUTHENTIK
+  # ============================================================================
+  # This deployment uses a hybrid authentication approach for the best UX:
+  #
+  # 1. WEB USERS (Browser Access):
+  #    - Authentik forward auth handles initial authentication
+  #    - X-authentik-username header passed to Calibre-Web for automatic login
+  #    - Result: Single sign-on - authenticate once, auto-login to Calibre-Web
+  #
+  # 2. KOBO E-READERS (Device Sync):
+  #    - Separate HTTPRoute without auth label bypasses Authentik
+  #    - Kobo authenticates directly via LDAP credentials in Calibre-Web
+  #    - Result: Native Kobo sync without proxy complications
+  #
+  # 3. USER PROVISIONING:
+  #    - LDAP integration auto-imports users from Authentik
+  #    - Users created automatically on first LDAP login
+  #
+  # CALIBRE-WEB ADMIN CONFIGURATION REQUIRED:
+  # ----------------------------------------
+  # Navigate to Admin > Edit Basic Configuration > Feature Configuration:
+  #
+  # For Reverse Proxy Auth (Web SSO):
+  #   - Allow Reverse Proxy Authentication: ✓ (checked)
+  #   - Reverse Proxy Header Name: X-authentik-username
+  #     (Authentik already sends this header - no Authentik config needed)
+  #
+  # For LDAP Auth (Kobo + User Provisioning):
+  #   - Login Type: Use LDAP Authentication
+  #   - LDAP Server: ak-outpost-ldap.identity.svc.cluster.local
+  #   - LDAP Server Port: 389
+  #   - LDAP Encryption: None (internal cluster traffic)
+  #   - LDAP Authentication: Simple
+  #   - LDAP Administrator Username: cn=ldapservice,ou=users,dc=ldap,dc=goauthentik,dc=io
+  #   - LDAP Administrator Password: <from Authentik LDAP outpost service account>
+  #   - LDAP Distinguished Name (DN): dc=ldap,dc=goauthentik,dc=io
+  #   - LDAP User Object Filter: (&(objectclass=user)(cn=%s))
+  #   - LDAP Server is OpenLDAP?: ✓ (checked)
+  #   - LDAP Group Object Filter: (&(objectclass=group)(cn=%s))
+  #   - LDAP Group Name: calibre-web (create this group in Authentik)
+  #   - LDAP Group Members Field: member
+  #   - LDAP Member User Filter Detection: Autodetect
+  #
+  # For Kobo Sync:
+  #   - Server External Port: 443
+  #   - Enable Kobo sync: ✓ (in user profile settings)
+  #
+  # AUTHENTIK CONFIGURATION REQUIRED:
+  # ---------------------------------
+  # 1. LDAP Outpost (for LDAP auth + Kobo sync):
+  #    - Create LDAP Provider in Authentik (Applications > Providers > Create)
+  #    - Create LDAP Outpost using the provider (Outposts > Create)
+  #    - Service will be: ak-outpost-ldap.identity.svc.cluster.local:389
+  #    - Create a service account for LDAP binds (Directory > Users > Create Service Account)
+  #
+  # 2. Group for Access Control (already created via MCP):
+  #    - Group "calibre-web" exists in Authentik
+  #    - Add users who should have Calibre-Web access to this group
+  #
+  # Reference: https://integrations.goauthentik.io/media/calibre-web/
+  # ============================================================================
 spec:
   chartRef:
     kind: OCIRepository
@@ -46,6 +108,8 @@ spec:
           http:
             port: 8083
     route:
+      # Main web route - protected by Authentik forward auth
+      # Uses Remote-User header for SSO after Authentik authentication
       app:
         annotations:
           gatus.home-operations.com/endpoint: |
@@ -60,6 +124,8 @@ spec:
           gethomepage.dev/widget.username: "{{`{{HOMEPAGE_VAR_CALIBRE_USERNAME}}`}}"
           gethomepage.dev/widget.password: "{{`{{HOMEPAGE_VAR_CALIBRE_PASSWORD}}`}}"
         labels:
+          # Enables Authentik forward auth - user authenticated before reaching Calibre-Web
+          # After auth, Remote-User header is passed for automatic Calibre-Web login
           auth: authentik
         parentRefs:
           - name: internal
@@ -67,14 +133,36 @@ spec:
             sectionName: https
         hostnames:
           - ebooks.${SECRET_DOMAIN}
-        # Kobo Sync Header Configuration
-        # Calibre-Web's ReverseProxied middleware (cps/reverseproxy.py) checks for the
-        # non-standard X-Scheme header instead of the standard X-Forwarded-Proto header
-        # to determine the URL scheme. Without this header, Kobo sync will fail because
-        # Calibre-Web generates incorrect download URLs (http:// instead of https://).
+        # Header Configuration for Reverse Proxy and Kobo Sync
+        # X-Scheme: Required because Calibre-Web's ReverseProxied middleware
+        # (cps/reverseproxy.py) checks for this non-standard header instead of
+        # X-Forwarded-Proto. Without it, download URLs use http:// instead of https://.
         # Reference: https://devblog.yvn.no/posts/syncing-kobo-and-calibre-web/
         rules:
           - filters:
+              - type: RequestHeaderModifier
+                requestHeaderModifier:
+                  set:
+                    - name: X-Scheme
+                      value: https
+      # Kobo sync route - NO Authentik forward auth
+      # Kobo e-readers authenticate directly to Calibre-Web via LDAP credentials
+      # This bypasses the web proxy auth since Kobo devices can't handle OAuth/SAML
+      kobo:
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - ebooks.${SECRET_DOMAIN}
+        # Match only /kobo/* paths - device sync API endpoints
+        # No "auth: authentik" label = bypasses forward auth
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /kobo
+            filters:
               - type: RequestHeaderModifier
                 requestHeaderModifier:
                   set:

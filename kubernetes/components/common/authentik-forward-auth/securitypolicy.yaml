@@ -31,6 +31,12 @@ spec:
       # Path for Authentik's forward auth endpoint
       path: /outpost.goauthentik.io/auth/envoy
       # Headers to forward to backend after successful auth
+      # These headers are set by Authentik's proxy provider and passed to backends
+      # for SSO integration. Applications can use these for:
+      # - Reverse proxy authentication (x-authentik-username)
+      # - User identification (x-authentik-email, x-authentik-name)
+      # - Group-based authorization (x-authentik-groups)
+      # - Unique user ID (x-authentik-uid)
       headersToBackend:
         - x-authentik-username
         - x-authentik-groups
