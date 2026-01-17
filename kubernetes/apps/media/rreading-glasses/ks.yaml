@@ -18,6 +18,7 @@ spec:
   targetNamespace: media
   dependsOn:
     - name: cloudnative-pg-cluster
+      namespace: database
   wait: false
   postBuild:
     substitute:
