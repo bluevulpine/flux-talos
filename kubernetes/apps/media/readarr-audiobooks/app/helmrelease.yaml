@@ -35,8 +35,8 @@ spec:
             command: ["/bin/bash", "-c"]
             args:
               - |
-                # Wait for rreading-glasses service to be available
-                until curl -sf "${READARR_METADATA_URL}/health" > /dev/null 2>&1; do
+                # Wait for rreading-glasses service to be available (TCP check since no /health endpoint)
+                until nc -z rreading-glasses.media.svc.cluster.local 8788 2>/dev/null; do
                   echo "Waiting for rreading-glasses..."
                   sleep 5
                 done
