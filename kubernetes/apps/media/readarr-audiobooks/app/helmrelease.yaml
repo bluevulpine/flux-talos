@@ -36,7 +36,7 @@ spec:
             args:
               - |
                 # Wait for rreading-glasses service to be available (TCP check since no /health endpoint)
-                until nc -z rreading-glasses.media.svc.cluster.local 8788 2>/dev/null; do
+                until timeout 2 bash -c 'cat < /dev/null > /dev/tcp/rreading-glasses.media.svc.cluster.local/8788' 2>/dev/null; do
                   echo "Waiting for rreading-glasses..."
                   sleep 5
                 done
