@@ -4,7 +4,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: "${APP}"
 spec:
-  accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
+  # Default to RWX for Direct copy method (allows mover pod to access PVC alongside app)
+  accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteMany}"]
   dataSourceRef:
     kind: ReplicationDestination
     apiGroup: volsync.backube

@@ -30,5 +30,4 @@ spec:
       NS: productivity
       GATUS_SUBDOMAIN: n8n
       VOLSYNC_CAPACITY: 5Gi
-      VOLSYNC_ACCESSMODES: ReadWriteMany
 

@@ -47,7 +47,8 @@ spec:
     cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-truenas-nfs}"
     cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
     storageClassName: "${VOLSYNC_CLONE_STORAGECLASS:-truenas-nfs}"
-    accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
+    # Default to RWX for Direct copy method (allows mover pod to access PVC alongside app)
+    accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteMany}"]
     capacity: "${VOLSYNC_CAPACITY:-20Gi}"
     # Run mover as root to avoid slow recursive chown on cloned volumes
     # This bypasses VolumePermissionChangeInProgress delays (10+ min on large volumes)
@@ -83,7 +84,8 @@ spec:
     cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
     cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-8Gi}
     storageClassName: "${VOLSYNC_STORAGECLASS:-truenas-nfs}"
-    accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
+    # Default to RWX for Direct copy method (allows mover pod to access PVC alongside app)
+    accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteMany}"]
     capacity: "${VOLSYNC_CAPACITY:-20Gi}"
     # Run mover as root to avoid slow recursive chown on restored volumes
     moverSecurityContext:
