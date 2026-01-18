@@ -32,7 +32,7 @@ spec:
               # WebSocket for live sync
               WEBSOCKET_ENABLED: "true"
               # Server configuration
-              ROCKET_PORT: &port "8080"
+              ROCKET_PORT: "8080"
               # Data storage
               DATA_FOLDER: /data
               DATABASE_URL: /data/db.sqlite3
@@ -54,7 +54,7 @@ spec:
                 spec:
                   httpGet:
                     path: /alive
-                    port: *port
+                    port: &port 8080
                   initialDelaySeconds: 0
                   periodSeconds: 10
                   timeoutSeconds: 1

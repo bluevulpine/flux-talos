@@ -70,18 +70,39 @@ spec:
               OVERWRITEPROTOCOL: https
               OVERWRITECLIURL: https://nextcloud.${SECRET_DOMAIN}
             probes:
-              liveness: &probes
+              liveness:
                 enabled: true
                 custom: true
                 spec:
                   httpGet:
                     path: /status.php
                     port: &port 80
+                  initialDelaySeconds: 120
+                  periodSeconds: 30
+                  timeoutSeconds: 10
+                  failureThreshold: 10
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /status.php
+                    port: *port
+                  initialDelaySeconds: 60
+                  periodSeconds: 15
+                  timeoutSeconds: 10
+                  failureThreshold: 20
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /status.php
+                    port: *port
                   initialDelaySeconds: 30
                   periodSeconds: 10
-                  timeoutSeconds: 5
-                  failureThreshold: 5
-              readiness: *probes
+                  timeoutSeconds: 10
+                  failureThreshold: 60
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: false
