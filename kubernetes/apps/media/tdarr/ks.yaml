@@ -27,3 +27,5 @@ spec:
       GATUS_PORT: "8265"
       GATUS_SERVICE: tdarr
       VOLSYNC_CAPACITY: 4Gi
+      # Low criticality: transcode queue, regenerates - backup every 4 hours (staggered +30min)
+      VOLSYNC_LOCAL_SCHEDULE: "30 */4 * * *"

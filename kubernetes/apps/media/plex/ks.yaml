@@ -62,6 +62,8 @@ spec:
     substitute:
       APP: *app
       VOLSYNC_CAPACITY: 10Gi
+      # Low criticality: Plex metadata manager, regenerates - backup every 4 hours (staggered +25min)
+      VOLSYNC_LOCAL_SCHEDULE: "25 */4 * * *"
 ---
 # yaml-language-server: $schema=https://kube-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1

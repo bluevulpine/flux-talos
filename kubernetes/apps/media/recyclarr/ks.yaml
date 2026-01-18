@@ -28,3 +28,5 @@ spec:
     substitute:
       APP: *app
       VOLSYNC_CAPACITY: 1Gi
+      # Low criticality: config only, git-managed - backup once daily at 6 AM
+      VOLSYNC_LOCAL_SCHEDULE: "0 6 * * *"

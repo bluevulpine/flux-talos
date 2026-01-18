@@ -26,3 +26,5 @@ spec:
     substitute:
       APP: *app
       VOLSYNC_CAPACITY: 1Gi
+      # Low criticality: config + cache, easily rebuilt - backup every 4 hours (staggered +10min)
+      VOLSYNC_LOCAL_SCHEDULE: "10 */4 * * *"

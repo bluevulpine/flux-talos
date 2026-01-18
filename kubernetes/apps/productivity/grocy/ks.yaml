@@ -36,4 +36,5 @@ spec:
       VOLSYNC_CACHE_CLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
-
+      # Low criticality: inventory, infrequent changes - backup every 2 hours (staggered +15min)
+      VOLSYNC_LOCAL_SCHEDULE: "15 */2 * * *"

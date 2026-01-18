@@ -31,4 +31,5 @@ spec:
       GATUS_PORT: "7745"
       GATUS_SERVICE: homebox
       VOLSYNC_CAPACITY: 10Gi
-
+      # Low criticality: inventory, infrequent changes - backup every 2 hours (staggered +20min)
+      VOLSYNC_LOCAL_SCHEDULE: "20 */2 * * *"

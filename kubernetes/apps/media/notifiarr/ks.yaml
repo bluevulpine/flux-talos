@@ -27,3 +27,5 @@ spec:
       GATUS_PORT: "5454"
       GATUS_SERVICE: notifiarr
       VOLSYNC_CAPACITY: 1Gi
+      # Low criticality: notification config - backup every 4 hours (staggered +35min)
+      VOLSYNC_LOCAL_SCHEDULE: "35 */4 * * *"

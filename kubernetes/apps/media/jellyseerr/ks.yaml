@@ -26,3 +26,5 @@ spec:
       NS: media
       GATUS_SUBDOMAIN: requests
       VOLSYNC_CAPACITY: 4Gi
+      # Low criticality: request queue, not critical - backup every 2 hours (staggered +10min)
+      VOLSYNC_LOCAL_SCHEDULE: "10 */2 * * *"

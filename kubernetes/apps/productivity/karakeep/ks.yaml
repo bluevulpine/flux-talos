@@ -31,4 +31,5 @@ spec:
       GATUS_PORT: "3000"
       GATUS_SERVICE: karakeep
       VOLSYNC_CAPACITY: 10Gi
-
+      # Low criticality: bookmarks - backup every 2 hours (staggered +25min)
+      VOLSYNC_LOCAL_SCHEDULE: "25 */2 * * *"

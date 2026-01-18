@@ -33,3 +33,5 @@ spec:
       VOLSYNC_CLONE_STORAGECLASS: truenas-iscsi
       VOLSYNC_SNAPSHOTCLASS: truenas-iscsi-snapclass
       VOLSYNC_COPYMETHOD: Snapshot
+      # Low criticality: config-only, easily rebuilt - backup every 4 hours
+      VOLSYNC_LOCAL_SCHEDULE: "0 */4 * * *"

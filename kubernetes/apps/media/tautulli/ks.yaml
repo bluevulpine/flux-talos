@@ -29,3 +29,5 @@ spec:
       GATUS_PATH: /home
       VOLSYNC_CAPACITY: 4Gi
       VOLSYNC_CACHE_CAPACITY: 4Gi
+      # Low criticality: watch statistics, can regenerate - backup every 4 hours (staggered +20min)
+      VOLSYNC_LOCAL_SCHEDULE: "20 */4 * * *"

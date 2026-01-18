@@ -25,3 +25,5 @@ spec:
       GATUS_PORT: "8083"
       GATUS_SERVICE: calibre-web
       VOLSYNC_CAPACITY: 1Gi
+      # Low criticality: read-only library viewer - backup every 4 hours (staggered +15min)
+      VOLSYNC_LOCAL_SCHEDULE: "15 */4 * * *"

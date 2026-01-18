@@ -29,4 +29,5 @@ spec:
       GATUS_PORT: "7474"
       GATUS_SERVICE: autobrr
       VOLSYNC_CAPACITY: 1Gi
-
+      # Low criticality: config-only - backup every 4 hours (staggered +5min)
+      VOLSYNC_LOCAL_SCHEDULE: "5 */4 * * *"
