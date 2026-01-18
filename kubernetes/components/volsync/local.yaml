@@ -33,8 +33,7 @@ metadata:
 spec:
   sourcePVC: "${APP:=temp}"
   trigger:
-    # Default: every 30 min. Override with VOLSYNC_LOCAL_SCHEDULE in app's ks.yaml
-    # Examples: "0 * * * *" (hourly), "0 */2 * * *" (every 2h), "5,35 * * * *" (staggered 30min)
+    # Override with VOLSYNC_LOCAL_SCHEDULE in app's ks.yaml
     schedule: "${VOLSYNC_LOCAL_SCHEDULE}"
   kopia:
     # Default to Direct for NFS (avoids TrueNAS clone bottleneck during concurrent backups)
