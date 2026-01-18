@@ -44,7 +44,7 @@ spec:
                 # Update Readarr config to use rreading-glasses as metadata source
                 export PGPASSWORD="${READARR__POSTGRES__PASSWORD}"
                 psql -h "${READARR__POSTGRES__HOST}" -U "${READARR__POSTGRES__USER}" -d "${READARR__POSTGRES__MAINDB}" -c \
-                  "INSERT INTO \"Config\" (\"Key\", \"Value\") VALUES ('metadataprovidersource', '${READARR_METADATA_URL}')
+                  "INSERT INTO \"Config\" (\"Key\", \"Value\") VALUES ('metadatasource', '${READARR_METADATA_URL}')
                    ON CONFLICT (\"Key\") DO UPDATE SET \"Value\" = EXCLUDED.\"Value\";"
                 echo "Metadata source configured to ${READARR_METADATA_URL}"
         containers:
