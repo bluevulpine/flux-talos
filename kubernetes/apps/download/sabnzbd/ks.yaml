@@ -27,6 +27,7 @@ spec:
       GATUS_PORT: "8080"
       GATUS_SERVICE: sabnzbd
       VOLSYNC_CAPACITY: 4Gi
+      VOLSYNC_ACCESSMODES: ReadWriteOnce  # iSCSI doesn't support RWX
       VOLSYNC_STORAGECLASS: truenas-iscsi
       VOLSYNC_CACHE_CLASS: truenas-iscsi
       VOLSYNC_CLONE_STORAGECLASS: truenas-iscsi

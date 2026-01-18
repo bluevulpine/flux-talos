@@ -65,6 +65,7 @@ spec:
       APP_UID: "1000"
       APP_GID: "1000"
       VOLSYNC_CAPACITY: 30Gi
+      VOLSYNC_ACCESSMODES: ReadWriteOnce  # iSCSI doesn't support RWX
       VOLSYNC_STORAGECLASS: truenas-iscsi
       VOLSYNC_SNAPSHOTCLASS: truenas-iscsi-snapclass
       VOLSYNC_COPYMETHOD: Snapshot

@@ -26,6 +26,7 @@ spec:
       APP_UID: "1000"
       APP_GID: "1000"
       VOLSYNC_CAPACITY: 2Gi
+      VOLSYNC_ACCESSMODES: ReadWriteOnce  # iSCSI doesn't support RWX
       VOLSYNC_RUN_AS_USER: "1000"
       VOLSYNC_RUN_AS_GROUP: "1000"
       VOLSYNC_FS_GROUP: "1000"
