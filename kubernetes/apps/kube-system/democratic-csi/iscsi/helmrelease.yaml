@@ -105,6 +105,10 @@ spec:
           # renovate: datasource=docker depName=ghcr.io/democratic-csi/democratic-csi
           tag: next
           pullPolicy: IfNotPresent
+        # Increase liveness probe tolerance for slow middleware
+        livenessProbe:
+          failureThreshold: 5
+          timeoutSeconds: 30
 
     node:
       # Required for Talos iSCSI support
