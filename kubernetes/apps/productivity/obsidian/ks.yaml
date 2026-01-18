@@ -36,5 +36,5 @@ spec:
       VOLSYNC_CACHE_CLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
-      VOLSYNC_LOCAL_SCHEDULE: "*/30 * * * *"
+      VOLSYNC_LOCAL_SCHEDULE: "0,30 * * * *"
 

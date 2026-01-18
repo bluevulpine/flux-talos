@@ -30,5 +30,5 @@ spec:
       NS: productivity
       GATUS_SUBDOMAIN: n8n
       VOLSYNC_CAPACITY: 5Gi
-      VOLSYNC_LOCAL_SCHEDULE: "*/30 * * * *"
+      VOLSYNC_LOCAL_SCHEDULE: "0,30 * * * *"
 

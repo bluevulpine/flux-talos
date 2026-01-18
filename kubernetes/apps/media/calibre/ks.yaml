@@ -27,5 +27,5 @@ spec:
       GATUS_PORT: "8080"
       GATUS_SERVICE: calibre
       VOLSYNC_CAPACITY: 2Gi
-      VOLSYNC_LOCAL_SCHEDULE: "*/30 * * * *"
+      VOLSYNC_LOCAL_SCHEDULE: "0,30 * * * *"
 

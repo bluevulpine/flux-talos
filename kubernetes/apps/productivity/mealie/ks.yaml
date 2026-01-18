@@ -31,5 +31,5 @@ spec:
       GATUS_PORT: "9000"
       GATUS_SERVICE: mealie
       VOLSYNC_CAPACITY: 5Gi
-      VOLSYNC_LOCAL_SCHEDULE: "*/30 * * * *"
+      VOLSYNC_LOCAL_SCHEDULE: "0,30 * * * *"
 

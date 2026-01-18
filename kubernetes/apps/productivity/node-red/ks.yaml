@@ -31,5 +31,5 @@ spec:
       VOLSYNC_RUN_AS_USER: "1000"
       VOLSYNC_RUN_AS_GROUP: "1000"
       VOLSYNC_FS_GROUP: "1000"
-      VOLSYNC_LOCAL_SCHEDULE: "*/30 * * * *"
+      VOLSYNC_LOCAL_SCHEDULE: "0,30 * * * *"
 
