@@ -25,3 +25,4 @@ spec:
       GATUS_PORT: "80"
       GATUS_SERVICE: audiobookshelf
       VOLSYNC_CAPACITY: 5Gi
+      VOLSYNC_LOCAL_SCHEDULE: "*/30 * * * *"

@@ -26,3 +26,4 @@ spec:
       NS: home
       VOLSYNC_CAPACITY: 10Gi
       VOLSYNC_CACHE_CAPACITY: 10Gi
+      VOLSYNC_LOCAL_SCHEDULE: "*/30 * * * *"
