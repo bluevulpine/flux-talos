@@ -92,6 +92,8 @@ spec:
               repository: docker.io/getmeili/meilisearch
               # renovate: datasource=docker depName=docker.io/getmeili/meilisearch
               tag: v1.32.2
+            args:
+              - --experimental-dumpless-upgrade
             env:
               MEILI_ENV: production
               MEILI_NO_ANALYTICS: "true"
