@@ -99,10 +99,10 @@ spec:
                   httpGet:
                     path: /status.php
                     port: *port
-                  initialDelaySeconds: 30
-                  periodSeconds: 10
+                  initialDelaySeconds: 60
+                  periodSeconds: 15
                   timeoutSeconds: 10
-                  failureThreshold: 60
+                  failureThreshold: 120
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: false
