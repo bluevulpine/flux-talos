@@ -63,6 +63,10 @@ spec:
           port: 443
           apiKey: ${DEMOCRATIC_CSI_API_KEY}
           allowInsecure: false
+          apiVersion: 2
+          # Increase timeouts for busy middleware
+          socketTimeout: 60000      # 60s socket timeout
+          requestTimeout: 120000    # 120s request timeout
         zfs:
           # Separate dataset paths from NFS to avoid conflicts
           datasetParentName: apps/democratic-csi/iscsi/v
