@@ -31,5 +31,5 @@ spec:
       GATUS_PORT: "80"
       GATUS_SERVICE: nextcloud
       VOLSYNC_CAPACITY: 10Gi
-      VOLSYNC_LOCAL_SCHEDULE: "0,30 * * * *"
+      VOLSYNC_LOCAL_SCHEDULE: "4,34 * * * *"
 

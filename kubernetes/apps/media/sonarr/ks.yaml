@@ -29,4 +29,4 @@ spec:
       GATUS_PORT: "8989"
       GATUS_SERVICE: sonarr
       VOLSYNC_CAPACITY: 4Gi
-      VOLSYNC_LOCAL_SCHEDULE: "0,30 * * * *"
+      VOLSYNC_LOCAL_SCHEDULE: "0 * * * *"

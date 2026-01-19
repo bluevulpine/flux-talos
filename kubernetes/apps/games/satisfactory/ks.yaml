@@ -35,4 +35,4 @@ spec:
       VOLSYNC_CLONE_STORAGECLASS: truenas-iscsi
       VOLSYNC_SNAPSHOTCLASS: truenas-iscsi-snapclass
       VOLSYNC_COPYMETHOD: Snapshot
-      VOLSYNC_LOCAL_SCHEDULE: "0,30 * * * *"
+      VOLSYNC_LOCAL_SCHEDULE: "55 * * * *"

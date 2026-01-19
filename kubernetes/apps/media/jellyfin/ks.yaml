@@ -27,4 +27,4 @@ spec:
       GATUS_PORT: "8096"
       GATUS_SERVICE: jellyfin
       VOLSYNC_CAPACITY: 10Gi
-      VOLSYNC_LOCAL_SCHEDULE: "0,30 * * * *"
+      VOLSYNC_LOCAL_SCHEDULE: "35 * * * *"

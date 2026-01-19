@@ -34,5 +34,5 @@ spec:
       VOLSYNC_SNAPSHOTCLASS: truenas-nfs-snapclass
       VOLSYNC_CACHE_CLASS: truenas-nfs
       VOLSYNC_CLONE_STORAGECLASS: truenas-nfs
-      VOLSYNC_LOCAL_SCHEDULE: "0,30 * * * *"
+      VOLSYNC_LOCAL_SCHEDULE: "18,48 * * * *"
 
