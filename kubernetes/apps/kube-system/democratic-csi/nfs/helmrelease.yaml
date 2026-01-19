@@ -79,6 +79,12 @@ spec:
           shareCommentTemplate: "{{ parameters.[csi.storage.k8s.io/pvc/namespace] }}-{{ parameters.[csi.storage.k8s.io/pvc/name] }}"
 
     controller:
+      # Reduce exponential backoff for faster recovery from transient failures
+      externalProvisioner:
+        extraArgs:
+          - --timeout=150s              # Match TrueNAS API timeout (120s) with margin
+          - --retry-interval-start=5s   # Start retry at 5s (default: 1s)
+          - --retry-interval-max=60s    # Cap at 60s (default: 5 minutes)
       driver:
         image:
           registry: ghcr.io/democratic-csi/democratic-csi
