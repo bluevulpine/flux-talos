@@ -72,7 +72,7 @@ spec:
               TZ: "${TIMEZONE}"
               IMMICH_LOG_LEVEL: log
               # Use CPU for ML (no GPU acceleration)
-              MACHINE_LEARNING_WORKERS: "1"
+              MACHINE_LEARNING_WORKERS: "3"
               MACHINE_LEARNING_WORKER_TIMEOUT: "120"
               # HuggingFace needs writable home for download metadata
               HF_HOME: /cache
