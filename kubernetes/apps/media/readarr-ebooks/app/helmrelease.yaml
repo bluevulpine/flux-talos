@@ -27,7 +27,7 @@ spec:
           app:
             image:
               repository: ghcr.io/bluevulpine/bookshelf
-              tag: hardcover-fix-calibre-credential-cache-duplicate-key
+              tag: hardcover-v0.4.20.4
             env:
               PUID: "568"
               PGID: "568"
