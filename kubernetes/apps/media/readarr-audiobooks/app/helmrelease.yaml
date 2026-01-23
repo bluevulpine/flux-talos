@@ -39,6 +39,8 @@ spec:
               repository: ghcr.io/pennydreadful/bookshelf
               tag: hardcover
             env:
+              PUID: "568"
+              PGID: "568"
               READARR__APP__INSTANCENAME: Bookshelf-Audiobooks
               READARR__APP__THEME: dark
               READARR__AUTH__METHOD: External
@@ -58,15 +60,11 @@ spec:
                   httpGet:
                     path: /ping
                     port: *port
-                  initialDelaySeconds: 0
+                  initialDelaySeconds: 30
                   periodSeconds: 10
                   timeoutSeconds: 1
                   failureThreshold: 3
               readiness: *probes
-            securityContext:
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
-              capabilities: {drop: ["ALL"]}
             resources:
               requests:
                 cpu: 100m
@@ -75,9 +73,6 @@ spec:
                 memory: 4Gi
     defaultPodOptions:
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 568
-        runAsGroup: 568
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
     service:
