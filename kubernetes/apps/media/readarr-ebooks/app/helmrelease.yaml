@@ -26,8 +26,8 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/pennydreadful/bookshelf
-              tag: hardcover
+              repository: ghcr.io/bluevulpine/bookshelf
+              tag: hardcover-fix-calibre-credential-cache-duplicate-key
             env:
               PUID: "568"
               PGID: "568"
