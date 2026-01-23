@@ -16,16 +16,6 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
-          00-clean-config:
-            image:
-              repository: busybox
-              tag: latest
-            command: ["/bin/sh", "-c"]
-            args:
-              - rm -f /config/config.xml && echo "Cleaned config.xml for fresh Bookshelf start"
-            securityContext:
-              runAsUser: 568
-              runAsGroup: 568
           01-init-db:
             image:
               repository: ghcr.io/home-operations/postgres-init
