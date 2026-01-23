@@ -16,6 +16,16 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
+          00-clean-config:
+            image:
+              repository: busybox
+              tag: latest
+            command: ["/bin/sh", "-c"]
+            args:
+              - rm -f /config/config.xml && echo "Cleaned config.xml for fresh Bookshelf start"
+            securityContext:
+              runAsUser: 568
+              runAsGroup: 568
           01-init-db:
             image:
               repository: ghcr.io/home-operations/postgres-init
@@ -23,37 +33,13 @@ spec:
             envFrom:
               - secretRef:
                   name: readarr-ebooks-secret
-          02-init-metadata:
-            image:
-              repository: ghcr.io/home-operations/postgres-init
-              tag: rolling
-            env:
-              READARR_METADATA_URL: http://rreading-glasses.media.svc.cluster.local:8788
-            envFrom:
-              - secretRef:
-                  name: readarr-ebooks-secret
-            command: ["/bin/bash", "-c"]
-            args:
-              - |
-                # Wait for rreading-glasses service to be available (TCP check since no /health endpoint)
-                until timeout 2 bash -c 'cat < /dev/null > /dev/tcp/rreading-glasses.media.svc.cluster.local/8788' 2>/dev/null; do
-                  echo "Waiting for rreading-glasses..."
-                  sleep 5
-                done
-                echo "rreading-glasses is ready"
-                # Update Readarr config to use rreading-glasses as metadata source
-                export PGPASSWORD="${READARR__POSTGRES__PASSWORD}"
-                psql -h "${READARR__POSTGRES__HOST}" -U "${READARR__POSTGRES__USER}" -d "${READARR__POSTGRES__MAINDB}" -c \
-                  "INSERT INTO \"Config\" (\"Key\", \"Value\") VALUES ('metadatasource', '${READARR_METADATA_URL}')
-                   ON CONFLICT (\"Key\") DO UPDATE SET \"Value\" = EXCLUDED.\"Value\";"
-                echo "Metadata source configured to ${READARR_METADATA_URL}"
         containers:
           app:
             image:
-              repository: ghcr.io/home-operations/readarr
-              tag: rolling
+              repository: ghcr.io/pennydreadful/bookshelf
+              tag: hardcover
             env:
-              READARR__APP__INSTANCENAME: Readarr-Ebooks
+              READARR__APP__INSTANCENAME: Bookshelf-Ebooks
               READARR__APP__THEME: dark
               READARR__AUTH__METHOD: External
               READARR__AUTH__REQUIRED: DisabledForLocalAddresses

@@ -13,7 +13,6 @@ spec:
       namespace: database
     - name: external-secrets-stores
       namespace: external-secrets
-    - name: rreading-glasses
   interval: 1h
   path: ./kubernetes/apps/media/readarr-audiobooks/app
   prune: true
