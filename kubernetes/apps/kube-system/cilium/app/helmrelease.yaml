@@ -33,6 +33,8 @@ spec:
       automount:
         enabled: false
       hostRoot: /sys/fs/cgroup
+    cni:
+      exclusive: false  # Allow Multus CNI to coexist with Cilium
     cluster:
       id: 1
       name: home-kubernetes
