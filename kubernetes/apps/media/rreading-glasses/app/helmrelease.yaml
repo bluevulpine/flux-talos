@@ -29,6 +29,7 @@ spec:
               # Using self-hosted fork with fixes for Hardcover API changes
               repository: ghcr.io/bluevulpine/rreading-glasses
               tag: hardcover
+              pullPolicy: Always
             command:
               - /main
               - serve
