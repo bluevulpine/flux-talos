@@ -39,6 +39,8 @@ spec:
               READARR__LOG__LEVEL: info
               READARR__SERVER__PORT: &port 8787
               TZ: "${TIMEZONE}"
+              # Point to self-hosted rreading-glasses for Hardcover metadata
+              METADATA_URL: http://rreading-glasses.media.svc.cluster.local:8788
             envFrom:
               - secretRef:
                   name: readarr-audiobooks-secret
