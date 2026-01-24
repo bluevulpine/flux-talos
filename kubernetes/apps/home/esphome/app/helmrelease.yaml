@@ -1,0 +1,113 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app esphome
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: esphome
+  interval: 1h
+  values:
+    controllers:
+      esphome:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        pod:
+          annotations:
+            # Attach to IOT VLAN 50 network via Multus with static IP
+            k8s.v1.cni.cncf.io/networks: |-
+              [{
+                "name": "iot",
+                "namespace": "kube-system",
+                "ips": ["192.168.50.12/24"]
+              }]
+        containers:
+          app:
+            image:
+              repository: ghcr.io/esphome/esphome
+              # renovate: datasource=docker depName=ghcr.io/esphome/esphome
+              tag: 2026.1.1
+            env:
+              TZ: "${TIMEZONE}"
+              # ESPHome dashboard settings
+              ESPHOME_DASHBOARD_USE_PING: "true"
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: &port 6052
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                memory: 2Gi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+      # Schedule on brokkr workers which have bond0.50 for VLAN 50 access
+      # These nodes have more compute power for ESPHome builds
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - brokkr01
+                      - brokkr02
+                      - brokkr03
+    service:
+      app:
+        controller: esphome
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        annotations:
+          gatus.home-operations.com/endpoint: |
+            group: home
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "ESPHome"
+          gethomepage.dev/group: "Home"
+          gethomepage.dev/icon: "esphome.png"
+          gethomepage.dev/description: "ESP Device Management"
+          gethomepage.dev/widget.type: "esphome"
+          gethomepage.dev/widget.url: "http://esphome.home.svc.cluster.local:6052"
+        labels:
+          auth: authentik
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - esphome.${SECRET_DOMAIN}
+    persistence:
+      config:
+        type: nfs
+        server: ${SECRET_NFS_SERVER:=temp}
+        path: /mnt/apps/kubernetes/esphome
+        globalMounts:
+          - path: /config
+
