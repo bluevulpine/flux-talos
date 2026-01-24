@@ -29,7 +29,7 @@ spec:
               # Using self-hosted fork with fixes for Hardcover API changes
               repository: ghcr.io/bluevulpine/rreading-glasses
               # Using commit-specific tag to ensure we get the image with null ImageUrl fix
-              tag: hardcover-ba8b34a653d5652027f5379c1f53786a19829392
+              tag: hardcover-ba8b34a
               pullPolicy: Always
             command:
               - /main
