@@ -51,7 +51,7 @@ spec:
               # Data directory
               DATA_DIR: /data
               # Disable signups after initial setup (can be changed later)
-              DISABLE_SIGNUPS: "false"
+              DISABLE_SIGNUPS: "true"
               # Disable password auth if using OAuth exclusively
               DISABLE_PASSWORD_AUTH: "false"
               # OAuth configuration for Authentik
