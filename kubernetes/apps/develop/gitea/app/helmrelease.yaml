@@ -28,7 +28,7 @@ spec:
       registry: "docker.io"
       repository: gitea/gitea
       # renovate: datasource=docker depName=gitea/gitea
-      tag: 1.25.3
+      tag: 1.25.4
       rootless: true
 
     ## Deployment configuration
