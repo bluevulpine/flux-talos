@@ -20,7 +20,7 @@ spec:
             image:
               repository: ghcr.io/linuxserver/calibre
               # renovate: datasource=docker depName=ghcr.io/linuxserver/calibre versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(-ls(?<build>\d+))?$
-              tag: 8.16.2
+              tag: 9.1.0
             env:
               TZ: "${TIMEZONE}"
               PUID: 568
