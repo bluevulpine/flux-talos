@@ -29,4 +29,4 @@ spec:
       GATUS_SERVICE: kube-prometheus-stack-prometheus
       GATUS_SUBDOMAIN: prometheus
       # renovate: datasource=docker depName=quay.io/thanos/thanos
-      THANOS_VERSION: v0.40.1
+      THANOS_VERSION: v0.41.0
