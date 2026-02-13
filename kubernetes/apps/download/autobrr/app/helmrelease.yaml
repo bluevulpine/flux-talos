@@ -28,7 +28,7 @@ spec:
             image:
               repository: ghcr.io/autobrr/autobrr
               # renovate: datasource=docker depName=ghcr.io/autobrr/autobrr
-              tag: v1.72.1
+              tag: v1.73.0
             env:
               TZ: "${TIMEZONE}"
               AUTOBRR__CHECK_FOR_UPDATES: "false"
