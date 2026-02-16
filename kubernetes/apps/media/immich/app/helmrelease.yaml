@@ -153,6 +153,9 @@ spec:
           - name: internal
             namespace: network
             sectionName: https
+          - name: external
+            namespace: network
+            sectionName: https
         hostnames:
           - photos.${SECRET_DOMAIN}
     persistence:
