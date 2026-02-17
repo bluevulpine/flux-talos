@@ -28,7 +28,7 @@ spec:
             image:
               repository: ghcr.io/mealie-recipes/mealie
               # renovate: datasource=docker depName=ghcr.io/mealie-recipes/mealie
-              tag: v3.9.2
+              tag: v3.11.0
             env:
               TZ: "${TIMEZONE}"
               ALLOW_SIGNUP: "false"
