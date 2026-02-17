@@ -1,0 +1,127 @@
+# ============================================================================
+# AUTHENTIK OUTPOST CONFIGURATION - /dev/shm FIX
+# ============================================================================
+# 
+# This file contains the YAML configuration to paste into the authentik
+# Admin UI to fix the /dev/shm session file accumulation issue.
+# 
+# USAGE:
+# 1. Log in to authentik Admin interface
+# 2. Navigate to Applications > Outposts
+# 3. Click on your proxy outpost (e.g., "sso-proxy")
+# 4. Scroll to "Advanced settings" section
+# 5. In the "Configuration" field, paste the YAML below
+# 6. Click "Update"
+# 
+# The outpost deployment will be automatically updated with:
+# - Increased /dev/shm size (256Mi instead of 64Mi)
+# - Cleanup sidecar container that runs hourly
+# 
+# Reference: https://github.com/goauthentik/authentik/issues/12230
+# Documentation: https://docs.goauthentik.io/docs/add-secure-apps/outposts#configuration
+# ============================================================================
+
+# Fix for /dev/shm session file accumulation
+# Issue: https://github.com/goauthentik/authentik/issues/12230
+#
+# NOTE: This uses a workaround because the outpost deployment doesn't have
+# a 'volumes' array by default. We need to add it to the pod spec first.
+kubernetes_json_patches:
+  deployment:
+    # Patch 1: Add volumes array to pod spec
+    - op: add
+      path: /spec/template/spec/volumes
+      value:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
+
+    # Patch 2: Add volumeMounts array to main container
+    - op: add
+      path: /spec/template/spec/containers/0/volumeMounts
+      value:
+        - name: dshm
+          mountPath: /dev/shm
+
+    # Patch 3: Add cleanup sidecar container
+    - op: add
+      path: /spec/template/spec/containers/-
+      value:
+        name: shm-cleanup
+        image: busybox:latest
+        command:
+          - /bin/sh
+          - -c
+        args:
+          - |
+            while true; do
+              echo "$(date): Cleaning /dev/shm..."
+              # Remove session files older than 60 minutes
+              find /dev/shm -type f -mmin +60 -delete 2>/dev/null || true
+              # Remove empty directories
+              find /dev/shm -type d -empty -delete 2>/dev/null || true
+              echo "$(date): Cleanup complete. Next run in 1 hour."
+              sleep 3600
+            done
+        volumeMounts:
+          - name: dshm
+            mountPath: /dev/shm
+        resources:
+          requests:
+            cpu: 5m
+            memory: 16Mi
+          limits:
+            cpu: 50m
+            memory: 32Mi
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          readOnlyRootFilesystem: true
+
+# ============================================================================
+# CUSTOMIZATION OPTIONS
+# ============================================================================
+# 
+# Adjust cleanup frequency:
+#   sleep 3600  # 1 hour (default)
+#   sleep 1800  # 30 minutes
+#   sleep 7200  # 2 hours
+# 
+# Adjust file age threshold:
+#   find /dev/shm -type f -mmin +60   # 60 minutes (default)
+#   find /dev/shm -type f -mmin +30   # 30 minutes
+#   find /dev/shm -type f -mmin +120  # 2 hours
+# 
+# Increase /dev/shm size:
+#   sizeLimit: 256Mi  # Default
+#   sizeLimit: 512Mi  # For high traffic
+#   sizeLimit: 1Gi    # For very high traffic
+# 
+# ============================================================================
+# VERIFICATION COMMANDS
+# ============================================================================
+# 
+# After applying the configuration, run these commands to verify:
+# 
+# # Get the outpost pod name
+# POD=$(kubectl get pods -n identity -l app.kubernetes.io/name=authentik-proxy-outpost -o jsonpath='{.items[0].metadata.name}')
+# 
+# # Check that both containers are running
+# kubectl get pods -n identity -l app.kubernetes.io/name=authentik-proxy-outpost
+# 
+# # Verify container names (should show: authentik-proxy shm-cleanup)
+# kubectl get pods -n identity $POD -o jsonpath='{.spec.containers[*].name}'
+# 
+# # Check /dev/shm size (should show 256Mi total)
+# kubectl exec -n identity $POD -c authentik-proxy -- df -h /dev/shm
+# 
+# # View cleanup sidecar logs
+# kubectl logs -n identity $POD -c shm-cleanup --tail=20
+# 
+# ============================================================================
+
