@@ -36,6 +36,9 @@ spec:
               IMMICH_MEDIA_LOCATION: /usr/src/app/upload
               # Machine learning URL - points to ML sidecar
               IMMICH_MACHINE_LEARNING_URL: http://localhost:3003
+              # potential fix for tiled HEIC - use local tempdir
+              IMMICH_IMAGE_PROCESSING_TEMP_DIRECTORY: /tmp
+              IMMICH_MEDIA_PROCESSING_CONCURRENCY: "1"
             envFrom:
               - secretRef:
                   name: immich-secret
@@ -107,6 +110,9 @@ spec:
               IMMICH_LOG_LEVEL: log
               IMMICH_MEDIA_LOCATION: /usr/src/app/upload
               IMMICH_MACHINE_LEARNING_URL: http://immich:3003
+              # potential fix for tiled HEIC - use local tempdir
+              IMMICH_IMAGE_PROCESSING_TEMP_DIRECTORY: /tmp
+              IMMICH_MEDIA_PROCESSING_CONCURRENCY: "1"
             envFrom:
               - secretRef:
                   name: immich-secret
