@@ -62,6 +62,7 @@ spec:
               # Azure OpenAI model configuration
               INFERENCE_TEXT_MODEL: gpt-4o-mini
               INFERENCE_IMAGE_MODEL: gpt-4o-mini
+              INFERENCE_ENABLE_AUTO_SUMMARIZATION: "true"
             envFrom: *envFrom
             probes:
               liveness: &probes
