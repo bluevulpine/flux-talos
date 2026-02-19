@@ -48,8 +48,13 @@ spec:
               MEILI_ADDR: http://localhost:7700
               # Browser configuration for screenshots
               BROWSER_WEB_URL: http://localhost:9222
+              CRAWLER_VIDEO_DOWNLOAD: "true"
+              CRAWLER_VIDEO_DOWNLOAD_MAX_SIZE: 20000
+              CRAWLER_VIDEO_DOWNLOAD_TIMEOUT_SEC: 7200
+              CRAWLER_YTDLP_ARGS: --user-agent "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
               # Data directory
               DATA_DIR: /data
+              DB_WAL_MODE: "false"
               # Disable signups after initial setup (can be changed later)
               DISABLE_SIGNUPS: "true"
               # Disable password auth if using OAuth exclusively
