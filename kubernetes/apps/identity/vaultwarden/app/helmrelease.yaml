@@ -20,7 +20,7 @@ spec:
             image:
               repository: docker.io/vaultwarden/server
               # renovate: datasource=docker depName=docker.io/vaultwarden/server
-              tag: 1.35.2
+              tag: 1.35.4
             env:
               # Domain configuration
               DOMAIN: https://vaultwarden.${SECRET_DOMAIN}
