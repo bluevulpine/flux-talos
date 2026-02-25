@@ -22,7 +22,7 @@ spec:
             image:
               repository: ghcr.io/recyclarr/recyclarr
               # renovate: datasource=docker depName=ghcr.io/recyclarr/recyclarr
-              tag: 7.5.2
+              tag: 8.3.2
             args: ["sync"]
             env:
               TZ: "${TIMEZONE}"
