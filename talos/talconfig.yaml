@@ -4,7 +4,7 @@ clusterName: &cluster home-kubernetes
 # renovate: datasource=github-releases depName=siderolabs/talos
 talosVersion: v1.12.1
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
-kubernetesVersion: v1.35.0
+kubernetesVersion: v1.35.2
 
 endpoint: https://10.0.10.30:6443
 clusterPodNets:
