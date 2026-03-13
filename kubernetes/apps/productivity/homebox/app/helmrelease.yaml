@@ -36,7 +36,7 @@ spec:
             image:
               repository: ghcr.io/sysadminsmedia/homebox
               # renovate: datasource=docker depName=ghcr.io/sysadminsmedia/homebox
-              tag: latest@sha256:eabc0de4dbbcfb59289397d88ad80f768abf2e08c03f8c197be35ba953a10826
+              tag: latest@sha256:532e0428d922fdea2441b31c1eb5b4018e5f1b2684273bee06dba102db576f30
             env:
               TZ: "${TIMEZONE}"
               # Temp directory must be on same filesystem as /data for file uploads
