@@ -28,7 +28,7 @@ spec:
             image:
               repository: ghcr.io/blakeblackshear/frigate
               # renovate: datasource=docker depName=ghcr.io/blakeblackshear/frigate
-              tag: 0.16.4
+              tag: 0.17.0
             env:
               TZ: "${TIMEZONE}"
               # Use Coral USB TPU for object detection
