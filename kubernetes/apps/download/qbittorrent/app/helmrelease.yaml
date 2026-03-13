@@ -51,7 +51,7 @@ spec:
             image:
               repository: ghcr.io/qdm12/gluetun
               # renovate: datasource=docker depName=ghcr.io/qdm12/gluetun
-              tag: v3.41.0
+              tag: v3.41.1
             envFrom:
               - secretRef:
                   name: qbittorrent-secret
