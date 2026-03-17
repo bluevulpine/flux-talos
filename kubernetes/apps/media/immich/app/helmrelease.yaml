@@ -28,7 +28,7 @@ spec:
             image:
               repository: ghcr.io/immich-app/immich-server
               # renovate: datasource=docker depName=ghcr.io/immich-app/immich-server
-              tag: v2.5.2
+              tag: v2.5.6
             env:
               TZ: "${TIMEZONE}"
               IMMICH_WORKERS_INCLUDE: "api"
@@ -36,6 +36,9 @@ spec:
               IMMICH_MEDIA_LOCATION: /usr/src/app/upload
               # Machine learning URL - points to ML sidecar
               IMMICH_MACHINE_LEARNING_URL: http://localhost:3003
+              # potential fix for tiled HEIC - use local tempdir
+              IMMICH_IMAGE_PROCESSING_TEMP_DIRECTORY: /tmp
+              IMMICH_MEDIA_PROCESSING_CONCURRENCY: "1"
             envFrom:
               - secretRef:
                   name: immich-secret
@@ -67,7 +70,7 @@ spec:
             image:
               repository: ghcr.io/immich-app/immich-machine-learning
               # renovate: datasource=docker depName=ghcr.io/immich-app/immich-machine-learning
-              tag: v2.5.2
+              tag: v2.5.6
             env:
               TZ: "${TIMEZONE}"
               IMMICH_LOG_LEVEL: log
@@ -100,13 +103,16 @@ spec:
             image:
               repository: ghcr.io/immich-app/immich-server
               # renovate: datasource=docker depName=ghcr.io/immich-app/immich-server
-              tag: v2.5.2
+              tag: v2.5.6
             env:
               TZ: "${TIMEZONE}"
               IMMICH_WORKERS_EXCLUDE: "api"
               IMMICH_LOG_LEVEL: log
               IMMICH_MEDIA_LOCATION: /usr/src/app/upload
               IMMICH_MACHINE_LEARNING_URL: http://immich:3003
+              # potential fix for tiled HEIC - use local tempdir
+              IMMICH_IMAGE_PROCESSING_TEMP_DIRECTORY: /tmp
+              IMMICH_MEDIA_PROCESSING_CONCURRENCY: "1"
             envFrom:
               - secretRef:
                   name: immich-secret
@@ -151,6 +157,9 @@ spec:
           gethomepage.dev/widget.version: "2"
         parentRefs:
           - name: internal
+            namespace: network
+            sectionName: https
+          - name: external
             namespace: network
             sectionName: https
         hostnames:

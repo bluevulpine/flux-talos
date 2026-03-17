@@ -38,7 +38,7 @@ spec:
             image:
               repository: ghcr.io/karakeep-app/karakeep
               # renovate: datasource=docker depName=ghcr.io/karakeep-app/karakeep
-              tag: 0.30.0
+              tag: 0.31.0
             env:
               TZ: "${TIMEZONE}"
               # Server configuration
@@ -48,8 +48,13 @@ spec:
               MEILI_ADDR: http://localhost:7700
               # Browser configuration for screenshots
               BROWSER_WEB_URL: http://localhost:9222
+              CRAWLER_VIDEO_DOWNLOAD: "true"
+              CRAWLER_VIDEO_DOWNLOAD_MAX_SIZE: 20000
+              CRAWLER_VIDEO_DOWNLOAD_TIMEOUT_SEC: 7200
+              CRAWLER_YTDLP_ARGS: --user-agent "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
               # Data directory
               DATA_DIR: /data
+              DB_WAL_MODE: "false"
               # Disable signups after initial setup (can be changed later)
               DISABLE_SIGNUPS: "true"
               # Disable password auth if using OAuth exclusively
@@ -62,6 +67,7 @@ spec:
               # Azure OpenAI model configuration
               INFERENCE_TEXT_MODEL: gpt-4o-mini
               INFERENCE_IMAGE_MODEL: gpt-4o-mini
+              INFERENCE_ENABLE_AUTO_SUMMARIZATION: "true"
             envFrom: *envFrom
             probes:
               liveness: &probes
@@ -85,13 +91,17 @@ spec:
                 cpu: 50m
                 memory: 256Mi
               limits:
-                memory: 1Gi
+                memory: 4Gi
           # Meilisearch sidecar for full-text search
           meilisearch:
             image:
               repository: docker.io/getmeili/meilisearch
               # renovate: datasource=docker depName=docker.io/getmeili/meilisearch
-              tag: v1.32.2
+              tag: v1.35.0
+            command:
+              - /bin/meilisearch
+            args:
+              - --experimental-dumpless-upgrade
             env:
               MEILI_ENV: production
               MEILI_NO_ANALYTICS: "true"
@@ -106,7 +116,7 @@ spec:
                 cpu: 10m
                 memory: 128Mi
               limits:
-                memory: 1Gi
+                memory: 4Gi
           # Headless Chrome for web page screenshots
           chrome:
             image:
@@ -132,7 +142,7 @@ spec:
                 cpu: 10m
                 memory: 128Mi
               limits:
-                memory: 1Gi
+                memory: 4Gi
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
@@ -158,6 +168,9 @@ spec:
           gethomepage.dev/description: "Bookmark Manager"
         parentRefs:
           - name: internal
+            namespace: network
+            sectionName: https
+          - name: external
             namespace: network
             sectionName: https
         hostnames:
