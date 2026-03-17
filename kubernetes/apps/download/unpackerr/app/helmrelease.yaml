@@ -20,7 +20,7 @@ spec:
             image:
               repository: ghcr.io/unpackerr/unpackerr
               # renovate: datasource=docker depName=ghcr.io/unpackerr/unpackerr
-              tag: 0.14.5
+              tag: 0.15.2
             env:
               TZ: "${TIMEZONE}"
               UN_WEBSERVER_METRICS: "true"
