@@ -20,7 +20,7 @@ spec:
             image:
               repository: ghcr.io/haveagitgat/tdarr
               # renovate: datasource=docker depName=ghcr.io/haveagitgat/tdarr
-              tag: 2.63.01
+              tag: 2.66.01
             env:
               TZ: "${TIMEZONE}"
               PUID: "568"
