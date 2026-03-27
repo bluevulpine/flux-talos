@@ -28,7 +28,7 @@ spec:
             image:
               repository: nextcloud
               # renovate: datasource=docker depName=nextcloud
-              tag: 33.0.0-apache
+              tag: 33.0.1-apache
             env:
               TZ: "${TIMEZONE}"
               # Database configuration
