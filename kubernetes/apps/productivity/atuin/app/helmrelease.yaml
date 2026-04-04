@@ -35,9 +35,7 @@ spec:
               ATUIN_OPEN_REGISTRATION: "true"
               TZ: "${TIMEZONE}"
             envFrom: *envFrom
-            command:
-              - atuin
-              - server
+            args:
               - start
             probes:
               liveness: &probes
