@@ -1,3 +1,5 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/tailscale.com/connector_v1alpha1.json
 apiVersion: tailscale.com/v1alpha1
 kind: Connector
 metadata:
@@ -5,10 +7,12 @@ metadata:
 spec:
   hostname: ts-exit-node
   exitNode: true
+  proxyClass: multi-vlan-exit-node
   subnetRouter:
     advertiseRoutes:
-      - "10.0.10.0/24"
-      - "10.25.52.0/22"
-      - "10.0.30.0/24"
-      - "10.0.50.0/24"
-      - "172.16.8.0/24"
+      - "10.0.10.0/24"      # Management VLAN
+      - "10.0.30.0/24"      # VLAN 30
+      - "10.0.50.0/24"      # VLAN 50 (IOT)
+      - "172.16.8.0/24"     # Cluster LoadBalancer pool (BGP advertised)
+      - "10.25.52.0/22"     # Additional subnet
+      - "10.0.10.30/32"     # VIP route

@@ -1,0 +1,51 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/tailscale.com/proxyclass_v1alpha1.json
+apiVersion: tailscale.com/v1alpha1
+kind: ProxyClass
+metadata:
+  name: multi-vlan-exit-node
+spec:
+  statefulSet:
+    labels:
+      app.kubernetes.io/name: tailscale-exit-node
+    pod:
+      labels:
+        app.kubernetes.io/name: tailscale-exit-node
+      annotations:
+        # Attach multiple VLANs using Multus
+        # Attempts DHCP first, falls back to static .253 addresses if DHCP unavailable
+        k8s.v1.cni.cncf.io/networks: |
+          [
+            {
+              "name": "vlan-10",
+              "interface": "net1",
+              "ips": ["10.0.10.253/24"]
+            },
+            {
+              "name": "vlan-30",
+              "interface": "net2",
+              "ips": ["10.0.30.253/24"]
+            },
+            {
+              "name": "vlan-50",
+              "interface": "net3",
+              "ips": ["10.0.50.253/24"]
+            }
+          ]
+      # Ensure pod runs on brokkr nodes which have VLAN interfaces
+      nodeSelector:
+        kubernetes.io/hostname: brokkr01
+      tailscaleContainer:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+            smarter-devices/net_tun: "1"
+          limits:
+            memory: 256Mi
+            smarter-devices/net_tun: "1"
+        securityContext:
+          capabilities:
+            add:
+              - NET_ADMIN
+              - NET_RAW

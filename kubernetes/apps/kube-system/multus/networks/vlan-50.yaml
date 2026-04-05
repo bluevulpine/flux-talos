@@ -6,26 +6,29 @@
 apiVersion: k8s.cni.cncf.io/v1
 kind: NetworkAttachmentDefinition
 metadata:
-  name: iot
+  name: vlan-50
 spec:
   config: |-
     {
       "cniVersion": "0.3.1",
-      "name": "iot",
+      "name": "vlan-50",
       "plugins": [
         {
           "type": "macvlan",
           "master": "bond0.50",
           "mode": "bridge",
           "ipam": {
-            "type": "static",
-            "routes": [
-              {"dst": "192.168.50.0/24"}
-            ]
+            "type": "dhcp"
           }
         },
         {
           "type": "sbr"
+        },
+        {
+          "type": "route",
+          "routes": [
+            {"dst": "10.0.50.0/24"}
+          ]
         }
       ]
     }
