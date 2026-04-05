@@ -9,3 +9,4 @@ resources:
   - ./helmrelease.yaml
   - ./ocirepository.yaml
   - ./rbac.yaml
+  - ./talos-serviceaccount.yaml

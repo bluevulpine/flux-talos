@@ -122,8 +122,16 @@ jobs:
       - name: Install talosctl
         run: curl -fsSL https://talos.dev/install | sh
 
+      - name: Configure Talos API Access
+        run: |
+          # Use the Talos ServiceAccount secret to configure talosctl
+          # The secret is automatically created by the Talos ServiceAccount controller
+          kubectl get secret arc-flux-talos-talos-api-talos-secrets -n actions-runner-system -o jsonpath='{.data.talosconfig}' | base64 -d > /tmp/talosconfig
+          export TALOSCONFIG=/tmp/talosconfig
+
       - name: Pull Image on Worker Nodes
         run: |
+          export TALOSCONFIG=/tmp/talosconfig
           # Pull image on all worker nodes
           talosctl --nodes 10.0.10.38,10.0.10.39,10.0.10.40 image pull "${MATRIX_IMAGE}"
 
