@@ -32,9 +32,19 @@ spec:
               "ips": ["10.0.50.253/24"]
             }
           ]
-      # Ensure pod runs on brokkr nodes which have VLAN interfaces
-      nodeSelector:
-        kubernetes.io/hostname: brokkr01
+      # Ensure pod runs on nodes with VLAN interfaces (brokkr01, brokkr02, brokkr03)
+      # Prefer brokkr nodes, avoid low-power nodes
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - brokkr01
+                      - brokkr02
+                      - brokkr03
       tailscaleContainer:
         resources:
           requests:
