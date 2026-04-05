@@ -48,6 +48,10 @@ spec:
             storage: 25Gi
     template:
       spec:
+        # Security context required for Kubernetes mode to allow runner to create temp directories
+        # fsGroup 123 is the default GID of the runner user in the ARC container image
+        securityContext:
+          fsGroup: 123
         containers:
           - name: runner
             image: ghcr.io/home-operations/actions-runner:2.332.0@sha256:577ec3d514700203d07a8b14ac9238e2c8bf7565969f9d3bddf5dac1c60c43b7
