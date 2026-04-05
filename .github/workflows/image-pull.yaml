@@ -138,16 +138,24 @@ jobs:
           echo ""
           echo "Checking arc-runner-talos-api secret..."
           if kubectl get secret arc-runner-talos-api -n actions-runner-system &>/dev/null; then
-            echo "Secret arc-runner-talos-api found! Keys:"
-            kubectl get secret arc-runner-talos-api -n actions-runner-system -o jsonpath='{.data}' | jq -r 'keys[]'
+            echo "Secret arc-runner-talos-api found!"
+            echo "Secret type:"
+            kubectl get secret arc-runner-talos-api -n actions-runner-system -o jsonpath='{.type}'
+            echo ""
+            echo "Data keys available:"
+            kubectl get secret arc-runner-talos-api -n actions-runner-system -o jsonpath='{.data}' | jq -r 'keys[]' 2>/dev/null || echo "Failed to parse JSON, showing raw:"
+            kubectl get secret arc-runner-talos-api -n actions-runner-system -o yaml
 
             # Try to extract talosconfig
-            if kubectl get secret arc-runner-talos-api -n actions-runner-system -o jsonpath='{.data.talosconfig}' | base64 -d > /tmp/talosconfig 2>/dev/null; then
+            echo ""
+            echo "Attempting to extract talosconfig..."
+            if kubectl get secret arc-runner-talos-api -n actions-runner-system -o jsonpath='{.data.talosconfig}' > /tmp/talosconfig.b64 2>/dev/null && [ -s /tmp/talosconfig.b64 ]; then
+              base64 -d /tmp/talosconfig.b64 > /tmp/talosconfig
               echo "Talosconfig extracted, size: $(wc -c < /tmp/talosconfig) bytes"
+              echo "First 100 chars:"
+              head -c 100 /tmp/talosconfig || true
             else
-              echo "ERROR: talosconfig key not found in secret!"
-              echo "Secret contents:"
-              kubectl get secret arc-runner-talos-api -n actions-runner-system -o yaml
+              echo "ERROR: talosconfig key not found or empty in secret!"
               exit 1
             fi
           else
