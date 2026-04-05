@@ -124,14 +124,32 @@ jobs:
 
       - name: Configure Talos API Access
         run: |
-          # Use the Talos ServiceAccount secret to configure talosctl
-          # The secret is automatically created by the Talos ServiceAccount controller
-          kubectl get secret arc-flux-talos-talos-api-talos-secrets -n actions-runner-system -o jsonpath='{.data.talosconfig}' | base64 -d > /tmp/talosconfig
-          export TALOSCONFIG=/tmp/talosconfig
+          # Debug: Check if secret exists
+          echo "Checking for Talos ServiceAccount secret..."
+          kubectl get secrets -n actions-runner-system | grep talos || echo "No talos secrets found"
+
+          # Wait for the Talos ServiceAccount controller to create the secret
+          echo "Waiting for Talos ServiceAccount secret..."
+          kubectl wait --for=jsonpath='{.data.talosconfig}' secret/arc-flux-talos-talos-api-talos-secrets -n actions-runner-system --timeout=60s || true
+
+          # Extract talosconfig from the secret
+          if kubectl get secret arc-flux-talos-talos-api-talos-secrets -n actions-runner-system &>/dev/null; then
+            kubectl get secret arc-flux-talos-talos-api-talos-secrets -n actions-runner-system -o jsonpath='{.data.talosconfig}' | base64 -d > /tmp/talosconfig
+            echo "Talosconfig extracted, size: $(wc -c < /tmp/talosconfig) bytes"
+          else
+            echo "ERROR: Talos ServiceAccount secret not found!"
+            exit 1
+          fi
 
       - name: Pull Image on Worker Nodes
         run: |
           export TALOSCONFIG=/tmp/talosconfig
+          # Verify talosconfig is valid
+          if [ ! -s /tmp/talosconfig ]; then
+            echo "ERROR: Talosconfig file is empty!"
+            exit 1
+          fi
+
           # Pull image on all worker nodes
           talosctl --nodes 10.0.10.38,10.0.10.39,10.0.10.40 image pull "${MATRIX_IMAGE}"
 
