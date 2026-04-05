@@ -122,8 +122,10 @@ jobs:
       - name: Install talosctl
         run: curl -fsSL https://talos.dev/install | sh
 
-      - name: Pull Image
-        run: talosctl --nodes $NODE image pull "${MATRIX_IMAGE}"
+      - name: Pull Image on Worker Nodes
+        run: |
+          # Pull image on all worker nodes
+          talosctl --nodes 10.0.10.38,10.0.10.39,10.0.10.40 image pull "${MATRIX_IMAGE}"
 
   success:
     if: ${{ !cancelled() }}
