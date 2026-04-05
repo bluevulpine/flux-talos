@@ -119,6 +119,12 @@ jobs:
     env:
       MATRIX_IMAGE: ${{ matrix.image }}
     steps:
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
       - name: Install talosctl
         run: curl -fsSL https://talos.dev/install | sh
 
