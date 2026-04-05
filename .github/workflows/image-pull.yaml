@@ -130,20 +130,28 @@ jobs:
 
       - name: Configure Talos API Access
         run: |
-          # Debug: Check if secret exists
-          echo "Checking for Talos ServiceAccount secret..."
-          kubectl get secrets -n actions-runner-system | grep talos || echo "No talos secrets found"
+          # Debug: Check what secrets exist
+          echo "Checking for Talos ServiceAccount secrets..."
+          kubectl get secrets -n actions-runner-system | grep -E "arc-runner-talos|talos-api"
 
-          # Wait for the Talos ServiceAccount controller to create the secret
-          echo "Waiting for Talos ServiceAccount secret..."
-          kubectl wait --for=jsonpath='{.data.talosconfig}' secret/arc-runner-talos-api-talos-secrets -n actions-runner-system --timeout=60s || true
+          # Check if the secret exists (without -talos-secrets suffix)
+          echo ""
+          echo "Checking arc-runner-talos-api secret..."
+          if kubectl get secret arc-runner-talos-api -n actions-runner-system &>/dev/null; then
+            echo "Secret arc-runner-talos-api found! Keys:"
+            kubectl get secret arc-runner-talos-api -n actions-runner-system -o jsonpath='{.data}' | jq -r 'keys[]'
 
-          # Extract talosconfig from the secret
-          if kubectl get secret arc-runner-talos-api-talos-secrets -n actions-runner-system &>/dev/null; then
-            kubectl get secret arc-runner-talos-api-talos-secrets -n actions-runner-system -o jsonpath='{.data.talosconfig}' | base64 -d > /tmp/talosconfig
-            echo "Talosconfig extracted, size: $(wc -c < /tmp/talosconfig) bytes"
+            # Try to extract talosconfig
+            if kubectl get secret arc-runner-talos-api -n actions-runner-system -o jsonpath='{.data.talosconfig}' | base64 -d > /tmp/talosconfig 2>/dev/null; then
+              echo "Talosconfig extracted, size: $(wc -c < /tmp/talosconfig) bytes"
+            else
+              echo "ERROR: talosconfig key not found in secret!"
+              echo "Secret contents:"
+              kubectl get secret arc-runner-talos-api -n actions-runner-system -o yaml
+              exit 1
+            fi
           else
-            echo "ERROR: Talos ServiceAccount secret not found!"
+            echo "ERROR: arc-runner-talos-api secret not found!"
             exit 1
           fi
 
