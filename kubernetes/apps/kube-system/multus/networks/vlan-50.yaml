@@ -23,12 +23,6 @@ spec:
         },
         {
           "type": "sbr"
-        },
-        {
-          "type": "route",
-          "routes": [
-            {"dst": "10.0.50.0/24"}
-          ]
         }
       ]
     }
