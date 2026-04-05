@@ -18,7 +18,7 @@ spec:
           "master": "bond0.10",
           "mode": "bridge",
           "ipam": {
-            "type": "dhcp"
+            "type": "static"
           }
         },
         {
