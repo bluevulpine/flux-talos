@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Cleanup Tailnet
-        uses: simonhaas/tailscale-node-remover@main
+        uses: simonhaas/tailscale-node-remover@e4fa1001064daa6019e459a9f0c1b81cb5239b9f # main
         id: cleanup
         with:
           ts_api_token: ${{ secrets.TS_API_TOKEN }}       # required
