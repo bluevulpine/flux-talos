@@ -130,11 +130,11 @@ jobs:
 
           # Wait for the Talos ServiceAccount controller to create the secret
           echo "Waiting for Talos ServiceAccount secret..."
-          kubectl wait --for=jsonpath='{.data.talosconfig}' secret/arc-flux-talos-talos-api-talos-secrets -n actions-runner-system --timeout=60s || true
+          kubectl wait --for=jsonpath='{.data.talosconfig}' secret/arc-runner-talos-api-talos-secrets -n actions-runner-system --timeout=60s || true
 
           # Extract talosconfig from the secret
-          if kubectl get secret arc-flux-talos-talos-api-talos-secrets -n actions-runner-system &>/dev/null; then
-            kubectl get secret arc-flux-talos-talos-api-talos-secrets -n actions-runner-system -o jsonpath='{.data.talosconfig}' | base64 -d > /tmp/talosconfig
+          if kubectl get secret arc-runner-talos-api-talos-secrets -n actions-runner-system &>/dev/null; then
+            kubectl get secret arc-runner-talos-api-talos-secrets -n actions-runner-system -o jsonpath='{.data.talosconfig}' | base64 -d > /tmp/talosconfig
             echo "Talosconfig extracted, size: $(wc -c < /tmp/talosconfig) bytes"
           else
             echo "ERROR: Talos ServiceAccount secret not found!"
