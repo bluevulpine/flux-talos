@@ -18,16 +18,19 @@ spec:
           [
             {
               "name": "vlan-10",
+              "namespace": "kube-system",
               "interface": "net1",
               "ips": ["10.0.10.253/24"]
             },
             {
               "name": "vlan-30",
+              "namespace": "kube-system",
               "interface": "net2",
               "ips": ["10.0.30.253/24"]
             },
             {
               "name": "vlan-50",
+              "namespace": "kube-system",
               "interface": "net3",
               "ips": ["10.0.50.253/24"]
             }
