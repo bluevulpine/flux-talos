@@ -94,6 +94,14 @@ nodes:
         dhcp: true
         mtu: 1500
         vlans: &vlans
+          - # Management
+            vlanId: 10
+            dhcp: false
+            mtu: 1500
+          - # VLAN 30
+            vlanId: 30
+            dhcp: false
+            mtu: 1500
           - # IOT
             vlanId: 50
             dhcp: false

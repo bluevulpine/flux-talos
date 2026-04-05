@@ -1,0 +1,34 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/k8s.cni.cncf.io/networkattachmentdefinition_v1.json
+# NetworkAttachmentDefinition for VLAN 30 access via Multus
+# Allows pods to communicate directly with devices on VLAN 30
+# Interface: bond0.30 on brokkr workers (VLAN 30 subinterface)
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+  name: vlan-30
+spec:
+  config: |-
+    {
+      "cniVersion": "0.3.1",
+      "name": "vlan-30",
+      "plugins": [
+        {
+          "type": "macvlan",
+          "master": "bond0.30",
+          "mode": "bridge",
+          "ipam": {
+            "type": "dhcp"
+          }
+        },
+        {
+          "type": "sbr"
+        },
+        {
+          "type": "route",
+          "routes": [
+            {"dst": "10.0.30.0/24"}
+          ]
+        }
+      ]
+    }

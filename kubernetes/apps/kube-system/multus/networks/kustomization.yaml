@@ -3,5 +3,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ./iot.yaml
+  - ./vlan-10.yaml
+  - ./vlan-30.yaml
+  - ./vlan-50.yaml
 
