@@ -22,9 +22,6 @@ spec:
     - "plex.${SECRET_DOMAIN_MEDIA}"
     - "plex.${SECRET_DOMAIN}"
   parentRefs:
-    - name: external
-      namespace: network
-      sectionName: https
     - name: internal
       namespace: network
       sectionName: https
