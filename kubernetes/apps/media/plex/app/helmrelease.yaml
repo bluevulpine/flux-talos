@@ -65,7 +65,7 @@ spec:
               tag: rolling
             env:
               TZ: "${TIMEZONE}"
-              PLEX_ADVERTISE_URL: https://plex.${SECRET_DOMAIN_MEDIA}:443,http://${SVC_PLEX_ADDR}:32400
+              PLEX_ADVERTISE_URL: https://wheels.${SECRET_DOMAIN_MEDIA}:443,https://rims.${SECRET_DOMAIN_MEDIA}:443,https://plex.${SECRET_DOMAIN_MEDIA}:443,http://${SVC_PLEX_ADDR}:32400
               PLEX_NO_AUTH_NETWORKS: 10.0.10.0/24
             probes:
               liveness: &probes
