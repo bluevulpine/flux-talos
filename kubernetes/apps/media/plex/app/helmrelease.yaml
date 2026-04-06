@@ -33,8 +33,6 @@ spec:
         # 44 = video, 109 = render (for GPU access), 10000 = media, 8675309 = custom
         supplementalGroups: [44, 109, 10000, 8675309]
         seccompProfile: { type: RuntimeDefault }
-      nodeSelector:
-        feature.node.kubernetes.io/pci-0300_1002.present: "true"
     controllers:
       plex:
         labels:
@@ -50,9 +48,23 @@ spec:
               - /bin/sh
               - -c
               - |
+                # Exclude marker from future backups, but allow .kopiaignore to be backed up
+                # This ensures new snapshots after restore don't immediately re-backup the marker
+                echo ".permissions-fixed" > /config/.kopiaignore
+
+                MARKER="/config/.permissions-fixed"
+
+                # Check if marker exists and is already owned by correct user
+                if [ -f "$MARKER" ] && [ "$(stat -c '%u:%g' "$MARKER" 2>/dev/null)" = "568:568" ]; then
+                  echo "Permissions already fixed, skipping."
+                  exit 0
+                fi
+
                 echo "Fixing ownership on /config..."
                 chown -R 568:568 /config
                 chmod -R u+rwX /config
+                touch "$MARKER"
+                chown 568:568 "$MARKER"
                 echo "Permissions fixed."
             securityContext:
               runAsUser: 0
@@ -93,10 +105,8 @@ spec:
               requests:
                 cpu: 100m
                 memory: 1Gi
-                amd.com/gpu: 1
               limits:
                 memory: 16Gi
-                amd.com/gpu: 1
     service:
       app:
         controller: *app
@@ -140,9 +150,3 @@ spec:
         globalMounts:
           - path: /data/video/Home
             readOnly: true
-      # GPU device access for hardware transcoding
-      dri:
-        type: hostPath
-        hostPath: /dev/dri
-        globalMounts:
-          - path: /dev/dri
