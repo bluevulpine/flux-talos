@@ -27,7 +27,7 @@ spec:
             image:
               # Official CouchDB image
               repository: couchdb
-              tag: 3.5.1@sha256:24c854639f2f14f346caa10c80f9f246c656b869020bb171b3afd375c02098f0
+              tag: 3.5.1@sha256:0ff2633acd380777f2c65af22eabb1d961569e05e25b12c5239b00a7f8b56d54
             env:
               # Single-node mode (no clustering needed for Obsidian sync)
               COUCHDB_SINGLE_NODE: "true"
