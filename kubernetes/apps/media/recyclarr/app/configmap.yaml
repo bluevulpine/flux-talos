@@ -5,10 +5,9 @@ metadata:
   name: recyclarr-configmap
 data:
   recyclarr.yml: |
-    # yaml-language-server: $schema=https://raw.githubusercontent.com/recyclarr/recyclarr/master/schemas/config-schema.json
-    # Configuration for Recyclarr - syncs TRaSH Guides quality profiles
-    # Docs: https://recyclarr.dev/wiki/yaml/config-reference/
-    # Templates: run `recyclarr config list templates` to see all available
+    # yaml-language-server: $schema=https://schemas.recyclarr.dev/v8/config-schema.json
+    # Configuration for Recyclarr v8 - syncs TRaSH Guides quality profiles
+    # Docs: https://recyclarr.dev
 
     sonarr:
       sonarr:
@@ -16,27 +15,17 @@ data:
         api_key: !env_var SONARR_API_KEY
         delete_old_custom_formats: true
 
-        include:
-          # Quality sizes (only needed once per instance)
-          - template: sonarr-quality-definition-series
-          # WEB-1080p profile
-          - template: sonarr-v4-quality-profile-web-1080p
-          - template: sonarr-v4-custom-formats-web-1080p
-          # WEB-2160p (4K) profile
-          - template: sonarr-v4-quality-profile-web-2160p
-          - template: sonarr-v4-custom-formats-web-2160p
-          # Anime profile
-          - template: sonarr-v4-quality-profile-anime
-          - template: sonarr-v4-custom-formats-anime
+        quality_definition:
+          type: series
 
         quality_profiles:
-          - name: WEB-1080p
+          - trash_id: 72dae194fc92bf828f32cde7744e51a1  # WEB-1080p
             reset_unmatched_scores:
               enabled: true
-          - name: WEB-2160p
+          - trash_id: d1498e7d189fbe6c7110ceaabb7473e6  # WEB-2160p
             reset_unmatched_scores:
               enabled: true
-          - name: Remux-1080p - Anime
+          - trash_id: 20e0fc959f1f1704bed501f23bdae76f  # [Anime] Remux-1080p
             reset_unmatched_scores:
               enabled: true
 
@@ -46,39 +35,23 @@ data:
         api_key: !env_var RADARR_API_KEY
         delete_old_custom_formats: true
 
-        include:
-          # Quality sizes (only needed once per instance)
-          - template: radarr-quality-definition-movie
-          # HD Bluray + WEB (1080p) profile
-          - template: radarr-quality-profile-hd-bluray-web
-          - template: radarr-custom-formats-hd-bluray-web
-          # UHD Bluray + WEB (4K) profile
-          - template: radarr-quality-profile-uhd-bluray-web
-          - template: radarr-custom-formats-uhd-bluray-web
-          # Remux + WEB 1080p (highest quality 1080p)
-          - template: radarr-quality-profile-remux-web-1080p
-          - template: radarr-custom-formats-remux-web-1080p
-          # Remux + WEB 2160p (highest quality 4K)
-          - template: radarr-quality-profile-remux-web-2160p
-          - template: radarr-custom-formats-remux-web-2160p
-          # Anime profile
-          - template: radarr-quality-profile-anime
-          - template: radarr-custom-formats-anime
+        quality_definition:
+          type: movie
 
         quality_profiles:
-          - name: HD Bluray + WEB
+          - trash_id: d1d67249d3890e49bc12e275d989a7e9  # HD Bluray + WEB
             reset_unmatched_scores:
               enabled: true
-          - name: UHD Bluray + WEB
+          - trash_id: 64fb5f9858489bdac2af690e27c8f42f  # UHD Bluray + WEB
             reset_unmatched_scores:
               enabled: true
-          - name: Remux + WEB 1080p
+          - trash_id: 9ca12ea80aa55ef916e3751f4b874151  # Remux + WEB 1080p
             reset_unmatched_scores:
               enabled: true
-          - name: Remux + WEB 2160p
+          - trash_id: fd161a61e3ab826d3a22d53f935696dd  # Remux + WEB 2160p
             reset_unmatched_scores:
               enabled: true
-          - name: Remux-1080p - Anime
+          - trash_id: 722b624f9af1e492284c4bc842153a38  # [Anime] Remux-1080p
             reset_unmatched_scores:
               enabled: true
 

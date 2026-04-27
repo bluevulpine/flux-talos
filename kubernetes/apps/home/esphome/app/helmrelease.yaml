@@ -20,7 +20,7 @@ spec:
             # Attach to IOT VLAN 50 network via Multus with static IP
             k8s.v1.cni.cncf.io/networks: |-
               [{
-                "name": "iot",
+                "name": "vlan-50",
                 "namespace": "kube-system",
                 "ips": ["192.168.50.12/24"]
               }]
