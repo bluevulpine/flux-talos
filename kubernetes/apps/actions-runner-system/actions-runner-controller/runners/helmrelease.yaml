@@ -42,10 +42,10 @@ spec:
       kubernetesModeWorkVolumeClaim:
         accessModes:
           - ReadWriteOnce
-        storageClassName: longhorn-1-replica
+        storageClassName: openebs-hostpath
         resources:
           requests:
-            storage: 25Gi
+            storage: 5Gi
     template:
       spec:
         # Security context required for Kubernetes mode to allow runner to create temp directories
