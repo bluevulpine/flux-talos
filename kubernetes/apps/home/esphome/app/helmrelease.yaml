@@ -29,7 +29,7 @@ spec:
             image:
               repository: ghcr.io/esphome/esphome
               # renovate: datasource=docker depName=ghcr.io/esphome/esphome
-              tag: 2026.4.2
+              tag: 2026.4.3
             env:
               TZ: "${TIMEZONE}"
               # ESPHome dashboard settings
