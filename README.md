@@ -10,7 +10,7 @@ _... managed with Flux, Renovate, and GitHub Actions_ 🤖
 
 ## 📖 Overview
 
-This is a mono repository for my home infrastructure and Kubernetes cluster using tools like [Ansible](https://www.ansible.com/), [Kubernetes](https://kubernetes.io/), [Flux](https://github.com/fluxcd/flux2), [Renovate](https://github.com/renovatebot/renovate), and [GitHub Actions](https://github.com/features/actions).
+This is a mono repository for my home infrastructure and Kubernetes cluster using tools like [Kubernetes](https://kubernetes.io/), [Flux](https://github.com/fluxcd/flux2), [Renovate](https://github.com/renovatebot/renovate), and [GitHub Actions](https://github.com/features/actions).
 
 The baseline of this configuration starts from from onedr0p's [cluster-template](https://github.com/onedr0p/cluster-template). Inspiration for further workloads to run in the cluster and how to provision their kustomizations extends from many other related home-ops projects in the community.
 
@@ -20,7 +20,7 @@ The baseline of this configuration starts from from onedr0p's [cluster-template]
 
 [Talos](https://www.talos.dev) is the linux distribution running kubernetes on my nodes. I have so far been happy with the results. I'd previously tried provisioning k3s on top of ubuntu with various ansible scripts to assist with the setup. Talos seems like less overhead to maintain and update.
 
-I've tried some hyper-converged cluster storage paradigms, using mayastor, longhorn, or rook-ceph. Currently, I've moved my primary workers and control-plane nodes to VMs on a Proxmox cluster, and am using NFS storage for persistent volumes and MinIO for object storage (used by observability stack components like Loki and Thanos).
+I've tried several cluster storage paradigms over time — mayastor, rook-ceph, and others. Currently the cluster runs Longhorn for replicated persistent volumes alongside OpenEBS for local hostpath storage, and NFS via democratic-csi for storage backed by TrueNAS. MinIO handles object storage for observability components like Loki and Thanos.
 
 ### 🏗️ Core Components
 
@@ -29,8 +29,8 @@ I've tried some hyper-converged cluster storage paradigms, using mayastor, longh
 - [cilium](https://github.com/cilium/cilium): Internal Kubernetes container networking interface.
 - [cloudflare-tunnel](https://github.com/cloudflare/cloudflared): Enables Cloudflare secure access to certain ingresses.
 - [external-dns](https://github.com/kubernetes-sigs/external-dns): Automatically syncs ingress DNS records to a DNS provider.
-- [external-secrets](https://github.com/external-secrets/external-secrets): Managed Kubernetes secrets using [Bitwarden Secrets Manager Cache](https://github.com/rippleFCL/bws-cache). BWSC seems a bit unstable, so I have a cronjob set to restart it daily.
-- [ingress-nginx](https://github.com/kubernetes/ingress-nginx): Kubernetes ingress controller using NGINX as a reverse proxy and load balancer.
+- [envoy-gateway](https://gateway.envoyproxy.io/): Kubernetes Gateway API implementation using Envoy proxy.
+- [external-secrets](https://github.com/external-secrets/external-secrets): Managed Kubernetes secrets using Bitwarden Secrets Manager via the [bitwarden-sdk-server](https://github.com/external-secrets/bitwarden-sdk-server).
 - [sops](https://github.com/getsops/sops): Managed secrets for Kubernetes which are commited to Git.
 - [spegel](https://github.com/spegel-org/spegel): Stateless cluster local OCI registry mirror.
 - [volsync](https://github.com/backube/volsync): Backup and recovery of persistent volume claims.
@@ -52,9 +52,9 @@ I've tried some hyper-converged cluster storage paradigms, using mayastor, longh
 
 ### Networking
 
-Cilium is configured to use direct mode instead of vxlan tunneling. All nodes must be on the same subnet with each other. As a concequence to this choice, I've not had luck placing a worker node in a different subnet (for example, creating a single tainted worker to host untrusted or IOT-related workloads in a more-secure VLAN). Trying to convert in-place to encapsulation using VXLAN nearly immediately broke cluster networking. More science is required. 🧫
+Cilium is configured to use direct mode instead of vxlan tunneling. All nodes must be on the same subnet. The worker nodes (jormungandr4 and brokkr01-03) do have VLAN trunk interfaces configured in Talos, but Kubernetes workloads themselves run on the primary node subnet.
 
-I have tailscale's operator running, which potentially could also help solve the problem.
+Tailscale Operator is also deployed, enabling direct Tailscale connectivity for select pods and services.
 
 ---
 
@@ -76,18 +76,19 @@ While most of my infrastructure and workloads are self-hosted I do rely upon the
 
 ## 🌐 DNS
 
-In my cluster there are multiple [ExternalDNS](https://github.com/kubernetes-sigs/external-dns) instances deployed. One is deployed with the [ExternalDNS webhook provider for UniFi](https://github.com/kashalls/external-dns-unifi-webhook) which syncs DNS records to my UniFi router. Another does the same to a [PiHole](https://pi-hole.net) VM, which is mirrored with GravitySync to a secondary VM and a tertiary hardware Pi. The other ExternalDNS instance syncs DNS records to Cloudflare only when the ingresses and services have an ingress class name of `external` and contain an ingress annotation `external-dns.alpha.kubernetes.io/target`. Most local clients on my network use my PiHoles as the upstream DNS server; some fall back on the Unifi router.
+In my cluster there are multiple [ExternalDNS](https://github.com/kubernetes-sigs/external-dns) instances deployed. One uses the [ExternalDNS webhook provider for UniFi](https://github.com/kashalls/external-dns-unifi-webhook) to sync DNS records to my UniFi router. Another syncs records to Cloudflare only for ingresses with class `external` and the annotation `external-dns.alpha.kubernetes.io/target`. [k8s-gateway](https://github.com/ori-edge/k8s_gateway) handles in-cluster DNS resolution for services and ingresses.
 
-Once I do more testing of Unifi's adblock solution, I may remove the piholes.
+Most local clients use the UniFi router as their upstream DNS server.
 
 ---
 
 ## 🔧 Hardware
 
-| Device                      | Count | OS Disk Size | Data Disk Size               | Ram  | Operating System | Purpose                 |
-|-----------------------------|-------|--------------|------------------------------|------|------------------|-------------------------|
-| Gmktec M5 Pro               | 3     | 512GB SSD    | 1TB NVMe                     | 64GB | Proxmox          | VM Hosts                |
-| RasPi 4                     | 4     | 512GB SSD    | -                            | 8GB  | Talos            | Kubernetes Workers      |
+| Device                      | Count | OS Disk Size | Data Disk Size               | Ram  | Operating System | Purpose                          |
+|-----------------------------|-------|--------------|------------------------------|------|------------------|----------------------------------|
+| Gmktec M5 Pro               | 3     | 1TB SSD      | 2TB NVMe                     | 64GB | Talos            | Kubernetes Workers (brokkr01-03) |
+| RasPi 4                     | 3     | 512GB SSD    | -                            | 8GB  | Talos            | Kubernetes Control Plane         |
+| RasPi 4                     | 1     | 512GB SSD    | -                            | 8GB  | Talos            | Kubernetes Worker                |
 | RasPi 3                     | 1     | 32GB  SD     | -                            | 8GB  | DietPi           | PiHole                  |
 | RasPi 5                     | 1     | 128GB SD     | -                            | 8GB  | HAOS             | Home Assistant          |
 | Supermicro 846 & X9dri-f    | 1     | 2x 512GB SSD | 10x16TB ZFS (mirrored vdevs) | 64GB | TrueNAS Scale    | NFS + Backup Server     |
