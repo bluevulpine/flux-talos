@@ -1,0 +1,45 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dev-ubuntu-init
+data:
+  00-dev-setup.sh: |
+    #!/bin/bash
+    # Runs before sshd starts on every pod start (via linuxserver custom-cont-init.d).
+    # apk installs are fast and re-run each start.
+    # Everything else checks for existence first — those live on the PVC and run once.
+    set -eo pipefail
+
+    USER="bluevulpine"
+    USER_HOME="/home/${USER}"
+
+    # System packages needed every start (not persistent across restarts)
+    apk add --no-cache zsh git curl shadow
+
+    # Set zsh as default shell
+    if [ "$(getent passwd ${USER} | cut -d: -f7)" != "/bin/zsh" ]; then
+        usermod -s /bin/zsh "${USER}"
+    fi
+
+    # oh-my-zsh — installs to home dir, persists on PVC
+    if [ ! -d "${USER_HOME}/.oh-my-zsh" ]; then
+        echo "[init] Installing oh-my-zsh..."
+        su -l -s /bin/sh "${USER}" -c \
+            'curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh | sh -s -- --unattended'
+    fi
+
+    # atuin — ships musl binaries, installs to ~/.atuin, persists on PVC
+    if [ ! -f "${USER_HOME}/.atuin/bin/atuin" ]; then
+        echo "[init] Installing atuin..."
+        su -l -s /bin/sh "${USER}" -c \
+            'curl --proto "=https" --tlsv1.2 -LsSf https://setup.atuin.sh | sh'
+    fi
+
+    # Wire atuin into .zshrc if oh-my-zsh created it and atuin isn't already there
+    ZSHRC="${USER_HOME}/.zshrc"
+    if [ -f "${ZSHRC}" ] && ! grep -q "atuin init" "${ZSHRC}"; then
+        echo "" >> "${ZSHRC}"
+        echo "# Atuin shell history" >> "${ZSHRC}"
+        echo '[[ -f ~/.atuin/bin/atuin ]] && eval "$(~/.atuin/bin/atuin init zsh)"' >> "${ZSHRC}"
+    fi

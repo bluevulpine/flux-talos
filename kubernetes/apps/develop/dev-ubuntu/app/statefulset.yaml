@@ -3,7 +3,6 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: dev-ubuntu
-  namespace: default
   labels:
     app.kubernetes.io/name: dev-ubuntu
     app.kubernetes.io/instance: dev-ubuntu
@@ -21,7 +20,7 @@ spec:
         app.kubernetes.io/instance: dev-ubuntu
       annotations:
         tailscale.com/expose: "true"
-        tailscale.com/hostname: "dev-ubuntu"
+        tailscale.com/hostname: "dev-shell"
         tailscale.com/tags: "tag:k8s"
     spec:
       securityContext:
@@ -64,11 +63,10 @@ spec:
               memory: 4Gi
           volumeMounts:
             - name: dev-storage
-              mountPath: /home/dev
+              mountPath: /home/bluevulpine
               subPath: home
-            - name: dev-storage
-              mountPath: /home/linuxbrew
-              subPath: homebrew
+            - name: init-script
+              mountPath: /custom-cont-init.d
           env:
             - name: PUID
               value: "1000"
@@ -81,7 +79,7 @@ spec:
             - name: USER_PASSWORD
               value: "dev"
             - name: USER_NAME
-              value: "dev"
+              value: "bluevulpine"
             - name: SUDO_ACCESS
               value: "true"
             - name: DEBIAN_FRONTEND
@@ -90,6 +88,11 @@ spec:
               value: en_US.UTF-8
             - name: LC_ALL
               value: en_US.UTF-8
+      volumes:
+        - name: init-script
+          configMap:
+            name: dev-ubuntu-init
+            defaultMode: 0755
       restartPolicy: Always
   volumeClaimTemplates:
     - metadata:
