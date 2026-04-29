@@ -52,7 +52,7 @@ I've tried several cluster storage paradigms over time — mayastor, rook-ceph, 
 
 ### Networking
 
-Cilium is configured to use direct mode instead of vxlan tunneling. All nodes must be on the same subnet. The worker nodes (jormungandr4 and brokkr01-03) do have VLAN trunk interfaces configured in Talos, but Kubernetes workloads themselves run on the primary node subnet.
+Cilium is configured to use direct routing (no VXLAN) — all nodes run on the same subnet (`10.0.10.0/24`). Workloads that need a stable, directly-routable IP get one via Cilium's LB-IPAM from the `172.16.8.0/24` pool. Each assigned address is advertised as a `/32` host route over BGP (cluster ASN `65512`, peering with the UniFi router at `10.0.10.1`, ASN `65510`). The UniFi router picks up these routes and makes the addresses reachable across the network — the `172.16.8.x` range is otherwise unallocated by DHCP and exists solely for this purpose.
 
 Tailscale Operator is also deployed, enabling direct Tailscale connectivity for select pods and services.
 
@@ -69,8 +69,8 @@ While most of my infrastructure and workloads are self-hosted I do rely upon the
 | [Cloudflare](https://www.cloudflare.com/) | Several Domains and S3                                                                 | ~$100/yr        |
 | [GitHub](https://github.com/)             | Hosting this repository and CI/CD. Pro subscription.                                   | ~$48/yr         |
 | [Fastmail](https://fastmail.com/)         | Email hosting for 2 users                                                              | ~$100/yr        |
+| [NextDNS](https://nextdns.io/)            | Network-wide DNS filtering (basic plan)                                                | ~$20/yr         |
 | [Pushover](https://pushover.net/)         | Kubernetes Alerts and application notifications                                        | $5 OTP          |
-|                                           |                                                                                        | Total: ~$xyz/mo |
 
 ---
 
@@ -78,7 +78,7 @@ While most of my infrastructure and workloads are self-hosted I do rely upon the
 
 In my cluster there are multiple [ExternalDNS](https://github.com/kubernetes-sigs/external-dns) instances deployed. One uses the [ExternalDNS webhook provider for UniFi](https://github.com/kashalls/external-dns-unifi-webhook) to sync DNS records to my UniFi router. Another syncs records to Cloudflare only for ingresses with class `external` and the annotation `external-dns.alpha.kubernetes.io/target`. [k8s-gateway](https://github.com/ori-edge/k8s_gateway) handles in-cluster DNS resolution for services and ingresses.
 
-Most local clients use the UniFi router as their upstream DNS server.
+Local clients use [NextDNS](https://nextdns.io) as their upstream resolver (via the UniFi router), providing network-wide ad/tracker blocking.
 
 ---
 
@@ -89,7 +89,7 @@ Most local clients use the UniFi router as their upstream DNS server.
 | Gmktec M5 Pro               | 3     | 1TB SSD      | 2TB NVMe                     | 64GB | Talos            | Kubernetes Workers (brokkr01-03) |
 | RasPi 4                     | 3     | 512GB SSD    | -                            | 8GB  | Talos            | Kubernetes Control Plane         |
 | RasPi 4                     | 1     | 512GB SSD    | -                            | 8GB  | Talos            | Kubernetes Worker                |
-| RasPi 3                     | 1     | 32GB  SD     | -                            | 8GB  | DietPi           | PiHole                  |
+| RasPi 3                     | 1     | 32GB  SD     | -                            | 1GB  | DietPi           | (repurposed?)           |
 | RasPi 5                     | 1     | 128GB SD     | -                            | 8GB  | HAOS             | Home Assistant          |
 | Supermicro 846 & X9dri-f    | 1     | 2x 512GB SSD | 10x16TB ZFS (mirrored vdevs) | 64GB | TrueNAS Scale    | NFS + Backup Server     |
 | UniFi UDM SE                | 1     | -            | 1x12TB HDD                   | -    | -                | Router & NVR            |
