@@ -1,23 +1,42 @@
-# dev-ubuntu
+# dev-shell
 
-A persistent Ubuntu development environment with SSH access, exposed to the Tailscale network via Tailscale Operator annotations.
+A persistent Alpine-based SSH development environment, exposed to the Tailscale network as `dev-shell`.
 
 ## Access
 
-Default credentials: `dev` / `dev` — change immediately after first login.
+Default credentials: `bluevulpine` / `dev` — change on first login with `passwd`.
 
 ```bash
-# Via Tailscale (preferred — find "dev-ubuntu" in the Tailscale admin console)
-ssh dev@dev-ubuntu -p 2222
+# Via Tailscale (preferred)
+ssh bluevulpine@dev-shell -p 2222
 
 # Via port-forward
 kubectl port-forward -n develop dev-ubuntu-0 2222:2222
-
-ssh dev@localhost -p 2222
+ssh bluevulpine@localhost -p 2222
 ```
+
+## First start
+
+The init script (`init-configmap.yaml`) runs before sshd on every pod start:
+
+- **Every start (fast):** `apk add zsh git curl shadow`
+- **Once (persisted to PVC):** oh-my-zsh → `~/.oh-my-zsh`, atuin → `~/.atuin`
+- Sets zsh as the default shell and wires atuin into `.zshrc`
+
+On first SSH in, run `atuin login` to connect shell history sync.
+
+## Package management
+
+This image is Alpine (musl libc). Homebrew is not compatible.
+
+- `apk add <package>` — system packages, fast, **not persistent across pod restarts**
+- Anything installed to `~/` persists (PVC-backed)
+- Use `mise` for persistent version-managed dev tools (node, python, go, etc.):
+  ```bash
+  curl https://mise.run | sh
+  mise use node@lts python@latest
+  ```
 
 ## Storage
 
-A single 50Gi `openebs-hostpath` PVC is split into two subPaths:
-- `/home/dev` — user home directory
-- `/home/linuxbrew` — Homebrew installation (persisted separately so brew doesn't need to be reinstalled after image updates)
+Single 50Gi `openebs-hostpath` PVC mounted at `/home/bluevulpine`. Everything under `~` persists — dotfiles, oh-my-zsh config, atuin history, mise toolchains, projects.
