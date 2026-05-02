@@ -43,3 +43,24 @@ data:
         echo "# Atuin shell history" >> "${ZSHRC}"
         echo '[[ -f ~/.atuin/bin/atuin ]] && eval "$(~/.atuin/bin/atuin init zsh)"' >> "${ZSHRC}"
     fi
+
+    # mise — version manager for dev tools, persists on PVC
+    if [ ! -f "${USER_HOME}/.local/bin/mise" ]; then
+        echo "[init] Installing mise..."
+        su -l -s /bin/sh "${USER}" -c \
+            'curl https://mise.run | sh'
+    fi
+
+    # Ruby via mise — installs once, persists on PVC
+    if [ ! -d "${USER_HOME}/.local/share/mise/installs/ruby" ]; then
+        echo "[init] Installing Ruby via mise..."
+        su -l -s /bin/sh "${USER}" -c \
+            'PATH="${HOME}/.local/bin:${PATH}" mise use -g ruby@latest'
+    fi
+
+    # Wire mise into .zshrc if not already present
+    if [ -f "${ZSHRC}" ] && ! grep -q "mise activate" "${ZSHRC}"; then
+        echo "" >> "${ZSHRC}"
+        echo "# mise version manager" >> "${ZSHRC}"
+        echo 'eval "$(~/.local/bin/mise activate zsh)"' >> "${ZSHRC}"
+    fi
