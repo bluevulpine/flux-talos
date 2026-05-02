@@ -14,7 +14,7 @@ default: talos k8s (kubeconfig "node") wait namespaces resources crds apps kubec
 talos:
     just log info "Running stage..." "stage" "$0"
     for n in {{ nodes }}; do \
-        if ! op=$(just talos apply-node "$n" --insecure 2>&1); then \
+        if ! op=$(just talos apply-generated "$n" --insecure 2>&1); then \
             if [[ "$op" == *"certificate required"* ]]; then \
                 just log info "Talos already configured, skipping apply of config" "stage" "$0" "node" "$n"; \
                 continue; \
