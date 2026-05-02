@@ -10,5 +10,5 @@ resources:
 labels:
   - includeSelectors: true
     pairs:
-      app.kubernetes.io/name: dev-ubuntu
-      app.kubernetes.io/part-of: dev-ubuntu
+      app.kubernetes.io/name: dev-shell
+      app.kubernetes.io/part-of: dev-shell

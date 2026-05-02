@@ -2,22 +2,22 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: dev-ubuntu
+  name: dev-shell
   labels:
-    app.kubernetes.io/name: dev-ubuntu
-    app.kubernetes.io/instance: dev-ubuntu
+    app.kubernetes.io/name: dev-shell
+    app.kubernetes.io/instance: dev-shell
 spec:
-  serviceName: dev-ubuntu
+  serviceName: dev-shell
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: dev-ubuntu
-      app.kubernetes.io/instance: dev-ubuntu
+      app.kubernetes.io/name: dev-shell
+      app.kubernetes.io/instance: dev-shell
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: dev-ubuntu
-        app.kubernetes.io/instance: dev-ubuntu
+        app.kubernetes.io/name: dev-shell
+        app.kubernetes.io/instance: dev-shell
       annotations:
         tailscale.com/expose: "true"
         tailscale.com/hostname: "dev-shell"
@@ -91,7 +91,7 @@ spec:
       volumes:
         - name: init-script
           configMap:
-            name: dev-ubuntu-init
+            name: dev-shell-init
             defaultMode: 0755
       restartPolicy: Always
   volumeClaimTemplates:

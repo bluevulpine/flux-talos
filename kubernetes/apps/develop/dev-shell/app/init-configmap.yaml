@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: dev-ubuntu-init
+  name: dev-shell-init
 data:
   00-dev-setup.sh: |
     #!/bin/bash

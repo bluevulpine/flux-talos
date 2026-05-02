@@ -11,7 +11,7 @@ Default credentials: `bluevulpine` / `dev` — change on first login with `passw
 ssh bluevulpine@dev-shell -p 2222
 
 # Via port-forward
-kubectl port-forward -n develop dev-ubuntu-0 2222:2222
+kubectl port-forward -n develop dev-shell-0 2222:2222
 ssh bluevulpine@localhost -p 2222
 ```
 
