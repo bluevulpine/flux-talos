@@ -3,9 +3,13 @@ apiVersion: v1
 kind: Service
 metadata:
   name: dev-shell
+  annotations:
+    tailscale.com/expose: "true"
+    tailscale.com/hostname: "dev-shell"
   labels:
     app.kubernetes.io/name: dev-shell
     app.kubernetes.io/instance: dev-shell
+    tailscale.com/proxy-class: "tun-access"
 spec:
   type: ClusterIP
   ports:
