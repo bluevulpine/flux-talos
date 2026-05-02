@@ -78,6 +78,8 @@ spec:
               value: "bluevulpine"
             - name: SUDO_ACCESS
               value: "true"
+            - name: USER_SHELL
+              value: /bin/zsh
             - name: DEBIAN_FRONTEND
               value: noninteractive
             - name: LANG
