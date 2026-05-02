@@ -9,10 +9,6 @@ controller := `talosctl config info -o yaml | yq -e '.endpoints[0]'`
 default:
     just -l talos
 
-[doc('Apply Talos config to a node')]
-apply-node node *args:
-    just talos render-config "{{ node }}" | talosctl -n "{{ node }}" apply-config -f /dev/stdin {{ args }}
-
 [doc('Download Talos machine image')]
 download-image version schematic:
     gum spin --title "Downloading Talos {{ version }} ..." -- \
@@ -21,20 +17,10 @@ download-image version schematic:
         "https://factory.talos.dev/image/{{ schematic }}/{{ version }}/metal-amd64.iso"
     just log info "Downloaded Talos" version "{{ version }}" schematic "{{ schematic }}"
 
-[doc('Generate schematic ID from Talos schematic')]
-gen-schematic-id:
-    curl -sX POST --data-binary @<(just template "{{ talos_dir }}/schematic.yaml.j2") "https://factory.talos.dev/schematics" | jq -r '.id'
-
 [doc('Reboot a node')]
 reboot-node node:
     gum confirm "Reboot node {{ node }}?" --default="No" && \
         talosctl -n {{ node }} reboot -m powercycle || exit 0
-
-[doc('Render Talos config for a node')]
-render-config node:
-    export IS_CONTROLLER="$(just talos machine-controller {{ node }})"; \
-    talosctl machineconfig patch <(just template "{{ talos_dir }}/machineconfig.yaml.j2") \
-        -p @<(just template "{{ talos_dir }}/nodes/{{ node }}.yaml.j2")
 
 [doc('Reset a node')]
 reset-node node:
@@ -50,9 +36,16 @@ shutdown-node node:
 upgrade-k8s version:
     talosctl -n "{{ controller }}" upgrade-k8s --to {{ version }}
 
-[doc('Upgrade Talos version on a node')]
+[doc('Upgrade Talos version on a node (requires gen-config to have been run)')]
 upgrade-node node:
-    talosctl -n "{{ node }}" upgrade -i "$(just talos machine-image)" -m powercycle --timeout=10m
+    #!/usr/bin/env bash
+    set -euo pipefail
+    config_file="{{ talos_dir }}/clusterconfig/home-kubernetes-{{ node }}.yaml"
+    if [[ ! -f "$config_file" ]]; then
+        just log fatal "Config file not found: $config_file. Run 'just talos gen-config' first."
+    fi
+    image=$(yq -r '.machine.install.image' "$config_file")
+    talosctl -n "{{ node }}" upgrade -i "$image" -m powercycle --timeout=10m
 
 # =============================================================================
 # Cluster Rebuild Recipes
@@ -181,11 +174,3 @@ rebuild:
 
     just log info "Bootstrapping cluster..."
     just talos bootstrap-cluster
-
-[private]
-machine-controller node:
-    just template "{{ talos_dir }}/nodes/{{ node }}.yaml.j2" | yq -e 'select(.machine) | (.machine.type == "controlplane") // ""'
-
-[private]
-machine-image:
-    just template "{{ talos_dir }}/machineconfig.yaml.j2" | yq -e 'select(.machine) | .machine.install.image'
