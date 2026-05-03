@@ -20,8 +20,8 @@ ssh bluevulpine@localhost -p 2222
 The init script (`init-configmap.yaml`) runs before sshd on every pod start:
 
 - **Every start (fast):** `apk add zsh git curl shadow`
-- **Once (persisted to PVC):** oh-my-zsh → `~/.oh-my-zsh`, atuin → `~/.atuin`
-- Sets zsh as the default shell and wires atuin into `.zshrc`
+- **Once (persisted to PVC):** oh-my-zsh → `~/.oh-my-zsh`, atuin → `~/.atuin`, mise → `~/.local/bin/mise`, Ruby (latest) → `~/.local/share/mise/installs/ruby`
+- Sets zsh as the default shell and wires atuin and mise into `.zshrc`
 
 On first SSH in, run `atuin login` to connect shell history sync.
 
