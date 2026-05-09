@@ -1,0 +1,92 @@
+---
+# Raft snapshot CronJob — backs up all OpenBao data to Cloudflare R2 every 6 hours.
+#
+# Prerequisites (complete after OpenBao initialization):
+#   1. Create a snapshot policy in OpenBao:
+#        bao policy write snapshot - <<EOF
+#        path "sys/storage/raft/snapshot" { capabilities = ["read"] }
+#        EOF
+#   2. Create a long-lived token for the CronJob:
+#        bao token create -policy=snapshot -period=8760h -orphan
+#   3. Populate openbao-snapshot-token.sops.yaml with the token and encrypt it.
+#   4. Create the R2 bucket "openbao-snapshots" in your Cloudflare account.
+#   5. Unsuspend this CronJob: kubectl patch cronjob openbao-snapshot -n openbao
+#        --type='merge' -p '{"spec":{"suspend":false}}'
+#
+# Recovery: download any snapshot from R2, then:
+#   bao operator raft snapshot restore -force snapshot.snap
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: openbao-snapshot
+spec:
+  schedule: "0 */6 * * *"
+  # Suspended until OpenBao is initialized and the snapshot token is configured
+  suspend: true
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: openbao
+          initContainers:
+            - name: snapshot
+              image: quay.io/openbao/openbao:2.5.2
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  echo "Saving Raft snapshot..."
+                  bao operator raft snapshot save \
+                    -address=http://openbao-active.openbao.svc.cluster.local:8200 \
+                    /snapshots/openbao.snap
+                  echo "Snapshot saved ($(wc -c < /snapshots/openbao.snap) bytes)"
+              env:
+                - name: VAULT_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: openbao-snapshot-token
+                      key: OPENBAO_TOKEN
+              volumeMounts:
+                - name: snapshots
+                  mountPath: /snapshots
+          containers:
+            - name: upload
+              image: amazon/aws-cli:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  SNAPSHOT_DATE=$(date -u +%Y%m%d-%H%M%S)
+                  DEST="s3://${SNAPSHOT_BUCKET}/snapshots/snapshot-${SNAPSHOT_DATE}.snap"
+                  echo "Uploading to ${DEST}..."
+                  aws s3 cp /snapshots/openbao.snap "${DEST}" \
+                    --endpoint-url "${SNAPSHOT_ENDPOINT}"
+                  echo "Upload complete. Pruning old snapshots (keeping 28 most recent)..."
+                  aws s3 ls "s3://${SNAPSHOT_BUCKET}/snapshots/" \
+                    --endpoint-url "${SNAPSHOT_ENDPOINT}" \
+                    | awk '{print $4}' | sort -r | tail -n +29 \
+                    | xargs -r -I{} aws s3 rm \
+                        "s3://${SNAPSHOT_BUCKET}/snapshots/{}" \
+                        --endpoint-url "${SNAPSHOT_ENDPOINT}"
+                  echo "Done."
+              env:
+                - name: SNAPSHOT_BUCKET
+                  value: "openbao-snapshots"
+                - name: SNAPSHOT_ENDPOINT
+                  value: "https://${SECRET_CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
+              envFrom:
+                - secretRef:
+                    # Provides AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY for R2
+                    name: openbao-r2
+              volumeMounts:
+                - name: snapshots
+                  mountPath: /snapshots
+          volumes:
+            - name: snapshots
+              emptyDir: {}

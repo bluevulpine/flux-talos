@@ -1,0 +1,21 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/v1/secret.json
+# OpenBao token used by the Raft snapshot CronJob.
+#
+# Create this token post-initialization:
+#   1. bao policy write snapshot - <<EOF
+#      path "sys/storage/raft/snapshot" { capabilities = ["read"] }
+#      EOF
+#   2. bao token create -policy=snapshot -period=8760h -orphan
+#   3. Paste the token below and encrypt:
+#      sops -e -i kubernetes/apps/openbao/openbao/app/openbao-snapshot-token.sops.yaml
+#
+# Alternatively, configure Kubernetes auth in OpenBao and update the CronJob to
+# exchange its ServiceAccount JWT for a short-lived token at runtime (preferred
+# long-term because it avoids a static long-lived token).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openbao-snapshot-token
+stringData:
+  OPENBAO_TOKEN: "<placeholder>"  # bao token create -policy=snapshot -period=8760h -orphan

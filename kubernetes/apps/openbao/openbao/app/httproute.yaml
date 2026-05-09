@@ -1,0 +1,26 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: openbao
+  annotations:
+    gatus.home-operations.com/endpoint: |
+      group: infrastructure
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "OpenBao"
+    gethomepage.dev/group: "Infrastructure"
+    gethomepage.dev/icon: "vault.png"
+    gethomepage.dev/description: "Secrets Management"
+spec:
+  hostnames: ["openbao.${SECRET_DOMAIN}"]
+  parentRefs:
+    # Internal gateway only — no reason to expose a secrets engine externally
+    - name: internal
+      namespace: network
+      sectionName: https
+  rules:
+    - backendRefs:
+        # openbao-active routes exclusively to the current Raft leader
+        - name: openbao-active
+          port: 8200

@@ -1,0 +1,117 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app openbao
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: openbao
+      version: 0.27.0
+      sourceRef:
+        kind: HelmRepository
+        name: openbao
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    global:
+      # TLS terminated at the Envoy Gateway; pods communicate in plaintext internally
+      tlsDisable: true
+
+    server:
+      ha:
+        enabled: true
+        replicas: 3
+        raft:
+          enabled: true
+          # Uses pod name as the Raft node ID for stable cluster membership
+          setNodeId: true
+
+      config: |
+        ui = true
+
+        # Required when running as non-root; containers cannot lock memory pages
+        disable_mlock = true
+
+        listener "tcp" {
+          tls_disable     = 1
+          address         = "[::]:8200"
+          cluster_address = "[::]:8201"
+          telemetry {
+            unauthenticated_metrics_access = "true"
+          }
+        }
+
+        storage "raft" {
+          path = "/openbao/data"
+        }
+
+        # Static auto-unseal: key read from SOPS-managed Secret mounted as a file.
+        # Generate with: openssl rand -hex 32
+        # Rotate by adding previous_key_id/previous_key alongside current_key_id/current_key.
+        seal "static" {
+          current_key_id = "homelab-unseal-1"
+          current_key    = "file:///openbao/secrets/current_key"
+        }
+
+        # Enables pod-label-based leader discovery and health check annotations
+        service_registration "kubernetes" {}
+
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 1Gi
+
+      dataStorage:
+        enabled: true
+        size: 10Gi
+        # Longhorn allows PVCs to survive pod rescheduling across nodes.
+        # openebs-hostpath would pin each Raft replica to a specific node.
+        storageClass: longhorn
+        accessMode: ReadWriteOnce
+
+      auditStorage:
+        enabled: false
+
+      securityContext:
+        runAsNonRoot: true
+        runAsGroup: 1000
+        runAsUser: 100
+        fsGroup: 1000
+
+      # Mount the SOPS-managed unseal key Secret; each Secret key becomes a file
+      extraVolumes:
+        - type: secret
+          name: openbao-unseal
+          mountPath: /openbao/secrets
+          readOnly: true
+
+      serviceAccount:
+        create: true
+        name: openbao
+
+      # Binds the ServiceAccount to system:auth-delegator for Kubernetes auth method
+      authDelegator:
+        enabled: true
+
+    # The sidecar injector creates a cluster-wide MutatingWebhookConfiguration
+    # that can block pod scheduling if OpenBao is unhealthy. ESO handles secret
+    # sync instead, which decouples pod lifecycle from OpenBao availability.
+    injector:
+      enabled: false
+
+    ui:
+      enabled: true
+      serviceType: ClusterIP
+      # Route UI traffic to the active/leader pod only
+      activeOpenbaoPodOnly: true
