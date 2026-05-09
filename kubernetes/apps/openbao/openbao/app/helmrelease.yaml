@@ -75,9 +75,11 @@ spec:
       dataStorage:
         enabled: true
         size: 10Gi
-        # Longhorn allows PVCs to survive pod rescheduling across nodes.
-        # openebs-hostpath would pin each Raft replica to a specific node.
-        storageClass: longhorn
+        # longhorn-1-replica: no storage-layer redundancy (Raft handles that),
+        # but pods can freely reschedule across nodes if their node is lost.
+        # Default longhorn (3 replicas) × 3 Raft pods = 9x redundancy — wasteful.
+        # openebs-hostpath would pin each pod to a specific node permanently.
+        storageClass: longhorn-1-replica
         accessMode: ReadWriteOnce
 
       auditStorage:
