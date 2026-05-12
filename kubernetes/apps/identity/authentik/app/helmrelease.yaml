@@ -6,13 +6,9 @@ metadata:
   name: &app authentik
 spec:
   interval: 30m
-  chart:
-    spec:
-      chart: authentik
-      version: 2026.2.2
-      sourceRef:
-        kind: HelmRepository
-        name: authentik
+  chartRef:
+    kind: OCIRepository
+    name: authentik
   install:
     remediation:
       retries: 3

@@ -6,5 +6,6 @@ namespace: infrastructure
 components:
   - ../../../../components/externalsecret-refresh
 resources:
+  - ./ocirepository.yaml
   - ./helmrelease.yaml
   - ./externalsecret.yaml

@@ -10,6 +10,7 @@ components:
   # - All repos are proxies (cache only, re-fetchable)
 
 resources:
+  - ./ocirepository.yaml
   - ./externalsecret.yaml
   # PVC managed by StatefulSet volumeClaimTemplate (longhorn-1-replica)
   - ./helmrelease.yaml
