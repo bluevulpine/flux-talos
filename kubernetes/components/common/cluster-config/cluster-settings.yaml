@@ -5,6 +5,8 @@ metadata:
   name: cluster-settings
 data:
   TIMEZONE: "America/Chicago"
+  # ZFS pool name on TrueNAS (verify: dcsi uses 'apps/democratic-csi/...' so pool is likely 'apps')
+  TRUENAS_POOL: "apps"
   SVC_K8S_API_ADDR: 172.16.8.1
   SVC_NGINX_INTERNAL: 172.16.8.2
   SVC_NGINX_EXTERNAL: 172.16.8.3
