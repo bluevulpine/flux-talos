@@ -34,7 +34,7 @@ spec:
           serviceAccountName: openbao
           initContainers:
             - name: snapshot
-              image: quay.io/openbao/openbao:2.5.2
+              image: quay.io/openbao/openbao:2.5.2  # renovate: datasource=docker
               command:
                 - /bin/sh
                 - -c
@@ -46,7 +46,7 @@ spec:
                     /snapshots/openbao.snap
                   echo "Snapshot saved ($(wc -c < /snapshots/openbao.snap) bytes)"
               env:
-                - name: VAULT_TOKEN
+                - name: BAO_TOKEN
                   valueFrom:
                     secretKeyRef:
                       name: openbao-snapshot-token
@@ -56,7 +56,7 @@ spec:
                   mountPath: /snapshots
           containers:
             - name: upload
-              image: amazon/aws-cli:latest
+              image: amazon/aws-cli:2.27.18
               command:
                 - /bin/sh
                 - -c

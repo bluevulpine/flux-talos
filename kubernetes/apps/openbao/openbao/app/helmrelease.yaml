@@ -57,9 +57,10 @@ spec:
         # Static auto-unseal: key read from SOPS-managed Secret mounted as a file.
         # Generate with: openssl rand -hex 32
         # Rotate by adding previous_key_id/previous_key alongside current_key_id/current_key.
+        # Path: extraVolumes type:secret always mounts at /openbao/userconfig/<name>/
         seal "static" {
           current_key_id = "homelab-unseal-1"
-          current_key    = "file:///openbao/secrets/current_key"
+          current_key    = "file:///openbao/userconfig/openbao-unseal/current_key"
         }
 
         # Enables pod-label-based leader discovery and health check annotations
@@ -83,7 +84,10 @@ spec:
         accessMode: ReadWriteOnce
 
       auditStorage:
-        enabled: false
+        enabled: true
+        size: 1Gi
+        storageClass: longhorn-1-replica
+        accessMode: ReadWriteOnce
 
       securityContext:
         runAsNonRoot: true
@@ -91,11 +95,13 @@ spec:
         runAsUser: 100
         fsGroup: 1000
 
-      # Mount the SOPS-managed unseal key Secret; each Secret key becomes a file
+      # Mount the SOPS-managed unseal key Secret; each Secret key becomes a file.
+      # The chart always mounts type:secret at /openbao/userconfig/<name>/ regardless
+      # of mountPath — so the key is at /openbao/userconfig/openbao-unseal/current_key.
       extraVolumes:
         - type: secret
           name: openbao-unseal
-          mountPath: /openbao/secrets
+          mountPath: /openbao/userconfig/openbao-unseal
           readOnly: true
 
       serviceAccount:
