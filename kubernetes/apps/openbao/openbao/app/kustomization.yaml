@@ -9,4 +9,5 @@ resources:
   - ./openbao-unseal.sops.yaml
   - ./openbao-snapshot-token.sops.yaml
   - ./httproute.yaml
+  - ./snapshot-serviceaccount.yaml
   - ./snapshot-cronjob.yaml
