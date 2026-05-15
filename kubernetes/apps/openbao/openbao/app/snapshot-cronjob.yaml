@@ -34,7 +34,7 @@ spec:
           serviceAccountName: openbao-snapshot
           initContainers:
             - name: snapshot
-              image: quay.io/openbao/openbao:2.5.2  # renovate: datasource=docker
+              image: quay.io/openbao/openbao:2.5.3  # renovate: datasource=docker
               command:
                 - /bin/sh
                 - -c
