@@ -96,13 +96,11 @@ spec:
         fsGroup: 1000
 
       # Mount the SOPS-managed unseal key Secret; each Secret key becomes a file.
-      # The chart always mounts type:secret at /openbao/userconfig/<name>/ regardless
-      # of mountPath — so the key is at /openbao/userconfig/openbao-unseal/current_key.
+      # The chart mounts type:secret at {path}/{name}/ — defaults to /openbao/userconfig/<name>/.
+      # Omitting path uses the default, so the key lands at /openbao/userconfig/openbao-unseal/current_key.
       extraVolumes:
         - type: secret
           name: openbao-unseal
-          mountPath: /openbao/userconfig/openbao-unseal
-          readOnly: true
 
       serviceAccount:
         create: true
