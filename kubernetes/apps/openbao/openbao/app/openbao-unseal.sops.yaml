@@ -1,0 +1,19 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/v1/secret.json
+# Static auto-unseal key for OpenBao.
+#
+# Generate a key:  openssl rand -hex 32
+# Encrypt file:    sops -e -i kubernetes/apps/openbao/openbao/app/openbao-unseal.sops.yaml
+#
+# The Secret key "current_key" becomes the file /openbao/userconfig/openbao-unseal/current_key
+# inside each server pod (extraVolumes type:secret always mounts at /openbao/userconfig/<name>/).
+#
+# Key rotation: add previous_key_id/previous_key alongside current_key_id/current_key
+# in the HelmRelease seal stanza, update this Secret with both keys, then remove
+# the previous_key entries once all data has been re-encrypted.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openbao-unseal
+stringData:
+  current_key: "<placeholder>"  # 64-char hex string: openssl rand -hex 32
