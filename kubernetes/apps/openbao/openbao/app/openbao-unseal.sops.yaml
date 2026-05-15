@@ -1,4 +1,3 @@
----
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/v1/secret.json
 # Static auto-unseal key for OpenBao.
 #
@@ -16,4 +15,20 @@ kind: Secret
 metadata:
   name: openbao-unseal
 stringData:
-  current_key: "<placeholder>"  # 64-char hex string: openssl rand -hex 32
+  current_key: ENC[AES256_GCM,data:tpqBD5XvF2dH1PMJmjIXFOvJLkh5HEbsDjSKcqkYl39dtuCPCLIKP9JS0zTtl2oV/iMzXEtf6esG2xAvRie0JQ==,iv:adHNrqQ9wwoeBfRNQ0r6giQuZljn7N11/bpI8nwHQtA=,tag:3fIbWy9yFS533WtFIKY8eg==,type:str] #ENC[AES256_GCM,data:9MgWk+AftHpDTjmF0BKEIT4PtnG9k9iOysgPMkEHiAS1npqUPTIEfJE=,iv:WfptUJRQxNm1/+0kqy/8S5nwQPvGklXhu3tZcNqjC/M=,tag:9G2SDUC3tjbOwVz3bWOQhg==,type:comment]
+sops:
+  age:
+    - enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBuWkw0b1prQngwRmwwUlpS
+        bmVNcmcxcXYrNTArYWplVnVWcERWaXE4NVFNCkU3VGRKV3Boc0pWd25kOWtpSlhS
+        UFJ4ZGZqNldVQklCQm05VmNUdkNZNEkKLS0tIExHbnpid0VvMkxCM0hEbFlOcHA4
+        cXV6MG92bGZaVGxTNStwTm1kdGUydmcKUdYfHQVaencXh6ePR4vJW7gO2Gewf98C
+        gaz8UdpmImqa0rBlYzsb2A0oY5L4gTASWwiBfow1FO2lZioALpwxgQ==
+        -----END AGE ENCRYPTED FILE-----
+      recipient: age1ww3u7me5lwxtgqcd8djkv485q30wu7k40hs9e2acg8qvdw4e8spq9t5dem
+  encrypted_regex: ^(data|stringData)$
+  lastmodified: "2026-05-15T14:28:07Z"
+  mac: ENC[AES256_GCM,data:TiiTK+18ZB+S1gsC52/s9SQ+Fa5zBZr9Adz/uR+/o5WISYS3xw7X6xc9rvwkJ/tXay6xb0Gr6REZWj9uG0FwWCPUMC6GfsOrQRRuA8KOSGFL0nR+7xMV4fvRuJWfQJJm0LxF+8h9eBgmG9ulSzmP+qp7CIQ3wUbe5uDUbR6N0Xw=,iv:fxxKsp3EYDst8Ndq5XKvnhx7xJ5sOMr9M4dOziWuobY=,tag:39tL4mqRojpUauZBqiTqPg==,type:str]
+  mac_only_encrypted: true
+  version: 3.13.0
