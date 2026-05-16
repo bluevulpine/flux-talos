@@ -1,4 +1,3 @@
----
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/v1/secret.json
 # OpenBao token used by the Raft snapshot CronJob.
 #
@@ -18,4 +17,21 @@ kind: Secret
 metadata:
   name: openbao-snapshot-token
 stringData:
-  OPENBAO_TOKEN: "<placeholder>"  # bao token create -policy=snapshot -period=8760h -orphan
+  #ENC[AES256_GCM,data:HN8UrlIXqyTwgBxMrgVv2m7PA6rGgrJ29SfzRKoqXn/qu2aVtffusyWM4GmuhXLqASsKmRBrZ/o=,iv:10mp0v8XiVpe+h1TwzrDs2f53Bl3qSjS2EFoFh0eglI=,tag:bFv7yhwHPDGYEWEto2n6cQ==,type:comment]
+  OPENBAO_TOKEN: ENC[AES256_GCM,data:7HyncGK1CAzdYj7/yI7OXeEJkcD4I9HCPHo=,iv:JgEWQHnQLDhbA/vH+ZB5QIDEXyko5EOcaDXdqK0bM7s=,tag:1WH6iYUj8AJ4TDQpa77hgA==,type:str]
+sops:
+  age:
+    - recipient: age1ww3u7me5lwxtgqcd8djkv485q30wu7k40hs9e2acg8qvdw4e8spq9t5dem
+      enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBlemwyVVhzYXYvQ1JXYUdS
+        UGZGcVpaMWxIS3NGc3RuSUtDb3p5cGw1clRnCnRMd3RJekl2K3hrTEtFbk5BdEhz
+        eXlwb0FyNTMrSEoxRTlRdWtISjByMzAKLS0tIDVKM1VoOE1oQnlYQ0tIM09DdUdn
+        aFVlNWpML1JBRm54NVNvWE9oY1pwS1EK0io+6MOw7SlBqwmZevt5EkXRY0l+1+Tr
+        Dm8ccfo7NAM9udwla09ZfMQLtHfG1GO288j4M0DmtH1stSqp0IRL4w==
+        -----END AGE ENCRYPTED FILE-----
+  lastmodified: "2026-05-16T23:47:18Z"
+  mac: ENC[AES256_GCM,data:ZrMfWeQhbqNXlYZwsRlBpaPeD/j9RzdUUQy1czIY2eKPYbWC7D4mSSjNe3Tj2rAfRqVc/yBy7DNVjstQ5r0YHLLTnuVtILOef1SoR10KW9hWEWQy7Fle3NYXLJsnVUvLBOK7TBciR6wHHznwfCFvfchlZisAQhPPluQz3ezAB5M=,iv:BS575AntbCR7hkrQcOqp9iD/G4kYqnqEsjRh4BFlEgo=,tag:IGOnfLPa+jvIll3IsupU/Q==,type:str]
+  encrypted_regex: ^(data|stringData)$
+  mac_only_encrypted: true
+  version: 3.11.0
