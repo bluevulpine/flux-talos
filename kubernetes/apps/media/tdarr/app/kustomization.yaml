@@ -6,6 +6,7 @@ resources:
   - ./externalsecret.yaml
   - ./ocirepository.yaml
   - ./helmrelease.yaml
+  - ./pushsecret.yaml
 components:
   - ../../../../components/volsync
 

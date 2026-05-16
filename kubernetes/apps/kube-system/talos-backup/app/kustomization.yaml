@@ -8,3 +8,4 @@ resources:
   - ./cronjob.yaml
   - ./externalsecret.yaml
   - ./serviceaccount.yaml
+  - ./pushsecret.yaml

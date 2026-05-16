@@ -11,3 +11,4 @@ resources:
   - helmrelease.yaml
   - dnsendpoint.yaml
   - externalsecret.yaml
+  - ./pushsecret.yaml

@@ -9,4 +9,5 @@ resources:
   - ./helmrelease.yaml
   - ./ocirepository.yaml
   - ./prometheusrule.yaml
+  - ./pushsecret.yaml
 

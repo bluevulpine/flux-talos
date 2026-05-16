@@ -10,3 +10,4 @@ resources:
   - ./ocirepository.yaml
   - ./rbac.yaml
   - ./talos-serviceaccount.yaml
+  - ./pushsecret.yaml

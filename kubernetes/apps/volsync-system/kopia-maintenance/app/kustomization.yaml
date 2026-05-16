@@ -9,4 +9,6 @@ resources:
   - ./externalsecret-r2.yaml
   - ./kopiamaintenance-local.yaml
   - ./kopiamaintenance-r2.yaml
+  - ./pushsecret-r2.yaml
+  - ./pushsecret-local.yaml
 

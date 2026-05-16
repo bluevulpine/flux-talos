@@ -11,3 +11,4 @@ resources:
   - ./httproute.yaml
   - ./snapshot-serviceaccount.yaml
   - ./snapshot-cronjob.yaml
+  - ./pushsecret.yaml

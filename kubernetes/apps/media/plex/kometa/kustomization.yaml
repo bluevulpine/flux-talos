@@ -9,6 +9,7 @@ resources:
   - ./ocirepository.yaml
   - ./externalsecret.yaml
   - ./helmrelease.yaml
+  - ./pushsecret.yaml
 configMapGenerator:
   - name: kometa-configmap
     files:
