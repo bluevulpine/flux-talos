@@ -34,37 +34,36 @@ spec:
           enabled: true
           # Uses pod name as the Raft node ID for stable cluster membership
           setNodeId: true
+          config: |
+            ui = true
 
-      config: |
-        ui = true
+            # Required when running as non-root; containers cannot lock memory pages
+            disable_mlock = true
 
-        # Required when running as non-root; containers cannot lock memory pages
-        disable_mlock = true
+            listener "tcp" {
+              tls_disable     = 1
+              address         = "[::]:8200"
+              cluster_address = "[::]:8201"
+              telemetry {
+                unauthenticated_metrics_access = "true"
+              }
+            }
 
-        listener "tcp" {
-          tls_disable     = 1
-          address         = "[::]:8200"
-          cluster_address = "[::]:8201"
-          telemetry {
-            unauthenticated_metrics_access = "true"
-          }
-        }
+            storage "raft" {
+              path = "/openbao/data"
+            }
 
-        storage "raft" {
-          path = "/openbao/data"
-        }
+            # Static auto-unseal: key read from SOPS-managed Secret mounted as a file.
+            # Key format: base64-encoded 32 bytes — generate with: openssl rand -base64 32
+            # Rotate by adding previous_key_id/previous_key alongside current_key_id/current_key.
+            # Path: extraVolumes type:secret mounts at /openbao/userconfig/<name>/
+            seal "static" {
+              current_key_id = "homelab-unseal-1"
+              current_key    = "file:///openbao/userconfig/openbao-unseal/current_key"
+            }
 
-        # Static auto-unseal: key read from SOPS-managed Secret mounted as a file.
-        # Generate with: openssl rand -hex 32
-        # Rotate by adding previous_key_id/previous_key alongside current_key_id/current_key.
-        # Path: extraVolumes type:secret always mounts at /openbao/userconfig/<name>/
-        seal "static" {
-          current_key_id = "homelab-unseal-1"
-          current_key    = "file:///openbao/userconfig/openbao-unseal/current_key"
-        }
-
-        # Enables pod-label-based leader discovery and health check annotations
-        service_registration "kubernetes" {}
+            # Enables pod-label-based leader discovery and health check annotations
+            service_registration "kubernetes" {}
 
       resources:
         requests:
