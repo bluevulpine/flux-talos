@@ -51,6 +51,15 @@ spec:
 
             storage "raft" {
               path = "/openbao/data"
+              retry_join {
+                leader_api_addr = "http://openbao-0.openbao-internal:8200"
+              }
+              retry_join {
+                leader_api_addr = "http://openbao-1.openbao-internal:8200"
+              }
+              retry_join {
+                leader_api_addr = "http://openbao-2.openbao-internal:8200"
+              }
             }
 
             # Static auto-unseal: key read from SOPS-managed Secret mounted as a file.
