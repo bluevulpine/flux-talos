@@ -40,6 +40,9 @@ spec:
                 - -c
                 - |
                   set -e
+                  bao token renew \
+                    -address=http://openbao-active.openbao.svc.cluster.local:8200 \
+                    > /dev/null
                   echo "Saving Raft snapshot..."
                   bao operator raft snapshot save \
                     -address=http://openbao-active.openbao.svc.cluster.local:8200 \
