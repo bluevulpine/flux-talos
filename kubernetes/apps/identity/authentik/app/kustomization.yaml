@@ -8,7 +8,6 @@ resources:
   - ./helmrelease.yaml
   - ./httproute-outpost.yaml
   - ./referencegrant.yaml
-  - ./pushsecret.yaml
 components:
   - ../../../../components/externalsecret-refresh
 

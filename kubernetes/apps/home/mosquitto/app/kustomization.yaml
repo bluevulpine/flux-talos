@@ -11,4 +11,3 @@ resources:
   - ./helmrelease.yaml
   - ./ocirepository.yaml
   - ./dnsendpoint.yaml
-  - ./pushsecret.yaml

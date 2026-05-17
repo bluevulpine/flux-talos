@@ -7,5 +7,4 @@ resources:
   - ./externalsecret.yaml
   - ./httproute.yaml
   - ./rbac.yaml
-  - ./pushsecret.yaml
 

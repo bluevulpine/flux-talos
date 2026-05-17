@@ -6,7 +6,6 @@ resources:
   - ./externalsecret.yaml
   - ./helmrelease.yaml
   - ./httproute.yaml
-  - ./pushsecret.yaml
 components:
   - ../../../../components/volsync
   - ../../../../components/externalsecret-refresh

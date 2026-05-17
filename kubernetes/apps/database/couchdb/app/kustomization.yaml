@@ -8,7 +8,6 @@ resources:
   - ./httproute.yaml
   - ./externalsecret.yaml
   - ./configmap.yaml
-  - ./pushsecret.yaml
 components:
   - ../../../../components/volsync
   - ../../../../components/externalsecret-refresh

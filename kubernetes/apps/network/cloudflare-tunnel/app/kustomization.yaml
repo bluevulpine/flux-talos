@@ -9,7 +9,6 @@ resources:
   - ./externalsecret.yaml
   - ./helmrelease.yaml
   - ./helmrelease-quic.yaml
-  - ./pushsecret.yaml
 configMapGenerator:
   - name: cloudflare-tunnel-configmap
     files:

@@ -11,5 +11,4 @@ resources:
   - ./helmrelease.yaml
   - ./httproute.yaml
   - ./rbac.yaml
-  - ./pushsecret.yaml
 

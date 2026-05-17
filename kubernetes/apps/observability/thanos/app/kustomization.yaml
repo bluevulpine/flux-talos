@@ -8,7 +8,6 @@ resources:
   - ./helmrelease.yaml
   - ./ocirepository.yaml
   - ./httproute.yaml
-  # - ./pushsecret.yaml
 components:
   - ../../../../components/externalsecret-refresh
 configMapGenerator:

@@ -6,6 +6,5 @@ resources:
   - ./helmrelease.yaml
   - ./httproute.yaml
   - ./ocirepository.yaml
-  - ./pushsecret.yaml
 components:
   - ../../../../components/externalsecret-refresh

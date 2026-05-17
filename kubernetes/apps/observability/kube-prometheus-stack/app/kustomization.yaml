@@ -11,6 +11,5 @@ resources:
   - ./alertmanagerconfig.yaml
   - ./externalsecret.yaml
   - ./httproute.yaml
-  - ./pushsecret.yaml
 components:
   - ../../../../components/externalsecret-refresh

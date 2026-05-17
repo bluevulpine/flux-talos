@@ -9,4 +9,3 @@ resources:
   - ./externalsecret.yaml
   - ./helmrelease.yaml
   - ./rolebinding.yaml
-  - ./pushsecret.yaml

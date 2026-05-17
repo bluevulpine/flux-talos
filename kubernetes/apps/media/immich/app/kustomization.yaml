@@ -6,7 +6,6 @@ resources:
   - ./externalsecret.yaml
   - ./ocirepository.yaml
   - ./helmrelease.yaml
-  - ./pushsecret.yaml
 components:
   - ../../../../components/externalsecret-refresh
   # volsync removed - using NFS with NAS-level backups
