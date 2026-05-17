@@ -79,15 +79,6 @@ kubectl exec -n openbao openbao-0 -- bao operator generate-root -init
 # Then provide 3 of 5 original recovery keys, decode the result
 ```
 
-### 6. Re-enable the snapshot CronJob
-
-The CronJob is deployed `suspend: true`. Once OpenBao is healthy:
-
-```bash
-kubectl patch cronjob openbao-snapshot -n openbao \
-  --type='merge' -p '{"spec":{"suspend":false}}'
-```
-
 ---
 
 ## Partial Loss — Pod or Node Failure

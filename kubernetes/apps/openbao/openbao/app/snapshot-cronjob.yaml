@@ -1,28 +1,13 @@
 ---
 # Raft snapshot CronJob — backs up all OpenBao data to Cloudflare R2 every 6 hours.
-#
-# Prerequisites (complete after OpenBao initialization):
-#   1. Create a snapshot policy in OpenBao:
-#        bao policy write snapshot - <<EOF
-#        path "sys/storage/raft/snapshot" { capabilities = ["read"] }
-#        EOF
-#   2. Create a long-lived token for the CronJob:
-#        bao token create -policy=snapshot -period=8760h -orphan
-#   3. Populate openbao-snapshot-token.sops.yaml with the token and encrypt it.
-#   4. Create the R2 bucket "openbao-snapshots" in your Cloudflare account.
-#   5. Unsuspend this CronJob: kubectl patch cronjob openbao-snapshot -n openbao
-#        --type='merge' -p '{"spec":{"suspend":false}}'
-#
-# Recovery: download any snapshot from R2, then:
-#   bao operator raft snapshot restore -force snapshot.snap
+# See RECOVERY.md for disaster recovery procedures.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: openbao-snapshot
 spec:
   schedule: "0 */6 * * *"
-  # Suspended until OpenBao is initialized and the snapshot token is configured
-  suspend: true
+  suspend: false
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
