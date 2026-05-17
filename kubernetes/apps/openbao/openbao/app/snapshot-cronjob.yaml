@@ -66,17 +66,17 @@ spec:
                 - |
                   set -e
                   SNAPSHOT_DATE=$(date -u +%Y%m%d-%H%M%S)
-                  DEST="s3://${SNAPSHOT_BUCKET}/snapshots/snapshot-${SNAPSHOT_DATE}.snap"
-                  echo "Uploading to ${DEST}..."
-                  aws s3 cp /snapshots/openbao.snap "${DEST}" \
-                    --endpoint-url "${SNAPSHOT_ENDPOINT}"
+                  DEST="s3://$${SNAPSHOT_BUCKET}/snapshots/snapshot-$${SNAPSHOT_DATE}.snap"
+                  echo "Uploading to $${DEST}..."
+                  aws s3 cp /snapshots/openbao.snap "$${DEST}" \
+                    --endpoint-url "$${SNAPSHOT_ENDPOINT}"
                   echo "Upload complete. Pruning old snapshots (keeping 28 most recent)..."
-                  aws s3 ls "s3://${SNAPSHOT_BUCKET}/snapshots/" \
-                    --endpoint-url "${SNAPSHOT_ENDPOINT}" \
+                  aws s3 ls "s3://$${SNAPSHOT_BUCKET}/snapshots/" \
+                    --endpoint-url "$${SNAPSHOT_ENDPOINT}" \
                     | awk '{print $4}' | sort -r | tail -n +29 \
                     | xargs -r -I{} aws s3 rm \
-                        "s3://${SNAPSHOT_BUCKET}/snapshots/{}" \
-                        --endpoint-url "${SNAPSHOT_ENDPOINT}"
+                        "s3://$${SNAPSHOT_BUCKET}/snapshots/{}" \
+                        --endpoint-url "$${SNAPSHOT_ENDPOINT}"
                   echo "Done."
               env:
                 - name: SNAPSHOT_BUCKET
