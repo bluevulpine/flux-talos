@@ -100,6 +100,7 @@ spec:
   dependsOn:
     - name: external-secrets
     - name: openbao
+      namespace: openbao
   path: ./kubernetes/apps/external-secrets/external-secrets/openbao-secret-store
   prune: true
   sourceRef:
