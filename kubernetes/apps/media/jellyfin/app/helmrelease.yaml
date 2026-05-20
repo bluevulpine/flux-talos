@@ -41,10 +41,8 @@ spec:
               requests:
                 cpu: 100m
                 memory: 512Mi
-                amd.com/gpu: 1
               limits:
                 memory: 4Gi
-                amd.com/gpu: 1
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
@@ -54,8 +52,6 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         # 44 = video, 105 = kvm, 109 = render (for GPU access), 10000 = media
         supplementalGroups: [44, 105, 109, 10000]
-      nodeSelector:
-        feature.node.kubernetes.io/pci-0300_1002.present: "true"
     service:
       app:
         controller: jellyfin
