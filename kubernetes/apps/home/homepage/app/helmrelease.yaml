@@ -24,6 +24,7 @@ spec:
       homepage:
         enabled: true
     defaultPodOptions:
+      automountServiceAccountToken: true
       tolerations:
         - key: "node.kubernetes.io/low-power"
           operator: "Equal"
