@@ -28,6 +28,17 @@ spec:
               - secretRef:
                   name: bazarr-secret
             probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: *port
+                  initialDelaySeconds: 0
+                  periodSeconds: 5
+                  timeoutSeconds: 1
+                  failureThreshold: 30
               liveness: &probes
                 enabled: true
                 custom: true
