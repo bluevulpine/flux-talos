@@ -527,37 +527,6 @@ spec:
             policyNames:
               - apt-cleanup
 
-      # Scheduled tasks for maintenance
-      tasks:
-        # Purge incomplete Docker uploads daily at 3 AM
-        - name: "Docker cleanup uploads"
-          typeId: repository.docker.upload-purge
-          crontab: "0 0 3 * * ?"
-          attributes:
-            age: "24"
-
-        # Docker garbage collection daily at 4 AM
-        - name: "Docker garbage collection"
-          typeId: repository.docker.gc
-          crontab: "0 0 4 * * ?"
-          attributes:
-            repositoryName: "*"
-
-        # Compact blob stores weekly on Sunday at 5 AM
-        - name: "Compact docker blob store"
-          typeId: blobstore.compact
-          crontab: "0 0 5 ? * SUN"
-          attributes:
-            blobStoreName: docker
-
-        - name: "Compact apt blob store"
-          typeId: blobstore.compact
-          crontab: "0 30 5 ? * SUN"
-          attributes:
-            blobStoreName: apt
-
-        - name: "Compact packages blob store"
-          typeId: blobstore.compact
-          crontab: "0 0 6 ? * SUN"
-          attributes:
-            blobStoreName: packages
+      # Tasks are pre-configured in Nexus; chart API returns 500 on updates
+      # so we omit them here to avoid blocking the config job.
+      tasks: []
