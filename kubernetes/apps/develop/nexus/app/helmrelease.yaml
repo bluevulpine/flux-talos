@@ -529,12 +529,6 @@ spec:
 
       # Scheduled tasks for maintenance
       tasks:
-        # Run cleanup policies daily at 2 AM
-        - name: "Cleanup service"
-          typeId: repository.cleanup
-          crontab: "0 0 2 * * ?"
-          attributes: {}
-
         # Purge incomplete Docker uploads daily at 3 AM
         - name: "Docker cleanup uploads"
           typeId: repository.docker.upload-purge
