@@ -1,0 +1,131 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tns-csi
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: tns-csi-driver
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    truenas:
+      # Uses the modern WebSocket JSON-RPC API — no legacy REST, no alert flood.
+      url: "wss://${SECRET_NFS_SERVER}:443/api/current"
+      apiKey: "${DEMOCRATIC_CSI_API_KEY}"
+      # Set true if TrueNAS uses a self-signed certificate
+      skipTLSVerify: false
+
+    storageClasses:
+      # ── NFS ──────────────────────────────────────────────────────────────────
+      # ReadWriteMany; drop-in replacement for truenas-nfs once workloads migrate
+      - name: tns-csi-nfs
+        enabled: true
+        protocol: nfs
+        pool: "${TRUENAS_POOL}"
+        server: "${SECRET_NFS_SERVER}"
+        parentDataset: "tns-csi/nfs"
+        reclaimPolicy: Delete
+        volumeBindingMode: Immediate
+        allowVolumeExpansion: true
+        mountOptions:
+          - hard
+          - noatime
+          - noresvport
+          - nfsvers=4.2
+          - rsize=1048576
+          - wsize=1048576
+
+      # ── iSCSI ────────────────────────────────────────────────────────────────
+      # Block storage; iscsi-tools extension already present on all Talos nodes.
+      # ReadWriteOnce; drop-in replacement for truenas-iscsi once workloads migrate.
+      - name: tns-csi-iscsi
+        enabled: true
+        protocol: iscsi
+        pool: "${TRUENAS_POOL}"
+        server: "${SECRET_NFS_SERVER}"
+        parentDataset: "tns-csi/iscsi"
+        port: "3260"
+        fsType: xfs
+        reclaimPolicy: Delete
+        volumeBindingMode: Immediate
+        allowVolumeExpansion: true
+
+      # ── NVMe-oF ──────────────────────────────────────────────────────────────
+      # High-performance block storage over TCP. nvme_tcp kernel module is already
+      # loaded on all Talos nodes (confirmed in talconfig.yaml).
+      #
+      # TrueNAS-side prerequisites before enabling workloads here:
+      #   1. Enable NVMe-oF target service in TrueNAS SCALE
+      #   2. Create an NVMe subsystem and namespace pointing at the ZFS pool
+      #   3. Ensure port 4420/tcp is reachable from cluster nodes
+      - name: tns-csi-nvmeof
+        enabled: true
+        protocol: nvmeof
+        pool: "${TRUENAS_POOL}"
+        server: "${SECRET_NFS_SERVER}"
+        parentDataset: "tns-csi/nvmeof"
+        transport: tcp
+        port: "4420"
+        fsType: xfs
+        reclaimPolicy: Delete
+        volumeBindingMode: Immediate
+        allowVolumeExpansion: true
+
+      # ── SMB ──────────────────────────────────────────────────────────────────
+      # Disabled until you create the credential Secret and enable SMB in TrueNAS.
+      # To enable:
+      #   1. Enable SMB service in TrueNAS SCALE
+      #   2. Create a TrueNAS user with share access
+      #   3. kubectl create secret generic tns-csi-smb-credentials \
+      #        --from-literal=username=<user> \
+      #        --from-literal=password=<pass> \
+      #        -n kube-system
+      #   4. Set enabled: true below
+      - name: tns-csi-smb
+        enabled: false
+        protocol: smb
+        pool: "${TRUENAS_POOL}"
+        server: "${SECRET_NFS_SERVER}"
+        parentDataset: "tns-csi/smb"
+        smbCredentialsSecret:
+          name: tns-csi-smb-credentials
+          namespace: kube-system
+        reclaimPolicy: Delete
+        volumeBindingMode: Immediate
+        allowVolumeExpansion: true
+
+    snapshots:
+      enabled: true
+      volumeSnapshotClass:
+        create: true
+        deletionPolicy: Delete
+
+    controller:
+      tolerations:
+        - key: "node.kubernetes.io/low-power"
+          operator: "Equal"
+          value: "raspberry-pi"
+          effect: "NoSchedule"
+
+    node:
+      # Standard kubelet path for Talos Linux
+      kubeletPath: /var/lib/kubelet
+      tolerations:
+        - key: "node.kubernetes.io/low-power"
+          operator: "Equal"
+          value: "raspberry-pi"
+          effect: "NoSchedule"
+      iscsi:
+        # Keep enabled — siderolabs/iscsi-tools extension is installed on all nodes
+        enabled: true
