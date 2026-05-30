@@ -1,0 +1,77 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app helium-archiver
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: helium-archiver
+  interval: 1h
+  values:
+    controllers:
+      helium-archiver:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        # Single replica only: the subscriber holds a persistent
+        # (clean_session=false) MQTT session keyed on a stable client id. A
+        # second replica would fight over that session and double-insert.
+        replicas: 1
+        strategy: Recreate
+        initContainers:
+          01-init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom:
+              - secretRef:
+                  name: helium-archiver-secret
+        containers:
+          app:
+            # First-party image — see ./src and README.MD. Build & push it before
+            # this HelmRelease can become Ready (the tag won't resolve until then).
+            # Registry convention for this repo: ghcr.io/bluevulpine/<app>.
+            image:
+              repository: ghcr.io/bluevulpine/helium-archiver
+              tag: 0.1.0
+            env:
+              TZ: "${TIMEZONE}"
+              MQTT_HOST: mosquitto.home.svc.cluster.local
+              MQTT_PORT: "1883"
+              MQTT_TOPIC: "helium/#"
+              MQTT_QOS: "1"
+              # Stable client id keeps the broker session + queued QoS-1 messages
+              # across restarts (mosquitto.conf has persistence enabled).
+              MQTT_CLIENT_ID: helium-archiver
+              STORAGE_BACKEND: postgres
+              LOG_LEVEL: INFO
+            envFrom:
+              - secretRef:
+                  name: helium-archiver-secret
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 128Mi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+    persistence:
+      # Writable scratch for the otherwise read-only root filesystem.
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
