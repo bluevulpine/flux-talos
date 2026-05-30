@@ -6,6 +6,10 @@ metadata:
   labels:
     app.kubernetes.io/name: dev-shell
     app.kubernetes.io/instance: dev-shell
+  annotations:
+    # Roll the pod when the init scripts or authorized_keys ConfigMaps change
+    # (Stakater Reloader is deployed cluster-wide in kube-system).
+    reloader.stakater.com/auto: "true"
 spec:
   serviceName: dev-shell
   replicas: 1
@@ -23,26 +27,41 @@ spec:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
       containers:
-        - name: ubuntu-dev
-          # renovate: datasource=docker depName=lscr.io/linuxserver/openssh-server
-          image: lscr.io/linuxserver/openssh-server:10.0_p1-r10-ls212@sha256:c6d85b0c137a9920a7769ea00c0052a7779b4ec1e556db49b2700e5f1850fb40
+        - name: dev-shell
+          # renovate: datasource=docker depName=debian
+          image: debian:bookworm-slim@sha256:0104b334637a5f19aa9c983a91b54c89887c0984081f2068983107a6f6c21eeb
           securityContext:
+            # Boot script needs root to install packages, create the user, and
+            # run sshd; sshd then drops to the unprivileged login user per-session.
             runAsUser: 0
             runAsGroup: 0
-            allowPrivilegeEscalation: false
+            allowPrivilegeEscalation: true
           command:
-            - /init
-
+            - /bin/bash
+            - /etc/dev-shell/entrypoint.sh
+          env:
+            - name: USER_NAME
+              value: "bluevulpine"
+            - name: USER_UID
+              value: "1000"
+            - name: USER_GID
+              value: "1000"
+            - name: TZ
+              value: "America/Chicago"
+            - name: LANG
+              value: en_US.UTF-8
+            - name: LC_ALL
+              value: en_US.UTF-8
           ports:
             - containerPort: 2222
               name: ssh
           readinessProbe:
             tcpSocket:
               port: 2222
-            initialDelaySeconds: 30
+            initialDelaySeconds: 15
             periodSeconds: 10
             timeoutSeconds: 5
-            failureThreshold: 3
+            failureThreshold: 6
           livenessProbe:
             tcpSocket:
               port: 2222
@@ -55,42 +74,32 @@ spec:
               cpu: 500m
               memory: 1Gi
             limits:
-              cpu: 2000m
+              cpu: "2000m"
               memory: 4Gi
           volumeMounts:
             - name: dev-storage
               mountPath: /home/bluevulpine
-              subPath: home
-            - name: init-script
-              mountPath: /custom-cont-init.d
-          env:
-            - name: PUID
-              value: "1000"
-            - name: PGID
-              value: "1000"
-            - name: TZ
-              value: "America/Chicago"
-            - name: PASSWORD_ACCESS
-              value: "true"
-            - name: USER_PASSWORD
-              value: "dev"
-            - name: USER_NAME
-              value: "bluevulpine"
-            - name: SUDO_ACCESS
-              value: "true"
-            - name: USER_SHELL
-              value: /bin/zsh
-            - name: DEBIAN_FRONTEND
-              value: noninteractive
-            - name: LANG
-              value: en_US.UTF-8
-            - name: LC_ALL
-              value: en_US.UTF-8
+            - name: init-scripts
+              mountPath: /etc/dev-shell/entrypoint.sh
+              subPath: entrypoint.sh
+              readOnly: true
+            - name: init-scripts
+              mountPath: /etc/dev-shell/user-setup.sh
+              subPath: user-setup.sh
+              readOnly: true
+            - name: authorized-keys
+              mountPath: /etc/dev-shell/authorized_keys
+              subPath: authorized_keys
+              readOnly: true
       volumes:
-        - name: init-script
+        - name: init-scripts
           configMap:
             name: dev-shell-init
             defaultMode: 0755
+        - name: authorized-keys
+          configMap:
+            name: dev-shell-authorized-keys
+            defaultMode: 0644
       restartPolicy: Always
   volumeClaimTemplates:
     - metadata:

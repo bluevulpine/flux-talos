@@ -1,10 +1,9 @@
 # dev-shell
 
-A persistent Alpine-based SSH development environment, exposed to the Tailscale network as `dev-shell`.
+A persistent Debian-based SSH development environment, exposed to the Tailscale
+network as `dev-shell`. Login is **SSH key only** (no passwords).
 
 ## Access
-
-Default credentials: `bluevulpine` / `dev` — change on first login with `passwd`.
 
 ```bash
 # Via Tailscale (preferred)
@@ -15,28 +14,66 @@ kubectl port-forward -n develop dev-shell-0 2222:2222
 ssh bluevulpine@localhost -p 2222
 ```
 
-## First start
+Only the keys listed in `app/authorized-keys.yaml` may log in.
 
-The init script (`init-configmap.yaml`) runs before sshd on every pod start:
+## Managing SSH keys
 
-- **Every start (fast):** `apk add zsh git curl shadow`
-- **Once (persisted to PVC):** oh-my-zsh → `~/.oh-my-zsh`, atuin → `~/.atuin`, mise → `~/.local/bin/mise`, Ruby (latest) → `~/.local/share/mise/installs/ruby`
-- Sets zsh as the default shell and wires atuin and mise into `.zshrc`
+Public keys live in the `dev-shell-authorized-keys` ConfigMap
+(`app/authorized-keys.yaml`) — they're public, so they're committed to git
+rather than stored in OpenBao. To add or revoke access, edit the
+`authorized_keys` block and let Flux reconcile. Stakater Reloader rolls the pod
+automatically when the ConfigMap changes, so the new `authorized_keys` takes
+effect without a manual restart.
+
+## How it boots
+
+The container runs `debian:bookworm-slim` and executes
+`app/init-configmap.yaml`'s `entrypoint.sh` as root:
+
+- **Every boot (fast, not persisted):** `apt-get install` of sshd, zsh, tmux,
+  git, build tools, python, and friends; creates the `bluevulpine` user;
+  configures key-only sshd on port 2222.
+- **First boot only (persisted to PVC, runs in the background):**
+  `user-setup.sh` installs `kubectl`, `flux`, `helm`, `mise`, `oh-my-zsh`,
+  `atuin`, and Node LTS + Claude Code (via mise) into `~/.local`. Progress is
+  logged to `/tmp/dev-shell-setup.log` inside the pod.
+
+Because tooling installs in the background, sshd is reachable within seconds;
+the first login may briefly precede some tools finishing. Watch progress with
+`tail -f /tmp/dev-shell-setup.log`.
 
 On first SSH in, run `atuin login` to connect shell history sync.
 
 ## Package management
 
-This image is Alpine (musl libc). Homebrew is not compatible.
+This image is Debian (glibc), so most upstream installers work directly.
 
-- `apk add <package>` — system packages, fast, **not persistent across pod restarts**
-- Anything installed to `~/` persists (PVC-backed)
-- Use `mise` for persistent version-managed dev tools (node, python, go, etc.):
+- `sudo apt-get install <pkg>` — system packages, **not persistent across pod
+  restarts** (re-add via the boot script if you want them every boot).
+- Anything under `~` persists (PVC-backed).
+- Prefer `mise` for version-managed dev tools (node, python, go, …):
   ```bash
-  curl https://mise.run | sh
-  mise use node@lts python@latest
+  mise use node@lts python@latest go@latest
   ```
 
 ## Storage
 
-Single 50Gi `openebs-hostpath` PVC mounted at `/home/bluevulpine`. Everything under `~` persists — dotfiles, oh-my-zsh config, atuin history, mise toolchains, projects.
+Single 50Gi `openebs-hostpath` PVC mounted at `/home/bluevulpine`. Everything
+under `~` persists — dotfiles, oh-my-zsh, atuin history, mise toolchains, the
+`~/.local/bin` CLIs, SSH host keys (`~/.dev-shell/ssh`), and projects.
+
+## Flux note
+
+`app/init-configmap.yaml` and `app/authorized-keys.yaml` both carry
+`kustomize.toolkit.fluxcd.io/substitute: disabled`. They hold shell scripts and
+key material full of `${VAR}` references; without that annotation Flux
+post-build substitution would blank every `${VAR}` it doesn't recognize — the
+original `usermod: user '' does not exist` failure. Keep the annotation if you
+edit these files.
+
+## Future: build the image in-cluster
+
+For a faster cold start, the runtime `apt`/tooling install can be baked into a
+pre-built image produced by the in-cluster Gitea + Drone + Nexus stack (build on
+push, push to the Nexus Docker registry, pin the digest here). Not done yet —
+this first pass trades a slower boot for zero build pipeline.

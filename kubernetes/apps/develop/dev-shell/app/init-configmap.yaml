@@ -3,64 +3,199 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: dev-shell-init
+  annotations:
+    # CRITICAL: these scripts are full of ${VAR} references. Without this
+    # annotation, Flux post-build substitution (spec.postBuild in ks.yaml) runs
+    # envsubst over the rendered manifest and blanks every ${VAR} it doesn't know
+    # about (the original "usermod: user '' does not exist" bug).
+    kustomize.toolkit.fluxcd.io/substitute: disabled
 data:
-  00-dev-setup.sh: |
-    #!/bin/bash
-    # Runs before sshd starts on every pod start (via linuxserver custom-cont-init.d).
-    # apk installs are fast and re-run each start.
-    # Everything else checks for existence first — those live on the PVC and run once.
-    set -eo pipefail
+  # Root entrypoint: installs base packages + sshd, creates the user, configures
+  # key-only SSH, kicks off per-user tooling install in the background, then execs
+  # sshd in the foreground.
+  entrypoint.sh: |
+    #!/usr/bin/env bash
+    set -uo pipefail
+    log() { printf '[dev-shell] %s\n' "$*"; }
 
-    USER="bluevulpine"
-    USER_HOME="/home/${USER}"
+    USER_NAME="${USER_NAME:-bluevulpine}"
+    USER_UID="${USER_UID:-1000}"
+    USER_GID="${USER_GID:-1000}"
+    USER_HOME="/home/${USER_NAME}"
+    export DEBIAN_FRONTEND=noninteractive
 
-    # System packages needed every start (not persistent across restarts)
-    apk add --no-cache zsh git curl shadow
+    # --- Base packages (re-installed each boot; not persisted) ---------------
+    log "Installing base packages via apt..."
+    apt-get update -qq
+    apt-get install -y -qq --no-install-recommends \
+        openssh-server sudo ca-certificates curl wget gnupg git \
+        zsh tmux less vim nano jq unzip rsync htop \
+        iputils-ping dnsutils locales build-essential \
+        python3 python3-venv python3-pip \
+      || log "WARN: apt-get install reported errors"
 
-    # Set zsh as default shell
-    if [ "$(getent passwd ${USER} | cut -d: -f7)" != "/bin/zsh" ]; then
-        usermod -s /bin/zsh "${USER}"
+    sed -i 's/^# *\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen 2>/dev/null || true
+    locale-gen en_US.UTF-8 >/dev/null 2>&1 || true
+
+    # --- Group / user (idempotent; never operate on an empty name) -----------
+    if ! getent group "${USER_GID}" >/dev/null 2>&1; then
+        groupadd -g "${USER_GID}" "${USER_NAME}"
+    fi
+    if id "${USER_NAME}" >/dev/null 2>&1; then
+        log "User '${USER_NAME}' exists; ensuring login shell is zsh."
+        usermod -s /usr/bin/zsh "${USER_NAME}" || true
+    else
+        log "Creating user '${USER_NAME}' (uid ${USER_UID}, gid ${USER_GID})."
+        useradd -m -d "${USER_HOME}" -s /usr/bin/zsh \
+            -u "${USER_UID}" -g "${USER_GID}" "${USER_NAME}"
     fi
 
-    # oh-my-zsh — installs to home dir, persists on PVC
+    # Home may be a freshly-mounted, root-owned PVC on first boot.
+    mkdir -p "${USER_HOME}"
+    chown "${USER_UID}:${USER_GID}" "${USER_HOME}"
+
+    # Passwordless sudo (key-only login; the account has no password).
+    echo "${USER_NAME} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/90-${USER_NAME}"
+    chmod 0440 "/etc/sudoers.d/90-${USER_NAME}"
+
+    # --- SSH: key auth only --------------------------------------------------
+    # Persisted host keys on the PVC so reconnects don't trip host-key warnings.
+    HOSTKEY_DIR="${USER_HOME}/.dev-shell/ssh"
+    mkdir -p "${HOSTKEY_DIR}"
+    for t in ed25519 rsa; do
+        k="${HOSTKEY_DIR}/ssh_host_${t}_key"
+        [ -f "${k}" ] || ssh-keygen -q -t "${t}" -N "" -f "${k}"
+    done
+    chown -R "${USER_UID}:${USER_GID}" "${USER_HOME}/.dev-shell"
+
+    # authorized_keys from the mounted ConfigMap.
+    SSH_DIR="${USER_HOME}/.ssh"
+    mkdir -p "${SSH_DIR}"
+    if [ -s /etc/dev-shell/authorized_keys ]; then
+        install -m 0600 /etc/dev-shell/authorized_keys "${SSH_DIR}/authorized_keys"
+        log "Installed authorized_keys from ConfigMap."
+    else
+        log "WARN: no authorized_keys found; SSH logins will be refused."
+        : > "${SSH_DIR}/authorized_keys"
+        chmod 0600 "${SSH_DIR}/authorized_keys"
+    fi
+    chmod 0700 "${SSH_DIR}"
+    chown -R "${USER_UID}:${USER_GID}" "${SSH_DIR}"
+
+    mkdir -p /run/sshd /etc/ssh/sshd_config.d
+    {
+        echo "Port 2222"
+        echo "HostKey ${HOSTKEY_DIR}/ssh_host_ed25519_key"
+        echo "HostKey ${HOSTKEY_DIR}/ssh_host_rsa_key"
+        echo "PermitRootLogin no"
+        echo "PasswordAuthentication no"
+        echo "KbdInteractiveAuthentication no"
+        echo "PubkeyAuthentication yes"
+        echo "AuthorizedKeysFile .ssh/authorized_keys"
+        echo "AllowUsers ${USER_NAME}"
+        echo "X11Forwarding no"
+        echo "AllowAgentForwarding yes"
+        echo "AllowTcpForwarding yes"
+        echo "PrintMotd no"
+        echo "ClientAliveInterval 120"
+        echo "ClientAliveCountMax 10"
+        echo "AcceptEnv LANG LC_*"
+        echo "Subsystem sftp internal-sftp"
+    } > /etc/ssh/sshd_config.d/dev-shell.conf
+
+    # --- Per-user tooling, installed once onto the PVC (backgrounded) --------
+    # Runs as the unprivileged user so sshd can come up immediately on first boot
+    # instead of blocking on downloads. Progress logged to /tmp/dev-shell-setup.log.
+    if [ -r /etc/dev-shell/user-setup.sh ]; then
+        log "Launching background user tooling setup (see /tmp/dev-shell-setup.log)."
+        USER_HOME="${USER_HOME}" runuser -u "${USER_NAME}" -- \
+            bash /etc/dev-shell/user-setup.sh >/tmp/dev-shell-setup.log 2>&1 &
+    fi
+
+    log "Starting sshd on port 2222 for user '${USER_NAME}'."
+    exec /usr/sbin/sshd -D -e
+
+  # Per-user tooling installer, executed as the login user. Everything lands in
+  # $HOME (PVC-backed), so it only does real work on first boot.
+  user-setup.sh: |
+    #!/usr/bin/env bash
+    set -uo pipefail
+    log() { printf '[dev-shell-setup] %s\n' "$*"; }
+
+    USER_HOME="${USER_HOME:-$HOME}"
+    LOCAL_BIN="${USER_HOME}/.local/bin"
+    export PATH="${LOCAL_BIN}:${PATH}"
+    mkdir -p "${LOCAL_BIN}"
+
+    # kubectl (static binary -> PVC)
+    if [ ! -x "${LOCAL_BIN}/kubectl" ]; then
+        log "Installing kubectl..."
+        kver="$(curl -fsSL https://dl.k8s.io/release/stable.txt)" \
+          && curl -fsSL -o "${LOCAL_BIN}/kubectl" \
+             "https://dl.k8s.io/release/${kver}/bin/linux/amd64/kubectl" \
+          && chmod +x "${LOCAL_BIN}/kubectl" \
+          || log "WARN: kubectl install failed"
+    fi
+
+    # flux CLI -> PVC (install.sh takes the bindir as $1)
+    if [ ! -x "${LOCAL_BIN}/flux" ]; then
+        log "Installing flux CLI..."
+        curl -fsSL https://fluxcd.io/install.sh | bash -s "${LOCAL_BIN}" \
+          || log "WARN: flux install failed"
+    fi
+
+    # helm -> PVC
+    if [ ! -x "${LOCAL_BIN}/helm" ]; then
+        log "Installing helm..."
+        curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
+          | HELM_INSTALL_DIR="${LOCAL_BIN}" USE_SUDO=false bash \
+          || log "WARN: helm install failed"
+    fi
+
+    # mise — version manager for node/python/go/etc. -> PVC
+    if [ ! -x "${LOCAL_BIN}/mise" ]; then
+        log "Installing mise..."
+        curl -fsSL https://mise.run | MISE_INSTALL_PATH="${LOCAL_BIN}/mise" sh \
+          || log "WARN: mise install failed"
+    fi
+
+    # oh-my-zsh -> PVC
     if [ ! -d "${USER_HOME}/.oh-my-zsh" ]; then
-        echo "[init] Installing oh-my-zsh..."
-        su -l -s /bin/sh "${USER}" -c \
-            'curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh | sh -s -- --unattended'
+        log "Installing oh-my-zsh..."
+        RUNZSH=no CHSH=no \
+          sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended \
+          || log "WARN: oh-my-zsh install failed"
     fi
 
-    # atuin — ships musl binaries, installs to ~/.atuin, persists on PVC
+    # atuin — shell history -> PVC
     if [ ! -f "${USER_HOME}/.atuin/bin/atuin" ]; then
-        echo "[init] Installing atuin..."
-        su -l -s /bin/sh "${USER}" -c \
-            'curl --proto "=https" --tlsv1.2 -LsSf https://setup.atuin.sh | sh'
+        log "Installing atuin..."
+        curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh \
+          || log "WARN: atuin install failed"
     fi
 
-    # Wire atuin into .zshrc if oh-my-zsh created it and atuin isn't already there
+    # node (lts) + Claude Code via mise -> PVC
+    if [ -x "${LOCAL_BIN}/mise" ] && [ ! -x "${USER_HOME}/.local/share/mise/shims/claude" ]; then
+        log "Installing node (lts) + Claude Code via mise..."
+        "${LOCAL_BIN}/mise" use -g node@lts >/dev/null 2>&1 \
+          && "${LOCAL_BIN}/mise" exec -- npm install -g @anthropic-ai/claude-code \
+          && "${LOCAL_BIN}/mise" reshim \
+          || log "WARN: claude-code install failed"
+    fi
+
+    # .zshrc managed block (idempotent)
     ZSHRC="${USER_HOME}/.zshrc"
-    if [ -f "${ZSHRC}" ] && ! grep -q "atuin init" "${ZSHRC}"; then
-        echo "" >> "${ZSHRC}"
-        echo "# Atuin shell history" >> "${ZSHRC}"
-        echo '[[ -f ~/.atuin/bin/atuin ]] && eval "$(~/.atuin/bin/atuin init zsh)"' >> "${ZSHRC}"
+    [ -f "${ZSHRC}" ] || : > "${ZSHRC}"
+    if ! grep -q 'dev-shell managed block' "${ZSHRC}"; then
+        {
+            echo ''
+            echo '# >>> dev-shell managed block >>>'
+            echo 'export PATH="$HOME/.local/bin:$PATH"'
+            echo 'command -v mise >/dev/null 2>&1 && eval "$(mise activate zsh)"'
+            echo '[ -f "$HOME/.atuin/bin/atuin" ] && eval "$("$HOME/.atuin/bin/atuin" init zsh)"'
+            echo 'command -v kubectl >/dev/null 2>&1 && alias k=kubectl'
+            echo '# <<< dev-shell managed block <<<'
+        } >> "${ZSHRC}"
     fi
 
-    # mise — version manager for dev tools, persists on PVC
-    if [ ! -f "${USER_HOME}/.local/bin/mise" ]; then
-        echo "[init] Installing mise..."
-        su -l -s /bin/sh "${USER}" -c \
-            'curl https://mise.run | sh'
-    fi
-
-    # Ruby via mise — installs once, persists on PVC
-    if [ ! -d "${USER_HOME}/.local/share/mise/installs/ruby" ]; then
-        echo "[init] Installing Ruby via mise..."
-        su -l -s /bin/sh "${USER}" -c \
-            'PATH="${HOME}/.local/bin:${PATH}" mise use -g ruby@latest'
-    fi
-
-    # Wire mise into .zshrc if not already present
-    if [ -f "${ZSHRC}" ] && ! grep -q "mise activate" "${ZSHRC}"; then
-        echo "" >> "${ZSHRC}"
-        echo "# mise version manager" >> "${ZSHRC}"
-        echo 'eval "$(~/.local/bin/mise activate zsh)"' >> "${ZSHRC}"
-    fi
+    log "User tooling setup complete."
