@@ -11,5 +11,5 @@ spec:
     operation: copy
   ref:
     # renovate: datasource=docker depName=registry-1.docker.io/bfenski/tns-csi-driver
-    tag: "0.17.5"
+    tag: "0.17.6"
   url: oci://registry-1.docker.io/bfenski/tns-csi-driver
