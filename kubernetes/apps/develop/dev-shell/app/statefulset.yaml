@@ -23,7 +23,7 @@ spec:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
       containers:
-        - name: ubuntu-dev
+        - name: dev-shell
           # renovate: datasource=docker depName=lscr.io/linuxserver/openssh-server
           image: lscr.io/linuxserver/openssh-server:10.0_p1-r10-ls212@sha256:c6d85b0c137a9920a7769ea00c0052a7779b4ec1e556db49b2700e5f1850fb40
           securityContext:
@@ -58,9 +58,11 @@ spec:
               cpu: 2000m
               memory: 4Gi
           volumeMounts:
+            # LSIO openssh-server uses /config as the login user's home directory,
+            # so the persistent volume must be mounted there for dotfiles, oh-my-zsh,
+            # atuin history and mise toolchains to survive pod restarts.
             - name: dev-storage
-              mountPath: /home/bluevulpine
-              subPath: home
+              mountPath: /config
             - name: init-script
               mountPath: /custom-cont-init.d
           env:

@@ -3,64 +3,91 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: dev-shell-init
+  annotations:
+    # CRITICAL: this ConfigMap holds a shell script full of ${VAR} references.
+    # Without this annotation, Flux post-build substitution (spec.postBuild in
+    # ks.yaml) runs envsubst over the rendered manifest and blanks every ${VAR}
+    # it doesn't know about — turning `usermod -s /bin/zsh "${USER}"` into
+    # `usermod -s /bin/zsh ""` (-> "usermod: user '' does not exist").
+    # Disabling substitution keeps the script's shell variables intact.
+    kustomize.toolkit.fluxcd.io/substitute: disabled
 data:
   00-dev-setup.sh: |
     #!/bin/bash
     # Runs before sshd starts on every pod start (via linuxserver custom-cont-init.d).
     # apk installs are fast and re-run each start.
     # Everything else checks for existence first — those live on the PVC and run once.
-    set -eo pipefail
+    set -uo pipefail
 
-    USER="bluevulpine"
-    USER_HOME="/home/${USER}"
+    # The LSIO openssh-server image creates the login user from USER_NAME (set in
+    # the StatefulSet) with its home directory at /config (the persistent volume).
+    # Read both from the live system so we never operate on an empty/wrong value.
+    USER_NAME="${USER_NAME:-bluevulpine}"
+
+    if ! id "${USER_NAME}" >/dev/null 2>&1; then
+        echo "[init] user '${USER_NAME}' does not exist yet; skipping dev setup"
+        exit 0
+    fi
+
+    USER_HOME="$(getent passwd "${USER_NAME}" | cut -d: -f6)"
+    USER_HOME="${USER_HOME:-/config}"
+    ZSHRC="${USER_HOME}/.zshrc"
+
+    echo "[init] configuring dev-shell for '${USER_NAME}' (home: ${USER_HOME})"
+
+    run_as_user() { su -l -s /bin/sh "${USER_NAME}" -c "$1"; }
 
     # System packages needed every start (not persistent across restarts)
-    apk add --no-cache zsh git curl shadow
+    apk add --no-cache zsh git curl shadow || echo "[init] WARN: apk add failed"
 
     # Set zsh as default shell
-    if [ "$(getent passwd ${USER} | cut -d: -f7)" != "/bin/zsh" ]; then
-        usermod -s /bin/zsh "${USER}"
+    if [ "$(getent passwd "${USER_NAME}" | cut -d: -f7)" != "/bin/zsh" ]; then
+        usermod -s /bin/zsh "${USER_NAME}"
     fi
 
     # oh-my-zsh — installs to home dir, persists on PVC
     if [ ! -d "${USER_HOME}/.oh-my-zsh" ]; then
         echo "[init] Installing oh-my-zsh..."
-        su -l -s /bin/sh "${USER}" -c \
-            'curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh | sh -s -- --unattended'
+        run_as_user 'curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh | sh -s -- --unattended' \
+            || echo "[init] WARN: oh-my-zsh install failed"
     fi
 
     # atuin — ships musl binaries, installs to ~/.atuin, persists on PVC
     if [ ! -f "${USER_HOME}/.atuin/bin/atuin" ]; then
         echo "[init] Installing atuin..."
-        su -l -s /bin/sh "${USER}" -c \
-            'curl --proto "=https" --tlsv1.2 -LsSf https://setup.atuin.sh | sh'
+        run_as_user 'curl --proto "=https" --tlsv1.2 -LsSf https://setup.atuin.sh | sh' \
+            || echo "[init] WARN: atuin install failed"
     fi
 
     # Wire atuin into .zshrc if oh-my-zsh created it and atuin isn't already there
-    ZSHRC="${USER_HOME}/.zshrc"
     if [ -f "${ZSHRC}" ] && ! grep -q "atuin init" "${ZSHRC}"; then
-        echo "" >> "${ZSHRC}"
-        echo "# Atuin shell history" >> "${ZSHRC}"
-        echo '[[ -f ~/.atuin/bin/atuin ]] && eval "$(~/.atuin/bin/atuin init zsh)"' >> "${ZSHRC}"
+        {
+            echo ""
+            echo "# Atuin shell history"
+            echo '[[ -f ~/.atuin/bin/atuin ]] && eval "$(~/.atuin/bin/atuin init zsh)"'
+        } >> "${ZSHRC}"
     fi
 
     # mise — version manager for dev tools, persists on PVC
     if [ ! -f "${USER_HOME}/.local/bin/mise" ]; then
         echo "[init] Installing mise..."
-        su -l -s /bin/sh "${USER}" -c \
-            'curl https://mise.run | sh'
+        run_as_user 'curl https://mise.run | sh' || echo "[init] WARN: mise install failed"
     fi
 
     # Ruby via mise — installs once, persists on PVC
     if [ ! -d "${USER_HOME}/.local/share/mise/installs/ruby" ]; then
         echo "[init] Installing Ruby via mise..."
-        su -l -s /bin/sh "${USER}" -c \
-            'PATH="${HOME}/.local/bin:${PATH}" mise use -g ruby@latest'
+        run_as_user 'PATH="${HOME}/.local/bin:${PATH}" mise use -g ruby@latest' \
+            || echo "[init] WARN: ruby install failed"
     fi
 
     # Wire mise into .zshrc if not already present
     if [ -f "${ZSHRC}" ] && ! grep -q "mise activate" "${ZSHRC}"; then
-        echo "" >> "${ZSHRC}"
-        echo "# mise version manager" >> "${ZSHRC}"
-        echo 'eval "$(~/.local/bin/mise activate zsh)"' >> "${ZSHRC}"
+        {
+            echo ""
+            echo "# mise version manager"
+            echo 'eval "$(~/.local/bin/mise activate zsh)"'
+        } >> "${ZSHRC}"
     fi
+
+    echo "[init] dev-shell setup complete"

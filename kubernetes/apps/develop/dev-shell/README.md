@@ -39,4 +39,16 @@ This image is Alpine (musl libc). Homebrew is not compatible.
 
 ## Storage
 
-Single 50Gi `openebs-hostpath` PVC mounted at `/home/bluevulpine`. Everything under `~` persists — dotfiles, oh-my-zsh config, atuin history, mise toolchains, projects.
+Single 50Gi `openebs-hostpath` PVC mounted at `/config`, which is the login
+user's home directory in the LinuxServer.io `openssh-server` image. Everything
+under `~` (`/config`) persists — dotfiles, oh-my-zsh config, atuin history, mise
+toolchains, projects.
+
+## Flux note
+
+`init-configmap.yaml` carries the annotation
+`kustomize.toolkit.fluxcd.io/substitute: disabled`. The ConfigMap holds a shell
+script, and without this annotation Flux post-build substitution would replace
+every `${VAR}` (e.g. `${USER_NAME}`, `${HOME}`) with an empty string, breaking
+the init script (`usermod: user '' does not exist`). Keep that annotation if you
+edit this file.
