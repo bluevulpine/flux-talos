@@ -1,0 +1,15 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kia-collector-config
+data:
+  KIA_REGION: "3"
+  KIA_BRAND: "1"
+  KIA_PIN: ""
+  INFLUXDB_URL: "http://influxdb.database.svc.cluster.local:8086"
+  INFLUXDB_ORG: "homelab"
+  INFLUXDB_BUCKET: "kia-vehicle"
+  OPENBAO_URL: "http://openbao-active.openbao.svc.cluster.local:8200"
+  OPENBAO_KV_MOUNT: "secret"
+  OPENBAO_KV_PATH: "kia/token"

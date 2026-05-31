@@ -12,3 +12,4 @@ resources:
   - ./helium-archiver/ks.yaml
   - ./homepage/ks.yaml
   - ./mosquitto/ks.yaml
+  - ./kia-collector/ks.yaml
