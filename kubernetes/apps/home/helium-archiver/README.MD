@@ -52,7 +52,8 @@ SELECT id, topic, raw_payload FROM helium_messages WHERE payload IS NULL;
 ## Schema (DDL)
 
 Applied idempotently by the subscriber on startup (`src/schema.sql`); the
-`postgres-init` init container creates the database/role first.
+`postgres-init` init container creates the database/role first (the repo-wide
+bootstrap convention is documented in the root [`CLAUDE.md`](../../../../CLAUDE.md)).
 
 ```sql
 CREATE TABLE IF NOT EXISTS helium_messages (
