@@ -23,6 +23,6 @@ roleRef:
   name: drone-runner
 subjects:
   - kind: ServiceAccount
-    name: drone-runner
+    name: drone
     namespace: develop
 
