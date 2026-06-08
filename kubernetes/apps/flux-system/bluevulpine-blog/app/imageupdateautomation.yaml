@@ -1,0 +1,26 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/image.toolkit.fluxcd.io/imageupdateautomation_v1beta2.json
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageUpdateAutomation
+metadata:
+  name: &app bluevulpine-blog
+spec:
+  interval: 30m
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        name: Flux
+        email: flux@derekjacobs.dev
+      messageTemplate: |
+        chore(images): update {{ range .Updated.Images }}{{ println . }}{{ end }}
+    push:
+      branch: main
+  update:
+    path: ./kubernetes
+    strategy: Setters

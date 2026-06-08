@@ -1,0 +1,16 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/image.toolkit.fluxcd.io/imagepolicy_v1beta2.json
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: &app bluevulpine-blog
+spec:
+  imageRepositoryRef:
+    name: *app
+  filterTags:
+    # Drone tags images as <build-number>-<sha8>; extract the build number
+    pattern: '^(?P<num>[0-9]+)-[0-9a-f]{8}$'
+    extract: '$num'
+  policy:
+    numerical:
+      order: asc

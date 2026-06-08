@@ -1,0 +1,11 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/image.toolkit.fluxcd.io/imagerepository_v1beta2.json
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: &app bluevulpine-blog
+spec:
+  image: gitea.derekjacobs.dev/bluevulpine/bluevulpine.net.web
+  interval: 5m
+  secretRef:
+    name: gitea-registry-creds
