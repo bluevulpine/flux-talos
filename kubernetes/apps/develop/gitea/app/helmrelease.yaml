@@ -143,6 +143,9 @@ spec:
         actions:
           ENABLED: true
 
+        webhook:
+          ALLOWED_HOST_LIST: drone.${SECRET_DOMAIN}
+
         cache:
           ADAPTER: memory
 
