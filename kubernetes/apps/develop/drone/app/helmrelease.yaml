@@ -94,7 +94,7 @@ spec:
             env:
               TZ: "${TIMEZONE}"
               # Runner configuration
-              DRONE_RPC_HOST: drone-server.develop.svc.cluster.local
+              DRONE_RPC_HOST: drone.develop.svc.cluster.local
               DRONE_RPC_PROTO: http
               DRONE_NAMESPACE_DEFAULT: develop
               DRONE_RUNNER_CAPACITY: "2"
