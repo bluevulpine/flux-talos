@@ -8,7 +8,7 @@ spec:
   interval: 30m
   sourceRef:
     kind: GitRepository
-    name: home-kubernetes
+    name: flux-talos-ssh
   git:
     checkout:
       ref:

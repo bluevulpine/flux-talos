@@ -5,6 +5,7 @@ kind: Kustomization
 namespace: flux-system
 resources:
   - ./externalsecret.yaml
+  - ./gitrepository.yaml
   - ./imagerepository.yaml
   - ./imagepolicy.yaml
   - ./imageupdateautomation.yaml
