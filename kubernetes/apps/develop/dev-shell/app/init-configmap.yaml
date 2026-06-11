@@ -83,6 +83,10 @@ data:
     chown -R "${USER_UID}:${USER_GID}" "${SSH_DIR}"
 
     mkdir -p /run/sshd /etc/ssh/sshd_config.d
+    # OpenSSH 9.2+ treats a duplicate Subsystem directive as fatal. The package
+    # installs a default Subsystem sftp line in /etc/ssh/sshd_config; remove it
+    # so the internal-sftp entry in our drop-in is the only definition.
+    sed -i '/^Subsystem/d' /etc/ssh/sshd_config
     {
         echo "Port 2222"
         echo "HostKey ${HOSTKEY_DIR}/ssh_host_ed25519_key"
