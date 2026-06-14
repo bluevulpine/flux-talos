@@ -22,7 +22,7 @@ spec:
   rules:
     - backendRefs:
         - name: bluevulpine-blog
-          port: 8080
+          port: 80
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
 # Canonical host is the apex; redirect www -> https://bluevulpine.net (path preserved)
