@@ -6,7 +6,7 @@ metadata:
   name: "${APP:=temp}-volsync-r2"
 spec:
   secretStoreRef:
-    name: bitwarden-secrets-manager
+    name: openbao
     kind: ClusterSecretStore
   target:
     name: "${APP:=temp}-volsync-r2-secret"
