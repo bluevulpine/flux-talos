@@ -28,41 +28,6 @@ spec:
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app external-secrets-stores
-spec:
-  commonMetadata:
-    labels:
-      app.kubernetes.io/name: *app
-  dependsOn:
-    - name: external-secrets
-  path: ./kubernetes/apps/external-secrets/external-secrets/bitwarden-secrets-manager
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: home-kubernetes
-    namespace: flux-system
-  targetNamespace: external-secrets
-  wait: true
-  interval: 30m
-  retryInterval: 1m
-  timeout: 5m
-  postBuild:
-    substitute:
-      APP: bitwarden-secrets-manager
-      GATUS_SUBDOMAIN: bitwarden-sdk-server
-      GATUS_DOMAIN: external-secrets.svc.cluster.local:9998
-      GATUS_PATH: /ready
-      NS: external-secrets
-    substituteFrom:
-      - kind: ConfigMap
-        name: cluster-settings
-      - kind: Secret
-        name: cluster-secrets
----
-# yaml-language-server: $schema=https://lds-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
   name: &app external-secrets-openbao-store
 spec:
   commonMetadata:
