@@ -8,7 +8,7 @@ controller := `talosctl config info -o yaml | yq -e '.endpoints[0]'`
 nodes := `talosctl config info -o yaml | yq -e '.nodes | join (" ")'`
 
 [private]
-default: talos k8s (kubeconfig "node") wait namespaces resources crds apps kubeconfig
+default: talos k8s (kubeconfig "node") wait namespaces sops-age resources crds apps kubeconfig
 
 [doc('Install Talos')]
 talos:
@@ -61,6 +61,22 @@ namespaces:
             just log fatal "Failed to apply namespace" "stage" "$0" "namespace" "$ns"; \
         fi; \
     done
+
+[doc('Seed flux-system/sops-age from the local age.key file')]
+sops-age:
+    just log info "Running stage..." "stage" "$0"
+    if [[ ! -f "{{ justfile_dir() }}/age.key" ]]; then \
+        just log fatal "age.key not found — place the AGE private key at $(pwd)/age.key" "stage" "$0"; \
+    fi
+    kubectl create secret generic sops-age \
+        --namespace flux-system \
+        --from-file=age.agekey="{{ justfile_dir() }}/age.key" \
+        --dry-run=client -o yaml | \
+    kubectl annotate --local -f - \
+        'reflector.v1.k8s.emberstack.com/reflection-allowed=true' \
+        'reflector.v1.k8s.emberstack.com/reflection-auto-enabled=true' \
+        -o yaml | \
+    kubectl apply --server-side --field-manager flux-client-side-apply -f -
 
 [doc('Apply Kubernetes resources')]
 resources:
