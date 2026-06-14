@@ -161,7 +161,12 @@ spec:
             target:
               kind: Deployment
               name: helm-controller
-          - # Controller-level SOPS decryption
+          - # Controller-level SOPS decryption. Reads flux-system/sops-age as a global
+            # fallback for any Kustomization that has decryption.provider: sops but no
+            # explicit secretRef. Child app Kustomizations use provider: sops only (the
+            # cluster-apps patch does not inject a secretRef), so this flag is the active
+            # decryption path for the entire cluster. flux-system/sops-age is seeded at
+            # bootstrap from age.key and is not backed by any secrets manager.
             patch: |-
               - op: add
                 path: /spec/template/spec/containers/0/args/-
