@@ -1,4 +1,3 @@
----
 # yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2beta2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -27,7 +26,7 @@ spec:
           app:
             image:
               repository: gitea.derekjacobs.dev/bluevulpine/bluevulpine.net.web
-              tag: "1-00000000"  # {"$imagepolicy": "flux-system:bluevulpine-blog:tag"}
+              tag: "8-d23bc0b1" # {"$imagepolicy": "flux-system:bluevulpine-blog:tag"}
             probes:
               liveness: &probes
                 enabled: true
@@ -44,7 +43,7 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: {drop: ["ALL"]}
             resources:
               requests:
                 cpu: 10m
