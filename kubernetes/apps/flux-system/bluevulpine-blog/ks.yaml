@@ -11,6 +11,8 @@ spec:
   dependsOn:
     - name: flux-instance
       namespace: flux-system
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
   interval: 1h
   path: ./kubernetes/apps/flux-system/bluevulpine-blog/app
   prune: true
