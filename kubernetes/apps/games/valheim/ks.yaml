@@ -53,11 +53,9 @@ spec:
   interval: 30m
   retryInterval: 1m
   timeout: 5m
-  # Decryption must be specified since we're excluded from global patch
+  # provider: sops is still needed; secretRef omitted — controller flag reads flux-system/sops-age
   decryption:
     provider: sops
-    secretRef:
-      name: sops-age
   postBuild:
     substitute:
       APP: *app
