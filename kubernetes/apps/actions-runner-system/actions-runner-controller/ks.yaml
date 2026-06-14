@@ -40,7 +40,7 @@ spec:
   dependsOn:
     - name: actions-runner-controller
       namespace: actions-runner-system
-    - name: external-secrets-stores
+    - name: external-secrets-openbao-store
       namespace: external-secrets
   interval: 1h
   path: ./kubernetes/apps/actions-runner-system/actions-runner-controller/runners

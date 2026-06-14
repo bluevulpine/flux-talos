@@ -33,7 +33,7 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: external-dns-crd
-    - name: external-secrets-stores
+    - name: external-secrets-openbao-store
       namespace: external-secrets
   path: ./kubernetes/apps/network/external-dns/cloudflare
   prune: true
@@ -61,7 +61,7 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: external-dns-crd
-    - name: external-secrets-stores
+    - name: external-secrets-openbao-store
       namespace: external-secrets
   path: ./kubernetes/apps/network/external-dns/unifi
   prune: true

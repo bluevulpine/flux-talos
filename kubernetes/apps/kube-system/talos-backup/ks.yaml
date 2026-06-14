@@ -17,5 +17,5 @@ spec:
   targetNamespace: kube-system
   wait: true
   dependsOn:
-    - name: external-secrets-stores
+    - name: external-secrets-openbao-store
       namespace: external-secrets

@@ -1,0 +1,37 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: unifi-phantom-clients-cleanup
+spec:
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: unifi-phantom-clients-cleanup
+              # renovate: datasource=docker depName=gitea.derekjacobs.dev/bluevulpine/unifi-phantom-clients-cleanup
+              image: gitea.derekjacobs.dev/bluevulpine/unifi-phantom-clients-cleanup:latest
+              imagePullPolicy: Always
+              args: ["-verbose"]
+              envFrom:
+                - secretRef:
+                    name: unifi-phantom-clients-cleanup-secret
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                capabilities:
+                  drop: [ALL]
+                seccompProfile:
+                  type: RuntimeDefault
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "32Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "64Mi"
+          restartPolicy: OnFailure

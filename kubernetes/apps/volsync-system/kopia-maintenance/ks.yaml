@@ -13,7 +13,7 @@ spec:
     - name: volsync
       namespace: volsync-system
     # Ensure external-secrets is available for the secrets
-    - name: external-secrets-stores
+    - name: external-secrets-openbao-store
       namespace: external-secrets
   path: ./kubernetes/apps/volsync-system/kopia-maintenance/app
   prune: true

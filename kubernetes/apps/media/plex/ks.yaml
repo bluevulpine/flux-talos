@@ -9,7 +9,7 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   dependsOn:
-    - name: external-secrets-stores
+    - name: external-secrets-openbao-store
       namespace: external-secrets
   path: ./kubernetes/apps/media/plex/app
   prune: true
@@ -47,7 +47,7 @@ spec:
     - name: tautulli
     - name: radarr
     - name: sonarr
-    - name: external-secrets-stores
+    - name: external-secrets-openbao-store
       namespace: external-secrets
   path: ./kubernetes/apps/media/plex/kometa
   prune: true
@@ -77,7 +77,7 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: plex
-    - name: external-secrets-stores
+    - name: external-secrets-openbao-store
       namespace: external-secrets
   path: ./kubernetes/apps/media/plex/plex-auto-languages
   prune: true
@@ -101,7 +101,7 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: plex
-    - name: external-secrets-stores
+    - name: external-secrets-openbao-store
       namespace: external-secrets
   path: ./kubernetes/apps/media/plex/plex-image-cleanup
   prune: true

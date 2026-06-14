@@ -9,7 +9,7 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   dependsOn:
-    - name: external-secrets-stores
+    - name: external-secrets-openbao-store
       namespace: external-secrets
     - name: snapshot-controller
   path: ./kubernetes/apps/kube-system/tns-csi/app

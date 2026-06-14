@@ -11,7 +11,7 @@ spec:
   dependsOn:
     - name: cloudnative-pg-cluster
       namespace: database
-    - name: external-secrets-stores
+    - name: external-secrets-openbao-store
       namespace: external-secrets
   interval: 1h
   path: ./kubernetes/apps/media/lidarr/app

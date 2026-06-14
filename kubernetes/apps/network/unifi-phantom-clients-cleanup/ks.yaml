@@ -2,23 +2,22 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app cloudflare-tunnel
+  name: &app unifi-phantom-clients-cleanup
 spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
   dependsOn:
-    - name: external-dns-cloudflare
     - name: external-secrets-openbao-store
       namespace: external-secrets
-  path: ./kubernetes/apps/network/cloudflare-tunnel/app
+  path: ./kubernetes/apps/network/unifi-phantom-clients-cleanup/app
   prune: true
   sourceRef:
     kind: GitRepository
     name: home-kubernetes
     namespace: flux-system
   targetNamespace: network
-  wait: false
+  wait: true
   interval: 30m
   retryInterval: 1m
   timeout: 5m

@@ -9,7 +9,7 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   dependsOn:
-    - name: external-secrets-stores
+    - name: external-secrets-openbao-store
       namespace: external-secrets
   path: ./kubernetes/apps/kube-system/democratic-csi/nfs
   prune: true
@@ -37,7 +37,7 @@ spec:
     labels:
       app.kubernetes.io/name: *app-iscsi
   dependsOn:
-    - name: external-secrets-stores
+    - name: external-secrets-openbao-store
       namespace: external-secrets
     - name: democratic-csi-nfs
   path: ./kubernetes/apps/kube-system/democratic-csi/iscsi

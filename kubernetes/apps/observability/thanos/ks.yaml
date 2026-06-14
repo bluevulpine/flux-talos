@@ -11,7 +11,7 @@ spec:
   dependsOn:
     - name: dragonfly-cluster
       namespace: database
-    - name: external-secrets-stores
+    - name: external-secrets-openbao-store
       namespace: external-secrets
   path: ./kubernetes/apps/observability/thanos/app
   prune: true
