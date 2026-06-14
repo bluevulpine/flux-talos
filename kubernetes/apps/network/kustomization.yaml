@@ -15,3 +15,4 @@ resources:
   - ./external-services/garage/ks.yaml
   - ./external-services/openspeedtest/ks.yaml
   - ./tailscale/ks.yaml
+  - ./unifi-phantom-clients-cleanup/ks.yaml
