@@ -2,7 +2,7 @@
 # Build & push to the repo's GHCR org before deploying:
 #   docker build -t ghcr.io/bluevulpine/helium-archiver:0.1.0 .
 #   docker push ghcr.io/bluevulpine/helium-archiver:0.1.0
-FROM python:3.12-slim AS base
+FROM python:3.14-slim AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
