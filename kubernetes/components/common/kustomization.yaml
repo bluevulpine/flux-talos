@@ -6,7 +6,6 @@ resources:
   - ./alerts
   - ./authentik-forward-auth
   - ./cluster-config
-  - ./sops-age
 patches:
   - target:
       group: external-secrets.io
