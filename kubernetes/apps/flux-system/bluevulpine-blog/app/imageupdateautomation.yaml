@@ -18,7 +18,7 @@ spec:
         name: Flux
         email: flux@derekjacobs.dev
       messageTemplate: |
-        chore(images): update {{ range .Updated.Images }}{{ println . }}{{ end }}
+        chore(images): update {{ range .Changed.Changes }}{{ println .NewValue }}{{ end }}
     push:
       branch: main
   update:
