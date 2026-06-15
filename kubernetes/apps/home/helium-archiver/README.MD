@@ -85,15 +85,12 @@ CREATE INDEX IF NOT EXISTS helium_messages_received_idx  ON helium_messages (rec
 
 ### Building the image
 
-This is a **first-party image** — it must be built and pushed before the
-HelmRelease can become Ready. Registry convention for this repo is GHCR under
-the repo's org (matches `ghcr.io/<org>/...` images used elsewhere):
+This is a **first-party image** built automatically by Drone CI (Kaniko) on
+every push to `main` of the source repo:
+[gitea.derekjacobs.dev/bluevulpine/helium-archiver](https://gitea.derekjacobs.dev/bluevulpine/helium-archiver)
 
-```sh
-cd kubernetes/apps/home/helium-archiver/src
-docker build -t ghcr.io/bluevulpine/helium-archiver:0.1.0 .
-docker push  ghcr.io/bluevulpine/helium-archiver:0.1.0
-```
+It is pushed as `gitea.derekjacobs.dev/bluevulpine/helium-archiver:latest`
+(and tagged with the short commit SHA). The HelmRelease tracks `latest`.
 
 ## OpenBao secrets to create first
 

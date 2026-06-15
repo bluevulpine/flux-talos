@@ -30,12 +30,12 @@ spec:
                   name: helium-archiver-secret
         containers:
           app:
-            # First-party image — see ./src and README.MD. Build & push it before
-            # this HelmRelease can become Ready (the tag won't resolve until then).
-            # Registry convention for this repo: ghcr.io/bluevulpine/<app>.
+            # First-party image — built by Drone CI from
+            # https://gitea.derekjacobs.dev/bluevulpine/helium-archiver
+            # Pushed to the Gitea container registry on every merge to main.
             image:
-              repository: ghcr.io/bluevulpine/helium-archiver
-              tag: 0.1.0
+              repository: gitea.derekjacobs.dev/bluevulpine/helium-archiver
+              tag: latest
             env:
               TZ: "${TIMEZONE}"
               MQTT_HOST: mosquitto.home.svc.cluster.local
