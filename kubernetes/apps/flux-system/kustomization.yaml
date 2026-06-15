@@ -11,3 +11,4 @@ resources:
   - ./flux-operator/ks.yaml
   - ./flux-instance/ks.yaml
   - ./bluevulpine-blog/ks.yaml
+  - ./helium-archiver/ks.yaml

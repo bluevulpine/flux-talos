@@ -35,7 +35,7 @@ spec:
             # Pushed to the Gitea container registry on every merge to main.
             image:
               repository: gitea.derekjacobs.dev/bluevulpine/helium-archiver
-              tag: latest
+              tag: latest # {"$imagepolicy": "flux-system:helium-archiver:tag"}
             env:
               TZ: "${TIMEZONE}"
               MQTT_HOST: mosquitto.home.svc.cluster.local
@@ -61,6 +61,8 @@ spec:
               limits:
                 memory: 128Mi
     defaultPodOptions:
+      imagePullSecrets:
+        - name: gitea-registry-creds
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
