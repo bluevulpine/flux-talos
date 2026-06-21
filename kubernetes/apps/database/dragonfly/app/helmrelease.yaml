@@ -66,6 +66,15 @@ spec:
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
         pod:
+          # The operator generates a NetworkPolicy (owned by the Dragonfly CR)
+          # that only admits the admin port 9999 from pods labelled
+          # control-plane=controller-manager — the label upstream's kustomize
+          # deployment uses. This chart (app-template) labels pods
+          # app.kubernetes.io/name=dragonfly-operator instead, so without this
+          # the operator cannot reach 9999 to verify pod readiness, stalling
+          # every rolling update with an orphaned (role-less) replica.
+          labels:
+            control-plane: controller-manager
           automountServiceAccountToken: true
           securityContext:
             runAsUser: 65534
