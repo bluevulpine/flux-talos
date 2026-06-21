@@ -44,7 +44,7 @@ spec:
                   mountPath: /snapshots
           containers:
             - name: upload
-              image: amazon/aws-cli:2.34.63
+              image: amazon/aws-cli:2.35.9
               command:
                 - /bin/sh
                 - -c
