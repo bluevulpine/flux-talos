@@ -1,0 +1,39 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: image-reflector-healer
+---
+# Namespaced Role: ImagePolicy/ImageRepository and the owning Kustomizations all
+# live in flux-system, so a Role (not ClusterRole) is sufficient — least privilege.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: image-reflector-healer
+rules:
+  # Detect stuck policies.
+  - apiGroups: ["image.toolkit.fluxcd.io"]
+    resources: ["imagepolicies"]
+    verbs: ["get", "list"]
+  # Force a fresh scan by deleting the ImageRepository; Flux recreates it from git.
+  - apiGroups: ["image.toolkit.fluxcd.io"]
+    resources: ["imagerepositories"]
+    verbs: ["get", "list", "delete"]
+  # Annotate the owning Kustomization to recreate the repository immediately
+  # instead of waiting for the next reconcile interval.
+  - apiGroups: ["kustomize.toolkit.fluxcd.io"]
+    resources: ["kustomizations"]
+    verbs: ["get", "list", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: image-reflector-healer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: image-reflector-healer
+subjects:
+  - kind: ServiceAccount
+    name: image-reflector-healer
+    namespace: flux-system
