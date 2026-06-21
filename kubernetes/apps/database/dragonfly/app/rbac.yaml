@@ -10,8 +10,11 @@ rules:
   - apiGroups: [""]
     resources: ["events"]
     verbs: ["create", "patch"]
+  # configmaps required since operator v1.6.x: the Dragonfly controller
+  # watches/manages a ConfigMap, and its informer cache cannot sync without
+  # list/watch — missing it crashloops the operator on cache-sync timeout.
   - apiGroups: [""]
-    resources: ["pods", "services"]
+    resources: ["configmaps", "pods", "services"]
     verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
   - apiGroups: ["apps"]
     resources: ["statefulsets"]
