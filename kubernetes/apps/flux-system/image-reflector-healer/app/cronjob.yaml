@@ -44,29 +44,37 @@ spec:
                 - |
                   set -eu
                   echo "[healer] scanning ImagePolicies in flux-system..."
-                  stuck="$(
-                    kubectl get imagepolicy -n flux-system \
-                      -o jsonpath='{range .items[*]}{.spec.imageRepositoryRef.name}{"|"}{.status.conditions[?(@.type=="Ready")].status}{"|"}{.status.conditions[?(@.type=="Ready")].reason}{"\n"}{end}' \
-                    | awk -F'|' '$2 == "False" && $3 == "DependencyNotReady" { print $1 }' \
-                    | sort -u
-                  )"
-                  if [ -z "$stuck" ]; then
+                  # Stuck = Ready condition False with reason DependencyNotReady
+                  # (the shape of the "no tags in database" failure). jq is bundled
+                  # in alpine/k8s and avoids fragile escaped-dot jsonpath.
+                  kubectl get imagepolicy -n flux-system -o json \
+                    | jq -r '.items[]
+                        | select(any(.status.conditions[]?;
+                            .type == "Ready" and .status == "False" and .reason == "DependencyNotReady"))
+                        | .spec.imageRepositoryRef.name' \
+                    | sort -u > /tmp/stuck
+                  if [ ! -s /tmp/stuck ]; then
                     echo "[healer] no stuck ImagePolicies; nothing to do."
                     exit 0
                   fi
-                  echo "$stuck" | while IFS= read -r repo; do
+                  while IFS= read -r repo; do
                     [ -z "$repo" ] && continue
-                    ks="$(kubectl get imagerepository "$repo" -n flux-system \
-                      -o jsonpath='{.metadata.labels.kustomize\.toolkit\.fluxcd\.io/name}' 2>/dev/null || true)"
-                    ksns="$(kubectl get imagerepository "$repo" -n flux-system \
-                      -o jsonpath='{.metadata.labels.kustomize\.toolkit\.fluxcd\.io/namespace}' 2>/dev/null || true)"
+                    owner="$(kubectl get imagerepository "$repo" -n flux-system -o json 2>/dev/null \
+                      | jq -r '[.metadata.labels["kustomize.toolkit.fluxcd.io/name"] // "",
+                               .metadata.labels["kustomize.toolkit.fluxcd.io/namespace"] // ""] | @tsv' \
+                      || printf '\t')"
+                    ks="$(printf '%s' "$owner" | cut -f1)"
+                    ksns="$(printf '%s' "$owner" | cut -f2)"
                     echo "[healer] healing ImageRepository '$repo' (owner ks: ${ksns:-?}/${ks:-?})"
-                    kubectl delete imagerepository "$repo" -n flux-system --ignore-not-found
+                    # --wait=false: Flux recreates it, so don't block (and don't need watch RBAC).
+                    kubectl delete imagerepository "$repo" -n flux-system --ignore-not-found --wait=false
                     if [ -n "$ks" ] && [ -n "$ksns" ]; then
                       kubectl annotate kustomization "$ks" -n "$ksns" \
                         "reconcile.fluxcd.io/requestedAt=$(date -u +%FT%TZ)" --overwrite
+                    else
+                      echo "[healer] WARN: no owning Kustomization labels on '$repo'; relying on drift correction."
                     fi
-                  done
+                  done < /tmp/stuck
                   echo "[healer] heal pass complete."
               env:
                 - name: HOME
