@@ -34,7 +34,10 @@ spec:
         protocol: nfs
         pool: "${TRUENAS_POOL}"
         server: "${SECRET_NFS_SERVER}"
-        parentDataset: "tns-csi/nfs"
+        # NOTE: parentDataset is an absolute ZFS path — the driver does NOT
+        # prepend `pool`, so the pool name must be included here (verified
+        # 2026-06-21; without it provisioning fails "Parent dataset … does not exist").
+        parentDataset: "${TRUENAS_POOL}/tns-csi/nfs"
         reclaimPolicy: Delete
         volumeBindingMode: Immediate
         allowVolumeExpansion: true
@@ -54,7 +57,7 @@ spec:
         protocol: iscsi
         pool: "${TRUENAS_POOL}"
         server: "${SECRET_NFS_SERVER}"
-        parentDataset: "tns-csi/iscsi"
+        parentDataset: "${TRUENAS_POOL}/tns-csi/iscsi"
         port: "3260"
         fsType: xfs
         reclaimPolicy: Delete
@@ -65,16 +68,19 @@ spec:
       # High-performance block storage over TCP. nvme_tcp kernel module is already
       # loaded on all Talos nodes (confirmed in talconfig.yaml).
       #
-      # TrueNAS-side prerequisites before enabling workloads here:
-      #   1. Enable NVMe-oF target service in TrueNAS SCALE
-      #   2. Create an NVMe subsystem and namespace pointing at the ZFS pool
-      #   3. Ensure port 4420/tcp is reachable from cluster nodes
+      # TrueNAS-side prerequisites before enabling workloads here (verified 2026-06-21):
+      #   1. Enable the NVMe-oF target service in TrueNAS SCALE
+      #   2. Create ONE NVMe-oF TCP port (4420) on a static-IP interface. The
+      #      admin creates only the port; the driver creates a subsystem +
+      #      namespace per volume and binds them to the port automatically.
+      #   3. Pre-create the parentDataset (apps/tns-csi/nvmeof) — the driver
+      #      makes per-volume zvols under it but not the parent path itself.
       - name: tns-csi-nvmeof
         enabled: true
         protocol: nvmeof
         pool: "${TRUENAS_POOL}"
         server: "${SECRET_NFS_SERVER}"
-        parentDataset: "tns-csi/nvmeof"
+        parentDataset: "${TRUENAS_POOL}/tns-csi/nvmeof"
         transport: tcp
         port: "4420"
         fsType: xfs
@@ -97,7 +103,7 @@ spec:
         protocol: smb
         pool: "${TRUENAS_POOL}"
         server: "${SECRET_NFS_SERVER}"
-        parentDataset: "tns-csi/smb"
+        parentDataset: "${TRUENAS_POOL}/tns-csi/smb"
         smbCredentialsSecret:
           name: tns-csi-smb-credentials
           namespace: kube-system
