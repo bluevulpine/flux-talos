@@ -18,6 +18,8 @@ spec:
           operator: "Equal"
           value: "raspberry-pi"
           effect: "NoSchedule"
+    persistence:
+      defaultClass: false
     defaultSettings:
       createDefaultDiskLabeledNodes: true
       defaultReplicaCount: "3"

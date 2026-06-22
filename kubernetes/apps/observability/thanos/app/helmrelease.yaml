@@ -63,7 +63,7 @@ spec:
         - --retention.resolution-1h=60d
       persistence: &persistence
         enabled: true
-        storageClass: longhorn
+        storageClass: longhorn-1-replica
         size: 20Gi
     query:
       replicas: 2

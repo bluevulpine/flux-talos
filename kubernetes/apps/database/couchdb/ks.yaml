@@ -29,9 +29,8 @@ spec:
       APP: *app
       NS: database
       GATUS_SUBDOMAIN: couchdb
-      # VolSync configuration for Longhorn
       VOLSYNC_CAPACITY: 5Gi
-      VOLSYNC_STORAGECLASS: longhorn
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
       VOLSYNC_CACHE_CLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass

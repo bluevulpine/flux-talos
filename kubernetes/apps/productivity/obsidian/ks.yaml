@@ -30,9 +30,8 @@ spec:
       NS: productivity
       GATUS_PORT: "3000"
       GATUS_SERVICE: obsidian
-      # VolSync configuration for Longhorn with 1-replica clones
       VOLSYNC_CAPACITY: 20Gi
-      VOLSYNC_STORAGECLASS: longhorn
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
       VOLSYNC_CACHE_CLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
