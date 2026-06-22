@@ -14,7 +14,7 @@ spec:
     server:
       persistentVolume:
         enabled: true
-        storageClassName: longhorn
+        storageClassName: longhorn-1-replica
         size: 20Gi
       retentionPeriod: 14d
       serviceMonitor:
