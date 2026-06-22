@@ -45,7 +45,7 @@ spec:
     username: "${APP:=temp}"
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-truenas-nfs-snapclass}"
     cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-16Gi}
-    cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-truenas-nfs}"
+    cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-longhorn-1-replica}"
     cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
     storageClassName: "${VOLSYNC_CLONE_STORAGECLASS:-truenas-nfs}"
     # Default to RWX for Direct copy method (allows mover pod to access PVC alongside app)
@@ -81,7 +81,7 @@ spec:
       sourceName: "${APP:=temp}"
     copyMethod: Snapshot
     volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-truenas-nfs-snapclass}"
-    cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-truenas-nfs}"
+    cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-longhorn-1-replica}"
     cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
     cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-24Gi}
     storageClassName: "${VOLSYNC_STORAGECLASS:-truenas-nfs}"

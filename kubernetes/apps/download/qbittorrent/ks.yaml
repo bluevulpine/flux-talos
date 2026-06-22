@@ -29,7 +29,7 @@ spec:
       VOLSYNC_CAPACITY: 4Gi
       VOLSYNC_ACCESSMODES: ReadWriteOnce  # iSCSI doesn't support RWX
       VOLSYNC_STORAGECLASS: truenas-iscsi
-      VOLSYNC_CACHE_CLASS: truenas-iscsi
+      VOLSYNC_CACHE_CLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: truenas-iscsi
       VOLSYNC_SNAPSHOTCLASS: truenas-iscsi-snapclass
       VOLSYNC_COPYMETHOD: Snapshot
