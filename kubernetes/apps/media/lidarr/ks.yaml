@@ -29,4 +29,10 @@ spec:
       GATUS_PORT: "8686"
       GATUS_SERVICE: lidarr
       VOLSYNC_CAPACITY: 4Gi
+      # Medium criticality: music library DB - backup every hour (staggered +10min)
       VOLSYNC_LOCAL_SCHEDULE: "10 * * * *"
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      VOLSYNC_COPYMETHOD: Snapshot
