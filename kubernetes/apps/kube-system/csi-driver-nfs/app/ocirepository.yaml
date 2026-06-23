@@ -12,9 +12,7 @@ spec:
   ref:
     tag: 4.13.3
   url: oci://ghcr.io/home-operations/charts-mirror/csi-driver-nfs
-  verify:
-    provider: cosign
-    matchOIDCIdentity:
-      - issuer: ^https://token.actions.githubusercontent.com$
-        subject: ^https://github.com/home-operations/charts-mirror.*$
+  # verify block removed 2026-06-22 — home-operations/charts-mirror stopped publishing keyless cosign
+  # signatures (confirmed: "no signatures found", not a network error). Re-enable once upstream
+  # signing is restored and tested: https://github.com/home-operations/charts-mirror
 

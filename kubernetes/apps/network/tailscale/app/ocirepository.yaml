@@ -10,11 +10,9 @@ spec:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    tag: 1.98.4 # 1.98.4 not signed upstream; pin until home-operations/charts-mirror signing is restored
+    tag: 1.98.4 # renovate: depName=home-operations/charts-mirror/tailscale-operator
   url: oci://ghcr.io/home-operations/charts-mirror/tailscale-operator
-  verify:
-    provider: cosign
-    matchOIDCIdentity:
-      - issuer: ^https://token.actions.githubusercontent.com$
-        subject: ^https://github.com/home-operations/charts-mirror.*$
+  # verify block removed 2026-06-22 — home-operations/charts-mirror stopped publishing keyless cosign
+  # signatures (confirmed: "no signatures found", not a network error). Re-enable once upstream
+  # signing is restored and tested: https://github.com/home-operations/charts-mirror
 
