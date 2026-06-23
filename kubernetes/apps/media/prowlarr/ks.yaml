@@ -29,4 +29,10 @@ spec:
       GATUS_PORT: "9696"
       GATUS_SERVICE: prowlarr
       VOLSYNC_CAPACITY: 4Gi
+      # Low criticality: indexer config only - backup every hour (staggered +15min)
       VOLSYNC_LOCAL_SCHEDULE: "15 * * * *"
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      VOLSYNC_COPYMETHOD: Snapshot
