@@ -33,3 +33,8 @@ spec:
       VOLSYNC_CAPACITY: 10Gi
       # Low criticality: inventory, infrequent changes - backup every 2 hours (staggered +20min)
       VOLSYNC_LOCAL_SCHEDULE: "20 */2 * * *"
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      VOLSYNC_COPYMETHOD: Snapshot

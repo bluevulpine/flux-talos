@@ -31,4 +31,9 @@ spec:
       GATUS_SUBDOMAIN: n8n
       VOLSYNC_CAPACITY: 5Gi
       VOLSYNC_LOCAL_SCHEDULE: "6,36 * * * *"
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      VOLSYNC_COPYMETHOD: Snapshot
 
