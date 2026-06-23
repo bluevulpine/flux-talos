@@ -10,8 +10,11 @@ rules:
   - apiGroups: [""]
     resources: ["events"]
     verbs: ["create", "patch"]
+  # configmaps required since operator v1.6.x: the Dragonfly controller
+  # watches/manages a ConfigMap, and its informer cache cannot sync without
+  # list/watch — missing it crashloops the operator on cache-sync timeout.
   - apiGroups: [""]
-    resources: ["pods", "services"]
+    resources: ["configmaps", "pods", "services"]
     verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
   - apiGroups: ["apps"]
     resources: ["statefulsets"]
@@ -27,6 +30,13 @@ rules:
     verbs: ["get", "patch", "update"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["networkpolicies"]
+    verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+  # poddisruptionbudgets required since operator v1.6.x: the controller now
+  # provisions a PDB per Dragonfly cluster. Without list/watch its informer
+  # cache never syncs, crashlooping the operator (observed: 1400+ restarts) so
+  # it silently stops reconciling — spec image bumps never roll the StatefulSet.
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
     verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

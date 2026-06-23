@@ -25,5 +25,17 @@
       matchPackageNames: ["simonhaas/tailscale-node-remover"],
       enabled: false,
     },
+    {
+      // gitea is the only release with both an explicit `registry: docker.io`
+      // field and a `# renovate:` annotation, so the built-in helm-values
+      // manager (depName docker.io/gitea/gitea) and the customManager
+      // (depName gitea/gitea) both match the same tag line and Renovate opens
+      // two PRs for a single update. The annotation is the repo convention, so
+      // drop the redundant helm-values-detected duplicate.
+      description: "Gitea: drop helm-values duplicate; image tracked via the # renovate annotation",
+      matchManagers: ["helm-values"],
+      matchPackageNames: ["docker.io/gitea/gitea"],
+      enabled: false,
+    },
   ],
 }

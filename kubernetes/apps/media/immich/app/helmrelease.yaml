@@ -179,7 +179,7 @@ spec:
         type: persistentVolumeClaim
         accessMode: ReadWriteOnce
         size: 10Gi
-        storageClass: longhorn
+        storageClass: longhorn-1-replica
         advancedMounts:
           immich:
             machine-learning:

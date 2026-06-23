@@ -1,0 +1,99 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/batch/cronjob_v1.json
+# Self-repair for the flux image-reflector-controller "no tags in database" bug.
+#
+# The reflector keeps its scanned-tag database in an ephemeral emptyDir at /data.
+# On any restart (which happens during routine Flux controller upgrades) the DB is
+# wiped, but the ImageRepository's `.status.lastScanResult` survives. On the next
+# scan the reflector sees "tags did not change" vs that cached result and SKIPS
+# rewriting the now-empty DB, so every ImagePolicy goes Ready=False /
+# DependencyNotReady ("no tags in database") and image automation silently stops.
+#
+# Deleting the ImageRepository clears `.status`; Flux recreates it from git, the
+# fresh object has no lastScanResult, so it does a full scan and repopulates the DB.
+# This job automates exactly that: detect stuck policies, delete their repository,
+# and nudge the owning Kustomization to recreate it immediately.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: image-reflector-healer
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: image-reflector-healer
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: healer
+              # renovate: datasource=docker depName=alpine/k8s
+              image: docker.io/alpine/k8s:1.35.6
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  echo "[healer] scanning ImagePolicies in flux-system..."
+                  # Stuck = Ready condition False with reason DependencyNotReady
+                  # (the shape of the "no tags in database" failure). jq is bundled
+                  # in alpine/k8s and avoids fragile escaped-dot jsonpath.
+                  kubectl get imagepolicy -n flux-system -o json \
+                    | jq -r '.items[]
+                        | select(any(.status.conditions[]?;
+                            .type == "Ready" and .status == "False" and .reason == "DependencyNotReady"))
+                        | .spec.imageRepositoryRef.name' \
+                    | sort -u > /tmp/stuck
+                  if [ ! -s /tmp/stuck ]; then
+                    echo "[healer] no stuck ImagePolicies; nothing to do."
+                    exit 0
+                  fi
+                  while IFS= read -r repo; do
+                    [ -z "$repo" ] && continue
+                    owner="$(kubectl get imagerepository "$repo" -n flux-system -o json 2>/dev/null \
+                      | jq -r '[.metadata.labels["kustomize.toolkit.fluxcd.io/name"] // "",
+                               .metadata.labels["kustomize.toolkit.fluxcd.io/namespace"] // ""] | @tsv' \
+                      || printf '\t')"
+                    ks="$(printf '%s' "$owner" | cut -f1)"
+                    ksns="$(printf '%s' "$owner" | cut -f2)"
+                    echo "[healer] healing ImageRepository '$repo' (owner ks: ${ksns:-?}/${ks:-?})"
+                    # --wait=false: Flux recreates it, so don't block (and don't need watch RBAC).
+                    kubectl delete imagerepository "$repo" -n flux-system --ignore-not-found --wait=false
+                    if [ -n "$ks" ] && [ -n "$ksns" ]; then
+                      kubectl annotate kustomization "$ks" -n "$ksns" \
+                        "reconcile.fluxcd.io/requestedAt=$(date -u +%FT%TZ)" --overwrite
+                    else
+                      echo "[healer] WARN: no owning Kustomization labels on '$repo'; relying on drift correction."
+                    fi
+                  done < /tmp/stuck
+                  echo "[healer] heal pass complete."
+              env:
+                - name: HOME
+                  value: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              resources:
+                requests:
+                  cpu: "25m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "128Mi"
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: {}

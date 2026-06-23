@@ -27,9 +27,8 @@ spec:
       APP: *app
       NS: identity
       GATUS_SUBDOMAIN: vaultwarden
-      # VolSync configuration for Longhorn
       VOLSYNC_CAPACITY: 2Gi
-      VOLSYNC_STORAGECLASS: longhorn
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
       VOLSYNC_CACHE_CLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass

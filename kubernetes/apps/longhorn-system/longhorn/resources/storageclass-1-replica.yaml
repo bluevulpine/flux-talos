@@ -1,11 +1,13 @@
 ---
-# StorageClass with 1 replica for temporary VolSync clone volumes
-# This reduces provisioning time and rebuild contention during backup operations
-# Source application PVCs should continue using the standard 'longhorn' StorageClass (3 replicas)
+# Default StorageClass for app data PVCs backed by VolSync (1 replica — VolSync provides redundancy)
+# Also used for VolSync clone/cache volumes during backup operations.
+# Use the explicit 'longhorn' StorageClass for anything that needs 3-replica redundancy without VolSync.
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: longhorn-1-replica
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
   labels:
     app.kubernetes.io/name: longhorn
     app.kubernetes.io/component: storage

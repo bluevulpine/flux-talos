@@ -32,7 +32,7 @@ spec:
       VOLSYNC_CAPACITY: 10Gi
       VOLSYNC_STORAGECLASS: truenas-nfs
       VOLSYNC_SNAPSHOTCLASS: truenas-nfs-snapclass
-      VOLSYNC_CACHE_CLASS: truenas-nfs
+      VOLSYNC_CACHE_CLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: truenas-nfs
       VOLSYNC_LOCAL_SCHEDULE: "18,48 * * * *"
 
