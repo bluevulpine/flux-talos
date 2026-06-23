@@ -29,4 +29,10 @@ spec:
       GATUS_PORT: "8989"
       GATUS_SERVICE: sonarr
       VOLSYNC_CAPACITY: 4Gi
+      # High criticality: TV library DB - backup every hour
       VOLSYNC_LOCAL_SCHEDULE: "0 * * * *"
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      VOLSYNC_COPYMETHOD: Snapshot
