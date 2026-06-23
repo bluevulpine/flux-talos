@@ -27,5 +27,11 @@ spec:
       GATUS_PORT: "8080"
       GATUS_SERVICE: calibre
       VOLSYNC_CAPACITY: 2Gi
+      # Low criticality: ebook library config - backup every hour (staggered +30min)
       VOLSYNC_LOCAL_SCHEDULE: "30 * * * *"
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      VOLSYNC_COPYMETHOD: Snapshot
 

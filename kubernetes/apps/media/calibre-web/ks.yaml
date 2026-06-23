@@ -27,3 +27,8 @@ spec:
       VOLSYNC_CAPACITY: 1Gi
       # Low criticality: read-only library viewer - backup every 4 hours (staggered +15min)
       VOLSYNC_LOCAL_SCHEDULE: "15 */4 * * *"
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      VOLSYNC_COPYMETHOD: Snapshot

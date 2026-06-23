@@ -28,3 +28,8 @@ spec:
       VOLSYNC_CAPACITY: 4Gi
       # Low criticality: request queue, not critical - backup every 2 hours (staggered +10min)
       VOLSYNC_LOCAL_SCHEDULE: "10 */2 * * *"
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      VOLSYNC_COPYMETHOD: Snapshot

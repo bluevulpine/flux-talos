@@ -25,4 +25,10 @@ spec:
       GATUS_PORT: "80"
       GATUS_SERVICE: audiobookshelf
       VOLSYNC_CAPACITY: 5Gi
+      # Medium criticality: audiobook config - backup every hour (staggered +40min)
       VOLSYNC_LOCAL_SCHEDULE: "40 * * * *"
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      VOLSYNC_COPYMETHOD: Snapshot
