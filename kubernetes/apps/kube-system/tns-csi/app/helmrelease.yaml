@@ -45,7 +45,6 @@ spec:
           - hard
           - noatime
           - noresvport
-          - nfsvers=4.2
           - rsize=1048576
           - wsize=1048576
 
