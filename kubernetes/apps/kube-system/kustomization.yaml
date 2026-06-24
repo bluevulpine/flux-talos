@@ -8,7 +8,6 @@ components:
 resources:
   - ./namespace.yaml
   - ./certificates/ks.yaml
-  - ./democratic-csi/ks.yaml
   - ./tns-csi/ks.yaml
   # gateway-api-crds and gateway removed - now managed by Envoy Gateway in network namespace
   - ./cilium/ks.yaml
