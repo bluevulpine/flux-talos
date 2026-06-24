@@ -5,7 +5,8 @@ metadata:
   name: "${APP}"
 spec:
   # Default to RWX for Direct copy method (allows mover pod to access PVC alongside app)
-  accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteMany}"]
+  accessModes:
+    - "${VOLSYNC_ACCESSMODES:-ReadWriteMany}"
   dataSourceRef:
     kind: ReplicationDestination
     apiGroup: volsync.backube
@@ -13,5 +14,5 @@ spec:
   resources:
     requests:
       storage: "${VOLSYNC_CAPACITY:-20Gi}"
-  storageClassName: "${VOLSYNC_STORAGECLASS:-truenas-nfs}"
+  storageClassName: "${VOLSYNC_STORAGECLASS:-tns-csi-nfs}"
 

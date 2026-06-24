@@ -36,20 +36,22 @@ spec:
     # Override with VOLSYNC_LOCAL_SCHEDULE in app's ks.yaml
     schedule: "${VOLSYNC_LOCAL_SCHEDULE}"
   kopia:
-    # Default to Direct for NFS (avoids TrueNAS clone bottleneck during concurrent backups)
-    # iSCSI workloads should override with VOLSYNC_COPYMETHOD: Snapshot
+    # Default to Direct for NFS (clone intermediate skips snapshot overhead for RWX PVCs)
+    # iSCSI/NVMe-oF workloads should override with VOLSYNC_COPYMETHOD: Snapshot
     copyMethod: "${VOLSYNC_COPYMETHOD:-Direct}"
     repository: "${APP}-volsync-local-secret"
     # Unified snapshot identity: app@namespace (same for both local and R2)
     # This allows snapshots to be restored from either repository
     username: "${APP:=temp}"
-    volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-truenas-nfs-snapclass}"
+    volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-tns-csi-nfs-snapshot}"
     cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-16Gi}
     cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-longhorn-1-replica}"
-    cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
-    storageClassName: "${VOLSYNC_CLONE_STORAGECLASS:-truenas-nfs}"
+    cacheAccessModes:
+      - "${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"
+    storageClassName: "${VOLSYNC_CLONE_STORAGECLASS:-tns-csi-nfs}"
     # Default to RWX for Direct copy method (allows mover pod to access PVC alongside app)
-    accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteMany}"]
+    accessModes:
+      - "${VOLSYNC_ACCESSMODES:-ReadWriteMany}"
     capacity: "${VOLSYNC_CAPACITY:-20Gi}"
     # Run mover as root to avoid slow recursive chown on cloned volumes
     # This bypasses VolumePermissionChangeInProgress delays (10+ min on large volumes)
@@ -80,13 +82,15 @@ spec:
       # Unified snapshot identity: app@namespace (matches ReplicationSource username)
       sourceName: "${APP:=temp}"
     copyMethod: Snapshot
-    volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-truenas-nfs-snapclass}"
+    volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-tns-csi-nfs-snapshot}"
     cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-longhorn-1-replica}"
-    cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
+    cacheAccessModes:
+      - "${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"
     cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-24Gi}
-    storageClassName: "${VOLSYNC_STORAGECLASS:-truenas-nfs}"
+    storageClassName: "${VOLSYNC_STORAGECLASS:-tns-csi-nfs}"
     # Default to RWX for Direct copy method (allows mover pod to access PVC alongside app)
-    accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteMany}"]
+    accessModes:
+      - "${VOLSYNC_ACCESSMODES:-ReadWriteMany}"
     capacity: "${VOLSYNC_CAPACITY:-20Gi}"
     # Run mover as root to avoid slow recursive chown on restored volumes
     moverSecurityContext:

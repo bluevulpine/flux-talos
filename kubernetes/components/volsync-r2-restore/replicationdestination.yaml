@@ -13,12 +13,14 @@ spec:
       # Uses unified naming: app@namespace (not app-r2@namespace)
       sourceName: "${APP:=temp}"
     copyMethod: Snapshot
-    volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-truenas-nfs-snapclass}"
+    volumeSnapshotClassName: "${VOLSYNC_SNAPSHOTCLASS:-tns-csi-nfs-snapshot}"
     cacheStorageClassName: "${VOLSYNC_CACHE_CLASS:-longhorn-1-replica}"
-    cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
+    cacheAccessModes:
+      - "${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"
     cacheCapacity: ${VOLSYNC_CACHE_CAPACITY:-8Gi}
-    storageClassName: "${VOLSYNC_STORAGECLASS:-truenas-nfs}"
-    accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
+    storageClassName: "${VOLSYNC_STORAGECLASS:-tns-csi-nfs}"
+    accessModes:
+      - "${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"
     capacity: "${VOLSYNC_CAPACITY:-20Gi}"
     # Run mover as root to avoid slow recursive chown on restored volumes
     moverSecurityContext:

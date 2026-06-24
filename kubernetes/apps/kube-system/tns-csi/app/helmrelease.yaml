@@ -28,7 +28,7 @@ spec:
 
     storageClasses:
       # ── NFS ──────────────────────────────────────────────────────────────────
-      # ReadWriteMany; drop-in replacement for truenas-nfs once workloads migrate
+      # ReadWriteMany; all NFS workloads migrated from truenas-nfs 2026-06-24
       - name: tns-csi-nfs
         enabled: true
         protocol: nfs
@@ -50,7 +50,7 @@ spec:
 
       # ── iSCSI ────────────────────────────────────────────────────────────────
       # Block storage; iscsi-tools extension already present on all Talos nodes.
-      # ReadWriteOnce; drop-in replacement for truenas-iscsi once workloads migrate.
+      # ReadWriteOnce; all iSCSI workloads migrated from truenas-iscsi 2026-06-24.
       - name: tns-csi-iscsi
         enabled: true
         protocol: iscsi

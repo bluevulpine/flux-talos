@@ -20,7 +20,7 @@ The baseline of this configuration starts from from onedr0p's [cluster-template]
 
 [Talos](https://www.talos.dev) is the linux distribution running kubernetes on my nodes. I have so far been happy with the results. I'd previously tried provisioning k3s on top of ubuntu with various ansible scripts to assist with the setup. Talos seems like less overhead to maintain and update.
 
-I've tried several cluster storage paradigms over time — mayastor, rook-ceph, and others. Currently the cluster runs Longhorn for replicated persistent volumes alongside OpenEBS for local hostpath storage, and NFS/iSCSI via democratic-csi backed by TrueNAS.
+I've tried several cluster storage paradigms over time — mayastor, rook-ceph, and others. Currently the cluster runs Longhorn for replicated persistent volumes alongside OpenEBS for local hostpath storage, and NFS/iSCSI/NVMe-oF via tns-csi backed by TrueNAS.
 
 Object storage is handled by [Garage](https://garagehq.deuxfleurs.fr/) (a self-hosted S3-compatible server running on TrueNAS) for cluster-local workloads: Thanos metrics, CNPG database backups, Talos etcd backups, and Volsync local PVC snapshots. Volsync also replicates to [Cloudflare R2](https://www.cloudflare.com/developer-platform/r2/) on a daily cadence for offsite backups. TrueNAS additionally syncs selected datasets to cloud storage providers independently of the cluster.
 
