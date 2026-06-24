@@ -10,4 +10,4 @@ spec:
   resources:
     requests:
       storage: 30Gi
-  storageClassName: truenas-iscsi
+  storageClassName: tns-csi-iscsi
