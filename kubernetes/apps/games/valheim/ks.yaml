@@ -63,12 +63,12 @@ spec:
       APP_UID: "1000"
       APP_GID: "1000"
       VOLSYNC_CAPACITY: 50Gi
-      VOLSYNC_ACCESSMODES: ReadWriteOnce  # iSCSI doesn't support RWX
-      VOLSYNC_STORAGECLASS: truenas-iscsi
-      VOLSYNC_SNAPSHOTCLASS: truenas-iscsi-snapclass
+      VOLSYNC_ACCESSMODES: ReadWriteOnce # iSCSI doesn't support RWX
+      VOLSYNC_STORAGECLASS: tns-csi-iscsi
+      VOLSYNC_SNAPSHOTCLASS: tns-csi-iscsi-snapshot
       VOLSYNC_COPYMETHOD: Snapshot
       VOLSYNC_CACHE_CLASS: longhorn-1-replica
-      VOLSYNC_CLONE_STORAGECLASS: truenas-iscsi
+      VOLSYNC_CLONE_STORAGECLASS: tns-csi-iscsi
       VOLSYNC_RUN_AS_USER: "1000"
       VOLSYNC_RUN_AS_GROUP: "1000"
       VOLSYNC_FS_GROUP: "1000"

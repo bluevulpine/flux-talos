@@ -31,7 +31,10 @@ spec:
       GATUS_PORT: "5000"
       GATUS_SERVICE: frigate
       VOLSYNC_CAPACITY: 10Gi
-      VOLSYNC_STORAGECLASS: truenas-nfs
-      VOLSYNC_SNAPSHOTCLASS: truenas-nfs-snapclass
+      VOLSYNC_STORAGECLASS: tns-csi-nfs
+      VOLSYNC_CLONE_STORAGECLASS: tns-csi-nfs
+      VOLSYNC_SNAPSHOTCLASS: tns-csi-nfs-snapshot
+      VOLSYNC_ACCESSMODES: ReadWriteMany
+      VOLSYNC_COPYMETHOD: Snapshot
       VOLSYNC_LOCAL_SCHEDULE: "45 * * * *"
 

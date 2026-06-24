@@ -31,4 +31,9 @@ spec:
       GATUS_PORT: "8787"
       GATUS_SERVICE: readarr-audiobooks
       VOLSYNC_CAPACITY: 4Gi
+      VOLSYNC_STORAGECLASS: tns-csi-nfs
+      VOLSYNC_CLONE_STORAGECLASS: tns-csi-nfs
+      VOLSYNC_SNAPSHOTCLASS: tns-csi-nfs-snapshot
+      VOLSYNC_ACCESSMODES: ReadWriteMany
+      VOLSYNC_COPYMETHOD: Snapshot
       VOLSYNC_LOCAL_SCHEDULE: "20 * * * *"
