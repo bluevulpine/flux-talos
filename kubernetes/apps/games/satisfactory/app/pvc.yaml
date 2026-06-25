@@ -10,4 +10,4 @@ spec:
   resources:
     requests:
       storage: 30Gi
-  storageClassName: tns-csi-iscsi
+  storageClassName: tns-csi-nvmeof
