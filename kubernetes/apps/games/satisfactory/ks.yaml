@@ -26,13 +26,13 @@ spec:
       APP_UID: "1000"
       APP_GID: "1000"
       VOLSYNC_CAPACITY: 2Gi
-      VOLSYNC_ACCESSMODES: ReadWriteOnce # iSCSI doesn't support RWX
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
       VOLSYNC_RUN_AS_USER: "1000"
       VOLSYNC_RUN_AS_GROUP: "1000"
       VOLSYNC_FS_GROUP: "1000"
-      VOLSYNC_STORAGECLASS: tns-csi-iscsi
+      VOLSYNC_STORAGECLASS: tns-csi-nvmeof
       VOLSYNC_CACHE_CLASS: longhorn-1-replica
-      VOLSYNC_CLONE_STORAGECLASS: tns-csi-iscsi
-      VOLSYNC_SNAPSHOTCLASS: tns-csi-iscsi-snapshot
+      VOLSYNC_CLONE_STORAGECLASS: tns-csi-nvmeof
+      VOLSYNC_SNAPSHOTCLASS: tns-csi-nvmeof-snapshot
       VOLSYNC_COPYMETHOD: Snapshot
       VOLSYNC_LOCAL_SCHEDULE: "55 * * * *"
