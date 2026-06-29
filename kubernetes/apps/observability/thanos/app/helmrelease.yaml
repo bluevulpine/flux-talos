@@ -120,16 +120,25 @@ spec:
       # Revert to replicas: 2 once #8711 is fixed in a stable release.
       replicas: 1
       extraEnv: *extraEnv
+      # Lazy index-header reader: by default store-gateway eagerly memory-maps
+      # every block's index-header at startup, which fills the cgroup limit with
+      # reclaimable page cache (working_set tracks the limit and trips
+      # ContainerMemoryCritical even though anonymous RSS is only ~220Mi). Lazy
+      # reader maps a block's index-header only when it is queried and releases
+      # it after the idle timeout, keeping memory bounded — important now that a
+      # single replica serves all store-API load.
       extraArgs:
         - "--index-cache.config=$(THANOS_CACHE_CONFIG)"
+        - --store.enable-index-header-lazy-reader
       persistence: *persistence
       podAnnotations: *podAnnotations
+      # Reverted to the original 512Mi/1Gi: the earlier 2Gi limit only gave the
+      # reclaimable index-header page cache more room to expand into and caused
+      # the OOM-imminent alert. With the lazy reader above, 1Gi is comfortable
+      # (these replicas ran at ~400Mi working_set under a 1Gi limit for months).
       resources:
         requests:
           cpu: 10m
-          # Bumped (512Mi -> 1Gi req, 1Gi -> 2Gi limit) for headroom now that a
-          # single replica serves all store-API/index-cache load; with only one
-          # replica an OOM would blank out all historical queries.
-          memory: 1Gi
+          memory: 512Mi
         limits:
-          memory: 2Gi
+          memory: 1Gi
