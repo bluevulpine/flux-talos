@@ -47,10 +47,11 @@ spec:
       value:
         type: s3
         config:
-          insecure: true  # Garage S3 API uses HTTP
+          insecure: true # Garage S3 API uses HTTP
     additionalEndpoints:
       - dnssrv+_grpc._tcp.kube-prometheus-stack-thanos-discovery.observability.svc.cluster.local
-    additionalReplicaLabels: ["__replica__"]
+    additionalReplicaLabels:
+      - "__replica__"
     serviceMonitor:
       enabled: true
     compact:
@@ -67,7 +68,8 @@ spec:
         size: 20Gi
     query:
       replicas: 2
-      extraArgs: ["--alert.query-url=https://thanos.${SECRET_DOMAIN}"]
+      extraArgs:
+        - "--alert.query-url=https://thanos.${SECRET_DOMAIN}"
     queryFrontend:
       enabled: true
       replicas: 2
@@ -77,7 +79,8 @@ spec:
             configMapKeyRef:
               name: &configMap thanos-cache-configmap
               key: cache.yaml
-      extraArgs: ["--query-range.response-cache-config=$(THANOS_CACHE_CONFIG)"]
+      extraArgs:
+        - "--query-range.response-cache-config=$(THANOS_CACHE_CONFIG)"
       ingress:
         enabled: false
       podAnnotations: &podAnnotations
@@ -85,7 +88,8 @@ spec:
     rule:
       enabled: true
       replicas: 2
-      extraArgs: ["--web.prefix-header=X-Forwarded-Prefix"]
+      extraArgs:
+        - "--web.prefix-header=X-Forwarded-Prefix"
       alertmanagersConfig:
         value: |-
           alertmanagers:
@@ -106,14 +110,26 @@ spec:
                     severity: critical
       persistence: *persistence
     storeGateway:
-      replicas: 2
+      # Single replica: Thanos v0.41.0 regression (thanos-io/thanos#8711) makes
+      # Query's /metrics return HTTP 500 when two store-gateways read the same
+      # bucket and advertise identical external labels — they collide on the
+      # thanos_store_nodes_grpc_connections series, failing the whole scrape and
+      # firing TargetDown. One store endpoint avoids the duplicate. Store-gateway
+      # is a stateless read layer over object storage (recent data is served by
+      # the HA sidecars), so dropping to one replica is acceptable here.
+      # Revert to replicas: 2 once #8711 is fixed in a stable release.
+      replicas: 1
       extraEnv: *extraEnv
-      extraArgs: ["--index-cache.config=$(THANOS_CACHE_CONFIG)"]
+      extraArgs:
+        - "--index-cache.config=$(THANOS_CACHE_CONFIG)"
       persistence: *persistence
       podAnnotations: *podAnnotations
       resources:
         requests:
           cpu: 10m
-          memory: 512Mi
-        limits:
+          # Bumped (512Mi -> 1Gi req, 1Gi -> 2Gi limit) for headroom now that a
+          # single replica serves all store-API/index-cache load; with only one
+          # replica an OOM would blank out all historical queries.
           memory: 1Gi
+        limits:
+          memory: 2Gi
