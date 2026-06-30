@@ -18,9 +18,15 @@ metadata:
     app.kubernetes.io/name: amd-device-plugin
     app.kubernetes.io/component: labeller
 rules:
-  - apiGroups: [""]
-    resources: ["nodes"]
-    verbs: ["watch", "get", "list", "update"]
+  - apiGroups:
+      - ""
+    resources:
+      - "nodes"
+    verbs:
+      - "watch"
+      - "get"
+      - "list"
+      - "update"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -69,7 +75,8 @@ spec:
           image: docker.io/rocm/k8s-device-plugin:labeller-1.31.0.9@sha256:7917397c7f3114b6244391d39f99a162d6c9377751b8bd6ce47f0fa112e7a1c7
           imagePullPolicy: Always
           workingDir: /root
-          command: ["./k8s-node-labeller"]
+          command:
+            - "./k8s-node-labeller"
           args:
             - "-vram"
             - "-cu-count"
@@ -85,14 +92,17 @@ spec:
           securityContext:
             privileged: true
             capabilities:
-              drop: ["ALL"]
+              drop:
+                - "ALL"
           resources:
             requests:
               cpu: 10m
               memory: 20Mi
             limits:
               cpu: 100m
-              memory: 50Mi
+              # 50Mi -> 128Mi: a labeller pod sat at ~85% of 50Mi
+              # (ContainerMemoryNearLimit); modest headroom.
+              memory: 128Mi
           volumeMounts:
             - name: sys
               mountPath: /sys

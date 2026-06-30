@@ -59,7 +59,9 @@ spec:
                 cpu: 10m
                 memory: 64Mi
               limits:
-                memory: 1Gi
+                # 1Gi -> 1.5Gi: working set sat at ~84% of 1Gi (ContainerMemoryNearLimit);
+                # the metadata cache needs headroom to avoid OOM-eviction.
+                memory: 1536Mi
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
