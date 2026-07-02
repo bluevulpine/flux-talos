@@ -38,7 +38,7 @@ spec:
           containers:
             - name: healer
               # renovate: datasource=docker depName=alpine/k8s
-              image: docker.io/alpine/k8s:1.35.6
+              image: docker.io/alpine/k8s:1.36.2
               command: ["/bin/sh", "-c"]
               args:
                 - |
