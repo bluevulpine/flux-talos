@@ -33,13 +33,17 @@ spec:
             env:
               TZ: "${TIMEZONE}"
               # The container runs as uid 568, whose HOME defaults to "/"
-              # (root-owned, unwritable). PlatformIO then tries to create its
-              # core dir at ~/.platformio -> /.platformio and dies with
-              # PermissionError [Errno 13]. Point HOME at the writable /config
-              # volume so PlatformIO lands at /config/.platformio and its
-              # toolchains persist on NFS between compiles — required for this
-              # instance to act as a remote-build server (receiver).
+              # (root-owned, unwritable), so any ~/-relative write dies with
+              # PermissionError [Errno 13]. Point HOME at the writable /config.
               HOME: /config
+              # Keep PlatformIO's core dir (toolchains + package cache) OFF the
+              # NFS /config volume: unpacking a framework like esp-idf writes
+              # ~30k tiny files, and NFS small-file creates measured ~100 files/s
+              # here vs ~25k/s on local disk — a 250x penalty that makes a first
+              # esp-idf build take 10-20min and look hung. Redirect it to a fast
+              # NVMe-oF PVC (see persistence.platformio) so first-installs are
+              # quick and the cache persists across restarts for this build server.
+              PLATFORMIO_CORE_DIR: /platformio
               # ESPHome dashboard settings
               ESPHOME_DASHBOARD_USE_PING: "true"
               # Remote-build peer-link (device-builder offload feature).
@@ -127,4 +131,14 @@ spec:
         path: /mnt/apps/kubernetes/esphome
         globalMounts:
           - path: /config
+      # PlatformIO core dir on fast NVMe-oF instead of NFS — see PLATFORMIO_CORE_DIR
+      # above. Holds downloaded toolchains/frameworks (esp-idf, arduino) and the
+      # package cache; needs room for several frameworks side by side.
+      platformio:
+        type: persistentVolumeClaim
+        accessMode: ReadWriteOnce
+        size: 15Gi
+        storageClass: tns-csi-nvmeof
+        globalMounts:
+          - path: /platformio
 
