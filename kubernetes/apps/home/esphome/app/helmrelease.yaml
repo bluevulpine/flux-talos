@@ -34,6 +34,15 @@ spec:
               TZ: "${TIMEZONE}"
               # ESPHome dashboard settings
               ESPHOME_DASHBOARD_USE_PING: "true"
+              # Remote-build peer-link (device-builder offload feature).
+              # The listener binds 0.0.0.0, so it is already reachable on the
+              # Multus VLAN-50 IP (192.168.50.12) declared above — that IP is a
+              # direct L2 endpoint on the physical IOT VLAN, bypassing Services
+              # and NetworkPolicy. Pin the port so a peer paired by hand (the Pi
+              # build server) always finds it at 192.168.50.12:6055 rather than a
+              # fall-forward port when 6055 is contended. mDNS (224.0.0.251) is
+              # already advertised out net1, but pairing here is manual by IP.
+              ESPHOME_REMOTE_BUILD_PORT: "6055"
             probes:
               liveness: &probes
                 enabled: true
@@ -50,7 +59,7 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: false
-              capabilities: { drop: ["ALL"] }
+              capabilities: {drop: ["ALL"]}
             resources:
               requests:
                 cpu: 100m
