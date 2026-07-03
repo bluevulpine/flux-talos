@@ -83,9 +83,14 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 256Mi
-              limits:
                 memory: 2Gi
+              # esp-idf compiles ~nproc-way parallel (16 on brokkr); each C++
+              # compiler can peak at 100-300MB, so a full framework build blew
+              # past a 2Gi limit and OOMKilled the pod mid-compile — restarting
+              # the build from scratch in an endless loop. 8Gi gives headroom
+              # for 16 concurrent compilers; the node has ~60Gi allocatable.
+              limits:
+                memory: 8Gi
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
