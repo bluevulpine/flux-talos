@@ -32,6 +32,14 @@ spec:
               tag: 2026.6.4
             env:
               TZ: "${TIMEZONE}"
+              # The container runs as uid 568, whose HOME defaults to "/"
+              # (root-owned, unwritable). PlatformIO then tries to create its
+              # core dir at ~/.platformio -> /.platformio and dies with
+              # PermissionError [Errno 13]. Point HOME at the writable /config
+              # volume so PlatformIO lands at /config/.platformio and its
+              # toolchains persist on NFS between compiles — required for this
+              # instance to act as a remote-build server (receiver).
+              HOME: /config
               # ESPHome dashboard settings
               ESPHOME_DASHBOARD_USE_PING: "true"
               # Remote-build peer-link (device-builder offload feature).
