@@ -36,14 +36,14 @@ spec:
               # (root-owned, unwritable), so any ~/-relative write dies with
               # PermissionError [Errno 13]. Point HOME at the writable /config.
               HOME: /config
-              # Keep PlatformIO's core dir (toolchains + package cache) OFF the
-              # NFS /config volume: unpacking a framework like esp-idf writes
-              # ~30k tiny files, and NFS small-file creates measured ~100 files/s
-              # here vs ~25k/s on local disk — a 250x penalty that makes a first
-              # esp-idf build take 10-20min and look hung. Redirect it to a fast
-              # NVMe-oF PVC (see persistence.platformio) so first-installs are
-              # quick and the cache persists across restarts for this build server.
-              PLATFORMIO_CORE_DIR: /platformio
+              # PlatformIO's core dir lives under the NVMe-oF volume that backs
+              # the whole /config/.esphome build tree (see persistence below).
+              # NFS /config measured ~100 small-file creates/s vs ~25k/s on NVMe
+              # — a 250x penalty that made a cold esp-idf install (~30k tiny
+              # files) take 10-20min and look hung. Because /config/.esphome is a
+              # separate NVMe mount, toolchains AND per-build object files avoid
+              # NFS; only the source configs on /config itself stay on NFS.
+              PLATFORMIO_CORE_DIR: /config/.esphome/platformio
               # ESPHome dashboard settings
               ESPHOME_DASHBOARD_USE_PING: "true"
               # Remote-build peer-link (device-builder offload feature).
@@ -131,14 +131,19 @@ spec:
         path: /mnt/apps/kubernetes/esphome
         globalMounts:
           - path: /config
-      # PlatformIO core dir on fast NVMe-oF instead of NFS — see PLATFORMIO_CORE_DIR
-      # above. Holds downloaded toolchains/frameworks (esp-idf, arduino) and the
-      # package cache; needs room for several frameworks side by side.
-      platformio:
+      # Build scratch on fast NVMe-oF, mounted over the NFS /config at the
+      # .esphome subtree. Holds everything esphome regenerates: PlatformIO
+      # toolchains/frameworks (esp-idf, arduino), the package cache, the
+      # remote-build sources synced from the offloader, and per-device object
+      # files (.pioenvs). Keeping this off NFS is what makes builds fast (see
+      # PLATFORMIO_CORE_DIR above). The source-of-truth device YAMLs, secrets
+      # and the peer-link key live directly under /config and stay on NFS
+      # (backed up); this subtree is fully regenerable, so it needs no backup.
+      esphome-data:
         type: persistentVolumeClaim
         accessMode: ReadWriteOnce
-        size: 15Gi
+        size: 25Gi
         storageClass: tns-csi-nvmeof
         globalMounts:
-          - path: /platformio
+          - path: /config/.esphome
 
