@@ -44,6 +44,14 @@ spec:
               # separate NVMe mount, toolchains AND per-build object files avoid
               # NFS; only the source configs on /config itself stay on NFS.
               PLATFORMIO_CORE_DIR: /config/.esphome/platformio
+              # Keep uv's package cache on the same NVMe filesystem as the
+              # esp-idf venv it populates (/config/.esphome/...). uv hardlinks
+              # packages from cache into the venv, which only works within one
+              # filesystem; the default $HOME/.cache/uv sits on the NFS /config,
+              # a different fs, so uv logs "Failed to hardlink … falling back to
+              # full copy". Pointing the cache at the NVMe subtree restores
+              # hardlinking and moves the small-file cache I/O off NFS too.
+              UV_CACHE_DIR: /config/.esphome/.uv-cache
               # ESPHome dashboard settings
               ESPHOME_DASHBOARD_USE_PING: "true"
               # Remote-build peer-link (device-builder offload feature).
