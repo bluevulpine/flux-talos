@@ -21,8 +21,12 @@ spec:
             summary: >-
               {{ $labels.obj_namespace }}/{{ $labels.obj_name }} volume
               is out of sync.
+          # Exclude Syncthing movers: they replicate continuously and never
+          # report a discrete "in-sync" completion, so volsync_volume_out_of_sync
+          # is pinned at 1 for them even when the peer is connected and healthy
+          # (false positive — e.g. games/valheim-syncthing firing since 2026-06-23).
           expr: |
-            volsync_volume_out_of_sync == 1
+            volsync_volume_out_of_sync{method!="syncthing"} == 1
           for: 15m
           labels:
             severity: critical
