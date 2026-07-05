@@ -20,12 +20,12 @@
 | cert-manager | TLS via Let's Encrypt + Cloudflare DNS |
 | external-dns | Sync ingress → DNS |
 | Tailscale Operator | Pod/service Tailscale access |
-| External Secrets Operator | Pull secrets from Bitwarden Secrets Manager |
+| External Secrets Operator | Pull secrets from OpenBao (HashiCorp-compatible vault) |
 | SOPS + AGE | Git-encrypted secrets |
 | Volsync | PVC backup/restore |
 | Longhorn | Replicated block storage |
 | OpenEBS | Local hostpath storage |
-| democratic-csi | NFS/iSCSI from TrueNAS |
+| tns-csi | NFS/iSCSI/NVMe-oF from TrueNAS |
 | Garage | Self-hosted S3 on TrueNAS |
 | spegel | Local OCI registry mirror |
 | actions-runner-controller | Self-hosted GitHub runners |
@@ -38,7 +38,7 @@
 - `talosctl`, `talhelper` — Talos management
 - `kubectl`, `flux` — Kubernetes/FluxCD CLI
 - `sops`, `age` — secret encryption
-- `minijinja-cli` — template rendering (+ `op inject` for 1Password)
+- `minijinja-cli` — template rendering
 - `gum` — interactive prompts in just recipes
 - `yq` — YAML processing
 - `lefthook` — pre-commit hooks

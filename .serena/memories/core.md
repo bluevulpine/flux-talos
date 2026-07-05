@@ -41,14 +41,13 @@ VIP: `10.0.10.30` (Cilium LB on control-plane NIC)
 - SOPS + AGE key at `age.key` (loaded via `SOPS_AGE_KEY_FILE`)
 - `kubernetes/.+\.sops\.yaml` → `encrypted_regex: ^(data|stringData)$` + `mac_only_encrypted: true`
 - `talos/.*\.sops\.yaml` → full encryption
-- External Secrets Operator pulls runtime secrets from Bitwarden Secrets Manager (`bitwarden-sdk-server`)
-- `.bws_access_token` file provides local `BWS_ACCESS_TOKEN`
+- External Secrets Operator pulls runtime secrets from OpenBao (`ClusterSecretStore` ref: `openbao`)
 
 ## Storage layers
 
 - Longhorn — replicated PVCs
 - OpenEBS — local hostpath
-- democratic-csi — NFS/iSCSI from TrueNAS
+- tns-csi — NFS/iSCSI/NVMe-oF from TrueNAS
 - Object storage: self-hosted Garage (S3-compatible on TrueNAS) for Thanos, CNPG backups, etcd backups, Volsync local
 - Volsync daily offsite to Cloudflare R2
 
