@@ -56,3 +56,21 @@ spec:
           for: 15m
           labels:
             severity: critical
+    - name: volsync
+      rules:
+        # A VolSync mover pod stuck in ContainerCreating means the snapshot/clone
+        # it is trying to mount is wedged (commonly the tns-csi XFS "bad superblock"
+        # snapshot-restore bug — the driver retries a doomed mount forever). Normal
+        # movers complete in minutes, so 20m stuck is unambiguous. Fires ahead of
+        # the critical VolSyncVolumeOutOfSync. Runbook: docs/runbooks/volsync-mover-stuck.md
+        - alert: VolSyncMoverStuck
+          annotations:
+            summary: VolSync mover {{ $labels.namespace }}/{{ $labels.pod }} stuck in ContainerCreating >20m on {{ $labels.node }} — snapshot/clone likely fails to mount.
+            runbook_url: https://github.com/bluevulpine/flux-talos/blob/main/docs/runbooks/volsync-mover-stuck.md
+          expr: |
+            (
+              kube_pod_container_status_waiting_reason{reason="ContainerCreating", pod=~"volsync-(src|dst)-.*"} == 1
+            ) * on(namespace, pod) group_left(node) kube_pod_info
+          for: 20m
+          labels:
+            severity: warning
