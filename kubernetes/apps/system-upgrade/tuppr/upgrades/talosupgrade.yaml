@@ -11,11 +11,16 @@ spec:
   policy:
     rebootMode: powercycle
   healthChecks:
-    # Wait for VolSync backups to complete before upgrading
+    # Wait for VolSync backups to complete before upgrading, but exempt Syncthing
+    # movers: a Syncthing ReplicationSource maintains a continuous, live sync so it
+    # reports Synchronizing=True permanently and never flips to False. Without the
+    # has(spec.syncthing) short-circuit the gate can never pass and tuppr blocks
+    # every Talos/Kubernetes upgrade forever. Same property handled for the
+    # VolSyncVolumeOutOfSync alert in 0904f74d.
     - apiVersion: volsync.backube/v1alpha1
       kind: ReplicationSource
       expr: |-
-        status.conditions.filter(c, c.type == "Synchronizing").all(c, c.status == "False")
+        has(spec.syncthing) || status.conditions.filter(c, c.type == "Synchronizing").all(c, c.status == "False")
     # Wait for Longhorn volumes to be healthy
     - apiVersion: longhorn.io/v1beta2
       kind: Volume
