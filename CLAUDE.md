@@ -42,6 +42,13 @@ To apply a single app's kustomization directly:
 just kube apply-ks kubernetes/apps/<namespace>/<app>
 ```
 
+**Pushing to `main` auto-reconciles.** A GitHub webhook triggers Flux the moment
+a push lands on the trunk — reconciliation is near-instant, not on the poll
+interval. Do **not** run `flux reconcile ...` after a push; just wait a moment and
+verify the cluster reflects the change (e.g. `kubectl get <resource> -o jsonpath=...`).
+Only reconcile manually if the webhook path is known-broken or you pushed to a
+non-trunk branch.
+
 ## Postgres bootstrap: the `postgres-init` init container
 
 Apps that need a Postgres database on the CloudNativePG `postgres16` cluster do
