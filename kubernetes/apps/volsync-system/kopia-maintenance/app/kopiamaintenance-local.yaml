@@ -20,13 +20,18 @@ spec:
   successfulJobsHistoryLimit: 3
 
   # Resource limits for maintenance pod
-  # Full maintenance can be memory-intensive for large repositories
+  # Full maintenance can be memory-intensive for large repositories: kopia
+  # mmaps the whole repo index, so a tight limit forces constant page reclaim.
+  # At 1Gi this repo (~1,440 index blobs/day) thrashed ~2,000 major page
+  # faults/sec on the node (NodeMemoryMajorPagesFaults) and periodically
+  # OOM-killed at ~1GB RSS (2026-07-04). Raised to 4Gi — the node has ample
+  # headroom — to keep the index cached and stop the fault storm.
   resources:
     requests:
-      memory: 256Mi
+      memory: 512Mi
       cpu: 100m
     limits:
-      memory: 1Gi
+      memory: 4Gi
 
   # Security context matching VolSync defaults
   podSecurityContext:
