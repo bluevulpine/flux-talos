@@ -111,7 +111,7 @@ spec:
 
         database:
           DB_TYPE: postgres
-          HOST: postgres16-rw.database.svc.cluster.local:5432
+          HOST: ${POSTGRES_HOST}:5432
           NAME: gitea
 
         security:

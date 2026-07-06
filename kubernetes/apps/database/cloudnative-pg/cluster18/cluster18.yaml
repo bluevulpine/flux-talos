@@ -1,0 +1,88 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/postgresql.cnpg.io/cluster_v1.json
+# NEW pg18 cluster. Stood up ALONGSIDE the live postgres16 and seeded once via a
+# logical monolith import (pg_dump/restore) over postgres16-rw. Fresh Longhorn 50Gi
+# PVCs sidestep the openebs→longhorn resize deadlock, and the logical restore
+# de-bloats the data. Extension preflight PASSED: every extension in use
+# (pg_trgm, uuid-ossp, unaccent, earthdistance, cube, vector) ships in
+# 18.2-standard-trixie; pgvector goes 0.7.0→0.8.1 (immich), storage-compatible.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres18
+spec:
+  instances: 3
+  # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql
+  # NOTE: 18.x uses the flavor tag format (e.g. 18.2-standard-trixie), not the old
+  # <ver>-<build> ("16.2-16") scheme — confirm the renovate versioning strategy.
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.2-standard-trixie
+  primaryUpdateStrategy: unsupervised
+
+  storage:
+    size: 50Gi
+    storageClass: longhorn-1-replica-strict-local
+
+  superuserSecret:
+    name: &secretName cloudnative-pg-secret
+  enableSuperuserAccess: true
+
+  postgresql:
+    parameters:
+      max_connections: "400"
+      shared_buffers: 256MB
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 4Gi
+  monitoring:
+    enablePodMonitor: true
+
+  # postgres18's OWN backup stream — distinct serverName so its WAL never collides
+  # with postgres16's in the same bucket. (Port scheduledbackup/podmonitor/gatus
+  # from ../cluster/ before cutover if you want scheduled base backups + dashboards.)
+  backup:
+    retentionPolicy: 7d
+    barmanObjectStore:
+      data:
+        compression: bzip2
+      wal:
+        compression: bzip2
+        maxParallel: 8
+      destinationPath: s3://cnpg/
+      endpointURL: ${SECRET_GARAGE_S3_ENDPOINT}
+      serverName: postgres18-v1
+      s3Credentials:
+        accessKeyId:
+          name: *secretName
+          key: s3-access-key-id-garage
+        secretAccessKey:
+          name: *secretName
+          key: s3-secret-access-key-garage
+
+  # One-shot logical import of ALL databases + roles from the live postgres16.
+  # Runs once, at initial creation only; read-only (pg_dump) on the source.
+  bootstrap:
+    initdb:
+      import:
+        type: monolith
+        databases:
+          - "*"
+        roles:
+          - "*"
+        source:
+          externalCluster: postgres16
+
+  # Live-connection source for the import (stays literal postgres16-rw — this is the
+  # one place that must NOT be swapped to ${POSTGRES_HOST}).
+  externalClusters:
+    - name: postgres16
+      connectionParameters:
+        host: postgres16-rw.database.svc.cluster.local
+        user: postgres
+        dbname: postgres
+      password:
+        name: *secretName
+        key: password
