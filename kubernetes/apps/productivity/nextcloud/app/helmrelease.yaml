@@ -104,9 +104,25 @@ spec:
                   timeoutSeconds: 10
                   failureThreshold: 120
             securityContext:
+              # The nextcloud Apache image starts as root and, in its entrypoint,
+              # rsync -a's the app tree into /var/www/html (preserving ownership →
+              # chown) then drops to www-data. Both need Linux capabilities that
+              # drop:[ALL] strips: without CHOWN the rsync fails "Operation not
+              # permitted" (exit 23), which the 34.x entrypoint treats as fatal →
+              # the Deployment never goes Ready → HelmRelease "stalled resources".
+              # Add back only the caps the image genuinely needs. (Older images
+              # tolerated the chown failures; 34.0.x does not — that's what broke.)
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: false
-              capabilities: {drop: ["ALL"]}
+              capabilities:
+                drop:
+                  - "ALL"
+                add:
+                  - "CHOWN"
+                  - "DAC_OVERRIDE"
+                  - "FOWNER"
+                  - "SETGID"
+                  - "SETUID"
             resources:
               requests:
                 cpu: 100m
