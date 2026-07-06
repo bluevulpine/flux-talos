@@ -8,5 +8,11 @@ spec:
   schedule: "@daily"
   immediate: true
   backupOwnerReference: self
+  # method: plugin — base backups go through the Barman Cloud Plugin (the default
+  # barmanObjectStore method is gone on 18.x). Uses the ObjectStore referenced by
+  # the cluster's spec.plugins.
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
   cluster:
     name: postgres18

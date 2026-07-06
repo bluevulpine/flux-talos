@@ -1,4 +1,4 @@
-set quiet := true
+set quiet
 set shell := ['bash', '-euo', 'pipefail', '-c']
 
 kubernetes_dir := justfile_dir() + '/kubernetes'
@@ -11,6 +11,13 @@ default:
 apply-ks dir ks="*":
     just kube render-local-ks "{{ dir }}" "{{ ks }}" \
         | kubectl apply --server-side --field-manager=kustomize-controller -f /dev/stdin
+
+[doc('Re-vendor the CNPG Barman Cloud Plugin release manifest to the pinned version')]
+barman-plugin:
+    dir="{{ kubernetes_dir }}/apps/database/cloudnative-pg/plugin-barman-cloud"; \
+    version="$(awk '/barman-plugin-version:/ {print $NF}' "$dir/kustomization.yaml")"; \
+    echo "Re-vendoring plugin-barman-cloud manifest @ $version"; \
+    curl -fsSL "https://github.com/cloudnative-pg/plugin-barman-cloud/releases/download/$version/manifest.yaml" -o "$dir/manifest.yaml"
 
 [doc('Browse a PVC')]
 browse-pvc namespace claim:

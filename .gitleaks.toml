@@ -1,0 +1,12 @@
+# Extend gitleaks' default ruleset (unchanged) and add narrow allowlists.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = """
+Vendored upstream CloudNativePG barman-cloud plugin release manifest. Its only
+Secret (plugin-barman-cloud-*) holds the SIDECAR_IMAGE key — a container image
+reference (ghcr.io/.../plugin-barman-cloud-sidecar:<tag>), not a credential.
+Allowlisted by path so re-vendoring on version bumps stays clean.
+"""
+paths = ['''kubernetes/apps/database/cloudnative-pg/plugin-barman-cloud/manifest\.yaml''']
