@@ -9,16 +9,14 @@ spec:
   # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=redhat
   imageName: ghcr.io/cloudnative-pg/postgresql:16.2-16
   primaryUpdateStrategy: unsupervised
+  # NOTE: size cannot be shrunk once raised (CNPG webhook rejects 50Gi→20Gi), so
+  # this stays 50Gi. The existing openebs-hostpath PVCs (20Gi, non-expandable)
+  # block CNPG's reconcile because it can't resize them to 50Gi — recovery is a
+  # PVC-level migration to longhorn done outside Flux (hibernate + pvmigrate/copy),
+  # after which this valid spec reconciles cleanly on the migrated 50Gi volumes.
   storage:
-    # Reverted to openebs-hostpath 20Gi to un-wedge the cluster: bumping size to
-    # 50Gi made CNPG try to resize the existing openebs-hostpath PVCs, which don't
-    # support expansion, erroring the reconcile and blocking instance recreation.
-    # Migration to longhorn-1-replica-strict-local will be redone with pvmigrate
-    # (direct data copy, keeps PVC names — avoids both the basebackup rebuild and
-    # the resize deadlock). The 28Gi actual data also can't fit a 20Gi enforced
-    # volume, so either pvmigrate to a larger dest or trim the HA recorder first.
-    size: 20Gi
-    storageClass: openebs-hostpath
+    size: 50Gi
+    storageClass: longhorn-1-replica-strict-local
 
   superuserSecret:
     name: &secretName cloudnative-pg-secret
