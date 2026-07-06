@@ -14,13 +14,15 @@ spec:
     # Wait for VolSync backups to complete before upgrading, but exempt Syncthing
     # movers: a Syncthing ReplicationSource maintains a continuous, live sync so it
     # reports Synchronizing=True permanently and never flips to False. Without the
-    # has(spec.syncthing) short-circuit the gate can never pass and tuppr blocks
+    # has(status.syncthing) short-circuit the gate can never pass and tuppr blocks
     # every Talos/Kubernetes upgrade forever. Same property handled for the
-    # VolSyncVolumeOutOfSync alert in 0904f74d.
+    # VolSyncVolumeOutOfSync alert in 0904f74d. (tuppr's CEL env exposes only
+    # status, not spec — Syncthing sources are identified by status.syncthing;
+    # kopia/restic sources instead carry status.kopia/status.restic.)
     - apiVersion: volsync.backube/v1alpha1
       kind: ReplicationSource
       expr: |-
-        has(spec.syncthing) || status.conditions.filter(c, c.type == "Synchronizing").all(c, c.status == "False")
+        has(status.syncthing) || status.conditions.filter(c, c.type == "Synchronizing").all(c, c.status == "False")
     # Require attached Longhorn volumes to be healthy, but ignore detached ones:
     # a detached volume has robustness "unknown" (robustness is only meaningful
     # while attached), so gating on state == "attached" would fail permanently —
