@@ -7,6 +7,11 @@ data:
   TIMEZONE: "America/Chicago"
   # ZFS pool name on TrueNAS — tns-csi parentDatasets are provisioned under 'apps/tns-csi/{nfs,iscsi,nvmeof}'
   TRUENAS_POOL: "apps"
+  # In-cluster CNPG read-write endpoint. Apps reference this via ${POSTGRES_HOST}
+  # instead of hardcoding the cluster name, so a major-version cluster swap
+  # (e.g. postgres16 → postgres18) is a ONE-LINE cutover here rather than 25 edits.
+  # (Distinct from SVC_POSTGRES_ADDR below, which is a static LB IP.)
+  POSTGRES_HOST: "postgres16-rw.database.svc.cluster.local"
   SVC_K8S_API_ADDR: 172.16.8.1
   SVC_NGINX_INTERNAL: 172.16.8.2
   SVC_NGINX_EXTERNAL: 172.16.8.3
