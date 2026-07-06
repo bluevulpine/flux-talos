@@ -1,0 +1,34 @@
+---
+# Single-replica Longhorn StorageClass with strict-local data locality, for
+# CloudNativePG. CNPG replicates at the database layer across its 3 instances, so
+# the storage layer needs NO replication of its own (numberOfReplicas: 1). We use
+# strict-local so the one Longhorn replica is pinned to the SAME node as the
+# attached Postgres pod — giving node-local read/write performance and keeping each
+# CNPG instance's data in its own node's failure domain (never a network hop to a
+# foreign node holding the replica). This replaces openebs-hostpath, which put
+# Postgres data on the ephemeral /var partition with no capacity enforcement — a
+# 30Gi DB there filled a node's ephemeral disk and evicted critical pods.
+# Deliberately NOT the default class and NOT strict-local for general workloads:
+# strict-local forces a replica rebuild whenever the pod moves nodes, which only
+# makes sense for a workload (like CNPG) that does its own replication.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-1-replica-strict-local
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/component: storage
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "1"
+  dataLocality: strict-local
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  fsType: ext4
+  disableRevisionCounter: "true"
+  dataEngine: v1
+  backupTargetName: default
+  unmapMarkSnapChainRemoved: ignored
