@@ -62,6 +62,14 @@ spec:
         reclaimPolicy: Delete
         volumeBindingMode: Immediate
         allowVolumeExpansion: true
+        # nouuid: a snapshot/clone of an XFS volume carries the SAME filesystem
+        # UUID as its source. XFS refuses to mount a volume whose UUID is already
+        # in use, so a VolSync backup clone fails to mount while the source is
+        # attached — surfacing as "bad superblock" (the fs is valid; only the
+        # mount is rejected). nouuid skips the UUID check. Required for xfs +
+        # snapshots/clones. See [[project_tns_csi_snapshot_bad_superblock]].
+        mountOptions:
+          - nouuid
 
       # ── NVMe-oF ──────────────────────────────────────────────────────────────
       # High-performance block storage over TCP. nvme_tcp kernel module is already
@@ -86,6 +94,10 @@ spec:
         reclaimPolicy: Delete
         volumeBindingMode: Immediate
         allowVolumeExpansion: true
+        # nouuid — required so VolSync snapshot/clone mounts don't fail with
+        # "bad superblock" on duplicate XFS UUID (see the iSCSI class above).
+        mountOptions:
+          - nouuid
 
       # ── SMB ──────────────────────────────────────────────────────────────────
       # Disabled until you create the credential Secret and enable SMB in TrueNAS.
