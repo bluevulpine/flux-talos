@@ -68,6 +68,7 @@ spec:
   prune: true
   dependsOn:
     - name: cloudnative-pg
+    - name: cnpg-barman-plugin
   sourceRef:
     kind: GitRepository
     name: home-kubernetes
@@ -81,4 +82,33 @@ spec:
     substitute:
       APP: *app
       NS: database
+
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app cnpg-barman-plugin
+spec:
+  # SUSPENDED with the rest of the pg18 migration — nothing deploys on merge.
+  # At phase 1, resume THIS first (installs the Barman Cloud Plugin: CRD + operator
+  # sidecar-injector in the database ns), wait for it Ready, THEN resume
+  # cloudnative-pg-cluster18 (which depends on it for the ObjectStore CRD).
+  # The plugin only ever affects clusters that opt in via spec.plugins — postgres16
+  # (in-image barman) is untouched.
+  suspend: true
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  path: ./kubernetes/apps/database/cloudnative-pg/plugin-barman-cloud
+  prune: true
+  dependsOn:
+    - name: cloudnative-pg
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  wait: true
+  interval: 30m
+  retryInterval: 1m
+  timeout: 10m
 

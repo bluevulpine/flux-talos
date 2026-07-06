@@ -1,0 +1,19 @@
+---
+# CNPG Barman Cloud Plugin — vendored RELEASE manifest (pinned images), relocated
+# from the upstream-hardcoded cnpg-system to the operator's namespace (database).
+# The plugin must live in the CNPG operator's namespace. The cert SANs use the
+# short service name (barman-cloud), so the namespace transformer relocates the
+# Certificates correctly.
+#
+# Vendored (not a GitRepository) because the upstream ./kubernetes kustomize dir is
+# the e2e/testing config (main-tag images); only the release manifest.yaml carries
+# the pinned :v0.13.0 images. Re-vendor on a bump with `just kubernetes barman-plugin`;
+# Renovate opens a PR when a new release drops (see .renovate/customManagers.json5).
+#
+# renovate: datasource=github-releases depName=cloudnative-pg/plugin-barman-cloud
+# barman-plugin-version: v0.13.0
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: database
+resources:
+  - ./manifest.yaml

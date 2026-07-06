@@ -40,27 +40,17 @@ spec:
   monitoring:
     enablePodMonitor: true
 
-  # postgres18's OWN backup stream — distinct serverName so its WAL never collides
-  # with postgres16's in the same bucket. (Port scheduledbackup/podmonitor/gatus
-  # from ../cluster/ before cutover if you want scheduled base backups + dashboards.)
-  backup:
-    retentionPolicy: 7d
-    barmanObjectStore:
-      data:
-        compression: bzip2
-      wal:
-        compression: bzip2
-        maxParallel: 8
-      destinationPath: s3://cnpg/
-      endpointURL: ${SECRET_GARAGE_S3_ENDPOINT}
-      serverName: postgres18-v1
-      s3Credentials:
-        accessKeyId:
-          name: *secretName
-          key: s3-access-key-id-garage
-        secretAccessKey:
-          name: *secretName
-          key: s3-secret-access-key-garage
+  # Backups via the Barman Cloud Plugin — the in-tree spec.backup.barmanObjectStore
+  # no longer works on 18.x (the image dropped the in-image barman-cloud tools). WAL
+  # archiving + base backups stream to the postgres18-backup ObjectStore (see
+  # objectstore.yaml: same Garage S3 target as postgres16, serverName postgres18-v1).
+  # The plugin injects a sidecar into each instance; it's the sidecar-based successor
+  # to what postgres16 does in-image. scheduledbackup.yaml drives the base-backup cron.
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: postgres18-backup
 
   # One-shot logical import of ALL databases + roles from the live postgres16.
   # Runs once, at initial creation only; read-only (pg_dump) on the source.
