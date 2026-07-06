@@ -10,8 +10,16 @@ spec:
   imageName: ghcr.io/cloudnative-pg/postgresql:16.2-16
   primaryUpdateStrategy: unsupervised
   storage:
-    size: 20Gi
-    storageClass: openebs-hostpath
+    # Migrated off openebs-hostpath (node-local dir on the ephemeral /var partition,
+    # no quota — a 30Gi DB filled a node's ephemeral disk and triggered DiskPressure
+    # evictions). longhorn-1-replica-strict-local keeps each instance's data node-local
+    # on the dedicated SSDs with an enforced size; CNPG still replicates at the DB
+    # layer across the 3 instances. Migrate instances one at a time with
+    # `kubectl cnpg destroy postgres16 <n>` (rebuilds on the new class from the primary).
+    # 50Gi leaves headroom over the current ~30Gi (WAL + the 19Gi homeassistant DB
+    # pending recorder trimming); size can grow later but not shrink.
+    size: 50Gi
+    storageClass: longhorn-1-replica-strict-local
 
   superuserSecret:
     name: &secretName cloudnative-pg-secret
@@ -86,12 +94,12 @@ spec:
           secretAccessKey:
             name: *secretName
             key: s3-secret-access-key
-    # for initdb restore
-    # - name: old-cluster
-    #   connectionParameters:
-    #     host: postgres16-rw.default.svc.cluster.local
-    #     user: postgres
-    #     dbname: postgres
-    #   password:
-    #     name: *secretName
-    #     key: password
+            # for initdb restore
+            # - name: old-cluster
+            #   connectionParameters:
+            #     host: postgres16-rw.default.svc.cluster.local
+            #     user: postgres
+            #     dbname: postgres
+            #   password:
+            #     name: *secretName
+            #     key: password
