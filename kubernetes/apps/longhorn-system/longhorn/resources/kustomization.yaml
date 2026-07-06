@@ -7,6 +7,6 @@ resources:
   - ../disks/brokkr03.yaml
   - ./snapshotclass.yaml
   - ./storageclass-1-replica.yaml
-  - ./storageclass-cnpg-strict-local.yaml
+  - ./storageclass-cnpg-local.yaml
   - ./httproute.yaml
 
