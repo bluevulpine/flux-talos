@@ -20,7 +20,7 @@ spec:
 
   storage:
     size: 50Gi
-    storageClass: longhorn-1-replica-strict-local
+    storageClass: longhorn-1-replica-local
 
   superuserSecret:
     name: &secretName cloudnative-pg-secret

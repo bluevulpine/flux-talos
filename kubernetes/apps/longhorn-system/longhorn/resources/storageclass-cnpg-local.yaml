@@ -1,0 +1,35 @@
+---
+# Single-replica, node-local Longhorn StorageClass for CloudNativePG. CNPG
+# replicates at the database layer across its 3 instances, so the storage layer
+# needs NO replication of its own (numberOfReplicas: 1). dataLocality best-effort
+# keeps the one replica on the SAME node as the attached Postgres pod (node-local
+# performance, per-node failure domain) WITHOUT the hard pin of strict-local:
+# when a pod reschedules (e.g. a Talos drain) Longhorn can attach on the new node
+# and rebuild a local replica, instead of stranding the instance. (strict-local
+# rejects moving the volume — "moving a strict-local volume ... is not supported".)
+# volumeBindingMode WaitForFirstConsumer is REQUIRED so the volume/replica are
+# provisioned only after the pod is scheduled — otherwise Immediate binding places
+# the replica before the pod lands, on a different node, and the attach fails.
+# Replaces openebs-hostpath, which put Postgres on the ephemeral /var partition
+# with no quota (a 30Gi DB filled a node's disk and evicted critical pods).
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-1-replica-local
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/component: storage
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  numberOfReplicas: "1"
+  dataLocality: best-effort
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  fsType: ext4
+  disableRevisionCounter: "true"
+  dataEngine: v1
+  backupTargetName: default
+  unmapMarkSnapChainRemoved: ignored
