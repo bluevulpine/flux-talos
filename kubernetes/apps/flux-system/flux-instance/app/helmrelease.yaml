@@ -12,7 +12,14 @@ spec:
   values:
     instance:
       distribution:
-        artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:v0.32.0
+        # This artifact — not the flux-operator/flux-instance chart versions —
+        # determines the running Flux version. It was pinned at v0.32.0 (Flux
+        # v2.7.2) and had no renovate annotation, so operator/chart bumps never
+        # rolled the control plane. Annotate it so it tracks with the
+        # flux-operator group (the /flux-operator/ rule matches this depName).
+        # v0.53.0 bundles Flux v2.9.0; `version: 2.x` resolves to it.
+        # renovate: datasource=docker depName=ghcr.io/controlplaneio-fluxcd/flux-operator-manifests
+        artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:v0.53.0
         version: 2.x
       cluster:
         networkPolicy: false
