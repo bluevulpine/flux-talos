@@ -33,15 +33,23 @@ spec:
             envFrom:
               - secretRef:
                   name: lidarr-secret
-            command: ["/bin/bash", "-c"]
+            command:
+              - "/bin/bash"
+              - "-c"
             args:
+              # $$ escapes each ${VAR}: these are runtime bash vars (from envFrom
+              # lidarr-secret / the container env), not Flux postBuild substitute
+              # vars. Flux kustomize-controller runs envsubst over the whole
+              # manifest; since Flux v2.9.0 an unmapped ${VAR} fails hard in strict
+              # mode (v2.7.2 silently left it literal). $$ makes Flux emit a literal
+              # ${VAR} for bash to expand at container runtime.
               - |
                 # Update Lidarr config to use hearring-aid as metadata source
-                export PGPASSWORD="${LIDARR__POSTGRES__PASSWORD}"
-                psql -h "${LIDARR__POSTGRES__HOST}" -U "${LIDARR__POSTGRES__USER}" -d "${LIDARR__POSTGRES__MAINDB}" -c \
-                  "INSERT INTO \"Config\" (\"Key\", \"Value\") VALUES ('metadatasource', '${LIDARR_METADATA_URL}')
+                export PGPASSWORD="$${LIDARR__POSTGRES__PASSWORD}"
+                psql -h "$${LIDARR__POSTGRES__HOST}" -U "$${LIDARR__POSTGRES__USER}" -d "$${LIDARR__POSTGRES__MAINDB}" -c \
+                  "INSERT INTO \"Config\" (\"Key\", \"Value\") VALUES ('metadatasource', '$${LIDARR_METADATA_URL}')
                    ON CONFLICT (\"Key\") DO UPDATE SET \"Value\" = EXCLUDED.\"Value\";"
-                echo "Metadata source configured to ${LIDARR_METADATA_URL}"
+                echo "Metadata source configured to $${LIDARR_METADATA_URL}"
         containers:
           app:
             image:
