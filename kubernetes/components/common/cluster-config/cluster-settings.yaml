@@ -29,3 +29,6 @@ data:
   SVC_QBITTORRENT_ADDR: 172.16.8.15
   SVC_GITEA_SSH_ADDR: 172.16.8.16
   SVC_GRAPHITE_EXPORTER_ADDR: 172.16.8.17
+  # Temporary LB IP for postgres18 during the 16→18 migration (postgres18-lb).
+  # Retire once postgres16 is decommissioned and postgres18 takes over .4.
+  SVC_POSTGRES_18_ADDR: 172.16.8.18
