@@ -11,14 +11,24 @@ spec:
   policy:
     rebootMode: powercycle
   healthChecks:
-    # Wait for VolSync backups to complete before upgrading
+    # Wait for VolSync backups to complete before upgrading, but exempt Syncthing
+    # movers: a Syncthing ReplicationSource maintains a continuous, live sync so it
+    # reports Synchronizing=True permanently and never flips to False. Without the
+    # has(spec.syncthing) short-circuit the gate can never pass and tuppr blocks
+    # every Talos/Kubernetes upgrade forever. Same property handled for the
+    # VolSyncVolumeOutOfSync alert in 0904f74d.
     - apiVersion: volsync.backube/v1alpha1
       kind: ReplicationSource
       expr: |-
-        status.conditions.filter(c, c.type == "Synchronizing").all(c, c.status == "False")
-    # Wait for Longhorn volumes to be healthy
+        has(spec.syncthing) || status.conditions.filter(c, c.type == "Synchronizing").all(c, c.status == "False")
+    # Require attached Longhorn volumes to be healthy, but ignore detached ones:
+    # a detached volume has robustness "unknown" (robustness is only meaningful
+    # while attached), so gating on state == "attached" would fail permanently —
+    # this cluster always has many idle/detached volumes (VolSync clones,
+    # scaled-down workloads). Only an attached-but-degraded volume (mid-rebuild)
+    # should actually block a node roll.
     - apiVersion: longhorn.io/v1beta2
       kind: Volume
       expr: |-
-        status.state == "attached" && status.robustness == "healthy"
+        status.state != "attached" || status.robustness == "healthy"
 
