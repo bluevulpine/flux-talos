@@ -7,4 +7,5 @@ resources:
   - ./service.yaml
   - ./scheduledbackup.yaml
   - ./podmonitor.yaml
+  - ./prometheusrule.yaml
   - ./gatus.yaml
