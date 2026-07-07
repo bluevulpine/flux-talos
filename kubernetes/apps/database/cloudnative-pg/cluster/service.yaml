@@ -1,4 +1,12 @@
 ---
+# Canonical external postgres endpoint (postgres.${SECRET_DOMAIN} @ SVC_POSTGRES_ADDR).
+# External consumers reach postgres through this stable name/IP — notably Home
+# Assistant (out-of-cluster), whose recorder db_url points here. As of the 2026-07-07
+# cutover the selector routes to postgres18, so HA needs NO db_url change — the same
+# hostname/IP now backs pg18. postgres16 is kept (stopped) as rollback: reverting this
+# selector to postgres16 restores the old backend. (This Service still lives in the
+# postgres16 cluster dir; at pg16 decommission, move it into cluster18/ — see the
+# postgres18-lb note there.)
 apiVersion: v1
 kind: Service
 metadata:
@@ -8,7 +16,7 @@ metadata:
     external-dns.alpha.kubernetes.io/hostname: "postgres.${SECRET_DOMAIN}"
     lbipam.cilium.io/ips: ${SVC_POSTGRES_ADDR}
   labels:
-      tailscale.com/proxy-class: "tun-access"
+    tailscale.com/proxy-class: "tun-access"
 spec:
   type: LoadBalancer
   ports:
@@ -17,5 +25,5 @@ spec:
       protocol: TCP
       targetPort: 5432
   selector:
-    cnpg.io/cluster: postgres16
+    cnpg.io/cluster: postgres18
     role: primary

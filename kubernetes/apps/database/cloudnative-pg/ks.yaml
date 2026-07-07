@@ -56,11 +56,8 @@ kind: Kustomization
 metadata:
   name: &app cloudnative-pg-cluster18
 spec:
-  # SUSPENDED on purpose: this stages the pg18 migration cluster without deploying
-  # it. Merging is inert. Activate the migration deliberately with
-  # `flux resume kustomization cloudnative-pg-cluster18` (or set suspend: false),
-  # which creates postgres18 and runs the one-shot import from live postgres16.
-  suspend: true
+  # ACTIVE as of the 2026-07-07 cutover: postgres18 is now the production cluster.
+  # (Was suspended while staged; the one-shot import from postgres16 has run.)
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
@@ -89,13 +86,10 @@ kind: Kustomization
 metadata:
   name: &app cnpg-barman-plugin
 spec:
-  # SUSPENDED with the rest of the pg18 migration — nothing deploys on merge.
-  # At phase 1, resume THIS first (installs the Barman Cloud Plugin: CRD + operator
-  # sidecar-injector in the database ns), wait for it Ready, THEN resume
-  # cloudnative-pg-cluster18 (which depends on it for the ObjectStore CRD).
-  # The plugin only ever affects clusters that opt in via spec.plugins — postgres16
-  # (in-image barman) is untouched.
-  suspend: true
+  # ACTIVE as of the 2026-07-07 cutover: installs the Barman Cloud Plugin (CRD +
+  # operator sidecar-injector in the database ns) that postgres18 uses for backups.
+  # cloudnative-pg-cluster18 dependsOn this. The plugin only affects clusters that
+  # opt in via spec.plugins — postgres16 (in-image barman) is untouched.
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
