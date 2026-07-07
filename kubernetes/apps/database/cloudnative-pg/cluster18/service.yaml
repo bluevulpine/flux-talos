@@ -1,16 +1,17 @@
 ---
-# External LB endpoint for postgres18, kept DISTINCT from postgres-lb (postgres16)
-# so both coexist during migration: its own IP (SVC_POSTGRES_18_ADDR) and its own
-# hostname (postgres18.${SECRET_DOMAIN}). At decommission, fold this back into the
-# canonical postgres-lb / postgres.${SECRET_DOMAIN} / SVC_POSTGRES_ADDR.
+# Canonical external postgres endpoint (postgres.${SECRET_DOMAIN} @ SVC_POSTGRES_ADDR).
+# External consumers reach postgres through this stable name/IP — notably Home Assistant
+# (out-of-cluster), whose recorder db_url points here. Folded from the old postgres16
+# cluster dir into cluster18 at pg16 decommission (2026-07-07); the temporary postgres18-lb
+# / postgres18.${SECRET_DOMAIN} / SVC_POSTGRES_18_ADDR are retired. Selector → postgres18.
 apiVersion: v1
 kind: Service
 metadata:
-  name: postgres18-lb
+  name: postgres-lb
   annotations:
     tailscale.com/expose: "true"
-    external-dns.alpha.kubernetes.io/hostname: "postgres18.${SECRET_DOMAIN}"
-    lbipam.cilium.io/ips: ${SVC_POSTGRES_18_ADDR}
+    external-dns.alpha.kubernetes.io/hostname: "postgres.${SECRET_DOMAIN}"
+    lbipam.cilium.io/ips: ${SVC_POSTGRES_ADDR}
   labels:
     tailscale.com/proxy-class: "tun-access"
 spec:
