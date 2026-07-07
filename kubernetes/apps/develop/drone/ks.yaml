@@ -11,7 +11,7 @@ spec:
   dependsOn:
     - name: gitea
       namespace: develop
-    - name: cloudnative-pg-cluster
+    - name: cloudnative-pg-cluster18
       namespace: database
     - name: external-secrets-openbao-store
       namespace: external-secrets
