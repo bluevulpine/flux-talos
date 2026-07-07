@@ -27,33 +27,6 @@ spec:
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app cloudnative-pg-cluster
-spec:
-  commonMetadata:
-    labels:
-      app.kubernetes.io/name: *app
-  path: ./kubernetes/apps/database/cloudnative-pg/cluster
-  prune: true
-  dependsOn:
-    - name: cloudnative-pg
-  sourceRef:
-    kind: GitRepository
-    name: home-kubernetes
-    namespace: flux-system
-  targetNamespace: database
-  wait: true
-  interval: 30m
-  retryInterval: 1m
-  timeout: 5m
-  postBuild:
-    substitute:
-      APP: *app
-      NS: database
-
----
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
   name: &app cloudnative-pg-cluster18
 spec:
   # ACTIVE as of the 2026-07-07 cutover: postgres18 is now the production cluster.
