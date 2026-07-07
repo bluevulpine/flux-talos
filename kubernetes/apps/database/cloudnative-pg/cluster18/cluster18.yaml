@@ -43,14 +43,18 @@ spec:
   # Backups via the Barman Cloud Plugin — the in-tree spec.backup.barmanObjectStore
   # no longer works on 18.x (the image dropped the in-image barman-cloud tools). WAL
   # archiving + base backups stream to the postgres18-backup ObjectStore (see
-  # objectstore.yaml: same Garage S3 target as postgres16, serverName postgres18-v1).
-  # The plugin injects a sidecar into each instance; it's the sidecar-based successor
-  # to what postgres16 does in-image. scheduledbackup.yaml drives the base-backup cron.
+  # objectstore.yaml: same Garage S3 target as postgres16). The plugin injects a
+  # sidecar into each instance; it's the sidecar-based successor to what postgres16
+  # does in-image. scheduledbackup.yaml drives the base-backup cron.
+  # serverName (postgres18-v1) is set HERE, not on the ObjectStore: plugin v0.13.0
+  # requires the per-cluster serverName as a plugin parameter — it keeps postgres18's
+  # WAL/base backups from colliding with postgres16's in the shared bucket.
   plugins:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
       parameters:
         barmanObjectName: postgres18-backup
+        serverName: postgres18-v1
 
   # One-shot logical import of ALL databases + roles from the live postgres16.
   # Runs once, at initial creation only; read-only (pg_dump) on the source.

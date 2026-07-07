@@ -1,9 +1,11 @@
 ---
 # Barman Cloud Plugin object-store config for postgres18 — the plugin equivalent of
 # postgres16's in-tree spec.backup.barmanObjectStore. Same Garage S3 destination and
-# credentials; distinct serverName (postgres18-v1) so its WAL/base backups never
-# collide with postgres16's in the shared bucket. Referenced from cluster18.yaml via
-# spec.plugins[].parameters.barmanObjectName.
+# credentials. The distinct serverName (postgres18-v1) that keeps its WAL/base backups
+# from colliding with postgres16's in the shared bucket is NOT set here: plugin v0.13.0
+# forbids spec.configuration.serverName on the ObjectStore and requires it as the
+# `serverName` plugin parameter on the Cluster instead (see cluster18.yaml
+# spec.plugins[].parameters). This ObjectStore is referenced by barmanObjectName.
 apiVersion: barmancloud.cnpg.io/v1
 kind: ObjectStore
 metadata:
@@ -13,7 +15,6 @@ spec:
   configuration:
     destinationPath: s3://cnpg/
     endpointURL: ${SECRET_GARAGE_S3_ENDPOINT}
-    serverName: postgres18-v1
     s3Credentials:
       accessKeyId:
         name: cloudnative-pg-secret
