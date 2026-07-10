@@ -61,7 +61,7 @@ spec:
                   httpGet:
                     scheme: HTTPS
                     path: /
-                    port: &port 10443
+                    port: 10443
                   initialDelaySeconds: 30
                   periodSeconds: 10
                   timeoutSeconds: 5
@@ -103,9 +103,15 @@ spec:
     service:
       app:
         controller: scrypted
+        # Expose Scrypted's plaintext HTTP port (11080) for the in-cluster
+        # gateway. Envoy Gateway originates cleartext to the backend, so routing
+        # it at the HTTPS-only 10443 port reset the connection ("upstream connect
+        # error ... connection termination"). 11080 serves the same UI over HTTP
+        # (relative redirect, no forced-HTTPS bounce). Direct L2 access on VLAN 30
+        # still uses https://192.168.30.12:10443.
         ports:
-          https:
-            port: *port
+          http:
+            port: 11080
     route:
       app:
         annotations:
@@ -127,7 +133,7 @@ spec:
         rules:
           - backendRefs:
               - name: *app
-                port: *port
+                port: 11080
     persistence:
       config:
         existingClaim: *app
