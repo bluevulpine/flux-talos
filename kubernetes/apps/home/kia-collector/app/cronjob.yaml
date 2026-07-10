@@ -15,6 +15,13 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: collector
               # renovate: datasource=docker depName=gitea.derekjacobs.dev/bluevulpine/kia-collector
@@ -25,12 +32,24 @@ spec:
                     name: kia-collector-config
                 - secretRef:
                     name: kia-collector-secret
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
               resources:
                 requests:
                   cpu: 50m
                   memory: 128Mi
                 limits:
                   memory: 256Mi
+          volumes:
+            - name: tmp
+              emptyDir: {}
 ---
 # Daily force-refresh — wakes the car to get accurate fresh data.
 # Runs at 7:30am Chicago time (12:30 UTC). Adjust to when car is typically idle.
@@ -49,6 +68,13 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: collector
               # renovate: datasource=docker depName=gitea.derekjacobs.dev/bluevulpine/kia-collector
@@ -62,9 +88,21 @@ spec:
                     name: kia-collector-config
                 - secretRef:
                     name: kia-collector-secret
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
               resources:
                 requests:
                   cpu: 50m
                   memory: 128Mi
                 limits:
                   memory: 256Mi
+          volumes:
+            - name: tmp
+              emptyDir: {}
