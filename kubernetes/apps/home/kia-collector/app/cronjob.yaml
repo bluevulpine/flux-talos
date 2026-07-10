@@ -17,8 +17,8 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: collector
-              # renovate: datasource=docker
-              image: docker.nexus.${SECRET_DOMAIN}/kia/kia-collector:latest
+              # renovate: datasource=docker depName=gitea.derekjacobs.dev/bluevulpine/kia-collector
+              image: gitea.derekjacobs.dev/bluevulpine/kia-collector:latest
               imagePullPolicy: Always
               envFrom:
                 - configMapRef:
@@ -51,8 +51,8 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: collector
-              # renovate: datasource=docker
-              image: docker.nexus.${SECRET_DOMAIN}/kia/kia-collector:latest
+              # renovate: datasource=docker depName=gitea.derekjacobs.dev/bluevulpine/kia-collector
+              image: gitea.derekjacobs.dev/bluevulpine/kia-collector:latest
               imagePullPolicy: Always
               env:
                 - name: FORCE_REFRESH
