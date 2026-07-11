@@ -28,6 +28,25 @@ Follow the existing layout under `kubernetes/apps/<namespace>/<app>/`:
 
 Secrets come exclusively from OpenBao via `ExternalSecret` (`secretStoreRef` → `openbao` / `ClusterSecretStore`, `engineVersion: v2`). OpenBao field naming is PascalCase double-underscore: `App__Category__Field` (e.g. `Frigate__Mqtt__User`). Never commit secret values.
 
+## Flux image automation (first-party Drone images)
+
+Auto-updating a Gitea-hosted image tag needs an `ImageRepository` + `ImagePolicy`
++ `ImageUpdateAutomation` set under `kubernetes/apps/flux-system/<app>/app/`, plus
+a `$imagepolicy` marker on the image line. Two rules that are easy to get wrong
+and fail silently (a bad marker suffix caused a 14h `kia-collector` outage):
+
+- **Marker suffix matches the node.** Combined `image: repo:tag` scalar → **no**
+  `:tag` suffix (`{"$imagepolicy": "flux-system:<app>"}`). Dedicated `tag:`
+  subfield → **`:tag`** suffix. A `:tag` marker on a combined scalar overwrites it
+  with the bare tag → `ImagePullBackOff`.
+- **One automation per app, `update.path` scoped to that app's dir.** `Setters`
+  rewrites every marker under the path, so a `./kubernetes` (whole-repo) scan
+  silently drives other apps' images.
+
+Full pattern, gotchas (incl. ImagePullBackOff not tripping job-failure alerts, and
+Grafana `${...}` vs postBuild envsubst) and diagnosis commands:
+**`docs/runbooks/flux-image-automation.md`**.
+
 ## Validating changes
 
 Run `lefthook run pre-commit` before committing. For a broader local diff against the cluster:

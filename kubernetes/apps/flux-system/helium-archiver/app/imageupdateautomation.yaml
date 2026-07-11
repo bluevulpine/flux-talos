@@ -3,7 +3,7 @@
 apiVersion: image.toolkit.fluxcd.io/v1
 kind: ImageUpdateAutomation
 metadata:
-  name: &app bluevulpine-blog
+  name: &app helium-archiver
 spec:
   interval: 30m
   sourceRef:
@@ -22,9 +22,5 @@ spec:
     push:
       branch: main
   update:
-    # Scope to this app only. A whole-repo (./kubernetes) scan with Setters
-    # rewrites EVERY $imagepolicy marker in the tree, silently driving other
-    # apps' images (this is what mangled kia-collector's marker). One
-    # automation per app keeps ownership explicit.
-    path: ./kubernetes/apps/default/bluevulpine-blog
+    path: ./kubernetes/apps/home/helium-archiver
     strategy: Setters

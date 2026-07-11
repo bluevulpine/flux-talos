@@ -6,3 +6,4 @@ namespace: flux-system
 resources:
   - ./imagerepository.yaml
   - ./imagepolicy.yaml
+  - ./imageupdateautomation.yaml
