@@ -1,0 +1,26 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/image.toolkit.fluxcd.io/imageupdateautomation_v1beta2.json
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageUpdateAutomation
+metadata:
+  name: &app kia-collector
+spec:
+  interval: 30m
+  sourceRef:
+    kind: GitRepository
+    name: flux-talos-ssh
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        name: Flux
+        email: flux@derekjacobs.dev
+      messageTemplate: |
+        chore(images): update {{ range .Changed.Changes }}{{ println .NewValue }}{{ end }}
+    push:
+      branch: main
+  update:
+    path: ./kubernetes/apps/home/kia-collector
+    strategy: Setters
