@@ -1,0 +1,30 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kia-collector
+spec:
+  groups:
+    - name: kia-collector.rules
+      rules:
+        # Fires when any kia-collector job is in a failed state. Covers every
+        # failure mode: OpenBao/InfluxDB errors, missing session token, and —
+        # most importantly — Kia rmtoken expiry (collector exits 3). Routes to
+        # Pushover via the default Alertmanager receiver.
+        #
+        # Note: a failed Job lingers in the CronJob history (failedJobsHistoryLimit),
+        # so this stays firing until the failed Job ages out or is deleted — even
+        # after a later run succeeds. That's intentional: a failure is worth a look.
+        - alert: KiaCollectorJobFailed
+          annotations:
+            summary: >-
+              Kia collector job {{ $labels.job_name }} failed — vehicle telemetry
+              is stale. Check `kubectl logs -n home job/{{ $labels.job_name }}`.
+              If the rmtoken expired (exit 3), re-run setup.py to re-authenticate
+              with OTP.
+          expr: |
+            kube_job_status_failed{namespace="home", job_name=~"kia-collector.*"} > 0
+          for: 15m
+          labels:
+            severity: critical

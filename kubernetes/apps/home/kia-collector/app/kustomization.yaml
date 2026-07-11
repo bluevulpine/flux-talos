@@ -4,4 +4,6 @@ kind: Kustomization
 resources:
   - configmap.yaml
   - externalsecret.yaml
+  - serviceaccount.yaml
   - cronjob.yaml
+  - prometheusrule.yaml
