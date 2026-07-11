@@ -26,8 +26,9 @@ spec:
               type: RuntimeDefault
           containers:
             - name: collector
-              # renovate: datasource=docker depName=gitea.derekjacobs.dev/bluevulpine/kia-collector
-              image: gitea.derekjacobs.dev/bluevulpine/kia-collector:latest
+              # Pinned by digest (Gitea's :latest tag is immutable and frozen on an
+              # old build; SHA tags push fine). Bump via Flux image automation or manually.
+              image: gitea.derekjacobs.dev/bluevulpine/kia-collector@sha256:d54b782dabdb772f0ccdb4bf3d5f8c0ee93c0c83429fabd075ea83ee2fdea09c
               imagePullPolicy: Always
               envFrom:
                 - configMapRef:
@@ -81,8 +82,9 @@ spec:
               type: RuntimeDefault
           containers:
             - name: collector
-              # renovate: datasource=docker depName=gitea.derekjacobs.dev/bluevulpine/kia-collector
-              image: gitea.derekjacobs.dev/bluevulpine/kia-collector:latest
+              # Pinned by digest (Gitea's :latest tag is immutable and frozen on an
+              # old build; SHA tags push fine). Bump via Flux image automation or manually.
+              image: gitea.derekjacobs.dev/bluevulpine/kia-collector@sha256:d54b782dabdb772f0ccdb4bf3d5f8c0ee93c0c83429fabd075ea83ee2fdea09c
               imagePullPolicy: Always
               env:
                 - name: FORCE_REFRESH
