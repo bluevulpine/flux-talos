@@ -1,0 +1,724 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Kia EV9 \u2014 Vehicle Telemetry",
+  "uid": "kia-ev9-telemetry",
+  "tags": [
+    "kia",
+    "ev9",
+    "vehicle"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "templating": {
+    "list": [
+      {
+        "name": "vin",
+        "label": "Vehicle (VIN)",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "influxdb-kia"
+        },
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"kia-vehicle\", tag: \"vin\")",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "gauge",
+      "title": "Battery %",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-kia"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 20
+              },
+              {
+                "color": "green",
+                "value": 50
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-kia"
+          },
+          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_ev\" and r._field == \"battery_pct\")\n  |> filter(fn: (r) => r.vin =~ /^${vin:regex}$/)\n  |> last()"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Range",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-kia"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "lengthmi",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-kia"
+          },
+          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_ev\" and r._field == \"range_mi\")\n  |> filter(fn: (r) => r.vin =~ /^${vin:regex}$/)\n  |> last()"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Odometer",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-kia"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "lengthmi",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-kia"
+          },
+          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_vehicle\" and r._field == \"odometer_mi\")\n  |> filter(fn: (r) => r.vin =~ /^${vin:regex}$/)\n  |> last()"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "12V Aux Battery",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-kia"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 40
+              },
+              {
+                "color": "green",
+                "value": 70
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-kia"
+          },
+          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_vehicle\" and r._field == \"aux_battery_pct\")\n  |> filter(fn: (r) => r.vin =~ /^${vin:regex}$/)\n  |> last()"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Charging",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-kia"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Idle",
+                  "color": "text"
+                },
+                "1": {
+                  "text": "Charging",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-kia"
+          },
+          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_ev\" and r._field == \"is_charging\")\n  |> filter(fn: (r) => r.vin =~ /^${vin:regex}$/)\n  |> last()"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Data Age (since Kia refresh)",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-kia"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 7200
+              },
+              {
+                "color": "red",
+                "value": 21600
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-kia"
+          },
+          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_vehicle\" and r._field == \"data_age_s\")\n  |> filter(fn: (r) => r.vin =~ /^${vin:regex}$/)\n  |> last()"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Battery % over time",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-kia"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-kia"
+          },
+          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_ev\" and r._field == \"battery_pct\")\n  |> filter(fn: (r) => r.vin =~ /^${vin:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> group(columns: [\"name\", \"vin\"])"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Charging power (kW)",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-kia"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "fillOpacity": 20,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-kia"
+          },
+          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_ev\" and r._field == \"charging_power_kw\")\n  |> filter(fn: (r) => r.vin =~ /^${vin:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> group(columns: [\"name\", \"vin\"])"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Range (mi) over time",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-kia"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "lengthmi",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-kia"
+          },
+          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_ev\" and r._field == \"range_mi\")\n  |> filter(fn: (r) => r.vin =~ /^${vin:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> group(columns: [\"name\", \"vin\"])"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Cabin & outside temp (\u00b0F)",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-kia"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 5,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-kia"
+          },
+          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_climate\" and (r._field == \"cabin_temp_f\" or r._field == \"outside_temp_f\"))\n  |> filter(fn: (r) => r.vin =~ /^${vin:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"_field\", \"vin\"])"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "state-timeline",
+      "title": "Security & closures (locked / doors / hood / trunk)",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-kia"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 21
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 80
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "no",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "YES",
+                  "color": "red"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-kia"
+          },
+          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_vehicle\" and (r._field == \"hood_open\" or r._field == \"trunk_open\" or r._field == \"door_open_fl\" or r._field == \"door_open_fr\" or r._field == \"door_open_rl\" or r._field == \"door_open_rr\"))\n  |> filter(fn: (r) => r.vin =~ /^${vin:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "geomap",
+      "title": "Last known location",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-kia"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 21
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "view": {
+          "id": "coords",
+          "lat": 40,
+          "lon": -95,
+          "zoom": 4
+        },
+        "controls": {
+          "showZoom": true,
+          "showAttribution": true
+        },
+        "basemap": {
+          "type": "default",
+          "name": "Basemap"
+        },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Vehicle",
+            "location": {
+              "mode": "coords",
+              "latitude": "lat",
+              "longitude": "lon"
+            },
+            "config": {
+              "showLegend": false,
+              "style": {
+                "color": {
+                  "fixed": "red"
+                },
+                "size": {
+                  "fixed": 8
+                }
+              }
+            }
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-kia"
+          },
+          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_location\" and (r._field == \"lat\" or r._field == \"lon\"))\n  |> filter(fn: (r) => r.vin =~ /^${vin:regex}$/)\n  |> last()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> keep(columns: [\"_time\", \"name\", \"vin\", \"lat\", \"lon\"])"
+        }
+      ]
+    }
+  ]
+}

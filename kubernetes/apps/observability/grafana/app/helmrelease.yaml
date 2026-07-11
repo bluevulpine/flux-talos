@@ -142,10 +142,10 @@ spec:
       datasources.yaml:
         apiVersion: 1
         deleteDatasources:
-          - { name: Alertmanager, orgId: 1 }
-          - { name: Loki, orgId: 1 }
-          - { name: Prometheus, orgId: 1 }
-          - { name: VictoriaLogs, orgId: 1 }
+          - {name: Alertmanager, orgId: 1}
+          - {name: Loki, orgId: 1}
+          - {name: Prometheus, orgId: 1}
+          - {name: VictoriaLogs, orgId: 1}
         datasources:
           - name: Prometheus
             type: prometheus
@@ -168,6 +168,19 @@ spec:
             url: http://alertmanager-operated.observability.svc.cluster.local:9093
             jsonData:
               implementation: prometheus
+          - name: InfluxDB-Kia
+            type: influxdb
+            uid: influxdb-kia
+            access: proxy
+            url: http://influxdb.database.svc.cluster.local:8086
+            jsonData:
+              version: Flux
+              organization: homelab
+              defaultBucket: kia-vehicle
+            # Read-only, bucket-scoped token — provisioned via grafana-secret env
+            # (INFLUXDB_KIA_TOKEN <- OpenBao grafana/Grafana__InfluxdbKiaToken).
+            secureJsonData:
+              token: $INFLUXDB_KIA_TOKEN
     dashboards:
       default:
         blocky:
@@ -175,13 +188,13 @@ spec:
           gnetId: 13768
           revision: 8
           datasource:
-            - { name: DS_PROMETHEUS, value: Prometheus }
-            - { name: VAR_BLOCKY_URL, value: 'http:\/\/192.168.254.9:4000' }
+            - {name: DS_PROMETHEUS, value: Prometheus}
+            - {name: VAR_BLOCKY_URL, value: 'http:\/\/192.168.254.9:4000'}
         cloudflared:
           gnetId: 17457 # https://grafana.com/grafana/dashboards/17457?tab=revisions
           revision: 6
           datasource:
-            - { name: DS_PROMETHEUS, value: Prometheus }
+            - {name: DS_PROMETHEUS, value: Prometheus}
         external-dns:
           gnetId: 15038 # https://grafana.com/grafana/dashboards/15038?tab=revisions
           revision: 1
@@ -191,7 +204,7 @@ spec:
           gnetId: 13502
           revision: 26
           datasource:
-            - { name: DS_PROMETHEUS, value: Prometheus }
+            - {name: DS_PROMETHEUS, value: Prometheus}
         node-exporter-full:
           # renovate: depName="Node Exporter Full"
           gnetId: 1860
@@ -202,13 +215,13 @@ spec:
           gnetId: 18089
           revision: 1
           datasource:
-            - { name: DS_PROMETHEUS, value: Prometheus }
+            - {name: DS_PROMETHEUS, value: Prometheus}
         unpackerr:
           # renovate: depName="Unpackerr"
           gnetId: 18817
           revision: 1
           datasource:
-            - { name: DS_PROMETHEUS, value: Prometheus }
+            - {name: DS_PROMETHEUS, value: Prometheus}
         zfs:
           # renovate: depName="ZFS"
           gnetId: 7845

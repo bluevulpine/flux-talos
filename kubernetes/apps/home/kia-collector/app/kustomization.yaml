@@ -7,3 +7,12 @@ resources:
   - serviceaccount.yaml
   - cronjob.yaml
   - prometheusrule.yaml
+# Grafana dashboard, provisioned via the sidecar (label grafana_dashboard=1).
+configMapGenerator:
+  - name: kia-collector-dashboard
+    files:
+      - dashboard.json
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    grafana_dashboard: "1"
