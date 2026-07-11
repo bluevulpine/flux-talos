@@ -11,7 +11,7 @@ resources:
 configMapGenerator:
   - name: kia-collector-dashboard
     files:
-      - dashboard.json
+      - kia-ev9-dashboard.json
 generatorOptions:
   disableNameSuffixHash: true
   labels:
