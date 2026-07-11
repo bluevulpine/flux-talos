@@ -1,4 +1,3 @@
----
 # Hourly cached-state poll — uses server-side cached data, does not wake the car.
 apiVersion: batch/v1
 kind: CronJob
@@ -27,7 +26,7 @@ spec:
           containers:
             - name: collector
               # Tag auto-updated by Flux image automation (ImagePolicy flux-system:kia-collector).
-              image: gitea.derekjacobs.dev/bluevulpine/kia-collector:6-ad58c5df # {"$imagepolicy": "flux-system:kia-collector:tag"}
+              image: 6-ad58c5df # {"$imagepolicy": "flux-system:kia-collector:tag"}
               imagePullPolicy: Always
               envFrom:
                 - configMapRef:
@@ -82,7 +81,7 @@ spec:
           containers:
             - name: collector
               # Tag auto-updated by Flux image automation (ImagePolicy flux-system:kia-collector).
-              image: gitea.derekjacobs.dev/bluevulpine/kia-collector:6-ad58c5df # {"$imagepolicy": "flux-system:kia-collector:tag"}
+              image: 6-ad58c5df # {"$imagepolicy": "flux-system:kia-collector:tag"}
               imagePullPolicy: Always
               env:
                 - name: FORCE_REFRESH
