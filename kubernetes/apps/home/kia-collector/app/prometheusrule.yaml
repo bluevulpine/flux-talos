@@ -21,10 +21,43 @@ spec:
             summary: >-
               Kia collector job {{ $labels.job_name }} failed — vehicle telemetry
               is stale. Check `kubectl logs -n home job/{{ $labels.job_name }}`.
-              If the rmtoken expired (exit 3), re-run setup.py to re-authenticate
-              with OTP.
+              If the session/rmtoken expired (exit 3), re-run setup.py to
+              re-authenticate with OTP. The collector auto-clears the stale
+              token, so setup.py is all that's needed.
           expr: |
             kube_job_status_failed{namespace="home", job_name=~"kia-collector.*"} > 0
+          for: 15m
+          labels:
+            severity: critical
+
+        # A CronJob whose image can't be pulled never RUNS, so it never marks the
+        # Job "failed" (kube_job_status_failed stays 0) — KiaCollectorJobFailed
+        # would miss it. This catches the pod stuck waiting to pull, which is
+        # exactly how a broken image tag manifests.
+        - alert: KiaCollectorImagePullFailing
+          annotations:
+            summary: >-
+              Kia collector pod {{ $labels.pod }} can't pull its image
+              ({{ $labels.reason }}) — the collector isn't running. Check the
+              image ref in the CronJob and the Flux image automation.
+          expr: |
+            kube_pod_container_status_waiting_reason{namespace="home", pod=~"kia-collector.*", reason=~"ImagePullBackOff|ErrImagePull|InvalidImageName"} > 0
+          for: 15m
+          labels:
+            severity: critical
+
+        # Catch-all for silent staleness: if the hourly cached poll hasn't had a
+        # successful run in 3h (3 missed cycles), telemetry is stale regardless of
+        # whether any single Job is in a "failed" state. Covers stuck/blocked jobs
+        # and ImagePullBackOff that never trips the per-job alert.
+        - alert: KiaCollectorStale
+          annotations:
+            summary: >-
+              Kia collector has not had a successful run in over 3h — vehicle
+              telemetry is stale. Check `kubectl get jobs -n home | grep kia`
+              and recent pod logs.
+          expr: |
+            time() - max(kube_cronjob_status_last_successful_time{namespace="home", cronjob="kia-collector-cached"}) > 10800
           for: 15m
           labels:
             severity: critical
