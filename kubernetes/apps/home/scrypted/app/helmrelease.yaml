@@ -80,9 +80,16 @@ spec:
             resources:
               requests:
                 cpu: 200m
-                memory: 512Mi
+                memory: 1Gi
+              # Each HKSV camera spawns its own ffmpeg (record + stream) and
+              # Scrypted forks plugins into separate node processes ("RpcPeer").
+              # At a 2Gi cap the container peaked ~1.7Gi and the cgroup OOM-killer
+              # reaped ffmpeg/plugin children (logs: "RpcPeer has been killed",
+              # "streaming session killed ... ffmpeg exited") without restarting
+              # PID 1 — so cameras silently failed to load in HomeKit. The brokkr
+              # nodes have ~47Gi free, so give it generous headroom.
               limits:
-                memory: 2Gi
+                memory: 8Gi
     defaultPodOptions:
       securityContext:
         runAsNonRoot: false
