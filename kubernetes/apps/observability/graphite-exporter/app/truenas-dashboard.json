@@ -8,7 +8,7 @@
   "uid": "truenas-vault",
   "tags": ["truenas", "vault", "storage"],
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "templating": { "list": [] },
   "panels": [
     {
@@ -90,6 +90,78 @@
       "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "topk(10, services_mem{job=\"truenas\"})", "legendFormat": "{{service}}" } ]
+    },
+    {
+      "id": 11, "type": "gauge", "title": "RAM used",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 32 },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 80 }, { "color": "red", "value": 92 } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdMarkers": true },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "100 * (1 - physical_memory{job=\"truenas\",kind=\"available\"} / physical_memory{job=\"truenas\",kind=\"total\"})", "legendFormat": "used %" } ]
+    },
+    {
+      "id": 12, "type": "timeseries", "title": "Memory (total vs available)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 32 },
+      "fieldConfig": { "defaults": { "unit": "decbytes", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "physical_memory{job=\"truenas\"}", "legendFormat": "{{kind}}" } ]
+    },
+    {
+      "id": 13, "type": "timeseries", "title": "Disk throughput (per drive)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 40 },
+      "fieldConfig": { "defaults": { "unit": "KiBs", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 5, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "disk_bytes{job=\"truenas\",op=~\"reads|writes\"}", "legendFormat": "{{disk}} {{op}}" } ]
+    },
+    {
+      "id": 14, "type": "timeseries", "title": "Disk busy %",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 40 },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 5, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "disk_bytes{job=\"truenas\",op=\"busy\"}", "legendFormat": "{{disk}}" } ]
+    },
+    {
+      "id": 15, "type": "stat", "title": "UPS load",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 5, "x": 0, "y": 49 },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 70 }, { "color": "red", "value": 90 } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "value" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "ups{job=\"truenas\",metric=\"load\"}", "legendFormat": "load" } ]
+    },
+    {
+      "id": 16, "type": "gauge", "title": "UPS battery charge",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 5, "x": 5, "y": 49 },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "orange", "value": 50 }, { "color": "green", "value": 90 } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdMarkers": true },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "ups{job=\"truenas\",metric=\"charge\"}", "legendFormat": "charge" } ]
+    },
+    {
+      "id": 17, "type": "stat", "title": "UPS runtime",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 5, "x": 10, "y": 49 },
+      "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "none", "graphMode": "none", "textMode": "value" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "ups{job=\"truenas\",metric=\"runtime\"}", "legendFormat": "runtime" } ]
+    },
+    {
+      "id": 18, "type": "stat", "title": "UPS battery voltage",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 15, "y": 49 },
+      "fieldConfig": { "defaults": { "unit": "volt", "color": { "mode": "fixed", "fixedColor": "purple" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "none", "graphMode": "none", "textMode": "value" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "ups{job=\"truenas\",metric=\"battery_voltage\",dim=\"voltage\"}", "legendFormat": "battery V" } ]
+    },
+    {
+      "id": 19, "type": "stat", "title": "UPS temp",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 5, "x": 19, "y": 49 },
+      "fieldConfig": { "defaults": { "unit": "celsius", "color": { "mode": "fixed", "fixedColor": "orange" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "none", "graphMode": "none", "textMode": "value" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "ups{job=\"truenas\",metric=\"temp\"}", "legendFormat": "temp" } ]
     }
   ]
 }

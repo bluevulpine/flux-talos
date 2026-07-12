@@ -378,7 +378,7 @@ data:
         # battery_voltage.{high,low,nominal,voltage} into one series
         # (duplicate metric -> graphite_exporter panic/crashloop).
         dim: "$${4}"
-    - match: 'truenas\.(.*)\.system\.clock_sync\.(.*)\.(.*)'
+    - match: 'truenas\.(.*)\.system.clock_sync\.(.*)\.(.*)'
       match_type: "regex"
       name: "clock_sync"
       labels:
