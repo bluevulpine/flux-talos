@@ -1,4 +1,3 @@
----
 # Cached-state poll every 10 min — uses server-side cached data, does not wake
 # the car (no 12V drain). ~145-290 Kia calls/day; well under EU-style caps and
 # the community-recommended USA interval. Freshness is bounded by how often the
@@ -35,7 +34,7 @@ spec:
               # Full ref auto-updated by Flux image automation (ImagePolicy flux-system:kia-collector).
               # NOTE: no ":tag" suffix on the marker — this is a combined image:repo:tag scalar,
               # so Flux must write the whole ref. ":tag" would overwrite the scalar with the bare tag.
-              image: gitea.derekjacobs.dev/bluevulpine/kia-collector:8-44155b75 # {"$imagepolicy": "flux-system:kia-collector"}
+              image: gitea.derekjacobs.dev/bluevulpine/kia-collector:9-25d82476 # {"$imagepolicy": "flux-system:kia-collector"}
               imagePullPolicy: Always
               envFrom:
                 - configMapRef:
@@ -94,7 +93,7 @@ spec:
               # Full ref auto-updated by Flux image automation (ImagePolicy flux-system:kia-collector).
               # NOTE: no ":tag" suffix on the marker — this is a combined image:repo:tag scalar,
               # so Flux must write the whole ref. ":tag" would overwrite the scalar with the bare tag.
-              image: gitea.derekjacobs.dev/bluevulpine/kia-collector:8-44155b75 # {"$imagepolicy": "flux-system:kia-collector"}
+              image: gitea.derekjacobs.dev/bluevulpine/kia-collector:9-25d82476 # {"$imagepolicy": "flux-system:kia-collector"}
               imagePullPolicy: Always
               env:
                 - name: FORCE_REFRESH
