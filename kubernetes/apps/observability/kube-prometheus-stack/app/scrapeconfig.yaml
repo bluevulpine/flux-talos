@@ -6,9 +6,19 @@ metadata:
   name: &name node-exporter
 spec:
   staticConfigs:
+    # Scrape by tailscale IP, not MagicDNS name: cluster CoreDNS can't resolve
+    # *.ts.net ("no such host"). Per Tailscale docs + Talos lessons, the operator
+    # DNSConfig only resolves operator-managed proxies (not plain tailnet nodes),
+    # and 100.100.100.100 isn't reachable from Talos pods — so static tailnet IPs
+    # are the sanctioned workaround. Routing to the 100.x tailnet already works.
     - targets:
-        - pinas.flyingfox-decibel.ts.net:9100
-        - chronos.flyingfox-decibel.ts.net:9100
+        - 100.104.24.17:9100 # chronos
+      labels:
+        instance: chronos
+    - targets:
+        - 100.114.176.10:9100 # pinas (offline; will go green when back up)
+      labels:
+        instance: pinas
   metricsPath: /metrics
   relabelings:
     - action: replace
@@ -22,7 +32,8 @@ metadata:
   name: &name gatus
 spec:
   staticConfigs:
-    - targets: ["status.derekjacobs.dev"]
+    - targets:
+        - "status.derekjacobs.dev"
   metricsPath: /metrics
   relabelings:
     - action: replace
@@ -36,7 +47,8 @@ metadata:
   name: &name smtp-relay
 spec:
   staticConfigs:
-    - targets: ["${SVC_SMTP_RELAY_ADDR}:8080"]
+    - targets:
+        - "${SVC_SMTP_RELAY_ADDR}:8080"
   metricsPath: /metrics
   relabelings:
     - action: replace
