@@ -1,0 +1,95 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "time": { "from": "now-6h", "to": "now" },
+  "timezone": "browser",
+  "title": "TrueNAS (vault)",
+  "uid": "truenas-vault",
+  "tags": ["truenas", "vault", "storage"],
+  "schemaVersion": 39,
+  "version": 1,
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Uptime",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "none", "graphMode": "none", "textMode": "value" },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "uptime{job=\"truenas\"}", "legendFormat": "uptime" } ]
+    },
+    {
+      "id": 2, "type": "gauge", "title": "Load (1m)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 8 }, { "color": "red", "value": 16 } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdMarkers": true },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "system_load{job=\"truenas\",kind=\"load1\"}", "legendFormat": "load1" } ]
+    },
+    {
+      "id": 3, "type": "timeseries", "title": "System load",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 10, "x": 4, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "system_load{job=\"truenas\"}", "legendFormat": "{{kind}}" } ]
+    },
+    {
+      "id": 4, "type": "timeseries", "title": "CPU temperature (per core)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 10, "x": 14, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "celsius", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 5, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "cpu_temperature{job=\"truenas\",cpu!=\"cpu\"}", "legendFormat": "{{cpu}}" } ]
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Network — per interface",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "Bps", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "interface_io{job=\"truenas\"}", "legendFormat": "{{interface}} {{op}}" } ]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Network — system total",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "Bps", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 15, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "system_net_io{job=\"truenas\"}", "legendFormat": "{{op}}" } ]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "NFS I/O",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "nfs_io{job=\"truenas\"}", "legendFormat": "{{op}}" } ]
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "ZFS ARC stats",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 5, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "truenas_arcstats{job=\"truenas\"}", "legendFormat": "{{type}} {{subtype}}" } ]
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Top services — CPU",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "fieldConfig": { "defaults": { "unit": "percent", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "topk(10, services_cpu{job=\"truenas\"})", "legendFormat": "{{service}}" } ]
+    },
+    {
+      "id": 10, "type": "timeseries", "title": "Top services — memory",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "topk(10, services_mem{job=\"truenas\"})", "legendFormat": "{{service}}" } ]
+    }
+  ]
+}

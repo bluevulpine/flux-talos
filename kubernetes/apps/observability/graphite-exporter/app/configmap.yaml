@@ -4,7 +4,7 @@ kind: ConfigMap
 metadata:
   name: graphite-exporter-mapping
 data:
-  graphite_mapping.conf: |
+  graphite_mapping.conf: |-
     mappings:
     ################################################
     # memory mapping
@@ -138,7 +138,8 @@ data:
       labels:
         job: "truenas"
         instance: "$${1}"
-        cpu: "cpu$${2}"
+        # $${2} already captures e.g. "cpu0"/"cpu" — don't re-prefix "cpu"
+        cpu: "$${2}"
     - match: 'truenas\.(.*)\.cpu\.cpufreq\.(.*)'
       match_type: "regex"
       name: "cpu_frequency"

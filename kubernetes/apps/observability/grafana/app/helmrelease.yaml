@@ -183,13 +183,6 @@ spec:
               token: $INFLUXDB_KIA_TOKEN
     dashboards:
       default:
-        blocky:
-          # renovate: depName="blocky"
-          gnetId: 13768
-          revision: 8
-          datasource:
-            - {name: DS_PROMETHEUS, value: Prometheus}
-            - {name: VAR_BLOCKY_URL, value: 'http:\/\/192.168.254.9:4000'}
         cloudflared:
           gnetId: 17457 # https://grafana.com/grafana/dashboards/17457?tab=revisions
           revision: 6

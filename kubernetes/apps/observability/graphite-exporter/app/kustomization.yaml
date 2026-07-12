@@ -6,4 +6,13 @@ resources:
   - ./ocirepository.yaml
   - ./helmrelease.yaml
   - ./configmap.yaml
+# TrueNAS/vault Grafana dashboard, provisioned via the sidecar.
+configMapGenerator:
+  - name: truenas-dashboard
+    files:
+      - truenas-dashboard.json
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    grafana_dashboard: "1"
 
