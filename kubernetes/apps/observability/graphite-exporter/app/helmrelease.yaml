@@ -57,7 +57,7 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: {drop: ["ALL"]}
             resources:
               requests:
                 cpu: 10m
@@ -98,6 +98,9 @@ spec:
             scheme: http
             path: /metrics
             interval: 30s
+            # The exporter's mapping embeds job="truenas"/instance="vault";
+            # honorLabels keeps them instead of renaming to exported_job/instance.
+            honorLabels: true
     persistence:
       config:
         type: configMap

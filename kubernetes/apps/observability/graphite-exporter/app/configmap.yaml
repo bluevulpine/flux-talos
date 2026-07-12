@@ -323,4 +323,62 @@ data:
         job: "truenas"
         instance: "$${1}"
         service: "$${2}"
+    ################################################
+    # TrueNAS-specific chart names — netdata on SCALE
+    # emits these instead of the standard netdata IDs
+    # (system.ram / disk.* / etc.), so they need their
+    # own rules or they land as raw truenas_vault_* series.
+    ################################################
+    - match: 'truenas\.(.*)\.truenas_meminfo\.(.*)\.(.*)'
+      match_type: "regex"
+      name: "physical_memory"
+      labels:
+        job: "truenas"
+        instance: "$${1}"
+        kind: "$${2}"
+    - match: 'truenas\.(.*)\.truenas_cpu_usage\.cpu\.(.*)'
+      match_type: "regex"
+      name: "cpu_usage_percent"
+      labels:
+        job: "truenas"
+        instance: "$${1}"
+        cpu: "$${2}"
+    - match: 'truenas\.(.*)\.truenas_disk_stats_busy\.(.*)\.busy'
+      match_type: "regex"
+      name: "disk_busy_percent"
+      labels:
+        job: "truenas"
+        instance: "$${1}"
+        disk: "$${2}"
+    - match: 'truenas\.(.*)\.truenas_disk_stats_ops\.(.*)\.(.*)'
+      match_type: "regex"
+      name: "disk_iops"
+      labels:
+        job: "truenas"
+        instance: "$${1}"
+        disk: "$${2}"
+        op: "$${3}"
+    - match: 'truenas\.(.*)\.truenas_disk_stats\.(.*)\.(.*)'
+      match_type: "regex"
+      name: "disk_bytes"
+      labels:
+        job: "truenas"
+        instance: "$${1}"
+        disk: "$${2}"
+        op: "$${3}"
+    - match: 'truenas\.(.*)\.nut_(.*)\.(.*)\.(.*)'
+      match_type: "regex"
+      name: "ups"
+      labels:
+        job: "truenas"
+        instance: "$${1}"
+        ups: "$${2}"
+        metric: "$${3}"
+    - match: 'truenas\.(.*)\.system\.clock_sync\.(.*)\.(.*)'
+      match_type: "regex"
+      name: "clock_sync"
+      labels:
+        job: "truenas"
+        instance: "$${1}"
+        kind: "$${2}"
 
