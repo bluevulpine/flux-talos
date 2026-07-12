@@ -56,7 +56,10 @@ spec:
         enabled: true
         name: Authentik
         icon: signin
-        scopes: openid profile email groups
+        # offline_access is REQUIRED for use_refresh_token to work — without it
+        # Authentik issues no refresh token, so Grafana bounces back through SSO
+        # every time the access token expires (~every minute).
+        scopes: openid profile email groups offline_access
         empty_scopes: false
         allow_sign_up: true
         auto_login: false
