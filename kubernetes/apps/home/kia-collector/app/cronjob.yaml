@@ -8,9 +8,6 @@ metadata:
   name: kia-collector-cached
 spec:
   schedule: "*/10 * * * *"
-  # Suspended 2026-07-12 while debugging the "Missing payload in response"
-  # session failure — stops per-run alert noise + API pressure. Remove to resume.
-  suspend: true
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 5
@@ -68,8 +65,6 @@ metadata:
   name: kia-collector-force
 spec:
   schedule: "30 12 * * *"
-  # Suspended 2026-07-12 alongside the cached job (same broken session).
-  suspend: true
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 5
