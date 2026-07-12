@@ -97,7 +97,7 @@
       "gridPos": { "h": 8, "w": 6, "x": 0, "y": 32 },
       "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 80 }, { "color": "red", "value": 92 } ] } }, "overrides": [] },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdMarkers": true },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "100 * (1 - physical_memory{job=\"truenas\",kind=\"available\"} / physical_memory{job=\"truenas\",kind=\"total\"})", "legendFormat": "used %" } ]
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "100 * (1 - physical_memory{job=\"truenas\",kind=\"available\"} / ignoring(kind) physical_memory{job=\"truenas\",kind=\"total\"})", "legendFormat": "used %" } ]
     },
     {
       "id": 12, "type": "timeseries", "title": "Memory (total vs available)",
