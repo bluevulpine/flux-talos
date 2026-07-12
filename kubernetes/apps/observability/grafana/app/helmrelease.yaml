@@ -192,12 +192,6 @@ spec:
           gnetId: 15038 # https://grafana.com/grafana/dashboards/15038?tab=revisions
           revision: 1
           datasource: Prometheus
-        minio:
-          # renovate: depName="MinIO Dashboard"
-          gnetId: 13502
-          revision: 26
-          datasource:
-            - {name: DS_PROMETHEUS, value: Prometheus}
         node-exporter-full:
           # renovate: depName="Node Exporter Full"
           gnetId: 1860
@@ -215,11 +209,6 @@ spec:
           revision: 1
           datasource:
             - {name: DS_PROMETHEUS, value: Prometheus}
-        zfs:
-          # renovate: depName="ZFS"
-          gnetId: 7845
-          revision: 4
-          datasource: Prometheus
         cert-manager:
           url: https://raw.githubusercontent.com/monitoring-mixins/website/master/assets/cert-manager/dashboards/overview.json
           datasource: Prometheus
@@ -231,9 +220,6 @@ spec:
           datasource: Prometheus
         node-feature-discovery:
           url: https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/examples/grafana-dashboard.json
-          datasource: Prometheus
-        miniflux:
-          url: https://raw.githubusercontent.com/miniflux/v2/main/contrib/grafana/dashboard.json
           datasource: Prometheus
 
       flux:
