@@ -21,6 +21,11 @@ spec:
       ports:
         - port: 6379
           protocol: TCP
+        # Prometheus scrapes the dragonfly admin/metrics port (PodMonitor
+        # targets the "admin" port). Without this the scrape to :9999 is
+        # dropped -> TargetDown for all dragonfly pods.
+        - port: 9999
+          protocol: TCP
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/networking.k8s.io/networkpolicy_v1.json
 apiVersion: networking.k8s.io/v1
