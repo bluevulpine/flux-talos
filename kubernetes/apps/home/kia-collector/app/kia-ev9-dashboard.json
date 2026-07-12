@@ -649,7 +649,7 @@
             "type": "influxdb",
             "uid": "influxdb-kia"
           },
-          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_vehicle\" and (r._field == \"hood_open\" or r._field == \"trunk_open\" or r._field == \"door_open_fl\" or r._field == \"door_open_fr\" or r._field == \"door_open_rl\" or r._field == \"door_open_rr\"))\n  |> filter(fn: (r) => r.vin =~ /^$${vin:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> drop(columns: [\"_measurement\", \"model\", \"name\", \"vin\", \"force_refresh\"])"
+          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_vehicle\" and (r._field == \"hood_open\" or r._field == \"trunk_open\" or r._field == \"door_open_fl\" or r._field == \"door_open_fr\" or r._field == \"door_open_rl\" or r._field == \"door_open_rr\"))\n  |> filter(fn: (r) => r.vin =~ /^$${vin:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_field\", \"_value\"])\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")"
         }
       ]
     },
