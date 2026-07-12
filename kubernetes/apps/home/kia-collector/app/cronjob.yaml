@@ -1,10 +1,14 @@
-# Hourly cached-state poll — uses server-side cached data, does not wake the car.
+---
+# Cached-state poll every 10 min — uses server-side cached data, does not wake
+# the car (no 12V drain). ~145-290 Kia calls/day; well under EU-style caps and
+# the community-recommended USA interval. Freshness is bounded by how often the
+# car itself reports (drive/charge events), so cached rarely changes faster.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: kia-collector-cached
 spec:
-  schedule: "0 * * * *"
+  schedule: "*/10 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 5
