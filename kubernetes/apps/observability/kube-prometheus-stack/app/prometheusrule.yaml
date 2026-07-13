@@ -74,3 +74,29 @@ spec:
           for: 20m
           labels:
             severity: warning
+    - name: garage
+      rules:
+        # Garage (S3 on vault) is the backup destination for volsync "local" jobs
+        # and CloudNativePG/Postgres barman backups. If it's down or full, those
+        # backups fail silently — hence critical.
+        - alert: GarageDown
+          annotations:
+            summary: Garage (S3 on vault) is unreachable — volsync-local and Postgres/CNPG backups cannot write.
+          expr: up{job="garage"} == 0
+          for: 5m
+          labels:
+            severity: critical
+        - alert: GarageDataVolumeFilling
+          annotations:
+            summary: Garage data volume is {{ $value | humanizePercentage }} full on {{ $labels.instance }} — backups will start failing soon.
+          expr: 1 - (garage_local_disk_avail{volume="data"} / garage_local_disk_total{volume="data"}) > 0.85
+          for: 15m
+          labels:
+            severity: warning
+        - alert: GarageDataVolumeCritical
+          annotations:
+            summary: Garage data volume is {{ $value | humanizePercentage }} full on {{ $labels.instance }} — backup writes about to fail.
+          expr: 1 - (garage_local_disk_avail{volume="data"} / garage_local_disk_total{volume="data"}) > 0.95
+          for: 5m
+          labels:
+            severity: critical
