@@ -1,0 +1,73 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chargepoint-collector
+  labels:
+    app.kubernetes.io/name: chargepoint-collector
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # two pollers would race the session watermark
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: chargepoint-collector
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: chargepoint-collector
+    spec:
+      serviceAccountName: chargepoint-collector
+      automountServiceAccountToken: true # OpenBao Kubernetes auth needs the SA token
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: collector
+          # Full ref auto-updated by Flux image automation (ImagePolicy flux-system:chargepoint-collector).
+          # NOTE: no ":tag" suffix on the marker — this is a combined image:repo:tag scalar,
+          # so Flux must write the whole ref. ":tag" would overwrite the scalar with the bare tag.
+          image: gitea.derekjacobs.dev/bluevulpine/chargepoint-collector:1-00000000 # {"$imagepolicy": "flux-system:chargepoint-collector"}
+          imagePullPolicy: Always
+          ports:
+            - name: healthz
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: chargepoint-collector-config
+            - secretRef:
+                name: chargepoint-collector-secret
+          volumeMounts:
+            - name: schedule
+              mountPath: /config
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp # HOME=/tmp with readOnlyRootFilesystem needs a writable tmpfs
+          resources:
+            requests: {cpu: 25m, memory: 64Mi}
+            limits: {cpu: 200m, memory: 256Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          livenessProbe:
+            httpGet: {path: /healthz, port: healthz}
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            failureThreshold: 3
+          startupProbe:
+            httpGet: {path: /healthz, port: healthz}
+            failureThreshold: 12
+            periodSeconds: 10
+      volumes:
+        - name: schedule
+          configMap:
+            name: chargepoint-collector-schedule
+        - name: tmp
+          emptyDir: {}
