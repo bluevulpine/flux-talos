@@ -26,8 +26,10 @@ spec:
     remediation:
       retries: 3
   values:
-    # Emit a ServiceMonitor for NFD master metrics (port 8081) so Prometheus scrapes
-    # them — Prometheus here selects ServiceMonitors cluster-wide.
+    # Scrape NFD metrics: this key makes the chart emit a *PodMonitor* (not a
+    # ServiceMonitor — NFD 0.16+ dropped the master Service for the NodeFeature CRD
+    # API) selecting the NFD pods' `http` port /metrics. Prometheus here selects
+    # Pod/ServiceMonitors cluster-wide.
     prometheus:
       enable: true
     master:

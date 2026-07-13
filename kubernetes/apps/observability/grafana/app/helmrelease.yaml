@@ -223,7 +223,11 @@ spec:
           datasource: Prometheus
         node-feature-discovery:
           url: https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/examples/grafana-dashboard.json
-          datasource: Prometheus
+          # This dashboard uses a ${DS_PROMETHEUS} input variable — it needs the
+          # list form (like cloudflared/spegel/unpackerr) to bind it; the bare
+          # `datasource: Prometheus` string form leaves it unresolved ("not found").
+          datasource:
+            - {name: DS_PROMETHEUS, value: Prometheus,}
 
       flux:
         flux-cluster:
