@@ -1,12 +1,19 @@
 {
   "uid": "ha-presence",
   "title": "Home Assistant — Presence & Security",
-  "tags": ["home-assistant", "presence", "security"],
+  "tags": [
+    "home-assistant",
+    "presence",
+    "security"
+  ],
   "timezone": "browser",
   "schemaVersion": 39,
   "editable": true,
   "refresh": "1m",
-  "time": {"from": "now-12h", "to": "now"},
+  "time": {
+    "from": "now-12h",
+    "to": "now"
+  },
   "templating": {
     "list": [
       {
@@ -14,31 +21,161 @@
         "label": "Domain",
         "type": "custom",
         "query": "binary_sensor,cover,lock,device_tracker,person",
-        "includeAll": false, "multi": false,
-        "current": {"text": "binary_sensor", "value": "binary_sensor"}
+        "includeAll": false,
+        "multi": false,
+        "current": {
+          "text": "binary_sensor",
+          "value": "binary_sensor"
+        }
       },
       {
         "name": "entity",
         "label": "Entity",
         "type": "query",
-        "datasource": {"type": "influxdb", "uid": "influxdb-ha"},
+        "datasource": {
+          "type": "influxdb",
+          "uid": "influxdb-ha"
+        },
         "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"homeassistant\", tag: \"entity_id\", predicate: (r) => r.domain == \"$${domain}\", start: -7d)",
-        "refresh": 2, "includeAll": true, "allValue": ".*", "multi": true,
-        "current": {"text": "All", "value": "$$__all"}, "sort": 1
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$$__all"
+        },
+        "sort": 1
       }
     ]
   },
-  "annotations": {"list": []},
+  "annotations": {
+    "list": []
+  },
   "panels": [
-    {"type": "state-timeline", "title": "$$domain state (open/on = active)", "gridPos": {"h": 12, "w": 24, "x": 0, "y": 0},
-      "datasource": {"type": "influxdb", "uid": "influxdb-ha"},
-      "targets": [{"refId": "A", "datasource": {"type": "influxdb", "uid": "influxdb-ha"}, "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.domain == \"$${domain}\" and r.entity_id =~ /^$${entity:regex}$/ and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> group(columns: [\"friendly_name\"])"}],
-      "fieldConfig": {"defaults": {"custom": {"fillOpacity": 80, "lineWidth": 0}, "mappings": [{"type": "value", "options": {"0": {"text": "closed / off", "color": "green"}, "1": {"text": "OPEN / on", "color": "red"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
-      "options": {"showValue": "never", "mergeValues": true, "rowHeight": 0.9, "legend": {"displayMode": "list", "placement": "bottom", "showLegend": false}}},
-    {"type": "table", "title": "Current state", "gridPos": {"h": 10, "w": 24, "x": 0, "y": 12},
-      "datasource": {"type": "influxdb", "uid": "influxdb-ha"},
-      "targets": [{"refId": "A", "datasource": {"type": "influxdb", "uid": "influxdb-ha"}, "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.domain == \"$${domain}\" and r.entity_id =~ /^$${entity:regex}$/ and r._field == \"value\")\n  |> last()\n  |> group()\n  |> keep(columns: [\"friendly_name\", \"_value\"])\n  |> rename(columns: {friendly_name: \"entity\", _value: \"state\"})\n  |> sort(columns: [\"entity\"])"}],
-      "fieldConfig": {"defaults": {"custom": {"align": "auto"}, "mappings": [{"type": "value", "options": {"0": {"text": "closed / off", "color": "green"}, "1": {"text": "OPEN / on", "color": "red"}}}]}, "overrides": []},
-      "options": {"showHeader": true, "cellHeight": "sm"}}
+    {
+      "type": "state-timeline",
+      "title": "$$domain state (open/on = active)",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-ha"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-ha"
+          },
+          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.domain == \"$${domain}\" and r.entity_id =~ /^$${entity:regex}$/ and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> group(columns: [\"friendly_name\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "closed / off",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "OPEN / on",
+                  "color": "red"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "rowHeight": 0.9,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        }
+      },
+      "id": 1
+    },
+    {
+      "type": "table",
+      "title": "Current state",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-ha"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-ha"
+          },
+          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.domain == \"$${domain}\" and r.entity_id =~ /^$${entity:regex}$/ and r._field == \"value\")\n  |> last()\n  |> group()\n  |> keep(columns: [\"friendly_name\", \"_value\"])\n  |> rename(columns: {friendly_name: \"entity\", _value: \"state\"})\n  |> sort(columns: [\"entity\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "closed / off",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "OPEN / on",
+                  "color": "red"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "id": 2
+    }
   ]
 }

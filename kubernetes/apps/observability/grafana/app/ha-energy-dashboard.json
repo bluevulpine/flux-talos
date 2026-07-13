@@ -1,61 +1,393 @@
 {
   "uid": "ha-energy",
   "title": "Home Assistant — Energy & Power",
-  "tags": ["home-assistant", "energy", "power"],
+  "tags": [
+    "home-assistant",
+    "energy",
+    "power"
+  ],
   "timezone": "browser",
   "schemaVersion": 39,
   "editable": true,
   "refresh": "1m",
-  "time": {"from": "now-24h", "to": "now"},
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
   "templating": {
     "list": [
       {
         "name": "circuit",
         "label": "Circuit",
         "type": "query",
-        "datasource": {"type": "influxdb", "uid": "influxdb-ha"},
+        "datasource": {
+          "type": "influxdb",
+          "uid": "influxdb-ha"
+        },
         "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"homeassistant\", tag: \"entity_id\", predicate: (r) => r._measurement == \"W\", start: -7d)",
-        "refresh": 2, "includeAll": true, "allValue": ".*", "multi": true,
-        "current": {"text": "All", "value": "$$__all"}, "sort": 1
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$$__all"
+        },
+        "sort": 1
       }
     ]
   },
-  "annotations": {"list": []},
+  "annotations": {
+    "list": []
+  },
   "panels": [
-    {"type": "stat", "title": "Grid demand (Eagle-200)", "gridPos": {"h": 4, "w": 5, "x": 0, "y": 0},
-      "datasource": {"type": "influxdb", "uid": "influxdb-ha"},
-      "targets": [{"refId": "A", "datasource": {"type": "influxdb", "uid": "influxdb-ha"}, "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kW\" and r._field == \"value\")\n  |> last()"}],
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "value", "graphMode": "area", "textMode": "value"},
-      "fieldConfig": {"defaults": {"unit": "kwatt", "decimals": 2, "color": {"mode": "fixed", "fixedColor": "orange"}}, "overrides": []}},
-    {"type": "stat", "title": "Solar now", "gridPos": {"h": 4, "w": 5, "x": 5, "y": 0},
-      "datasource": {"type": "influxdb", "uid": "influxdb-ha"},
-      "targets": [{"refId": "A", "datasource": {"type": "influxdb", "uid": "influxdb-ha"}, "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"W\" and r.entity_id == \"power_production_now1\" and r._field == \"value\")\n  |> last()"}],
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "value", "graphMode": "area", "textMode": "value"},
-      "fieldConfig": {"defaults": {"unit": "watt", "color": {"mode": "fixed", "fixedColor": "yellow"}}, "overrides": []}},
-    {"type": "stat", "title": "Grid carbon", "gridPos": {"h": 4, "w": 5, "x": 10, "y": 0},
-      "datasource": {"type": "influxdb", "uid": "influxdb-ha"},
-      "targets": [{"refId": "A", "datasource": {"type": "influxdb", "uid": "influxdb-ha"}, "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"gCO2eq/kWh\" and r._field == \"value\")\n  |> last()"}],
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "value", "graphMode": "none", "textMode": "value"},
-      "fieldConfig": {"defaults": {"unit": "none", "decimals": 0, "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 300}, {"color": "red", "value": 500}]}}, "overrides": []}},
-    {"type": "stat", "title": "Net energy today", "gridPos": {"h": 4, "w": 9, "x": 15, "y": 0},
-      "datasource": {"type": "influxdb", "uid": "influxdb-ha"},
-      "targets": [{"refId": "A", "datasource": {"type": "influxdb", "uid": "influxdb-ha"}, "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kWh\" and r.entity_id == \"balance_energy_today1\" and r._field == \"value\")\n  |> last()"}],
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "value", "graphMode": "area", "textMode": "value"},
-      "fieldConfig": {"defaults": {"unit": "kwatth", "decimals": 1, "color": {"mode": "fixed", "fixedColor": "blue"}}, "overrides": []}},
-    {"type": "timeseries", "title": "Grid demand over time", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
-      "datasource": {"type": "influxdb", "uid": "influxdb-ha"},
-      "targets": [{"refId": "A", "datasource": {"type": "influxdb", "uid": "influxdb-ha"}, "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kW\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"friendly_name\"])"}],
-      "fieldConfig": {"defaults": {"unit": "kwatt", "custom": {"drawStyle": "line", "fillOpacity": 15, "lineWidth": 1}}, "overrides": []},
-      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}}},
-    {"type": "timeseries", "title": "Solar production", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
-      "datasource": {"type": "influxdb", "uid": "influxdb-ha"},
-      "targets": [{"refId": "A", "datasource": {"type": "influxdb", "uid": "influxdb-ha"}, "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"W\" and r.entity_id =~ /power_production_now/ and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"friendly_name\"])"}],
-      "fieldConfig": {"defaults": {"unit": "watt", "custom": {"drawStyle": "line", "fillOpacity": 25, "lineWidth": 1}, "color": {"mode": "fixed", "fixedColor": "yellow"}}, "overrides": []},
-      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}}},
-    {"type": "timeseries", "title": "Power by circuit — $$circuit", "gridPos": {"h": 10, "w": 24, "x": 0, "y": 12},
-      "datasource": {"type": "influxdb", "uid": "influxdb-ha"},
-      "targets": [{"refId": "A", "datasource": {"type": "influxdb", "uid": "influxdb-ha"}, "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"W\" and r.entity_id =~ /^$${circuit:regex}$/ and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"friendly_name\"])"}],
-      "fieldConfig": {"defaults": {"unit": "watt", "custom": {"drawStyle": "line", "fillOpacity": 8, "lineWidth": 1, "showPoints": "never"}}, "overrides": []},
-      "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["last", "mean", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}}}
+    {
+      "type": "stat",
+      "title": "Grid demand (Eagle-200)",
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-ha"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-ha"
+          },
+          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kW\" and r._field == \"value\")\n  |> last()"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        },
+        "overrides": []
+      },
+      "id": 1
+    },
+    {
+      "type": "stat",
+      "title": "Solar now",
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 5,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-ha"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-ha"
+          },
+          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"W\" and r.entity_id == \"power_production_now1\" and r._field == \"value\")\n  |> last()"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "yellow"
+          }
+        },
+        "overrides": []
+      },
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "Grid carbon",
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 10,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-ha"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-ha"
+          },
+          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"gCO2eq/kWh\" and r._field == \"value\")\n  |> last()"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 300
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "Net energy today",
+      "gridPos": {
+        "h": 4,
+        "w": 9,
+        "x": 15,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-ha"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-ha"
+          },
+          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kWh\" and r.entity_id == \"balance_energy_today1\" and r._field == \"value\")\n  |> last()"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "id": 4
+    },
+    {
+      "type": "timeseries",
+      "title": "Grid demand over time",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-ha"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-ha"
+          },
+          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kW\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"friendly_name\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "lineWidth": 1
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "id": 5
+    },
+    {
+      "type": "timeseries",
+      "title": "Solar production",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-ha"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-ha"
+          },
+          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"W\" and r.entity_id =~ /power_production_now/ and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"friendly_name\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 25,
+            "lineWidth": 1
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "yellow"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "id": 6
+    },
+    {
+      "type": "timeseries",
+      "title": "Power by circuit — $$circuit",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-ha"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-ha"
+          },
+          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"W\" and r.entity_id =~ /^$${circuit:regex}$/ and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"friendly_name\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "lineWidth": 1,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "calcs": [
+            "last",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7
+    }
   ]
 }
