@@ -42,8 +42,6 @@ spec:
               # Default any group without an explicit type to LogsQL (vlogs).
               - --rule.defaultRuleType=vlogs
               - --httpListenAddr=:8880
-              # External URL used in alert annotations/links back to vmalert UI.
-              - --external.url=https://vmalert.derekjacobs.dev
             probes:
               liveness:
                 enabled: true

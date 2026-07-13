@@ -26,6 +26,10 @@ spec:
     remediation:
       retries: 3
   values:
+    # Emit a ServiceMonitor for NFD master metrics (port 8081) so Prometheus scrapes
+    # them — Prometheus here selects ServiceMonitors cluster-wide.
+    prometheus:
+      enable: true
     master:
       livenessProbe:
         initialDelaySeconds: 60

@@ -61,6 +61,15 @@ spec:
         ports:
           http:
             port: 5656
+    serviceMonitor:
+      app:
+        serviceName: unpackerr
+        endpoints:
+          # UN_WEBSERVER_METRICS=true exposes Prometheus metrics at /metrics on 5656.
+          - port: http
+            scheme: http
+            path: /metrics
+            interval: 1m
     persistence:
       logs:
         type: emptyDir
