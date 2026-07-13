@@ -18,15 +18,20 @@ data:
             # only every ~8h, so a short window would flap between attempts). The
             # alert stays firing until a full day passes with no failures — i.e.
             # after the underlying cause (usually an expired credential) is fixed.
+            # `extract` pulls the repo slug out of the log line so `stats by (repo)`
+            # yields one alert per failing repo (label `repo`) — naming exactly
+            # which mirror is broken instead of a single aggregate count.
             expr: >-
               _time:1d app:gitea "SyncMirrors" "failed to update mirror repository"
-              | stats count() as failures | filter failures:>0
+              | extract "Repository <repo_id>:<repo>>]"
+              | stats by (repo) count() as failures | filter failures:>0
             labels:
               severity: warning
             annotations:
-              summary: Gitea repository mirror sync is failing
+              summary: 'Gitea mirror sync failing: {{ $labels.repo }}'
               description: >-
-                {{ $value }} Gitea mirror sync failure(s) in the last 24h. A repo
-                mirror can't pull from upstream — most often an expired credential
-                (e.g. a GitHub PAT). View in Grafana → Explore → VictoriaLogs:
-                app:gitea "[E]" "SyncMirrors"
+                {{ $labels.repo }} — {{ $value }} mirror sync failure(s) in the last
+                24h. This mirror can't pull from upstream — most often an expired
+                credential (e.g. a GitHub PAT). Fix: Gitea → this repo → Settings →
+                Mirror Settings → update the upstream credential. Logs: Grafana →
+                Explore → VictoriaLogs: app:gitea "[E]" "SyncMirrors"
