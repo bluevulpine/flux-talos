@@ -1,0 +1,32 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vmalert-rules
+data:
+  rules.yaml: |-
+    groups:
+      # Log-based alerting over VictoriaLogs (type: vlogs). Gitea does not surface
+      # mirror-sync failures via the UI or a Prometheus metric; the only signal is
+      # its stdout log line, collected by fluent-bit into VictoriaLogs.
+      - name: gitea
+        type: vlogs
+        interval: 15m
+        rules:
+          - alert: GiteaMirrorSyncFailing
+            # _time:1d widens the query to a rolling 24h window (mirror sync runs
+            # only every ~8h, so a short window would flap between attempts). The
+            # alert stays firing until a full day passes with no failures — i.e.
+            # after the underlying cause (usually an expired credential) is fixed.
+            expr: >-
+              _time:1d app:gitea "SyncMirrors" "failed to update mirror repository"
+              | stats count() as failures | filter failures:>0
+            labels:
+              severity: warning
+            annotations:
+              summary: Gitea repository mirror sync is failing
+              description: >-
+                {{ $value }} Gitea mirror sync failure(s) in the last 24h. A repo
+                mirror can't pull from upstream — most often an expired credential
+                (e.g. a GitHub PAT). View in Grafana → Explore → VictoriaLogs:
+                app:gitea "[E]" "SyncMirrors"

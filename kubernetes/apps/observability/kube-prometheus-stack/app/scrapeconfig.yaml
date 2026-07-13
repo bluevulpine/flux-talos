@@ -29,6 +29,25 @@ spec:
 apiVersion: monitoring.coreos.com/v1alpha1
 kind: ScrapeConfig
 metadata:
+  name: &name garage
+spec:
+  staticConfigs:
+    # Garage admin API on TrueNAS (vault, 10.0.10.11). /metrics is unauthenticated
+    # because no [admin] metrics_token is set in garage.toml — so no bearer needed.
+    - targets:
+        - 10.0.10.11:30190
+      labels:
+        instance: garage
+  metricsPath: /metrics
+  relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: *name
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
   name: &name gatus
 spec:
   staticConfigs:

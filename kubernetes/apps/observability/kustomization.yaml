@@ -18,6 +18,8 @@ resources:
   - ./kube-prometheus-stack/ks.yaml
   - ./smartctl-exporter/ks.yaml
   # - ./snmp-exporter/ks.yaml
+  - ./storj-exporter/ks.yaml
   - ./thanos/ks.yaml
   - ./unpoller/ks.yaml
   - ./victoria-logs/ks.yaml
+  - ./vmalert/ks.yaml

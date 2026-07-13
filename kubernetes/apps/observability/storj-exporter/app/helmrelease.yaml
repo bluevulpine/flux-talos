@@ -1,0 +1,89 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2beta2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app storj-exporter
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: storj-exporter
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  dependsOn:
+    - name: kube-prometheus-stack
+      namespace: observability
+  values:
+    controllers:
+      storj-exporter:
+        type: deployment
+        replicas: 1
+        containers:
+          app:
+            image:
+              repository: docker.io/anclrii/storj-exporter
+              tag: "2.1.3"
+            env:
+              # Storj storagenode dashboard/API on TrueNAS (vault, 10.0.10.11:14002).
+              STORJ_HOST: 10.0.10.11
+              STORJ_API_PORT: "14002"
+              STORJ_EXPORTER_HOST: 0.0.0.0
+              STORJ_EXPORTER_PORT: "9651"
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 9651
+                  initialDelaySeconds: 10
+                  periodSeconds: 30
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 9651
+                  initialDelaySeconds: 5
+                  periodSeconds: 15
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                memory: 128Mi
+        pod:
+          securityContext:
+            runAsUser: 65534
+            runAsGroup: 65534
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+    service:
+      app:
+        controller: storj-exporter
+        ports:
+          http:
+            port: 9651
+            protocol: TCP
+    serviceMonitor:
+      app:
+        serviceName: storj-exporter
+        endpoints:
+          - port: http
+            scheme: http
+            path: /metrics
+            interval: 60s
