@@ -1,0 +1,118 @@
+{
+  "uid": "envoy-gateway",
+  "title": "Envoy Gateway",
+  "tags": ["envoy", "gateway-api", "network"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "editable": true,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "templating": {
+    "list": [
+      {
+        "name": "gateway",
+        "label": "Gateway",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "query": "label_values(envoy_server_live, gateway)",
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {"text": "All", "value": "$__all"}
+      }
+    ]
+  },
+  "annotations": {"list": []},
+  "panels": [
+    {
+      "type": "stat", "title": "Live proxies", "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum(envoy_server_live{gateway=~\"$gateway\"})", "instant": true}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "textMode": "value", "colorMode": "value", "graphMode": "none"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []}
+    },
+    {
+      "type": "stat", "title": "Min uptime", "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "min(envoy_server_uptime{gateway=~\"$gateway\"})", "instant": true}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "textMode": "value", "colorMode": "none", "graphMode": "none"},
+      "fieldConfig": {"defaults": {"unit": "s", "color": {"mode": "fixed", "fixedColor": "text"}}, "overrides": []}
+    },
+    {
+      "type": "stat", "title": "Memory allocated", "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum(envoy_server_memory_allocated{gateway=~\"$gateway\"})", "instant": true}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "textMode": "value", "colorMode": "none", "graphMode": "none"},
+      "fieldConfig": {"defaults": {"unit": "bytes", "color": {"mode": "fixed", "fixedColor": "text"}}, "overrides": []}
+    },
+    {
+      "type": "stat", "title": "Requests/s", "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum(rate(envoy_cluster_upstream_rq_completed{gateway=~\"$gateway\"}[$__rate_interval]))", "instant": true}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "textMode": "value", "colorMode": "value", "graphMode": "area"},
+      "fieldConfig": {"defaults": {"unit": "reqps", "decimals": 1, "color": {"mode": "fixed", "fixedColor": "blue"}}, "overrides": []}
+    },
+    {
+      "type": "gauge", "title": "5xx error ratio", "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum(rate(envoy_cluster_upstream_rq_xx{gateway=~\"$gateway\",envoy_response_code_class=\"5\"}[$__rate_interval])) / clamp_min(sum(rate(envoy_cluster_upstream_rq_completed{gateway=~\"$gateway\"}[$__rate_interval])), 0.001)", "instant": true}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "showThresholdMarkers": true},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.01}, {"color": "red", "value": 0.05}]}}, "overrides": []}
+    },
+    {
+      "type": "stat", "title": "Active upstream conns", "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum(envoy_cluster_upstream_cx_active{gateway=~\"$gateway\"})", "instant": true}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "textMode": "value", "colorMode": "none", "graphMode": "area"},
+      "fieldConfig": {"defaults": {"unit": "short", "color": {"mode": "fixed", "fixedColor": "text"}}, "overrides": []}
+    },
+    {
+      "type": "timeseries", "title": "Upstream requests by response class", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum(rate(envoy_cluster_upstream_rq_xx{gateway=~\"$gateway\"}[$__rate_interval])) by (envoy_response_code_class)", "legendFormat": "{{envoy_response_code_class}}xx"}],
+      "fieldConfig": {"defaults": {"unit": "reqps", "custom": {"drawStyle": "line", "fillOpacity": 20, "lineWidth": 1, "stacking": {"mode": "normal"}}}, "overrides": [
+        {"matcher": {"id": "byName", "options": "5xx"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]},
+        {"matcher": {"id": "byName", "options": "4xx"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]},
+        {"matcher": {"id": "byName", "options": "2xx"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]}
+      ]},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "type": "timeseries", "title": "Upstream latency (p50 / p90 / p99)", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.50, sum(rate(envoy_cluster_upstream_rq_time_bucket{gateway=~\"$gateway\"}[$__rate_interval])) by (le))", "legendFormat": "p50"},
+        {"refId": "B", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.90, sum(rate(envoy_cluster_upstream_rq_time_bucket{gateway=~\"$gateway\"}[$__rate_interval])) by (le))", "legendFormat": "p90"},
+        {"refId": "C", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.99, sum(rate(envoy_cluster_upstream_rq_time_bucket{gateway=~\"$gateway\"}[$__rate_interval])) by (le))", "legendFormat": "p99"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ms", "custom": {"drawStyle": "line", "fillOpacity": 5, "lineWidth": 2}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "timeseries", "title": "Top routes by request rate", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "topk(10, sum(rate(envoy_cluster_upstream_rq_completed{gateway=~\"$gateway\"}[$__rate_interval])) by (envoy_cluster_name))", "legendFormat": "{{envoy_cluster_name}}"}],
+      "fieldConfig": {"defaults": {"unit": "reqps", "custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 1}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["mean", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "type": "timeseries", "title": "Active upstream connections by gateway", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum(envoy_cluster_upstream_cx_active{gateway=~\"$gateway\"}) by (gateway)", "legendFormat": "{{gateway}}"}],
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 2}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "table", "title": "Requests by route & response class (selected range)", "gridPos": {"h": 9, "w": 24, "x": 0, "y": 20},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum(increase(envoy_cluster_upstream_rq_xx{gateway=~\"$gateway\"}[$__range])) by (envoy_cluster_name, envoy_response_code_class)", "instant": true, "format": "table"}],
+      "transformations": [
+        {"id": "labelsToFields", "options": {"mode": "columns", "keepLabels": ["envoy_cluster_name", "envoy_response_code_class"]}},
+        {"id": "groupBy", "options": {"fields": {"Value": {"aggregations": ["sum"], "operation": "aggregate"}, "envoy_cluster_name": {"aggregations": [], "operation": "groupby"}, "envoy_response_code_class": {"aggregations": [], "operation": "groupby"}}}}
+      ],
+      "fieldConfig": {"defaults": {"custom": {"align": "auto"}, "decimals": 0}, "overrides": []},
+      "options": {"showHeader": true, "sortBy": [{"displayName": "Value (sum)", "desc": true}]}
+    }
+  ]
+}

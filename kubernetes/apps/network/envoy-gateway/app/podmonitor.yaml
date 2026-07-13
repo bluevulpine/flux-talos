@@ -1,0 +1,29 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/podmonitor_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: envoy-gateway
+spec:
+  # Scrape the Envoy Gateway data-plane proxy pods (external + internal gateways).
+  selector:
+    matchLabels:
+      app.kubernetes.io/managed-by: envoy-gateway
+      app.kubernetes.io/component: proxy
+  podMetricsEndpoints:
+    - port: metrics # containerPort 19001
+      path: /stats/prometheus
+      interval: 60s
+      relabelings:
+        # Surface which Gateway (external/internal) each proxy serves.
+        - sourceLabels:
+            - "__meta_kubernetes_pod_label_gateway_envoyproxy_io_owning_gateway_name"
+          targetLabel: gateway
+      metricRelabelings:
+        # Envoy exports thousands of stats per proxy; keep only the families the
+        # dashboard needs to avoid a cardinality explosion in Prometheus/Thanos.
+        - sourceLabels:
+            - "__name__"
+          regex: >-
+            envoy_(cluster_upstream_rq_xx|cluster_upstream_rq_completed|cluster_upstream_rq_time_(bucket|sum|count)|cluster_upstream_cx_(active|total)|cluster_membership_(healthy|total)|http_downstream_rq_xx|http_downstream_rq_total|http_downstream_cx_active|listener_downstream_cx_active|server_(live|uptime|memory_allocated|memory_heap_size))
+          action: keep
