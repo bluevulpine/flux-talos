@@ -8,3 +8,12 @@ resources:
   - ./ocirepository.yaml
 components:
   - ../../../../components/externalsecret-refresh
+# Home Assistant (InfluxDB) dashboards, provisioned via the Grafana sidecar.
+configMapGenerator:
+  - name: ha-dashboards
+    files:
+      - ha-explorer-dashboard.json
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    grafana_dashboard: "1"
