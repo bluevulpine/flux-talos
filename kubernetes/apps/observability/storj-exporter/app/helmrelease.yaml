@@ -32,9 +32,11 @@ spec:
               tag: "2.1.3"
             env:
               # Storj storagenode dashboard/API on TrueNAS (vault, 10.0.10.11:14002).
-              STORJ_HOST: 10.0.10.11
+              # NB: the var is STORJ_HOST_ADDRESS (default "storagenode") — not
+              # STORJ_HOST, which the exporter ignores, falling back to a name
+              # that doesn't resolve in-cluster.
+              STORJ_HOST_ADDRESS: 10.0.10.11
               STORJ_API_PORT: "14002"
-              STORJ_EXPORTER_HOST: 0.0.0.0
               STORJ_EXPORTER_PORT: "9651"
             probes:
               liveness:
