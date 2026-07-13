@@ -14,15 +14,16 @@ data:
         interval: 15m
         rules:
           - alert: GiteaMirrorSyncFailing
-            # _time:1d widens the query to a rolling 24h window (mirror sync runs
-            # only every ~8h, so a short window would flap between attempts). The
-            # alert stays firing until a full day passes with no failures — i.e.
-            # after the underlying cause (usually an expired credential) is fixed.
+            # _time:1h = a rolling 1h window. Mirrors sync roughly every ~10 min, so
+            # 1h spans ~6 attempts: sticky enough not to flap between syncs, but the
+            # alert auto-resolves within ~1h of a fix (once the last failure ages out
+            # of the window) rather than dragging on for a full day. If you ever set
+            # mirrors to a much longer interval, widen this to stay above it.
             # `extract` pulls the repo slug out of the log line so `stats by (repo)`
             # yields one alert per failing repo (label `repo`) — naming exactly
             # which mirror is broken instead of a single aggregate count.
             expr: >-
-              _time:1d app:gitea "SyncMirrors" "failed to update mirror repository"
+              _time:1h app:gitea "SyncMirrors" "failed to update mirror repository"
               | extract "Repository <repo_id>:<repo>>]"
               | stats by (repo) count() as failures | filter failures:>0
             labels:
@@ -31,7 +32,7 @@ data:
               summary: 'Gitea mirror sync failing: {{ $labels.repo }}'
               description: >-
                 {{ $labels.repo }} — {{ $value }} mirror sync failure(s) in the last
-                24h. This mirror can't pull from upstream — most often an expired
+                hour. This mirror can't pull from upstream — most often an expired
                 credential (e.g. a GitHub PAT). Fix: Gitea → this repo → Settings →
                 Mirror Settings → update the upstream credential. Logs: Grafana →
                 Explore → VictoriaLogs: app:gitea "[E]" "SyncMirrors"
