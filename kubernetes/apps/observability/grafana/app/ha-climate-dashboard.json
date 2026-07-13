@@ -1,0 +1,46 @@
+{
+  "uid": "ha-climate",
+  "title": "Home Assistant — Climate",
+  "tags": ["home-assistant", "climate"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "editable": true,
+  "refresh": "1m",
+  "time": {"from": "now-24h", "to": "now"},
+  "templating": {
+    "list": [
+      {
+        "name": "temp",
+        "label": "Temp sensor",
+        "type": "query",
+        "datasource": {"type": "influxdb", "uid": "influxdb-ha"},
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"homeassistant\", tag: \"entity_id\", predicate: (r) => r._measurement == \"°F\", start: -7d)",
+        "refresh": 2, "includeAll": true, "allValue": ".*", "multi": true,
+        "current": {"text": "All", "value": "$$__all"}, "sort": 1
+      }
+    ]
+  },
+  "annotations": {"list": []},
+  "panels": [
+    {"type": "timeseries", "title": "Temperatures (°F) — $$temp", "gridPos": {"h": 10, "w": 16, "x": 0, "y": 0},
+      "datasource": {"type": "influxdb", "uid": "influxdb-ha"},
+      "targets": [{"refId": "A", "datasource": {"type": "influxdb", "uid": "influxdb-ha"}, "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"°F\" and r.entity_id =~ /^$${temp:regex}$/ and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"friendly_name\"])"}],
+      "fieldConfig": {"defaults": {"unit": "fahrenheit", "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 5, "showPoints": "never", "lineWidth": 1}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["last", "min", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}}},
+    {"type": "table", "title": "Current temps", "gridPos": {"h": 10, "w": 8, "x": 16, "y": 0},
+      "datasource": {"type": "influxdb", "uid": "influxdb-ha"},
+      "targets": [{"refId": "A", "datasource": {"type": "influxdb", "uid": "influxdb-ha"}, "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"°F\" and r.entity_id =~ /^$${temp:regex}$/ and r._field == \"value\")\n  |> last()\n  |> group()\n  |> keep(columns: [\"friendly_name\", \"_value\"])\n  |> rename(columns: {friendly_name: \"sensor\", _value: \"°F\"})\n  |> sort(columns: [\"sensor\"])"}],
+      "fieldConfig": {"defaults": {"custom": {"align": "auto"}, "decimals": 1}, "overrides": []},
+      "options": {"showHeader": true}},
+    {"type": "timeseries", "title": "Humidity (%)", "gridPos": {"h": 9, "w": 12, "x": 0, "y": 10},
+      "datasource": {"type": "influxdb", "uid": "influxdb-ha"},
+      "targets": [{"refId": "A", "datasource": {"type": "influxdb", "uid": "influxdb-ha"}, "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"%\" and r.entity_id =~ /humid/ and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"friendly_name\"])"}],
+      "fieldConfig": {"defaults": {"unit": "humidity", "min": 0, "max": 100, "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 5, "showPoints": "never", "lineWidth": 1}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}}},
+    {"type": "timeseries", "title": "Barometric pressure", "gridPos": {"h": 9, "w": 12, "x": 12, "y": 10},
+      "datasource": {"type": "influxdb", "uid": "influxdb-ha"},
+      "targets": [{"refId": "A", "datasource": {"type": "influxdb", "uid": "influxdb-ha"}, "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"inHg\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"friendly_name\"])"}],
+      "fieldConfig": {"defaults": {"unit": "pressureinhg", "custom": {"drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 5, "showPoints": "never", "lineWidth": 1}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}}}
+  ]
+}

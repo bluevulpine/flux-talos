@@ -13,6 +13,10 @@ configMapGenerator:
   - name: ha-dashboards
     files:
       - ha-explorer-dashboard.json
+      - ha-energy-dashboard.json
+      - ha-climate-dashboard.json
+      - ha-environment-dashboard.json
+      - ha-presence-dashboard.json
 generatorOptions:
   disableNameSuffixHash: true
   labels:
