@@ -289,7 +289,7 @@
             "type": "influxdb",
             "uid": "influxdb-ha"
           },
-          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => (r._measurement == \"W/m²\" or r._measurement == \"lx\") and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"_measurement\", \"friendly_name\"])"
+          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => (r._measurement == \"W/m²\" or r._measurement == \"lx\") and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"_measurement\", \"friendly_name\"])\n  |> drop(columns: [\"_start\", \"_stop\"])"
         }
       ],
       "fieldConfig": {
@@ -343,7 +343,7 @@
             "type": "influxdb",
             "uid": "influxdb-ha"
           },
-          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mph\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"friendly_name\"])"
+          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"mph\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"friendly_name\"])\n  |> drop(columns: [\"_start\", \"_stop\"])"
         }
       ],
       "fieldConfig": {
@@ -390,7 +390,7 @@
             "type": "influxdb",
             "uid": "influxdb-ha"
           },
-          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"L/min\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> group(columns: [\"friendly_name\"])"
+          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"L/min\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> group(columns: [\"friendly_name\"])\n  |> drop(columns: [\"_start\", \"_stop\"])"
         }
       ],
       "fieldConfig": {

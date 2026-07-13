@@ -78,7 +78,7 @@
             "type": "influxdb",
             "uid": "influxdb-ha"
           },
-          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.domain == \"$${domain}\" and r.entity_id =~ /^$${entity:regex}$/ and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"entity_id\", \"friendly_name\"])"
+          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.domain == \"$${domain}\" and r.entity_id =~ /^$${entity:regex}$/ and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"entity_id\", \"friendly_name\"])\n  |> drop(columns: [\"_start\", \"_stop\"])"
         }
       ],
       "fieldConfig": {

@@ -9,7 +9,7 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "Kia EV9 \u2014 Vehicle Telemetry",
+  "title": "Kia EV9 — Vehicle Telemetry",
   "uid": "kia-ev9-telemetry",
   "tags": [
     "kia",
@@ -442,7 +442,7 @@
             "type": "influxdb",
             "uid": "influxdb-kia"
           },
-          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_ev\" and r._field == \"battery_pct\")\n  |> filter(fn: (r) => r.vin =~ /^$${vin:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> group(columns: [\"name\", \"vin\"])"
+          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_ev\" and r._field == \"battery_pct\")\n  |> filter(fn: (r) => r.vin =~ /^$${vin:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> group(columns: [\"name\", \"vin\"])\n  |> drop(columns: [\"_start\", \"_stop\"])"
         }
       ]
     },
@@ -489,7 +489,7 @@
             "type": "influxdb",
             "uid": "influxdb-kia"
           },
-          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_ev\" and r._field == \"charging_power_kw\")\n  |> filter(fn: (r) => r.vin =~ /^$${vin:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> group(columns: [\"name\", \"vin\"])"
+          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_ev\" and r._field == \"charging_power_kw\")\n  |> filter(fn: (r) => r.vin =~ /^$${vin:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> group(columns: [\"name\", \"vin\"])\n  |> drop(columns: [\"_start\", \"_stop\"])"
         }
       ]
     },
@@ -536,14 +536,14 @@
             "type": "influxdb",
             "uid": "influxdb-kia"
           },
-          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_ev\" and r._field == \"range_mi\")\n  |> filter(fn: (r) => r.vin =~ /^$${vin:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> group(columns: [\"name\", \"vin\"])"
+          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_ev\" and r._field == \"range_mi\")\n  |> filter(fn: (r) => r.vin =~ /^$${vin:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> group(columns: [\"name\", \"vin\"])\n  |> drop(columns: [\"_start\", \"_stop\"])"
         }
       ]
     },
     {
       "id": 10,
       "type": "timeseries",
-      "title": "Cabin & outside temp (\u00b0F)",
+      "title": "Cabin & outside temp (°F)",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-kia"
@@ -582,7 +582,7 @@
             "type": "influxdb",
             "uid": "influxdb-kia"
           },
-          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_climate\" and (r._field == \"cabin_temp_f\" or r._field == \"outside_temp_f\"))\n  |> filter(fn: (r) => r.vin =~ /^$${vin:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"_field\", \"vin\"])"
+          "query": "from(bucket: \"kia-vehicle\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"kia_climate\" and (r._field == \"cabin_temp_f\" or r._field == \"outside_temp_f\"))\n  |> filter(fn: (r) => r.vin =~ /^$${vin:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"_field\", \"vin\"])\n  |> drop(columns: [\"_start\", \"_stop\"])"
         }
       ]
     },
