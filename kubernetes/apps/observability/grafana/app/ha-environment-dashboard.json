@@ -299,7 +299,8 @@
             "fillOpacity": 15,
             "showPoints": "never",
             "lineWidth": 1
-          }
+          },
+          "displayName": "$${__field.labels.friendly_name}"
         },
         "overrides": [
           {
@@ -354,7 +355,8 @@
             "fillOpacity": 10,
             "showPoints": "never",
             "lineWidth": 1
-          }
+          },
+          "displayName": "$${__field.labels.friendly_name}"
         },
         "overrides": []
       },
@@ -401,7 +403,8 @@
             "fillOpacity": 20,
             "showPoints": "never",
             "lineWidth": 1
-          }
+          },
+          "displayName": "$${__field.labels.friendly_name}"
         },
         "overrides": []
       },

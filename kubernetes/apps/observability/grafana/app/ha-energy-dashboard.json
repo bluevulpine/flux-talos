@@ -270,7 +270,8 @@
             "drawStyle": "line",
             "fillOpacity": 15,
             "lineWidth": 1
-          }
+          },
+          "displayName": "$${__field.labels.friendly_name}"
         },
         "overrides": []
       },
@@ -320,7 +321,8 @@
           "color": {
             "mode": "fixed",
             "fixedColor": "yellow"
-          }
+          },
+          "displayName": "$${__field.labels.friendly_name}"
         },
         "overrides": []
       },
@@ -367,7 +369,8 @@
             "fillOpacity": 8,
             "lineWidth": 1,
             "showPoints": "never"
-          }
+          },
+          "displayName": "$${__field.labels.friendly_name}"
         },
         "overrides": []
       },

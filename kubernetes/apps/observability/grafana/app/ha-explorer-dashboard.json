@@ -89,7 +89,8 @@
             "fillOpacity": 8,
             "showPoints": "never",
             "lineWidth": 1
-          }
+          },
+          "displayName": "$${__field.labels.friendly_name}"
         },
         "overrides": []
       },
