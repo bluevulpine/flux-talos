@@ -5,3 +5,12 @@ kind: Kustomization
 resources:
   - ./ocirepository.yaml
   - ./helmrelease.yaml
+# Storj node Grafana dashboard, provisioned via the sidecar.
+configMapGenerator:
+  - name: storj-dashboard
+    files:
+      - storj-dashboard.json
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    grafana_dashboard: "1"

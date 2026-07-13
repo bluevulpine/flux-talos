@@ -1,0 +1,134 @@
+{
+  "uid": "storj-node",
+  "title": "Storj Node (vault)",
+  "tags": ["storj", "storage"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "editable": true,
+  "refresh": "1m",
+  "time": {"from": "now-24h", "to": "now"},
+  "templating": {"list": []},
+  "annotations": {"list": []},
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Version",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "storj_node_info{type=\"version\"}", "legendFormat": "{{version}}", "instant": true}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "name", "colorMode": "none", "graphMode": "none"},
+      "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "text"}}, "overrides": []}
+    },
+    {
+      "type": "stat",
+      "title": "QUIC",
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "storj_node_info{type=\"quicStatus\"}", "legendFormat": "{{quicStatus}}", "instant": true}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "name", "colorMode": "none", "graphMode": "none"},
+      "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "text"}}, "overrides": []}
+    },
+    {
+      "type": "stat",
+      "title": "Up to date",
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "storj_node_info{type=\"upToDate\"}", "legendFormat": "{{upToDate}}", "instant": true}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "name", "colorMode": "none", "graphMode": "none"},
+      "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "text"}}, "overrides": []}
+    },
+    {
+      "type": "stat",
+      "title": "Est. payout (this month)",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "storj_payout_currentMonth{type=\"payout\"}", "instant": true}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value", "colorMode": "value", "graphMode": "none"},
+      "fieldConfig": {"defaults": {"unit": "currencyUSD", "color": {"mode": "fixed", "fixedColor": "green"}}, "overrides": []}
+    },
+    {
+      "type": "stat",
+      "title": "Held",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "storj_payout_currentMonth{type=\"held\"}", "instant": true}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value", "colorMode": "none", "graphMode": "none"},
+      "fieldConfig": {"defaults": {"unit": "currencyUSD", "color": {"mode": "fixed", "fixedColor": "text"}}, "overrides": []}
+    },
+    {
+      "type": "gauge",
+      "title": "Disk usage %",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "100 * storj_total_diskspace{type=\"used\"} / (storj_total_diskspace{type=\"used\"} + storj_total_diskspace{type=\"available\"})", "instant": true}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showThresholdMarkers": true},
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100, "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 80}, {"color": "red", "value": 92}]}}, "overrides": []}
+    },
+    {
+      "type": "stat",
+      "title": "Disk space",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "storj_total_diskspace", "legendFormat": "{{type}}", "instant": true}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name", "colorMode": "none", "graphMode": "none", "orientation": "horizontal"},
+      "fieldConfig": {"defaults": {"unit": "bytes", "color": {"mode": "fixed", "fixedColor": "text"}}, "overrides": []}
+    },
+    {
+      "type": "stat",
+      "title": "Bandwidth used (this month)",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "storj_total_bandwidth{type=\"used\"}", "instant": true}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value", "colorMode": "value", "graphMode": "area"},
+      "fieldConfig": {"defaults": {"unit": "bytes", "color": {"mode": "fixed", "fixedColor": "blue"}}, "overrides": []}
+    },
+    {
+      "type": "bargauge",
+      "title": "Audit score",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "storj_sat_audit{type=\"auditScore\"}", "legendFormat": "{{url}}", "instant": true}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "displayMode": "gradient", "orientation": "horizontal", "minVizWidth": 0, "showUnfilled": true},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0.9, "max": 1, "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 0.95}, {"color": "green", "value": 0.99}]}}, "overrides": []}
+    },
+    {
+      "type": "bargauge",
+      "title": "Suspension score",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "storj_sat_audit{type=\"suspensionScore\"}", "legendFormat": "{{url}}", "instant": true}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "displayMode": "gradient", "orientation": "horizontal", "minVizWidth": 0, "showUnfilled": true},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0.9, "max": 1, "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 0.95}, {"color": "green", "value": 0.99}]}}, "overrides": []}
+    },
+    {
+      "type": "bargauge",
+      "title": "Online score",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "storj_sat_audit{type=\"onlineScore\"}", "legendFormat": "{{url}}", "instant": true}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "displayMode": "gradient", "orientation": "horizontal", "minVizWidth": 0, "showUnfilled": true},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0.9, "max": 1, "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 0.95}, {"color": "green", "value": 0.99}]}}, "overrides": []}
+    },
+    {
+      "type": "timeseries",
+      "title": "Egress usage this month (paid) per satellite",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "storj_sat_month_egress{type=\"usage\"}", "legendFormat": "{{url}}"}],
+      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 2}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "bargauge",
+      "title": "Egress / ingress summary per satellite",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "storj_sat_summary{type=\"egressSummary\"}", "legendFormat": "egress {{url}}", "instant": true},
+        {"refId": "B", "datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "storj_sat_summary{type=\"ingressSummary\"}", "legendFormat": "ingress {{url}}", "instant": true}
+      ],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "displayMode": "gradient", "orientation": "horizontal", "minVizWidth": 0, "showUnfilled": true},
+      "fieldConfig": {"defaults": {"unit": "bytes", "color": {"mode": "continuous-BlPu"}}, "overrides": []}
+    }
+  ]
+}
