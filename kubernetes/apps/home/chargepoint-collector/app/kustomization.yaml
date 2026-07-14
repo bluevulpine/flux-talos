@@ -6,4 +6,5 @@ resources:
   - externalsecret.yaml
   - configmap.yaml
   - deployment.yaml
+  - podmonitor.yaml
   - prometheusrule.yaml

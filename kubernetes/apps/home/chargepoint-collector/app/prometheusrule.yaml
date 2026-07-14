@@ -45,28 +45,42 @@ spec:
           labels:
             severity: critical
 
-        # Catch-all for silent staleness: unlike kia's CronJob, this is a
-        # long-running Deployment with no "last successful run" gauge to key
-        # off of (kube_cronjob_status_last_successful_time has no Deployment
-        # analog). As a proxy, fire if the Deployment has spent 3h continuously
-        # NOT Available — covers a pod that's crash-looping or perma-Pending
-        # for reasons that don't set replicas_ready to 0 at every scrape
-        # (flapping) but that still leave telemetry stale over the window.
-        # NOTE (flagged for human review): this is weaker than kia's
-        # "no successful write" signal — it can't detect a pod that is Ready
-        # but silently wedged (e.g. hung on an upstream API call without
-        # tripping the liveness probe). A metric like
-        # chargepoint_collector_last_success_timestamp_seconds, emitted by the
-        # app itself on each successful Influx write, would close that gap;
-        # consider adding one and swapping this expression for it.
-        - alert: ChargepointCollectorStale
+        # Per-account staleness, keyed on the app's own last-success gauge
+        # (scraped via the PodMonitor). Fires per account after 3h without a
+        # successful poll — covers a Ready-but-wedged pod, a dead session
+        # token, and cold start that never succeeds (gauge stays 0). The
+        # ChargePoint session token is the most likely cause; see the runbook.
+        - alert: ChargepointCollectorAccountStale
           annotations:
             summary: >-
-              Chargepoint collector has not been Available for 3h — vehicle/
-              charger telemetry is stale. Check `kubectl get pods -n home
-              -l app.kubernetes.io/name=chargepoint-collector` and recent logs.
+              Chargepoint collector account {{ $labels.account }} has had no
+              successful poll for 3h — charger telemetry is stale. Most likely
+              the session token died: follow
+              chargepoint-collector/docs/runbooks/session-token-refresh.md.
+              Otherwise check `kubectl logs -n home deploy/chargepoint-collector`.
           expr: |
-            min_over_time((kube_deployment_status_replicas_ready{namespace="home", deployment="chargepoint-collector"} > 0)[3h:5m]) != 1
+            time() - max by (account) (chargepoint_account_last_success_timestamp_seconds{namespace="home"}) > 10800
           for: 15m
+          labels:
+            severity: critical
+
+        # DataDome blocked a password login (observed on the FIRST-ever
+        # programmatic login attempt — treat password auth as mostly
+        # unavailable). The collector deliberately stops retrying passwords
+        # until the stored token changes, so this stays firing until a human
+        # captures a fresh coulomb_sess in a browser and writes it to OpenBao.
+        # The collector then recovers on its own within ~15 minutes — no
+        # restart needed. Steps: runbook above.
+        - alert: ChargepointPasswordLoginBlocked
+          annotations:
+            summary: >-
+              ChargePoint account {{ $labels.account }} needs a fresh session
+              token (DataDome blocked password login). Capture coulomb_sess
+              from a browser and `bao kv put` it per
+              chargepoint-collector/docs/runbooks/session-token-refresh.md;
+              the collector picks it up automatically.
+          expr: |
+            max by (account) (chargepoint_account_password_login_blocked{namespace="home"}) == 1
+          for: 5m
           labels:
             severity: critical
