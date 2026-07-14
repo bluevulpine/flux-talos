@@ -1,0 +1,957 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "ChargePoint Home Flex — Charging & Off-Peak Conformance",
+  "uid": "chargepoint-home-flex",
+  "tags": [
+    "chargepoint",
+    "ev",
+    "rlec"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "templating": {
+    "list": [
+      {
+        "name": "charger",
+        "label": "Charger",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "influxdb-chargepoint"
+        },
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"chargepoint\", tag: \"charger\")",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Charger power state",
+      "description": "is_connected per charger. OFF during RLEC off-peak windows is normal, not an outage. Both chargers share one load-control circuit — they should match.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-chargepoint"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "OFF",
+                  "color": "blue"
+                },
+                "1": {
+                  "text": "ON",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-chargepoint"
+          },
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"charger_status\" and r._field == \"is_connected\")\n  |> filter(fn: (r) => r.charger =~ /^$${charger:regex}$/)\n  |> group(columns: [\"charger\"])\n  |> last()"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Schedule says",
+      "description": "expected_state.expected_on — what the RLEC off-peak schedule expects right now.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-chargepoint"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 6,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "OFF window",
+                  "color": "blue"
+                },
+                "1": {
+                  "text": "ON window",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-chargepoint"
+          },
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"expected_state\" and r._field == \"expected_on\")\n  |> last()"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Active window",
+      "description": "expected_state.schedule_name — which schedule window applies right now.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-chargepoint"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 10,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "—"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^_value$/",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-chargepoint"
+          },
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"expected_state\" and r._field == \"schedule_name\")\n  |> last()"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Charging state",
+      "description": "charger_status.charging_state. Note: CHARGING persists a while after power stops flowing — power_kw in session_sample is the truth for energy actually moving.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-chargepoint"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 14,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "CHARGING": {
+                  "text": "Charging",
+                  "color": "green"
+                },
+                "AVAILABLE": {
+                  "text": "Idle",
+                  "color": "text"
+                },
+                "": {
+                  "text": "— depowered",
+                  "color": "blue"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "noValue": "—"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^_value$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-chargepoint"
+          },
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"charger_status\" and r._field == \"charging_state\")\n  |> filter(fn: (r) => r.charger =~ /^$${charger:regex}$/)\n  |> group(columns: [\"charger\"])\n  |> last()"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Collector errors",
+      "description": "collector_health.consecutive_errors — written only on error, so no data = healthy. Long low-grade streams can be a benign lingering-session detail failure, not an outage.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-chargepoint"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "noValue": "healthy",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 20
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-chargepoint"
+          },
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"collector_health\" and r._field == \"consecutive_errors\")\n  |> group(columns: [\"account\"])\n  |> last()"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "state-timeline",
+      "title": "Off-peak conformance — schedule vs actual charger state",
+      "description": "Top lane: what the RLEC schedule expects. Charger lanes: actual is_connected. Lanes should match, and both chargers should flip together (shared load-control circuit). Blank stretches = collector gap (backoff), rendered distinctly from OFF on purpose.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-chargepoint"
+      },
+      "interval": "2m",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 75,
+            "lineWidth": 0
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "OFF",
+                  "color": "blue"
+                },
+                "1": {
+                  "text": "ON",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "rowHeight": 0.85,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-chargepoint"
+          },
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"expected_state\" and r._field == \"expected_on\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: true)\n  |> set(key: \"_field\", value: \"schedule (expected)\")\n  |> drop(columns: [\"_start\", \"_stop\", \"_measurement\"])"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-chargepoint"
+          },
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"charger_status\" and r._field == \"is_connected\")\n  |> filter(fn: (r) => r.charger =~ /^$${charger:regex}$/)\n  |> group(columns: [\"charger\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: true)\n  |> drop(columns: [\"_start\", \"_stop\", \"_measurement\"])"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Charging power",
+      "description": "session_sample.power_kw — actual power flowing. Point time is the API sample timestamp; cadence is irregular (~1–4 min).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-chargepoint"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatt",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-chargepoint"
+          },
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"session_sample\" and r._field == \"power_kw\")\n  |> filter(fn: (r) => r.charger =~ /^$${charger:regex}$/)\n  |> group(columns: [\"charger\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> drop(columns: [\"_start\", \"_stop\"])"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Session energy (cumulative per session_id)",
+      "description": "session_sample.energy_kwh is cumulative within a session (staircase; plateaus while idle). ChargePoint reuses session ids across off-peak power cycles, so multi-day 300+ kWh staircases are real, correct data.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-chargepoint"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-chargepoint"
+          },
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"session_sample\" and r._field == \"energy_kwh\")\n  |> filter(fn: (r) => r.charger =~ /^$${charger:regex}$/)\n  |> group(columns: [\"charger\", \"session_id\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> drop(columns: [\"_start\", \"_stop\"])"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Energy per day",
+      "description": "Derived from session_sample via difference() on cumulative energy_kwh (never from summaries — see CLAUDE.md query rules). Days are America/Chicago to match RLEC billing.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-chargepoint"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 22
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-chargepoint"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"America/Chicago\")\n\nfrom(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"session_sample\" and r._field == \"energy_kwh\")\n  |> filter(fn: (r) => r.charger =~ /^$${charger:regex}$/)\n  |> group(columns: [\"charger\", \"session_id\"])\n  |> difference(nonNegative: true)\n  |> group(columns: [\"charger\"])\n  |> aggregateWindow(every: 1d, fn: sum, createEmpty: false, timeSrc: \"_start\")\n  |> drop(columns: [\"_start\", \"_stop\"])"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Energy delivered (range)",
+      "description": "Sum of session_sample energy deltas over the dashboard range.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-chargepoint"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 22
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-chargepoint"
+          },
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"session_sample\" and r._field == \"energy_kwh\")\n  |> filter(fn: (r) => r.charger =~ /^$${charger:regex}$/)\n  |> group(columns: [\"charger\", \"session_id\"])\n  |> difference(nonNegative: true)\n  |> group()\n  |> sum()"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Miles added (sessions ending in range)",
+      "description": "From session_summary, aggregated last-per-session_id. A summary's value can include charging from before the range start (cumulative session ids).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-chargepoint"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 26
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "lengthmi",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-chargepoint"
+          },
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"session_summary\" and r._field == \"miles_added\")\n  |> filter(fn: (r) => r.charger =~ /^$${charger:regex}$/)\n  |> group(columns: [\"charger\", \"session_id\"])\n  |> last()\n  |> group()\n  |> sum()"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "Session summaries (last per session_id)",
+      "description": "One row per session_id — the latest finalize wins; values are cumulative across off-peak power cycles, never sum() these. synthesized=1 marks lower-confidence snapshot-fallback summaries.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-chargepoint"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "energy_kwh"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "kwatth"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "duration_s"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "miles_added"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "lengthmi"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "synthesized"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "final",
+                        "color": "green"
+                      },
+                      "1": {
+                        "text": "synthesized",
+                        "color": "orange"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-chargepoint"
+          },
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"session_summary\")\n  |> filter(fn: (r) => r.charger =~ /^$${charger:regex}$/)\n  |> group(columns: [\"charger\", \"session_id\", \"_field\"])\n  |> last()\n  |> group(columns: [\"charger\", \"session_id\"])\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)\n  |> keep(columns: [\"_time\", \"charger\", \"session_id\", \"energy_kwh\", \"duration_s\", \"miles_added\", \"synthesized\"])"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Collector errors (per account)",
+      "description": "collector_health.consecutive_errors — points exist only on error, so an empty panel is the healthy state. Counts include session-detail-only failures that can run for hours benignly (lingering fully_charged session with a 500ing detail endpoint) while charger_status keeps flowing.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-chargepoint"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "points",
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-chargepoint"
+          },
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"collector_health\" and r._field == \"consecutive_errors\")\n  |> group(columns: [\"account\"])\n  |> drop(columns: [\"_start\", \"_stop\", \"_measurement\"])"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "state-timeline",
+      "title": "Plugged in",
+      "description": "charger_status.is_plugged_in. While a charger is depowered (off-peak) it reports 0 even with the car plugged — an offline artifact, same as amperage_limit=0.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-chargepoint"
+      },
+      "interval": "2m",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 30
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 75,
+            "lineWidth": 0
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "unplugged / depowered",
+                  "color": "text"
+                },
+                "1": {
+                  "text": "plugged in",
+                  "color": "blue"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              },
+              {
+                "color": "blue",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "rowHeight": 0.85,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-chargepoint"
+          },
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"charger_status\" and r._field == \"is_plugged_in\")\n  |> filter(fn: (r) => r.charger =~ /^$${charger:regex}$/)\n  |> group(columns: [\"charger\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: true)\n  |> drop(columns: [\"_start\", \"_stop\", \"_measurement\"])"
+        }
+      ]
+    }
+  ]
+}
