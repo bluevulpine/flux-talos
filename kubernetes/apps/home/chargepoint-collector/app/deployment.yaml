@@ -30,7 +30,7 @@ spec:
           # Full ref auto-updated by Flux image automation (ImagePolicy flux-system:chargepoint-collector).
           # NOTE: no ":tag" suffix on the marker — this is a combined image:repo:tag scalar,
           # so Flux must write the whole ref. ":tag" would overwrite the scalar with the bare tag.
-          image: gitea.derekjacobs.dev/bluevulpine/chargepoint-collector:6-127b72de # {"$imagepolicy": "flux-system:chargepoint-collector"}
+          image: gitea.derekjacobs.dev/bluevulpine/chargepoint-collector:7-2ea52b9a # {"$imagepolicy": "flux-system:chargepoint-collector"}
           imagePullPolicy: Always
           ports:
             - name: healthz
