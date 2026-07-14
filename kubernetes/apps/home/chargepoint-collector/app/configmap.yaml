@@ -1,0 +1,34 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chargepoint-collector-config
+data:
+  CHARGEPOINT_ACCOUNTS: "primary,guest"
+  POLL_INTERVAL_S: "60"
+  SCHEDULE_PATH: "/config/schedule.yaml"
+  INFLUX_URL: "http://influxdb.database.svc.cluster.local:8086"
+  INFLUX_ORG: "homelab"
+  INFLUX_BUCKET: "chargepoint"
+  OPENBAO_URL: "http://openbao-active.openbao.svc.cluster.local:8200"
+  OPENBAO_KV_MOUNT: "secret"
+  OPENBAO_K8S_ROLE: "chargepoint-collector"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chargepoint-collector-schedule
+data:
+  # RLEC off-peak baseline — must stay in sync with schedule.yaml in the app repo.
+  schedule.yaml: |-
+    timezone: America/Chicago
+    seasons:
+      - name: oct-may
+        months: [10, 11, 12, 1, 2, 3, 4, 5]
+        power_on_windows:
+          - { start: "12:00", end: "17:00" }
+          - { start: "23:00", end: "07:00" }
+      - name: jun-sep
+        months: [6, 7, 8, 9]
+        power_on_windows:
+          - { start: "00:00", end: "10:00" }

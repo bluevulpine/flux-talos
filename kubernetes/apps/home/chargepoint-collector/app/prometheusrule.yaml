@@ -1,0 +1,86 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: chargepoint-collector
+spec:
+  groups:
+    - name: chargepoint-collector.rules
+      rules:
+        # Fires when the chargepoint-collector Deployment has no ready replicas.
+        # Covers crash loops, OpenBao/InfluxDB errors, and ChargePoint session/auth
+        # failures that make the container exit or fail its liveness/startup probe.
+        # Routes to Pushover via the default Alertmanager receiver.
+        - alert: ChargepointCollectorDown
+          annotations:
+            summary: >-
+              Chargepoint collector has no ready replicas — vehicle/charger
+              telemetry is stale. Check `kubectl logs -n home
+              deploy/chargepoint-collector`. If the session token expired or
+              auth is failing, re-authenticate per the app's setup docs; the
+              collector persists tokens to OpenBao at secret/chargepoint/tokens/*.
+          expr: |
+            kube_deployment_status_replicas_ready{namespace="home", deployment="chargepoint-collector"} == 0
+          for: 15m
+          labels:
+            severity: critical
+
+        # A Deployment whose image can't be pulled never becomes ready, so
+        # ChargepointCollectorDown above *will* eventually fire — but only after
+        # the 15m "for". This fires independently and names the exact cause, the
+        # same failure mode that caused the kia-collector outage on 2026-07-11
+        # (see docs/runbooks/flux-image-automation.md, Gotcha 3): a bad
+        # $imagepolicy marker silently rewrote the whole image ref to a bare tag.
+        - alert: ChargepointCollectorImagePullFailing
+          annotations:
+            summary: >-
+              Chargepoint collector pod {{ $labels.pod }} can't pull its image
+              ({{ $labels.reason }}) — the collector isn't running. Check the
+              image ref in the Deployment and the Flux image automation
+              (kubernetes/apps/flux-system/chargepoint-collector/).
+          expr: |
+            kube_pod_container_status_waiting_reason{namespace="home", pod=~"chargepoint-collector.*", reason=~"ImagePullBackOff|ErrImagePull|InvalidImageName"} > 0
+          for: 15m
+          labels:
+            severity: critical
+
+        # Per-account staleness, keyed on the app's own last-success gauge
+        # (scraped via the PodMonitor). Fires per account after 3h without a
+        # successful poll — covers a Ready-but-wedged pod, a dead session
+        # token, and cold start that never succeeds (gauge stays 0). The
+        # ChargePoint session token is the most likely cause; see the runbook.
+        - alert: ChargepointCollectorAccountStale
+          annotations:
+            summary: >-
+              Chargepoint collector account {{ $labels.account }} has had no
+              successful poll for 3h — charger telemetry is stale. Most likely
+              the session token died: follow
+              chargepoint-collector/docs/runbooks/session-token-refresh.md.
+              Otherwise check `kubectl logs -n home deploy/chargepoint-collector`.
+          expr: |
+            time() - max by (account) (chargepoint_account_last_success_timestamp_seconds{namespace="home"}) > 10800
+          for: 15m
+          labels:
+            severity: critical
+
+        # DataDome blocked a password login (observed on the FIRST-ever
+        # programmatic login attempt — treat password auth as mostly
+        # unavailable). The collector deliberately stops retrying passwords
+        # until the stored token changes, so this stays firing until a human
+        # captures a fresh coulomb_sess in a browser and writes it to OpenBao.
+        # The collector then recovers on its own within ~15 minutes — no
+        # restart needed. Steps: runbook above.
+        - alert: ChargepointPasswordLoginBlocked
+          annotations:
+            summary: >-
+              ChargePoint account {{ $labels.account }} needs a fresh session
+              token (DataDome blocked password login). Capture coulomb_sess
+              from a browser and `bao kv put` it per
+              chargepoint-collector/docs/runbooks/session-token-refresh.md;
+              the collector picks it up automatically.
+          expr: |
+            max by (account) (chargepoint_account_password_login_blocked{namespace="home"}) == 1
+          for: 5m
+          labels:
+            severity: critical

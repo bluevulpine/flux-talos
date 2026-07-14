@@ -14,3 +14,4 @@ resources:
   - ./mosquitto/ks.yaml
   - ./scrypted/ks.yaml
   - ./kia-collector/ks.yaml
+  - ./chargepoint-collector/ks.yaml

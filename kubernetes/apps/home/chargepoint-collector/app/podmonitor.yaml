@@ -1,0 +1,17 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/podmonitor_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: chargepoint-collector
+spec:
+  # Scrape the collector's hand-rendered /metrics (served by the same aiohttp
+  # app as /healthz): per-account last-success timestamp, consecutive errors,
+  # and the password_login_blocked flag the token-fix alert keys on.
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: chargepoint-collector
+  podMetricsEndpoints:
+    - port: healthz
+      path: /metrics
+      interval: 60s
