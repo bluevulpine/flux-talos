@@ -59,6 +59,7 @@
       },
       "fieldConfig": {
         "defaults": {
+          "displayName": "$${__field.labels.charger}",
           "mappings": [
             {
               "type": "value",
@@ -255,6 +256,7 @@
       },
       "fieldConfig": {
         "defaults": {
+          "displayName": "$${__field.labels.charger}",
           "mappings": [
             {
               "type": "value",
@@ -330,6 +332,7 @@
       },
       "fieldConfig": {
         "defaults": {
+          "displayName": "$${__field.labels.account}",
           "unit": "none",
           "decimals": 0,
           "noValue": "healthy",
