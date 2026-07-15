@@ -36,3 +36,7 @@ talos/*.iso
 # Claude Code scratch (session ledgers, briefs, worktrees) — never commit
 .superpowers/
 .claude/worktrees/
+
+# Codex (ChatGPT desktop app) auto-generates this by porting CLAUDE.md on first
+# open. We don't use Codex deliberately; keep the local copy out of git.
+AGENTS.md
