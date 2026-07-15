@@ -221,7 +221,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/^_value$/",
+          "fields": "/.*/",
           "values": false
         },
         "colorMode": "none",
@@ -272,6 +272,10 @@
                 "": {
                   "text": "— depowered",
                   "color": "blue"
+                },
+                "CHARGING_STOPPED": {
+                  "text": "Stopped",
+                  "color": "text"
                 }
               }
             }
@@ -297,7 +301,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/^_value$/",
+          "fields": "/.*/",
           "values": false
         },
         "colorMode": "value",
@@ -433,7 +437,20 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "$${__field.labels.charger}"
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "showValue": "never",
@@ -462,7 +479,7 @@
             "type": "influxdb",
             "uid": "influxdb-chargepoint"
           },
-          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"charger_status\" and r._field == \"is_connected\")\n  |> filter(fn: (r) => r.charger =~ /^$${charger:regex}$/)\n  |> group(columns: [\"charger\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: true)\n  |> drop(columns: [\"_start\", \"_stop\", \"_measurement\"])"
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"charger_status\" and r._field == \"is_connected\")\n  |> filter(fn: (r) => r.charger =~ /^$${charger:regex}$/)\n  |> group(columns: [\"charger\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: true)\n  |> drop(columns: [\"_start\", \"_stop\", \"_measurement\", \"_field\", \"account\"])"
         }
       ]
     },
@@ -491,7 +508,8 @@
             "fillOpacity": 20,
             "showPoints": "never",
             "spanNulls": false
-          }
+          },
+          "displayName": "$${__field.labels.charger}"
         },
         "overrides": []
       },
@@ -540,7 +558,8 @@
             "fillOpacity": 10,
             "showPoints": "never",
             "spanNulls": false
-          }
+          },
+          "displayName": "$${__field.labels.charger} session $${__field.labels.session_id}"
         },
         "overrides": []
       },
@@ -827,7 +846,7 @@
             "type": "influxdb",
             "uid": "influxdb-chargepoint"
           },
-          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"session_summary\")\n  |> filter(fn: (r) => r.charger =~ /^$${charger:regex}$/)\n  |> group(columns: [\"charger\", \"session_id\", \"_field\"])\n  |> last()\n  |> group(columns: [\"charger\", \"session_id\"])\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)\n  |> keep(columns: [\"_time\", \"charger\", \"session_id\", \"energy_kwh\", \"duration_s\", \"miles_added\", \"synthesized\"])"
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"session_summary\")\n  |> filter(fn: (r) => r.charger =~ /^$${charger:regex}$/)\n  |> group(columns: [\"charger\", \"session_id\", \"_field\"])\n  |> last()\n  |> toFloat()\n  |> group(columns: [\"charger\", \"session_id\"])\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)\n  |> keep(columns: [\"_time\", \"charger\", \"session_id\", \"energy_kwh\", \"duration_s\", \"miles_added\", \"synthesized\"])"
         }
       ]
     },
@@ -856,7 +875,8 @@
             "showPoints": "always",
             "pointSize": 5,
             "spanNulls": false
-          }
+          },
+          "displayName": "$${__field.labels.account}"
         },
         "overrides": []
       },
@@ -876,7 +896,7 @@
             "type": "influxdb",
             "uid": "influxdb-chargepoint"
           },
-          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"collector_health\" and r._field == \"consecutive_errors\")\n  |> group(columns: [\"account\"])\n  |> drop(columns: [\"_start\", \"_stop\", \"_measurement\"])"
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"collector_health\" and r._field == \"consecutive_errors\")\n  |> group(columns: [\"account\"])\n  |> drop(columns: [\"_start\", \"_stop\", \"_measurement\", \"_field\", \"charger\"])"
         }
       ]
     },
@@ -929,7 +949,8 @@
                 "value": 1
               }
             ]
-          }
+          },
+          "displayName": "$${__field.labels.charger}"
         },
         "overrides": []
       },
@@ -952,7 +973,7 @@
             "type": "influxdb",
             "uid": "influxdb-chargepoint"
           },
-          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"charger_status\" and r._field == \"is_plugged_in\")\n  |> filter(fn: (r) => r.charger =~ /^$${charger:regex}$/)\n  |> group(columns: [\"charger\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: true)\n  |> drop(columns: [\"_start\", \"_stop\", \"_measurement\"])"
+          "query": "from(bucket: \"chargepoint\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"charger_status\" and r._field == \"is_plugged_in\")\n  |> filter(fn: (r) => r.charger =~ /^$${charger:regex}$/)\n  |> group(columns: [\"charger\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: true)\n  |> drop(columns: [\"_start\", \"_stop\", \"_measurement\", \"_field\", \"account\"])"
         }
       ]
     }
