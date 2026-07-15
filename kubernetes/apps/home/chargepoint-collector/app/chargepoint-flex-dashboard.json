@@ -221,7 +221,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/.*/",
+          "fields": "/^(?!Time)/",
           "values": false
         },
         "colorMode": "none",
@@ -301,7 +301,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/.*/",
+          "fields": "/^(?!Time)/",
           "values": false
         },
         "colorMode": "value",
@@ -830,6 +830,18 @@
                 "value": {
                   "type": "color-text"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "_time"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "finalized"
               }
             ]
           }
