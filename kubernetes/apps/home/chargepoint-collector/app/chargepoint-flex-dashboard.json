@@ -276,6 +276,10 @@
                 "CHARGING_STOPPED": {
                   "text": "Stopped",
                   "color": "text"
+                },
+                "NOT_CHARGING": {
+                  "text": "Not charging",
+                  "color": "text"
                 }
               }
             }
