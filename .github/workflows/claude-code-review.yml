@@ -36,6 +36,11 @@ jobs:
         uses: anthropics/claude-code-action@1298632ce7736903d02a1435002705aa2a594a6c # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Renovate is this repo's trusted first-party update mechanism; allow its
+          # bot-authored PRs to be reviewed. Scoped to renovate[bot] only (never '*')
+          # so the action's non-human-actor prompt-injection guardrail still blocks
+          # every other bot.
+          allowed_bots: 'renovate[bot]'
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
