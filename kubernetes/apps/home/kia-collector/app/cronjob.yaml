@@ -1,3 +1,4 @@
+---
 # Cached-state poll every 10 min — uses server-side cached data, does not wake
 # the car (no 12V drain). ~145-290 Kia calls/day; well under EU-style caps and
 # the community-recommended USA interval. Freshness is bounded by how often the
@@ -14,6 +15,11 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 2
+      # Auto-delete finished jobs (success OR failure) + their pods after 30 min.
+      # At the 10-min cadence a one-off transient failure self-clears after ~3
+      # cycles (so KubeJobFailed auto-resolves), while a persistent failure keeps
+      # producing fresh <30-min-old failed jobs and correctly stays alerting.
+      ttlSecondsAfterFinished: 1800
       template:
         spec:
           restartPolicy: OnFailure
@@ -71,6 +77,10 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 1
+      # Auto-delete finished jobs (success OR failure) + their pods after 6h.
+      # A failed daily run self-clears (KubeJobFailed auto-resolves) well before
+      # the next 12:30 UTC run, instead of lingering until 5 failures pile up.
+      ttlSecondsAfterFinished: 21600
       template:
         spec:
           restartPolicy: OnFailure
