@@ -12,11 +12,12 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Skip Claude review on Renovate's bot-authored PRs. They are routine,
+    # first-party dependency bumps that don't warrant an AI code review, and the
+    # sweep evaluates them deliberately instead. A job-level guard yields a clean
+    # "skipped" check rather than the red failure the action's non-human-actor
+    # prompt-injection guardrail would otherwise produce on every Renovate PR.
+    if: github.event.pull_request.user.login != 'renovate[bot]'
 
     runs-on: ubuntu-latest
     permissions:
@@ -36,11 +37,6 @@ jobs:
         uses: anthropics/claude-code-action@1298632ce7736903d02a1435002705aa2a594a6c # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Renovate is this repo's trusted first-party update mechanism; allow its
-          # bot-authored PRs to be reviewed. Scoped to renovate[bot] only (never '*')
-          # so the action's non-human-actor prompt-injection guardrail still blocks
-          # every other bot.
-          allowed_bots: 'renovate[bot]'
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
