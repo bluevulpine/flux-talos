@@ -46,6 +46,16 @@ is Flux GitOps on a 7-node Talos cluster; merges to `main` trigger Flux via webh
 - The PR's own CI runs **flux-local** (Diff + Test) and **Image Pull** — wait for green.
 - Watch CI without `--watch` (which can hang): poll
   `until [ "$(gh pr checks <#> | grep -c pending)" = 0 ]; do sleep 15; done`.
+- **Image Pull failures are often flaky, not a bad image.** The check runs
+  `talosctl --nodes ... image pull` on a *self-hosted ARC runner inside the cluster*.
+  If the runner pod is evicted/scaled-down mid-pull the log shows
+  `code = Canceled desc = context canceled` / `runner has received a shutdown signal` —
+  that's runner churn, **not** an unpullable image. Before skipping such a PR, confirm
+  the tag+digest actually exist (`curl -s https://hub.docker.com/v2/repositories/<repo>/tags/<tag>`
+  — compare `.digest` to the PR's `@sha256:`), then re-run the job
+  (`gh run rerun <run-id> --failed`). Only a real `denied` / `manifest unknown` /
+  `not found` is a genuine unpullable-image skip. (Seen with kometa v2.4.4 PR #1403:
+  digest matched, image was fine, the runner was just killed mid-pull.)
 - Locally, validate edited manifests with `yq` + `kubeconform` (above). Schema headers
   (`# yaml-language-server: $schema=...`) and `yamlfmt` block style are enforced by
   lefthook on the user's side.

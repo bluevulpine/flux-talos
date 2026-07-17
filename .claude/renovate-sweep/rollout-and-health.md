@@ -72,9 +72,11 @@ These have appeared as not-ready without being your fault — verify they're unc
 don't attribute them to a bump:
 - A CNPG `postgres16` replica occasionally `Pending`.
 - `dev-shell-0` `Pending`.
-- Cronjob failures: `kometa`, `unifi-phantom-clients-cleanup`
+- Cronjob failures: `unifi-phantom-clients-cleanup`
   (`CreateContainerConfigError` for days = a real missing-secret/config bug worth a
-  separate fix), and other media cronjobs.
+  separate fix), and other media cronjobs. (NOT `kometa` — it runs cleanly on its
+  pinned digest; a red kometa *bump PR* is usually flaky CI, see the Image Pull note
+  in `repo-runbook.md`.)
 - `homebox` pinned to an older image digest because the newer build mandates
   `HBOX_AUTH_API_KEY_PEPPER` (needs an OpenBao secret first).
 
