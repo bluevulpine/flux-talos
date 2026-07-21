@@ -37,6 +37,10 @@ spec:
             resources:
               requests:
                 cpu: 75m
-                memory: 300M
+                # Steady-state sits ~560Mi; on (re)connect to Plex it rescans the
+                # library and spikes past the old 600M limit → OOMKilled loop
+                # (surfaced when Plex restarts). Raised for scan headroom; bump
+                # further if OOM recurs on larger libraries.
+                memory: 512M
               limits:
-                memory: 600M
+                memory: 1Gi
