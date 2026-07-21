@@ -163,14 +163,13 @@ spec:
           - path: /data/video/Home
             readOnly: true
       # cert-manager PKCS#12 bundle for Plex's custom certificate (Model 3).
-      # optional: the secret does not exist until cert-manager completes the
-      # DNS-01 order, so Plex must start WITHOUT it (falls back to plex.direct)
-      # rather than hang in ContainerCreating. Reloader rolls the pod once the
-      # cert lands and on every renewal.
+      # The plex ks dependsOn nothing that guarantees the cert exists first, but
+      # cert-manager issues it within the same reconcile window; Reloader rolls
+      # the pod on issue and on every renewal. (app-template's schema rejects an
+      # `optional` flag here, so on a cold cluster this mount waits for the cert.)
       plex-cert:
         type: secret
         name: plex-funbus-tls
-        optional: true
         globalMounts:
           - path: /certs
             readOnly: true
