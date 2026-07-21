@@ -139,9 +139,7 @@ spec:
           - esphome.${SECRET_DOMAIN}
     persistence:
       config:
-        type: nfs
-        server: ${SECRET_NFS_SERVER:=temp}
-        path: /mnt/apps/kubernetes/esphome
+        existingClaim: esphome-nfs
         globalMounts:
           - path: /config
       # Build scratch on fast NVMe-oF, mounted over the NFS /config at the

@@ -5,6 +5,7 @@ kind: Kustomization
 resources:
   - ./helmrelease.yaml
   - ./ocirepository.yaml
+  - ./media-nfs.yaml
 components:
   - ../../../../components/volsync
 

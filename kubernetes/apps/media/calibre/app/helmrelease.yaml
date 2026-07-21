@@ -76,9 +76,7 @@ spec:
         globalMounts:
           - path: /config
       media:
-        type: nfs
-        server: ${SECRET_NFS_SERVER:=temp}
-        path: ${SECRET_NFS_MEDIA:=temp}
+        existingClaim: calibre-media-nfs
         globalMounts:
           - path: /media
 

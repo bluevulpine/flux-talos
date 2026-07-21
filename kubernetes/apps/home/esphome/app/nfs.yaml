@@ -1,0 +1,44 @@
+---
+# Tuned NFS mount (nconnect=8 / 1M rsize+wsize / noatime, nfsvers=4.2) via a
+# native nfs PV — the bjw-s inline `type: nfs` volume cannot carry mountOptions.
+# nconnect/nfsvers are uniform across ALL consumers of this NAS so they share one
+# transport (first-mount-wins). This is esphome's /config (device YAMLs, secrets,
+# peer-link key — the source of truth on NFS). reclaimPolicy: Retain.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: esphome-nfs
+  labels:
+    app.kubernetes.io/name: esphome
+    app.kubernetes.io/component: config
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - "ReadWriteMany"
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - nfsvers=4.2
+    - hard
+    - noresvport
+    - noatime
+    - nconnect=8
+    - rsize=1048576
+    - wsize=1048576
+  nfs:
+    server: "${SECRET_NFS_SERVER}"
+    path: /mnt/apps/kubernetes/esphome
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: esphome-nfs
+spec:
+  accessModes:
+    - "ReadWriteMany"
+  storageClassName: ""
+  volumeName: esphome-nfs
+  resources:
+    requests:
+      storage: 1Gi

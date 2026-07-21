@@ -80,9 +80,7 @@ spec:
             subPath: qBittorrent
             readOnly: true
       media:
-        type: nfs
-        server: ${SECRET_NFS_SERVER:=temp}
-        path: ${SECRET_NFS_MEDIA:=temp}
+        existingClaim: cross-seed-media-nfs
         globalMounts:
           - path: /media
 

@@ -1,0 +1,44 @@
+---
+# Tuned NFS mount for the shared media library. Native nfs PV so mountOptions
+# (nconnect etc.) apply — the bjw-s inline `type: nfs` volume cannot carry them.
+# nconnect=8 + nfsvers=4.2 are uniform across ALL consumers of this NAS so they
+# share one transport (first-mount-wins). reclaimPolicy: Retain — live library.
+# Rationale/reference: kubernetes/apps/media/plex/app/media-nfs.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sonarr-media-nfs
+  labels:
+    app.kubernetes.io/name: sonarr
+    app.kubernetes.io/component: media
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - "ReadWriteMany"
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - nfsvers=4.2
+    - hard
+    - noresvport
+    - noatime
+    - nconnect=8
+    - rsize=1048576
+    - wsize=1048576
+  nfs:
+    server: "${SECRET_NFS_SERVER}"
+    path: "${SECRET_NFS_MEDIA}"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sonarr-media-nfs
+spec:
+  accessModes:
+    - "ReadWriteMany"
+  storageClassName: ""
+  volumeName: sonarr-media-nfs
+  resources:
+    requests:
+      storage: 1Gi

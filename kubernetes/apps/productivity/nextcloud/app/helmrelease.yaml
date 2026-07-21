@@ -167,9 +167,7 @@ spec:
         globalMounts:
           - path: /var/www/html
       data:
-        type: nfs
-        server: ${SECRET_NFS_SERVER:=temp}
-        path: /mnt/apps/kubernetes/nextcloud
+        existingClaim: nextcloud-nfs
         globalMounts:
           - path: /var/www/html/data
             readOnly: false

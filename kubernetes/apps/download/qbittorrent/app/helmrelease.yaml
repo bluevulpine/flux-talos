@@ -63,7 +63,8 @@ spec:
               DOT: "off"
             securityContext:
               capabilities:
-                add: ["NET_ADMIN"]
+                add:
+                  - "NET_ADMIN"
               allowPrivilegeEscalation: true
               runAsUser: 0
               runAsNonRoot: false
@@ -151,9 +152,7 @@ spec:
       config:
         existingClaim: *app
       media:
-        type: nfs
-        server: ${SECRET_NFS_SERVER:=temp}
-        path: ${SECRET_NFS_MEDIA:=temp}
+        existingClaim: qbittorrent-media-nfs
         globalMounts:
           - path: /media
 

@@ -70,7 +70,10 @@ spec:
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
         # 44 = video, 109 = render (for GPU access), 568 = apps
-        supplementalGroups: [44, 109, 568]
+        supplementalGroups:
+          - 44
+          - 109
+          - 568
       nodeSelector:
         feature.node.kubernetes.io/pci-0300_1002.present: "true"
     service:
@@ -111,9 +114,7 @@ spec:
         globalMounts:
           - path: /app/server
       media:
-        type: nfs
-        server: ${SECRET_NFS_SERVER:=temp}
-        path: ${SECRET_NFS_MEDIA:=temp}
+        existingClaim: tdarr-media-nfs
         globalMounts:
           - path: /media
       transcode-cache:

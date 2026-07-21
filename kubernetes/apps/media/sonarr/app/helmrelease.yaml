@@ -103,9 +103,7 @@ spec:
       tmp:
         type: emptyDir
       media:
-        type: nfs
-        server: ${SECRET_NFS_SERVER:=temp}
-        path: ${SECRET_NFS_MEDIA:=temp}
+        existingClaim: sonarr-media-nfs
         globalMounts:
           - path: /media
 

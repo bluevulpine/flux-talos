@@ -58,7 +58,7 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: {drop: ["ALL"]}
             resources:
               requests:
                 cpu: 100m
@@ -86,7 +86,7 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: {drop: ["ALL"]}
             resources:
               requests:
                 cpu: 100m
@@ -119,7 +119,7 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: {drop: ["ALL"]}
             resources:
               requests:
                 cpu: 100m
@@ -167,9 +167,7 @@ spec:
     persistence:
       # Main media storage on NFS - large capacity for iCloud library
       library:
-        type: nfs
-        server: ${SECRET_NFS_SERVER:=temp}
-        path: /mnt/blockbuster/media/photos
+        existingClaim: immich-nfs
         globalMounts:
           - path: /usr/src/app/upload
             readOnly: false
