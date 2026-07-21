@@ -41,10 +41,17 @@ spec:
         reclaimPolicy: Delete
         volumeBindingMode: Immediate
         allowVolumeExpansion: true
+        # nfsvers + nconnect align with the tuned media-library PV mounts (commit
+        # 33318e7b) so tns-csi-nfs volumes join the SAME NAS transport at
+        # nconnect=8 instead of pinning the shared per-(client,server) transport
+        # to a single connection. Applies to newly-provisioned volumes only;
+        # existing tns-csi-nfs PVs keep their frozen options until recreated.
         mountOptions:
+          - nfsvers=4.2
           - hard
           - noatime
           - noresvport
+          - nconnect=8
           - rsize=1048576
           - wsize=1048576
 
