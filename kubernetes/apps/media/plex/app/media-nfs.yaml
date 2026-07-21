@@ -1,0 +1,94 @@
+---
+# Tuned NFS mounts for Plex's media shares.
+#
+# WHY: the bjw-s `type: nfs` inline volume renders to a raw pod-spec nfs volume,
+# which the Kubernetes API does NOT let you attach mountOptions to — so the media
+# share ran on kernel-negotiated defaults (single TCP connection, atime on). That
+# untuned mount is the most likely cause of the multi-second start-of-playback
+# stall: every header read and seek is a serialized network round-trip.
+#
+# A native `nfs` PersistentVolume DOES honor mountOptions, so we bind Plex to a
+# PV/PVC pair per share and tune it. NFS is inherently multi-mount: every media
+# consumer (the *arr stack, sabnzbd, jellyfin) gets its OWN PV/PVC to the SAME
+# export and they all mount concurrently — that is the shared-access model, and
+# why iSCSI/NVMe-oF (single-writer) were the wrong tool here. Plex mounts
+# read-only; writers (arr/sab) would use ReadWriteMany on their own PVs.
+#
+# reclaimPolicy: Retain — this points at the live media library; never Delete.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: plex-media-nfs
+  labels:
+    app.kubernetes.io/name: plex
+    app.kubernetes.io/component: media
+spec:
+  capacity:
+    storage: 1Gi # NFS ignores capacity; the field is required.
+  accessModes:
+    - "ReadOnlyMany"
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: "" # static binding — no dynamic provisioner
+  mountOptions:
+    - nfsvers=4.2
+    - hard
+    - noresvport
+    - noatime # kill atime writes — big win under library scans
+    - nconnect=8 # biggest lever: parallel TCP flows to the NAS
+    - rsize=1048576
+    - wsize=1048576
+  nfs:
+    server: "${SECRET_NFS_SERVER}"
+    path: "${SECRET_NFS_MEDIA}"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: plex-media-nfs
+spec:
+  accessModes:
+    - "ReadOnlyMany"
+  storageClassName: ""
+  volumeName: plex-media-nfs
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: plex-media-home-nfs
+  labels:
+    app.kubernetes.io/name: plex
+    app.kubernetes.io/component: media
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - "ReadOnlyMany"
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - nfsvers=4.2
+    - hard
+    - noresvport
+    - noatime
+    - nconnect=8
+    - rsize=1048576
+    - wsize=1048576
+  nfs:
+    server: "${SECRET_NFS_SERVER}"
+    path: "${SECRET_NFS_MEDIA_HOME}"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: plex-media-home-nfs
+spec:
+  accessModes:
+    - "ReadOnlyMany"
+  storageClassName: ""
+  volumeName: plex-media-home-nfs
+  resources:
+    requests:
+      storage: 1Gi

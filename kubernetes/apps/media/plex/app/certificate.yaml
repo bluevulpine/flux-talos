@@ -1,0 +1,32 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/cert-manager.io/certificate_v1.json
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: plex-funbus
+spec:
+  # Own cert in the media namespace so the Plex pod can MOUNT it. The cluster
+  # wildcard (kube-system) is only reachable to Gateways via ReferenceGrant, not
+  # to pods in other namespaces — hence a dedicated Certificate here.
+  secretName: plex-funbus-tls
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt-production
+  dnsNames:
+    # WAN1 (wheels) direct-streaming hostname + a stable plex.* alias. WAN2/rims
+    # is intentionally excluded: same ISP, reserved for IoT — no Plex redundancy.
+    - "wheels.${SECRET_DOMAIN_MEDIA}"
+    - "plex.${SECRET_DOMAIN_MEDIA}"
+  keystores:
+    # Plex requires a PKCS#12 bundle (not PEM) for its custom certificate. This
+    # emits `keystore.p12` into the secret alongside tls.crt/tls.key. On renewal
+    # the secret updates and Stakater Reloader (auto annotation on the pod) rolls
+    # Plex so it reloads the fresh bundle — no manual step.
+    pkcs12:
+      create: true
+      # NOTE: Plex's TLS loader historically wants the legacy p12 encoding. If
+      # Plex rejects the bundle on first boot, switch this to Modern2023.
+      profile: LegacyDES
+      passwordSecretRef:
+        name: plex-secret
+        key: PLEX_CERT_P12_PASSWORD

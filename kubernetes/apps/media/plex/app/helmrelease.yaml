@@ -31,8 +31,12 @@ spec:
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
         # 44 = video, 109 = render (for GPU access), 10000 = media, 8675309 = custom
-        supplementalGroups: [44, 109, 10000, 8675309]
-        seccompProfile: { type: RuntimeDefault }
+        supplementalGroups:
+          - 44
+          - 109
+          - 10000
+          - 8675309
+        seccompProfile: {type: RuntimeDefault}
     controllers:
       plex:
         labels:
@@ -77,7 +81,16 @@ spec:
               tag: rolling
             env:
               TZ: "${TIMEZONE}"
-              PLEX_ADVERTISE_URL: https://wheels.${SECRET_DOMAIN_MEDIA}:443,https://rims.${SECRET_DOMAIN_MEDIA}:443,https://plex.${SECRET_DOMAIN_MEDIA}:443,http://${SVC_PLEX_ADDR}:32400
+              # Model 3 remote path: wheels (WAN1, DDNS'd) direct on the forwarded
+              # port, with Plex terminating TLS via the mounted *.funb.us cert (see
+              # certificate.yaml) so the hostname validates. The LAN entry is kept
+              # so LAN clients get a direct local connection to the LoadBalancer VIP
+              # (Plex self-detects only its pod IP otherwise). rims/WAN2 dropped
+              # (same ISP, IoT-only); plex.funb.us:443 dropped (that was the
+              # Cloudflare/gateway path — throttled for streaming).
+              # NOTE: the :32400 below must match the UniFi WAN1 forward and Plex's
+              # "manually specify public port". Change all three together if retuned.
+              PLEX_ADVERTISE_URL: https://wheels.${SECRET_DOMAIN_MEDIA}:32400,http://${SVC_PLEX_ADDR}:32400
               PLEX_NO_AUTH_NETWORKS: 10.0.10.0/24
             probes:
               liveness: &probes
@@ -100,7 +113,7 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: {drop: ["ALL"]}
             resources:
               requests:
                 cpu: 100m
@@ -136,17 +149,28 @@ spec:
         type: emptyDir
       transcode:
         type: emptyDir
+      # Tuned NFS mounts (nconnect/noatime/1M rsize+wsize) via dedicated PV/PVC —
+      # see media-nfs.yaml. Replaces the inline `type: nfs` volume, which could
+      # not carry mountOptions.
       media:
-        type: nfs
-        server: ${SECRET_NFS_SERVER:=temp}
-        path: ${SECRET_NFS_MEDIA:=temp}
+        existingClaim: plex-media-nfs
         globalMounts:
           - path: /data
             readOnly: true
       media-home:
-        type: nfs
-        server: ${SECRET_NFS_SERVER:=temp}
-        path: ${SECRET_NFS_MEDIA_HOME:=temp}
+        existingClaim: plex-media-home-nfs
         globalMounts:
           - path: /data/video/Home
+            readOnly: true
+      # cert-manager PKCS#12 bundle for Plex's custom certificate (Model 3).
+      # optional: the secret does not exist until cert-manager completes the
+      # DNS-01 order, so Plex must start WITHOUT it (falls back to plex.direct)
+      # rather than hang in ContainerCreating. Reloader rolls the pod once the
+      # cert lands and on every renewal.
+      plex-cert:
+        type: secret
+        name: plex-funbus-tls
+        optional: true
+        globalMounts:
+          - path: /certs
             readOnly: true

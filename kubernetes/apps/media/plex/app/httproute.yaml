@@ -29,8 +29,8 @@ spec:
     - backendRefs:
         - name: plex
           port: 32400
----
 # Note: The nginx.ingress.kubernetes.io/backend-protocol: "HTTPS" annotation
 # was previously configured. In Gateway API, backend protocol configuration
 # may need to be handled through BackendTLSPolicy or other mechanisms
 # depending on the Gateway implementation.
+---

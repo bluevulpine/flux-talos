@@ -8,6 +8,8 @@ components:
 resources:
   - ./ocirepository.yaml
   - ./externalsecret.yaml
+  - ./certificate.yaml
   - ./helmrelease.yaml
   - ./httproute.yaml
+  - ./media-nfs.yaml
   - ./pvc.yaml
