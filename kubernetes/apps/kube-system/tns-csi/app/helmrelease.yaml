@@ -41,13 +41,18 @@ spec:
         reclaimPolicy: Delete
         volumeBindingMode: Immediate
         allowVolumeExpansion: true
-        # nfsvers + nconnect align with the tuned media-library PV mounts (commit
+        # nconnect aligns with the tuned media-library PV mounts (commit
         # 33318e7b) so tns-csi-nfs volumes join the SAME NAS transport at
         # nconnect=8 instead of pinning the shared per-(client,server) transport
         # to a single connection. Applies to newly-provisioned volumes only;
         # existing tns-csi-nfs PVs keep their frozen options until recreated.
+        #
+        # Do NOT re-add an nfsvers/vers option here: the tns-csi-plugin driver
+        # already injects an NFS version option when it stage-mounts the share,
+        # so a version in mountOptions collides with it and every newly
+        # provisioned volume fails to mount with "mount.nfs: multiple version
+        # options not permitted" (broke all VolSync backups 2026-07-21..23).
         mountOptions:
-          - nfsvers=4.2
           - hard
           - noatime
           - noresvport
