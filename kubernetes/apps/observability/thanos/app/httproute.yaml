@@ -8,12 +8,17 @@ metadata:
     gatus.home-operations.com/endpoint: |
       group: observability
     gethomepage.dev/enabled: "true"
+    # many workloads share app.kubernetes.io/name=thanos; pin status to the
+    # query-frontend pods that back this route.
+    gethomepage.dev/app: thanos
+    gethomepage.dev/pod-selector: "app.kubernetes.io/name=thanos,app.kubernetes.io/component=query-frontend"
     gethomepage.dev/name: "Thanos"
     gethomepage.dev/group: "Observability"
     gethomepage.dev/icon: "thanos.png"
     gethomepage.dev/description: "Long-term Metrics Storage"
 spec:
-  hostnames: ["thanos.${SECRET_DOMAIN}"]
+  hostnames:
+    - "thanos.${SECRET_DOMAIN}"
   parentRefs:
     - name: internal
       namespace: network

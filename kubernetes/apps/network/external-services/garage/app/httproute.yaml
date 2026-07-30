@@ -6,13 +6,17 @@ metadata:
   name: garage
   annotations:
     gethomepage.dev/enabled: "true"
+    # External service on the NAS — no in-cluster pod, so use an HTTP ping for
+    # status instead of the (always "not found") kubernetes pod lookup.
+    gethomepage.dev/siteMonitor: https://garage.${SECRET_DOMAIN}
     gethomepage.dev/group: Infrastructure
     gethomepage.dev/name: Garage
     gethomepage.dev/icon: https://garagehq.deuxfleurs.fr/images/garage-logo.svg
     gatus.home-operations.com/endpoint: |
       group: network
 spec:
-  hostnames: ["garage.${SECRET_DOMAIN}"]
+  hostnames:
+    - "garage.${SECRET_DOMAIN}"
   parentRefs:
     # Internal gateway only - not exposed externally
     - name: internal
@@ -35,7 +39,8 @@ metadata:
       conditions:
         - "[STATUS] == 403"
 spec:
-  hostnames: ["s3.${SECRET_DOMAIN}"]
+  hostnames:
+    - "s3.${SECRET_DOMAIN}"
   parentRefs:
     # Internal gateway only - not exposed externally
     - name: internal

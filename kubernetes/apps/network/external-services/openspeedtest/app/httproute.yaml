@@ -8,13 +8,16 @@ metadata:
     auth: authentik
   annotations:
     gethomepage.dev/enabled: "true"
+    # External service (proxied to the NAS) — no in-cluster pod; ping for status.
+    gethomepage.dev/siteMonitor: https://openspeedtest.${SECRET_DOMAIN}
     gethomepage.dev/group: Infrastructure
     gethomepage.dev/name: Openspeedtest
     gethomepage.dev/icon: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/openspeedtest.svg
     gatus.home-operations.com/endpoint: |
       group: network
 spec:
-  hostnames: ["openspeedtest.${SECRET_DOMAIN}"]
+  hostnames:
+    - "openspeedtest.${SECRET_DOMAIN}"
   parentRefs:
     - name: external
       namespace: network

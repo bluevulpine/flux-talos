@@ -104,6 +104,10 @@ spec:
             gatus.home-operations.com/endpoint: |
               group: identity
             gethomepage.dev/enabled: "true"
+            # server + worker share app.kubernetes.io/name=authentik; pin status
+            # to the server pod.
+            gethomepage.dev/app: authentik
+            gethomepage.dev/pod-selector: "app.kubernetes.io/name=authentik,app.kubernetes.io/component=server"
             gethomepage.dev/name: "Authentik"
             gethomepage.dev/group: "Identity"
             gethomepage.dev/icon: "authentik.png"
