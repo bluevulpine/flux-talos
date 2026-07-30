@@ -96,6 +96,9 @@ spec:
           gethomepage.dev/widget.type: "mealie"
           gethomepage.dev/widget.url: "http://mealie.productivity.svc.cluster.local:9000"
           gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_MEALIE_TOKEN}}`}}"
+          # Mealie v2 moved stats to /api/households/statistics; version:2 makes the
+          # widget use the v2 endpoint (default assumes v1 /api/groups/statistics).
+          gethomepage.dev/widget.version: "2"
         parentRefs:
           - name: internal
             namespace: network
