@@ -115,6 +115,8 @@ spec:
           gatus.home-operations.com/endpoint: |
             group: media
           gethomepage.dev/enabled: "true"
+          # backing Service is calibre-web-app; pin the pod lookup to the label
+          gethomepage.dev/app: calibre-web
           gethomepage.dev/name: "Calibre Web"
           gethomepage.dev/group: "Books"
           gethomepage.dev/icon: "calibre-web.png"

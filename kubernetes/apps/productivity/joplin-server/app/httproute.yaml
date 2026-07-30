@@ -8,12 +8,15 @@ metadata:
     gatus.home-operations.com/endpoint: |
       group: productivity
     gethomepage.dev/enabled: "true"
+    # deployment is labeled app.kubernetes.io/name=joplin, not "joplin-server"
+    gethomepage.dev/app: joplin
     gethomepage.dev/name: "Joplin Server"
     gethomepage.dev/group: "Productivity"
     gethomepage.dev/icon: "joplin.png"
     gethomepage.dev/description: "Notes Sync Server"
 spec:
-  hostnames: ["joplin.${SECRET_DOMAIN}"]
+  hostnames:
+    - "joplin.${SECRET_DOMAIN}"
   parentRefs:
     # External gateway - accessible via Cloudflare tunnel
     - name: external

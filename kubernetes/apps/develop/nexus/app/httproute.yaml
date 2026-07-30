@@ -8,12 +8,16 @@ metadata:
     gatus.home-operations.com/endpoint: |
       group: develop
     gethomepage.dev/enabled: "true"
+    # app label (app.kubernetes.io/name) differs from the widget name, so
+    # homepage can't auto-resolve the pod status without this.
+    gethomepage.dev/app: nexus3
     gethomepage.dev/group: Development
     gethomepage.dev/name: Nexus Repository
     gethomepage.dev/icon: nexus.png
     gethomepage.dev/description: Artifact Repository Manager
 spec:
-  hostnames: ["nexus.${SECRET_DOMAIN}"]
+  hostnames:
+    - "nexus.${SECRET_DOMAIN}"
   parentRefs:
     - name: internal
       namespace: network
@@ -33,7 +37,8 @@ metadata:
     # Docker registry proxies - disable individual monitoring, main nexus route covers it
     gatus.home-operations.com/enabled: "false"
 spec:
-  hostnames: ["docker.nexus.${SECRET_DOMAIN}"]
+  hostnames:
+    - "docker.nexus.${SECRET_DOMAIN}"
   parentRefs:
     - name: internal
       namespace: network
@@ -52,7 +57,8 @@ metadata:
   annotations:
     gatus.home-operations.com/enabled: "false"
 spec:
-  hostnames: ["docker-hub.nexus.${SECRET_DOMAIN}"]
+  hostnames:
+    - "docker-hub.nexus.${SECRET_DOMAIN}"
   parentRefs:
     - name: internal
       namespace: network
@@ -71,7 +77,8 @@ metadata:
   annotations:
     gatus.home-operations.com/enabled: "false"
 spec:
-  hostnames: ["ghcr.nexus.${SECRET_DOMAIN}"]
+  hostnames:
+    - "ghcr.nexus.${SECRET_DOMAIN}"
   parentRefs:
     - name: internal
       namespace: network
@@ -90,7 +97,8 @@ metadata:
   annotations:
     gatus.home-operations.com/enabled: "false"
 spec:
-  hostnames: ["quay.nexus.${SECRET_DOMAIN}"]
+  hostnames:
+    - "quay.nexus.${SECRET_DOMAIN}"
   parentRefs:
     - name: internal
       namespace: network
@@ -109,7 +117,8 @@ metadata:
   annotations:
     gatus.home-operations.com/enabled: "false"
 spec:
-  hostnames: ["lscr.nexus.${SECRET_DOMAIN}"]
+  hostnames:
+    - "lscr.nexus.${SECRET_DOMAIN}"
   parentRefs:
     - name: internal
       namespace: network
@@ -128,7 +137,8 @@ metadata:
   annotations:
     gatus.home-operations.com/enabled: "false"
 spec:
-  hostnames: ["gcr.nexus.${SECRET_DOMAIN}"]
+  hostnames:
+    - "gcr.nexus.${SECRET_DOMAIN}"
   parentRefs:
     - name: internal
       namespace: network
@@ -147,7 +157,8 @@ metadata:
   annotations:
     gatus.home-operations.com/enabled: "false"
 spec:
-  hostnames: ["ecr.nexus.${SECRET_DOMAIN}"]
+  hostnames:
+    - "ecr.nexus.${SECRET_DOMAIN}"
   parentRefs:
     - name: internal
       namespace: network
@@ -166,7 +177,8 @@ metadata:
   annotations:
     gatus.home-operations.com/enabled: "false"
 spec:
-  hostnames: ["cgr.nexus.${SECRET_DOMAIN}"]
+  hostnames:
+    - "cgr.nexus.${SECRET_DOMAIN}"
   parentRefs:
     - name: internal
       namespace: network
