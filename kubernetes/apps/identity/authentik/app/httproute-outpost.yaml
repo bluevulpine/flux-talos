@@ -8,8 +8,16 @@ kind: HTTPRoute
 metadata:
   name: authentik-outpost
   annotations:
+    # Check the outpost's unauthenticated liveness endpoint (returns 204). The
+    # default auto-generated check hit an authenticated outpost path, which made
+    # the outpost perform an OAuth2 token grant every interval — spamming
+    # authentik's event log with "Login" events. /ping never authenticates.
     gatus.home-operations.com/endpoint: |
       group: identity
+      url: https://sso.${SECRET_DOMAIN}/outpost.goauthentik.io/ping
+      interval: 5m
+      conditions:
+        - "[STATUS] == 204"
 spec:
   hostnames:
     - "sso.${SECRET_DOMAIN}"
