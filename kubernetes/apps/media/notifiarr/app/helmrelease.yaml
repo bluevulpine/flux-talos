@@ -65,7 +65,7 @@ spec:
             group: media
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: "Notifiarr"
-          gethomepage.dev/group: "Media"
+          gethomepage.dev/group: "Downloads"
           gethomepage.dev/icon: "notifiarr.png"
           gethomepage.dev/description: "Notifications"
         labels:

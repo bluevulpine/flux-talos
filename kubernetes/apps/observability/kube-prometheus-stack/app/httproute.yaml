@@ -12,7 +12,8 @@ metadata:
     gethomepage.dev/name: Prometheus
     gethomepage.dev/group: Observability
 spec:
-  hostnames: ["prometheus.${SECRET_DOMAIN}"]
+  hostnames:
+    - "prometheus.${SECRET_DOMAIN}"
   parentRefs:
     - name: internal
       namespace: network
@@ -33,9 +34,10 @@ metadata:
     gethomepage.dev/enabled: "true"
     gethomepage.dev/icon: alertmanager.png
     gethomepage.dev/name: Alert-Manager
-    gethomepage.dev/group: Monitoring
+    gethomepage.dev/group: Observability
 spec:
-  hostnames: ["alertmanager.${SECRET_DOMAIN}"]
+  hostnames:
+    - "alertmanager.${SECRET_DOMAIN}"
   parentRefs:
     - name: internal
       namespace: network

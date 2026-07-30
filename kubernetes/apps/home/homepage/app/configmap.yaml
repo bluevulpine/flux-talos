@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -77,7 +78,50 @@ data:
     theme: dark
     color: slate
     headerStyle: clean
+    # Layout order == display order. Every group used by a gethomepage.dev/group
+    # annotation is listed here so it renders styled and in a deterministic spot;
+    # an unlisted group would still show, but unstyled and appended at the end.
     layout:
+      Home:
+        style: row
+        columns: 3
+        icon: mdi-home-analytics
+      Video:
+        style: row
+        columns: 4
+        icon: mdi-play-circle
+      Photos:
+        style: row
+        columns: 2
+        icon: mdi-image
+      Books:
+        style: row
+        columns: 3
+        icon: mdi-book
+      Downloads:
+        style: row
+        columns: 4
+        icon: mdi-download-circle
+      Productivity:
+        style: row
+        columns: 4
+        icon: mdi-briefcase
+      Identity:
+        style: row
+        columns: 2
+        icon: mdi-shield-account
+      Development:
+        style: row
+        columns: 3
+        icon: mdi-code-braces
+      Database:
+        style: row
+        columns: 2
+        icon: mdi-database
+      Storage:
+        style: row
+        columns: 2
+        icon: mdi-nas
       Network:
         style: row
         columns: 2
@@ -86,34 +130,18 @@ data:
         style: row
         columns: 2
         icon: mdi-server
-      Home:
-        style: row
-        columns: 3
-        icon: mdi-home-analytics
-      Photos:
-        style: row
-        columns: 2
-        icon: mdi-image
-      Video:
-        style: row
-        columns: 4
-        icon: mdi-play-circle
-      Downloads:
-        style: row
-        columns: 4
-        icon: mdi-download-circle
-      Books:
-        style: row
-        columns: 2
-        icon: mdi-book
       Observability:
         style: row
-        columns: 2
+        columns: 3
         icon: mdi-chart-line
+      Fun:
+        style: row
+        columns: 2
+        icon: mdi-emoticon-happy
     providers:
       longhorn:
         url: http://longhorn-frontend.longhorn-system.svc.cluster.local
-  widgets.yaml: |
+  widgets.yaml: |-
     - search:
         provider: [duckduckgo]
         focus: false
