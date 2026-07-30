@@ -51,14 +51,15 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: {drop: ["ALL"]}
               seccompProfile:
                 type: RuntimeDefault
             resources:
               requests:
                 cpu: 10m
+                memory: 96Mi
               limits:
-                memory: 64Mi
+                memory: 128Mi
         pod:
           # Note: echo-server has issues on ARM/Pi, running on x86 nodes
           securityContext:
