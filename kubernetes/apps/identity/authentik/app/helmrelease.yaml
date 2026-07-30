@@ -69,7 +69,7 @@ spec:
               key: AUTHENTIK_REDIS__HOST
 
     authentik:
-      enabled: false  # We manage secrets via ExternalSecret
+      enabled: false # We manage secrets via ExternalSecret
       log_level: info
       email:
         host: smtp-relay.infrastructure.svc.cluster.local
@@ -110,7 +110,11 @@ spec:
             gethomepage.dev/description: "Identity Provider"
             gethomepage.dev/widget.type: "authentik"
             gethomepage.dev/widget.url: "http://authentik-server.identity.svc.cluster.local"
-            gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_AUTHENTIK_TOKEN}}`}}"
+            # NOTE: the goauthentik chart passes route annotations through verbatim
+            # (no Helm `tpl`), so the `{{`...`}}` escape idiom used by app-template
+            # charts would leak literal backticks here and corrupt the token. Use a
+            # plain placeholder — homepage substitutes HOMEPAGE_VAR_* at render time.
+            gethomepage.dev/widget.key: "{{HOMEPAGE_VAR_AUTHENTIK_TOKEN}}"
           parentRefs:
             - name: internal
               namespace: network
@@ -131,7 +135,7 @@ spec:
           memory: 1Gi
 
     postgresql:
-      enabled: false  # Using CNPG
+      enabled: false # Using CNPG
 
     prometheus:
       rules:
