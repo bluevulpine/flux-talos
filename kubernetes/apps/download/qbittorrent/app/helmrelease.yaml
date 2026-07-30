@@ -123,10 +123,16 @@ spec:
     route:
       app:
         annotations:
+          # Check the backend directly (internal Service), not the authentik-proxied
+          # public URL. Sending the gatus-healthcheck Basic-auth credential through
+          # the proxy made the outpost mint a fresh OAuth2 token every check (Basic
+          # auth is stateless) — spamming authentik's event log with logins. SSO
+          # itself is covered by the separate authentik/identity gatus check.
           gatus.home-operations.com/endpoint: |
             group: download
-            headers:
-              Authorization: Basic $${GATUS_AUTHENTIK_BASIC_AUTH}
+            url: http://qbittorrent-app.download.svc.cluster.local:8080
+            conditions:
+              - "[STATUS] == 200"
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: "qBittorrent"
           gethomepage.dev/group: "Downloads"
