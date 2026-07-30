@@ -8,13 +8,40 @@ spec:
   groups:
     - name: dockerhub
       rules:
+        # The cluster pulls many docker.io-hosted images (Longhorn alone is ~70
+        # container refs with no non-docker.io registry). Direct anonymous pulls
+        # from Docker Hub are rate limited (100/6h per IP), so a cold bootstrap or
+        # mass re-pull could exhaust the limit and wedge the cluster.
+        #
+        # This is mitigated by the Spegel -> Nexus -> upstream pull-through mirror
+        # chain configured in Talos (machine.registries.mirrors in
+        # talos/talconfig.yaml): docker.io pulls are served from the in-cluster
+        # Nexus cache and Spegel's peer-to-peer layer sharing, NOT Docker Hub.
+        #
+        # The previous expr counted docker.io image refs (> 100) as a proxy for
+        # exposure. It was blind to the mirror -- a permanent false positive once
+        # Spegel/Nexus were in place, and unsatisfiable anyway (Longhorn's refs
+        # can't move off docker.io). The genuine risk condition is that the
+        # docker.io pull-through mirror itself is DOWN, so pulls fall back to
+        # Docker Hub directly. That is what we now alert on.
+        #
+        # absent(up{...} == 1) fires whether the Nexus scrape target reports down
+        # (up == 0) OR the target is gone entirely (series absent) -- both mean
+        # the mirror is not serving.
         - alert: BootstrapRateLimitRisk
           annotations:
-            summary: Kubernetes cluster at risk of being rate limited by dockerhub on bootstrap
-          expr: count(time() - container_last_seen{image=~"(docker.io).*",container!=""} < 30) > 100
+            summary: >-
+              The docker.io pull-through mirror (Nexus) is unreachable -- image
+              pulls will fall back to Docker Hub directly and risk anonymous rate
+              limiting on the next node reboot, Talos upgrade, or cluster bootstrap.
+            description: >-
+              up{job="nexus-nexus3"} has reported the Nexus registry cache down
+              (or absent) for 15m. Restore Nexus (namespace develop) before any
+              bootstrap or mass image re-pull.
+          expr: absent(up{job="nexus-nexus3"} == 1)
           for: 15m
           labels:
-            severity: critical
+            severity: warning
     - name: oom
       rules:
         - alert: OOMKilled
