@@ -60,6 +60,63 @@ StorageClass level. See
    reachability) — a stuck mover can also indicate a transport-layer issue
    unrelated to the filesystem.
 
+## Root cause: `tns-csi-nfs` stale file handle (needs PAUSE, not just delete)
+
+A second, distinct wedge (seen `media/tdarr-r2`, 2026-07-28) affects the
+`tns-csi-nfs` (NFS) driver rather than NVMe-oF/iSCSI. The mover's snapshot-clone
+src PVC mounts with a **stale NFS file handle** — the underlying PV's NFS export
+is dead (server-side path gone or recreated), so the mount can never succeed:
+
+```
+MountVolume.SetUp failed for volume "pvc-..." : applyFSGroup failed for vol
+apps/tns-csi/nfs/pvc-...: lstat .../mount: stale file handle
+```
+
+kubelet retries the identical doomed mount forever (e.g. `x577 over 19h`). The
+dead volume must be discarded and reprovisioned — re-snapshotting the same PVC
+name does not help.
+
+**Why the obvious fix deadlocks:** deleting the stuck mover Job + src PVC +
+snapshot is *not* enough. VolSync's controller immediately recreates the mover
+Job pointing at the same deterministic PVC name, which re-grabs the
+`kubernetes.io/pvc-protection` finalizer on the still-`Terminating` PVC and
+re-hits the same dead PV. Result: PVC stuck `Terminating`, new mover stuck
+`ContainerCreating` — a loop that never converges.
+
+**Recovery — pause first so the mover stops respawning:**
+
+```bash
+NS=media; SRC=tdarr-r2   # adjust
+
+# 1. Pause the ReplicationSource — tears down the in-flight Job/pod, releasing
+#    pvc-protection so the old PVC + PV + VolumeSnapshot delete cleanly.
+kubectl -n "$NS" patch replicationsource "$SRC" --type=merge -p '{"spec":{"paused":true}}'
+
+# 2. Confirm the src pod / PVC / VolumeSnapshot are all gone.
+kubectl -n "$NS" get pod,pvc,volumesnapshot | grep "$SRC" || echo "clear"
+
+# 3. Resume — VolSync provisions a fresh snapshot -> PVC (new NFS export) -> mover.
+kubectl -n "$NS" patch replicationsource "$SRC" --type=merge -p '{"spec":{"paused":false}}'
+
+# 4. (Optional) validate now instead of waiting for the schedule. Capture the
+#    current trigger FIRST, force one manual sync, watch it complete, then restore.
+kubectl -n "$NS" get replicationsource "$SRC" -o jsonpath='{.spec.trigger}{"\n"}'   # note the schedule
+kubectl -n "$NS" patch replicationsource "$SRC" --type=merge \
+  -p '{"spec":{"trigger":{"manual":"recovery-verify","schedule":null}}}'
+# ...wait for the fresh mover to reach Running/Completed and lastSyncTime to advance...
+kubectl -n "$NS" patch replicationsource "$SRC" --type=merge \
+  -p '{"spec":{"trigger":{"schedule":"<ORIGINAL>","manual":null}}}'
+```
+
+Restoring the exact original schedule means no Flux drift — the runtime spec
+matches the Git manifest again.
+
+**Sibling failure mode (Longhorn, not NFS):** a `*-local-src` VolumeSnapshot stuck
+`readyToUse=false` (`waitForSnapshotToBeReady: timeout`) while the source volume is
+healthy. No respawn-deadlock here — just
+`kubectl -n <ns> delete volumesnapshot volsync-<app>-local-src` and VolSync
+recreates a working one on the next reconcile.
+
 ## Diagnose
 
 ```bash
