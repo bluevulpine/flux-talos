@@ -164,6 +164,23 @@ spec:
             sectionName: https
         hostnames:
           - photos.${SECRET_DOMAIN}
+    # Tailnet-only door for the Immich mobile app: direct WireGuard, no
+    # Cloudflare 100MB upload cap. NOT funneled — private to the tailnet.
+    # The public `route:` above stays for share links (served via Cloudflare).
+    ingress:
+      tailscale:
+        enabled: true
+        className: tailscale
+        hosts:
+          - host: immich
+            paths:
+              - path: /
+                service:
+                  identifier: app
+                  port: http
+        tls:
+          - hosts:
+              - immich
     persistence:
       # Main media storage on NFS - large capacity for iCloud library
       library:
