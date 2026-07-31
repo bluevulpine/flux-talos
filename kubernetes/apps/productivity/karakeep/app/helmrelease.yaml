@@ -28,7 +28,10 @@ spec:
             image:
               repository: busybox
               tag: latest
-            command: ["sh", "-c", "chown 568:568 /run && chmod 755 /run"]
+            command:
+              - "sh"
+              - "-c"
+              - "chown 568:568 /run && chmod 755 /run"
             securityContext:
               runAsUser: 0
               runAsGroup: 0
@@ -101,7 +104,12 @@ spec:
             command:
               - /bin/meilisearch
             args:
-              - --experimental-dumpless-upgrade
+              # Meilisearch v1.51 stabilized dumpless upgrade and renamed the flag
+              # --experimental-dumpless-upgrade -> --upgrade-db (same behavior). The old
+              # flag is rejected as an unknown argument in v1.51+, crashlooping the sidecar.
+              # This flag lets Meilisearch migrate its on-disk index in place across a
+              # version bump instead of requiring a dump/import.
+              - --upgrade-db
             env:
               MEILI_ENV: production
               MEILI_NO_ANALYTICS: "true"
