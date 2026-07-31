@@ -9,7 +9,8 @@ metadata:
     gatus.home-operations.com/endpoint: |
       group: network
 spec:
-  hostnames: ["echo-server-external.${SECRET_DOMAIN}"]
+  hostnames:
+    - "echo-server-external.${SECRET_DOMAIN}"
   parentRefs:
     # External gateway - accessible via Cloudflare tunnel
     - name: external
@@ -34,7 +35,8 @@ metadata:
     gatus.home-operations.com/endpoint: |
       group: network
 spec:
-  hostnames: ["echo-server-internal.${SECRET_DOMAIN}"]
+  hostnames:
+    - "echo-server-internal.${SECRET_DOMAIN}"
   parentRefs:
     - name: internal
       namespace: network
@@ -56,7 +58,8 @@ metadata:
     gatus.home-operations.com/endpoint: |
       group: network
 spec:
-  hostnames: ["echo-server-external-sso.${SECRET_DOMAIN}"]
+  hostnames:
+    - "echo-server-external-sso.${SECRET_DOMAIN}"
   parentRefs:
     - name: external
       namespace: network
@@ -81,7 +84,8 @@ metadata:
     gatus.home-operations.com/endpoint: |
       group: network
 spec:
-  hostnames: ["echo-server-internal-sso.${SECRET_DOMAIN}"]
+  hostnames:
+    - "echo-server-internal-sso.${SECRET_DOMAIN}"
   parentRefs:
     - name: internal
       namespace: network
@@ -103,10 +107,36 @@ metadata:
     gatus.home-operations.com/endpoint: |
       group: network
 spec:
-  hostnames: ["echo-server-external-only.${SECRET_DOMAIN}"]
+  hostnames:
+    - "echo-server-external-only.${SECRET_DOMAIN}"
   parentRefs:
     # External gateway ONLY - no internal gateway reference
     - name: external
+      namespace: network
+      sectionName: https
+  rules:
+    - backendRefs:
+        - name: echo-server
+          port: 8080
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# Pangolin gateway ONLY - forces all traffic out to the Pangolin VPS and back in
+# through the Newt connector. No internal gateway reference on purpose: with one,
+# split-horizon DNS would answer on-network clients with the LAN A record and
+# they would never exercise the Pangolin path this probe exists to test.
+# Public record comes from ./dnsendpoint.yaml (CNAME -> pangolin.${SECRET_DOMAIN}).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: echo-server-pangolin
+  annotations:
+    gatus.home-operations.com/endpoint: |
+      group: network
+spec:
+  hostnames:
+    - "echo-server-pangolin.${SECRET_DOMAIN}"
+  parentRefs:
+    - name: external-pangolin
       namespace: network
       sectionName: https
   rules:
