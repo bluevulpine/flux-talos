@@ -4,11 +4,19 @@ kind: DNSEndpoint
 metadata:
   name: pangolin
 spec:
+  # Per-domain "entry" A records pointing at the external Pangolin VPS -- the
+  # Pangolin equivalent of external.${SECRET_DOMAIN} for cloudflared: a stable
+  # per-domain target that individual service hostnames can CNAME onto. All are
+  # DNS-only (cloudflare-proxied: false): the VPS must answer ACME/HTTP directly
+  # for Traefik's Let's Encrypt certs and serve connector traffic itself --
+  # CF-proxying would re-impose the tunnel limits we are avoiding.
+  #
+  # AAAA (2604:a880:400:d1:0:4:c54f:1) intentionally omitted for now: the VPS is
+  # not serving on IPv6 (ports 80/443 refuse over v6), and Let's Encrypt validates
+  # the AAAA *first* when present, so publishing it makes cert issuance fail and
+  # fall back to a self-signed cert. Re-add per host only once the VPS has working
+  # IPv6 (DO netplan + Traefik listening on [::]).
   endpoints:
-    # Pangolin dashboard / entry point, pointing at the external VPS. DNS-only
-    # (cloudflare-proxied: false): the VPS must answer ACME/HTTP directly for
-    # Traefik's Let's Encrypt certs and serve connector traffic itself --
-    # CF-proxying would re-impose the tunnel limits we are avoiding.
     - dnsName: "pangolin.${SECRET_DOMAIN}"
       recordType: A
       targets:
@@ -16,8 +24,17 @@ spec:
       providerSpecific:
         - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
           value: "false"
-          # AAAA (2604:a880:400:d1:0:4:c54f:1) intentionally omitted for now: the VPS
-          # is not serving on IPv6 (ports 80/443 refuse over v6), and Let's Encrypt
-          # validates the AAAA *first* when present, so publishing it makes Traefik's
-          # cert issuance fail and fall back to a self-signed cert. Re-add only after
-          # the VPS has working IPv6 (DO netplan + Traefik listening on [::]).
+    - dnsName: "pangolin.${SECRET_DOMAIN_MEDIA}"
+      recordType: A
+      targets:
+        - "134.209.70.159"
+      providerSpecific:
+        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+          value: "false"
+    - dnsName: "pangolin.${SECRET_DOMAIN_BLOG}"
+      recordType: A
+      targets:
+        - "134.209.70.159"
+      providerSpecific:
+        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+          value: "false"
