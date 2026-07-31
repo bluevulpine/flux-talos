@@ -42,11 +42,13 @@ brokkr01      bond0     2604:8500:b20b:1:8647:9ff:fe33:6c1f/64
 ```
 
 Every node has SLAAC GUAs with working `::/0` routes. The home ISP is **Garden
-Valley**, and UniFi is handing out a **distinct /64 per VLAN** (`b20b:1` native,
-`b20b:2` VLAN 30, `b20b:4` VLAN 50) — implying a delegated prefix of at least a
-/60, i.e. **spare /64s may be available to route to pods** rather than being
-forced onto ULA + NAT66. Confirm the actual PD size in UniFi before planning
-addressing (see Open questions).
+Valley**, which delegates a **/48** (`2604:8500:b20b::/48`). UniFi currently
+carves a /64 per VLAN out of it (`b20b:1` native, `b20b:2` VLAN 30, `b20b:4`
+VLAN 50), leaving **65,000+ unused /64s**.
+
+That is the single most important fact here: there is no addressing constraint.
+Pods and LoadBalancers can each get **routed global /64s** — no ULA, no NAT66,
+no prefix-squeezing. This removes the ugliest part of most homelab IPv6 designs.
 
 ### Cluster is single-stack IPv4
 
@@ -86,16 +88,34 @@ is "add a v6 pool + advertisement + address family", not "re-architect the LB".
 Each stage is independently useful and independently revertable. Do not start a
 later stage until the previous one is verified.
 
-### Stage 0 — decide pod/service addressing (design, no changes)
+### Stage 0 — addressing (design, no changes)
 
-- **Pods:** prefer a **routed GUA /64** from the delegated prefix if UniFi can
-  hand one out that is *not* used for a VLAN — gives real end-to-end IPv6 with no
-  NAT. Otherwise **ULA `fd00::/48`** + `enableIPv6Masquerade` (works, but NAT66).
-- **Services:** ULA is fine and preferable (cluster-internal only), e.g.
-  `fd00:96::/108`. Note Kubernetes requires the IPv6 service CIDR to be **/108 or
-  larger prefix length** (it rejects huge service CIDRs).
+With a /48 in hand, carve dedicated ranges well clear of the VLAN /64s already in
+use (`b20b:1`, `:2`, `:4`). Suggested layout:
+
+| Purpose | Prefix | Notes |
+| --- | --- | --- |
+| Pods | `2604:8500:b20b:1000::/56` | 256 × /64, one per node (k8s default `node-cidr-mask-size-ipv6` is /64) |
+| Services | `fd00:96::/108` | ULA — never routed off-cluster; k8s caps the v6 service CIDR at /108 |
+| LoadBalancers | `2604:8500:b20b:ff00::/64` | advertised via BGP (Stage 3) |
+
+- **Pods get routed GUAs, not ULA.** No `enableIPv6Masquerade` needed, no NAT66,
+  and pod egress uses a real address. The pod CIDR must be *shorter* than the
+  per-node mask so each node gets its own /64 — hence /56 for the cluster.
+- **Services stay ULA.** They are cluster-internal by definition; there is no
+  reason to spend routable space, and ULA makes it obvious they are not external.
 - Keep **IPv4 as the primary family**. It cannot be changed later without a
   rebuild, and every existing Service stays IPv4-only regardless.
+
+> **Security: routable now means reachable.** Today every LoadBalancer lives on
+> `172.16.8.0/24` (RFC1918) and every pod on `10.69.0.0/16` — the internet cannot
+> reach them even if a firewall rule is wrong, because the addresses are not
+> routable. GUA pods and GUA LoadBalancers **are** globally routable, so the
+> firewall becomes the only thing standing between the internet and every
+> internal service. Before Stage 3, confirm UniFi's WAN policy **denies inbound
+> IPv6 to the pod and LB prefixes by default**, and only allow what is
+> deliberately published. This is the one genuinely new risk dual-stack
+> introduces, and it does not exist in the IPv4 setup.
 
 ### Stage 1 — Talos control plane (the risky one)
 
@@ -104,7 +124,7 @@ Append the v6 CIDRs in `talos/talconfig.yaml`:
 ```yaml
 clusterPodNets:
   - "10.69.0.0/16"
-  - "<pod-v6>/64"      # or fd00::/48
+  - "2604:8500:b20b:1000::/56"
 clusterSvcNets:
   - "10.96.0.0/16"
   - "fd00:96::/108"
@@ -126,8 +146,8 @@ you accept the possibility of a rebuild anyway.
 ```yaml
 ipv6:
   enabled: true
-ipv6NativeRoutingCIDR: "<pod-v6-cidr>"
-enableIPv6Masquerade: true   # only if pods use ULA
+ipv6NativeRoutingCIDR: "2604:8500:b20b:1000::/56"
+# enableIPv6Masquerade: NOT needed -- pods have routed GUAs, so no NAT66.
 ```
 
 `ipam.mode: kubernetes` means pod v6 CIDRs arrive from Stage 1 automatically.
@@ -136,8 +156,7 @@ misbehaves, that is the first thing to check.
 
 ### Stage 3 — LoadBalancer / BGP
 
-- Add a v6 block to `CiliumLoadBalancerIPPool` (a routed GUA /64, or ULA if the
-  router will carry it).
+- Add `2604:8500:b20b:ff00::/64` as a v6 block on `CiliumLoadBalancerIPPool`.
 - Add/extend `CiliumBGPAdvertisement` for the v6 family and ensure the
   `CiliumBGPPeerConfig` negotiates the **IPv6 unicast AFI/SAFI** — either over the
   existing IPv4 session (multiprotocol BGP) or via a second peer over v6.
@@ -178,13 +197,17 @@ them. Treat Stage 1 as the point of no return and have a rebuild path ready.
 
 ## Open questions
 
-1. **What prefix size does Garden Valley actually delegate** (UniFi → Internet →
-   IPv6 → prefix delegation)? A /56 or /60 means a spare routed /64 for pods; a
-   single /64 forces ULA + NAT66.
-2. Will UniFi's BGP accept an advertised v6 prefix from ASN 65512, and does it
-   need a separate v6 peering session?
-3. Convert in place or fold into a rebuild? (Leaning rebuild — see Stage 1.)
-4. Is there a concrete driver beyond completeness? If not, this stays parked.
+1. ~~What prefix size does Garden Valley delegate?~~ **Answered: a /48**
+   (`2604:8500:b20b::/48`). Addressing is a non-issue; see Stage 0.
+2. Is the /48 **stable**, or can it change on a lease/CPE swap? If it can rotate,
+   the pod/LB prefixes rotate with it — which is disruptive in a way ULA is not.
+   Worth confirming with Garden Valley before committing pods to GUAs.
+3. Will UniFi's BGP accept an advertised v6 prefix from ASN 65512, and does it
+   need a separate v6 peering session or just the v6 AFI on the existing one?
+4. Does UniFi's WAN firewall default-deny inbound IPv6 to the pod/LB prefixes?
+   (See the security note in Stage 0 — this is the new risk.)
+5. Convert in place or fold into a rebuild? (Leaning rebuild — see Stage 1.)
+6. Is there a concrete driver beyond completeness? If not, this stays parked.
 
 ## Related
 
