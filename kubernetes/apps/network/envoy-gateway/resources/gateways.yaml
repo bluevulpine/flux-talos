@@ -71,6 +71,45 @@ spec:
         namespaces:
           from: All
 ---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/gateway_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: external-pangolin
+  namespace: network
+  annotations:
+    # Belt-and-braces: neither external-dns instance watches this gateway
+    # (cloudflare is scoped --gateway-name=external, unifi --gateway-name=internal),
+    # and public DNS for Pangolin-served hosts comes from DNSEndpoint CRs instead.
+    external-dns.alpha.kubernetes.io/controller: none
+spec:
+  gatewayClassName: envoy
+  # Third ingress door, alongside `external` (Cloudflare tunnel) and `internal`
+  # (LAN). Traffic arrives from the Pangolin VPS via the in-cluster Newt
+  # connector, bypassing Cloudflare's 100MB upload cap and per-stream throughput
+  # limit. Keeping it as its own Gateway is what preserves split-horizon DNS:
+  # external-dns derives records per-gateway, so a host served here gets its
+  # public record from a DNSEndpoint while `internal` still publishes the LAN
+  # A record. ClusterIP-only -- reached solely by Newt inside the cluster.
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: envoy-proxy-pangolin
+  listeners:
+    # HTTPS only: Newt forwards to :443; there is no plaintext hop to redirect.
+    - name: https
+      protocol: HTTPS
+      port: 443
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: kube-system
+      allowedRoutes:
+        namespaces:
+          from: All
+---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
