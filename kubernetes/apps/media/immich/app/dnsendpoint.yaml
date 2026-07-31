@@ -1,0 +1,22 @@
+---
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: immich
+spec:
+  endpoints:
+    # Public record for Immich, pointing at the Pangolin VPS entry host instead
+    # of the Cloudflare tunnel. Read only by external-dns-cloudflare (the unifi
+    # instance has no `crd` source), so the LAN A record published from the
+    # `internal` Gateway is untouched -- split horizon preserved.
+    #
+    # DNS-only (cloudflare-proxied: false) is mandatory here, not cosmetic:
+    # orange-clouding this record would put CF back in the path and restore the
+    # 100MB upload cap and per-stream throttle this whole setup exists to avoid.
+    - dnsName: "photos.${SECRET_DOMAIN}"
+      recordType: CNAME
+      targets:
+        - "pangolin.${SECRET_DOMAIN}"
+      providerSpecific:
+        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+          value: "false"

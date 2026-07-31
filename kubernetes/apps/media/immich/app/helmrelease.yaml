@@ -159,7 +159,14 @@ spec:
           - name: internal
             namespace: network
             sectionName: https
-          - name: external
+          # Public traffic arrives via the Pangolin VPS -> Newt connector, NOT the
+          # Cloudflare tunnel: CF caps proxied uploads at 100MB (Immich 413s on
+          # full-res video) and throttles to ~1.6MB/s per stream. Attaching to
+          # `external-pangolin` instead of `external` is also what keeps split
+          # horizon working -- external-dns derives records per-gateway, so the
+          # public record comes from ./dnsendpoint.yaml while `internal` above
+          # still publishes the LAN A record for on-network clients.
+          - name: external-pangolin
             namespace: network
             sectionName: https
         hostnames:
