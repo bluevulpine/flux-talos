@@ -26,15 +26,23 @@
       enabled: false,
     },
     {
-      // gitea is the only release with both an explicit `registry: docker.io`
-      // field and a `# renovate:` annotation, so the built-in helm-values
-      // manager (depName docker.io/gitea/gitea) and the customManager
-      // (depName gitea/gitea) both match the same tag line and Renovate opens
-      // two PRs for a single update. The annotation is the repo convention, so
-      // drop the redundant helm-values-detected duplicate.
-      description: "Gitea: drop helm-values duplicate; image tracked via the # renovate annotation",
+      // gitea is a real Helm chart (not app-template) with a top-level
+      // `image.repository`/`image.tag`, which the built-in helm-values manager
+      // tracks natively. The tag line ALSO carries a `# renovate:` annotation
+      // (customManager). Both match the same line, so Renovate opens two PRs for
+      // one bump (helm-values -> docker.io/gitea/gitea, customManager ->
+      // gitea/gitea). The annotation is the repo convention, so suppress only the
+      // helm-values copy.
+      //
+      // Match by regex, NOT the exact string "docker.io/gitea/gitea": Renovate
+      // normalizes the Docker Hub packageName to the un-prefixed "gitea/gitea",
+      // so the old exact match never fired and the duplicate (#1540) slipped
+      // through. The `/gitea\/gitea$/` regex matches with or without the
+      // docker.io/ registry prefix. Scoped to matchManagers:["helm-values"] so it
+      // can never disable the annotation-based customManager PR we want to keep.
+      description: "Gitea: drop the helm-values duplicate; image tracked via the # renovate annotation",
       matchManagers: ["helm-values"],
-      matchPackageNames: ["docker.io/gitea/gitea"],
+      matchPackageNames: ["/gitea\\/gitea$/"],
       enabled: false,
     },
   ],
