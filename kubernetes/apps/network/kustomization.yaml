@@ -14,5 +14,6 @@ resources:
   - ./external-dns/ks.yaml
   - ./external-services/garage/ks.yaml
   - ./external-services/openspeedtest/ks.yaml
+  - ./pangolin-newt/ks.yaml
   - ./tailscale/ks.yaml
   - ./unifi-phantom-clients-cleanup/ks.yaml

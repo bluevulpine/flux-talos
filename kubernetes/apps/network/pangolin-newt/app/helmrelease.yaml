@@ -1,0 +1,77 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app pangolin-newt
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: pangolin-newt
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+      strategy: rollback
+  values:
+    controllers:
+      pangolin-newt:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: docker.io/fosrl/newt
+              # renovate: datasource=docker depName=docker.io/fosrl/newt
+              tag: 1.15.0
+            # Newt is the tunnel *client*: it dials out to the Pangolin server
+            # (PANGOLIN_ENDPOINT over 443 + Gerbil WireGuard over UDP) and, once
+            # registered, forwards traffic to the target configured in the
+            # Pangolin dashboard for this Site -- point that at the same internal
+            # origin cloudflared uses (external.network.svc.cluster.local:443) so
+            # the existing Envoy HTTPRoutes/certs/authentik are unchanged. Nothing
+            # about the target lives here; only the connector credentials do.
+            envFrom:
+              - secretRef:
+                  name: pangolin-newt-secret
+            securityContext:
+              # Newt uses userspace WireGuard (netstack), so it needs no NET_ADMIN,
+              # no /dev/net/tun, and no privileged ports -- fully locked down.
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                memory: 128Mi
+    defaultPodOptions:
+      affinity:
+        # Newt sits in the Immich data path (it forwards the tunneled bytes to
+        # the origin), so keep it on the amd64 (brokkr) nodes, off the arm64 Pis.
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+    # Outbound-only client: no Service, no ingress ports.
+    persistence:
+      # readOnlyRootFilesystem needs a writable /tmp for any scratch state.
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp

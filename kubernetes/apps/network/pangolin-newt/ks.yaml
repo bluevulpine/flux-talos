@@ -1,0 +1,31 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app pangolin-newt
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    # Needs the OpenBao ClusterSecretStore for the Newt connector credentials.
+    # The `pangolin` OpenBao key (Pangolin__Endpoint / __NewtId / __NewtSecret)
+    # must exist first -- it is created from a Site on the external Pangolin VPS.
+    # See docs/runbooks/pangolin-vps-setup.md.
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+  path: ./kubernetes/apps/network/pangolin-newt/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: network
+  wait: false
+  interval: 30m
+  retryInterval: 1m
+  timeout: 5m
+  postBuild:
+    substitute:
+      APP: *app
+      NS: network
