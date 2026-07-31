@@ -4,13 +4,12 @@ kind: Kustomization
 components:
   - ../../../../components/externalsecret-refresh
 resources:
-  # DNS for the Pangolin dashboard/entry on the VPS -- published now so the VPS
-  # can obtain LE certs and register connectors during setup.
+  # DNS for the Pangolin dashboard/entry on the VPS.
   - ./dnsendpoint.yaml
-  # --- Newt connector (Immich data path): enable only AFTER the Pangolin VPS
-  # Site is created and the OpenBao `pangolin` key is populated
-  # (Pangolin__Endpoint / __NewtId / __NewtSecret). Until then the ExternalSecret
-  # fails and Newt crashloops. See docs/runbooks/pangolin-vps-setup.md.
-  # - ./ocirepository.yaml
-  # - ./externalsecret.yaml
-  # - ./helmrelease.yaml
+  # Newt connector (Immich data path) -- enabled 2026-07-31 once the Pangolin VPS
+  # Site was created and the OpenBao `pangolin` key populated
+  # (Pangolin__Endpoint / __NewtId / __NewtSecret). See
+  # docs/runbooks/pangolin-vps-setup.md.
+  - ./ocirepository.yaml
+  - ./externalsecret.yaml
+  - ./helmrelease.yaml
