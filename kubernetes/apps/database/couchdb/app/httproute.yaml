@@ -16,10 +16,11 @@ metadata:
     gethomepage.dev/icon: "couchdb.png"
     gethomepage.dev/description: "Document Database"
 spec:
-  hostnames: ["couchdb.${SECRET_DOMAIN}"]
+  hostnames:
+    - "couchdb.${SECRET_DOMAIN}"
   parentRefs:
     # External gateway - accessible via Cloudflare tunnel for remote Obsidian clients
-    - name: external
+    - name: external-pangolin
       namespace: network
       sectionName: https
     # Internal gateway - direct internal access for local Obsidian clients

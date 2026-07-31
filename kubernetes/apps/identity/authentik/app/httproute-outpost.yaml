@@ -23,7 +23,7 @@ spec:
     - name: internal
       namespace: network
       sectionName: https
-    - name: external
+    - name: external-pangolin
       namespace: network
       sectionName: https
   rules:

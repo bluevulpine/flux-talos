@@ -19,7 +19,7 @@ spec:
   hostnames:
     - "openspeedtest.${SECRET_DOMAIN}"
   parentRefs:
-    - name: external
+    - name: external-pangolin
       namespace: network
       sectionName: https
     - name: internal

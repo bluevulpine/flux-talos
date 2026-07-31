@@ -8,6 +8,7 @@ resources:
   - ./helmrelease.yaml
   - ./httproute-outpost.yaml
   - ./referencegrant.yaml
+  - ./dnsendpoint.yaml
 components:
   - ../../../../components/externalsecret-refresh
 

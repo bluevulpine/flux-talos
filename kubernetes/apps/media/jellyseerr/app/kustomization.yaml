@@ -5,6 +5,7 @@ kind: Kustomization
 resources:
   - ./ocirepository.yaml
   - ./helmrelease.yaml
+  - ./dnsendpoint.yaml
 components:
   - ../../../../components/volsync
 

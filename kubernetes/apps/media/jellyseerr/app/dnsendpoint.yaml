@@ -1,0 +1,22 @@
+---
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: jellyseerr
+spec:
+  endpoints:
+    # Public record points at the Pangolin VPS entry host instead of the
+    # Cloudflare tunnel. Only external-dns-cloudflare reads `crd` sources, so the
+    # LAN A record published from the `internal` Gateway is untouched and split
+    # horizon still sends on-network clients straight to Envoy.
+    #
+    # DNS-only (cloudflare-proxied: false) is required, not cosmetic: orange
+    # clouding would put CF back in the path and restore the 100MB upload cap and
+    # per-stream throttle this migration exists to avoid.
+    - dnsName: "requests.${SECRET_DOMAIN}"
+      recordType: CNAME
+      targets:
+        - "pangolin.${SECRET_DOMAIN}"
+      providerSpecific:
+        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+          value: "false"
