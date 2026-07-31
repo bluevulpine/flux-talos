@@ -23,8 +23,17 @@ spec:
   values:
     controllers:
       cloudflare-tunnel-quic:
-        replicas: 1
+        # 3 replicas, one per amd64 (brokkr) node, for tunnel HA (replaces the
+        # retired HTTP/2 connectors). Node/anti-affinity is set in
+        # defaultPodOptions below.
+        replicas: 3
         strategy: RollingUpdate
+        # hostNetwork + required one-per-node anti-affinity means a surge pod has
+        # no free node to land on, so it would hang Pending. Recreate in place
+        # instead: at most one connector down at a time, two still serving.
+        rollingUpdate:
+          maxSurge: 0
+          maxUnavailable: 1
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
@@ -38,7 +47,7 @@ spec:
               TUNNEL_CRED_FILE: /etc/cloudflared/creds/credentials.json
               TUNNEL_METRICS: 0.0.0.0:8080
               TUNNEL_TRANSPORT_PROTOCOL: quic
-              TUNNEL_POST_QUANTUM: true  # Post-quantum cryptography for QUIC
+              TUNNEL_POST_QUANTUM: true # Post-quantum cryptography for QUIC
               TUNNEL_ID:
                 valueFrom:
                   secretKeyRef:
@@ -61,7 +70,7 @@ spec:
                 spec:
                   httpGet:
                     path: /ready
-                    port: &port 8080  # Different port to avoid conflicts
+                    port: &port 8080 # Different port to avoid conflicts
                   initialDelaySeconds: 0
                   periodSeconds: 10
                   timeoutSeconds: 1
@@ -70,7 +79,7 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: {drop: ["ALL"]}
             resources:
               requests:
                 cpu: 10m
@@ -79,7 +88,27 @@ spec:
     defaultPodOptions:
       # hostNetwork required: Cilium BPF masquerading breaks QUIC UDP connections
       hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet  # Required for cluster DNS resolution with hostNetwork
+      dnsPolicy: ClusterFirstWithHostNet # Required for cluster DNS resolution with hostNetwork
+      affinity:
+        # Keep the tunnel off the arm64 Raspberry Pis (the throughput bottleneck
+        # we are retiring) — only schedule on amd64 (brokkr) nodes.
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+        # One connector per node: with hostNetwork every pod binds the metrics
+        # port on the host, so two on the same node would collide. Required (not
+        # preferred) so a co-scheduled pod stays Pending rather than crashlooping.
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: cloudflare-tunnel-quic
+              topologyKey: kubernetes.io/hostname
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000

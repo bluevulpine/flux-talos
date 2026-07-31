@@ -7,7 +7,12 @@ resources:
   - ./ocirepository.yaml
   - ./dnsendpoint.yaml
   - ./externalsecret.yaml
-  - ./helmrelease.yaml
+  # HTTP/2 tunnel retired 2026-07-31: its 2 connectors were pinned to a
+  # Raspberry Pi (jormungandr4, arm64) and were a throughput bottleneck for all
+  # external traffic. The QUIC tunnel below runs on amd64 (brokkr) nodes and now
+  # serves everything. Re-enable this line if QUIC proves unreliable and the
+  # HTTP/2 failover connectors are needed again.
+  # - ./helmrelease.yaml
   - ./helmrelease-quic.yaml
 configMapGenerator:
   - name: cloudflare-tunnel-configmap
