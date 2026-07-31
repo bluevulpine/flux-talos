@@ -4,23 +4,35 @@ kind: DNSEndpoint
 metadata:
   name: pangolin
 spec:
-  # Per-domain "entry" A records pointing at the external Pangolin VPS -- the
-  # Pangolin equivalent of external.${SECRET_DOMAIN} for cloudflared: a stable
-  # per-domain target that individual service hostnames can CNAME onto. All are
-  # DNS-only (cloudflare-proxied: false): the VPS must answer ACME/HTTP directly
-  # for Traefik's Let's Encrypt certs and serve connector traffic itself --
-  # CF-proxying would re-impose the tunnel limits we are avoiding.
+  # Per-domain "entry" hosts pointing at the external Pangolin VPS -- the Pangolin
+  # equivalent of external.${SECRET_DOMAIN} for cloudflared: a stable per-domain
+  # target that individual service hostnames CNAME onto. Because every migrated
+  # app is a CNAME to one of these, this file is the single place that decides
+  # which addresses (v4 and v6) all of them resolve to.
   #
-  # AAAA (2604:a880:400:d1:0:4:c54f:1) intentionally omitted for now: the VPS is
-  # not serving on IPv6 (ports 80/443 refuse over v6), and Let's Encrypt validates
-  # the AAAA *first* when present, so publishing it makes cert issuance fail and
-  # fall back to a self-signed cert. Re-add per host only once the VPS has working
-  # IPv6 (DO netplan + Traefik listening on [::]).
+  # All DNS-only (cloudflare-proxied: false): the VPS must answer ACME/HTTP
+  # directly for Traefik's Let's Encrypt certs and serve connector traffic itself
+  # -- CF-proxying would re-impose the upload cap and per-stream throttle that
+  # this whole setup exists to avoid.
+  #
+  # AAAA is published alongside A. Let's Encrypt validates the AAAA *first* when
+  # one exists, so this is only safe because inbound IPv6 to the VPS is verified
+  # working (global v6 addr + route, docker-proxy bound on [::]:80/[::]:443,
+  # ufw allows 80/443 (v6), and an external IPv6 client gets a Traefik response).
+  # If IPv6 ever regresses, drop the AAAA records first -- ACME will fail on them
+  # before it ever tries the A record.
   endpoints:
     - dnsName: "pangolin.${SECRET_DOMAIN}"
       recordType: A
       targets:
         - "134.209.70.159"
+      providerSpecific:
+        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+          value: "false"
+    - dnsName: "pangolin.${SECRET_DOMAIN}"
+      recordType: AAAA
+      targets:
+        - "2604:a880:400:d1:0:4:c54f:1"
       providerSpecific:
         - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
           value: "false"
@@ -31,10 +43,24 @@ spec:
       providerSpecific:
         - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
           value: "false"
+    - dnsName: "pangolin.${SECRET_DOMAIN_MEDIA}"
+      recordType: AAAA
+      targets:
+        - "2604:a880:400:d1:0:4:c54f:1"
+      providerSpecific:
+        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+          value: "false"
     - dnsName: "pangolin.${SECRET_DOMAIN_BLOG}"
       recordType: A
       targets:
         - "134.209.70.159"
+      providerSpecific:
+        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+          value: "false"
+    - dnsName: "pangolin.${SECRET_DOMAIN_BLOG}"
+      recordType: AAAA
+      targets:
+        - "2604:a880:400:d1:0:4:c54f:1"
       providerSpecific:
         - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
           value: "false"
