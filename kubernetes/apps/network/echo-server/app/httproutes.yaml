@@ -130,8 +130,16 @@ kind: HTTPRoute
 metadata:
   name: echo-server-pangolin
   annotations:
+    # Alerts are declared explicitly here because sidecar-discovered endpoints do
+    # NOT inherit one: the pushover `default-alert` in the gatus config only
+    # supplies defaults (thresholds, description) to endpoints that already
+    # declare `alerts:`, and only the hand-written endpoints in config.yaml do.
+    # Without this the probe would go red on the dashboard and never page --
+    # useless for the one thing it exists to catch, a broken Pangolin tunnel.
     gatus.home-operations.com/endpoint: |
       group: network
+      alerts:
+        - type: pushover
 spec:
   hostnames:
     - "echo-server-pangolin.${SECRET_DOMAIN}"
