@@ -90,9 +90,14 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 512Mi
+                # ML holds a full copy of every active model per worker (3 workers:
+                # CLIP ViT-B-32, buffalo_l face det+rec, PP-OCRv5_server OCR). During
+                # first-time backups all three families load at once across all
+                # workers and peak well past the old 4Gi limit -> repeated OOMKills.
+                # Node has ~40Gi free, so give a generous ceiling for the ingest surge.
+                memory: 2Gi
               limits:
-                memory: 4Gi
+                memory: 12Gi
       # Microservices controller for background jobs
       microservices:
         type: deployment
