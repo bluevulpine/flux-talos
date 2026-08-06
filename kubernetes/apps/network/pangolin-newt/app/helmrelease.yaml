@@ -47,9 +47,14 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 32Mi
+                # Newt buffers tunneled bytes for every forwarded connection, so
+                # its footprint scales with in-flight throughput. The 128Mi limit
+                # OOMKilled repeatedly under Immich first-time-backup traffic (the
+                # same surge that drove the ML sidecar bump in #1571); 512Mi gives
+                # headroom for that peak while staying tiny for a userspace client.
+                memory: 64Mi
               limits:
-                memory: 128Mi
+                memory: 512Mi
     defaultPodOptions:
       affinity:
         # Newt sits in the Immich data path (it forwards the tunneled bytes to
