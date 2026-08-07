@@ -47,3 +47,34 @@ spec:
             scheme: https
             hostname: bluevulpine.net
             statusCode: 301
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# valtrax.bluevulpine.net is a retired host that still appears as a dead link in
+# Miavir's story archive. Every path on it collapses onto the fiction index --
+# ReplaceFullPath rather than path-preserving, because none of the old valtrax
+# paths have an equivalent on the current site, so preserving them would just
+# trade a dead host for a 404.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: bluevulpine-blog-valtrax
+spec:
+  hostnames:
+    - "valtrax.bluevulpine.net"
+  parentRefs:
+    - name: external
+      namespace: network
+      sectionName: https
+    - name: internal
+      namespace: network
+      sectionName: https
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            hostname: bluevulpine.net
+            path:
+              type: ReplaceFullPath
+              replaceFullPath: /chronicles/
+            statusCode: 301
