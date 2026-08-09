@@ -31,6 +31,7 @@ spec:
       VOLSYNC_CAPACITY: 4Gi
       # Medium criticality: music library DB - backup every hour (staggered +10min)
       VOLSYNC_LOCAL_SCHEDULE: "10 * * * *"
+      VOLSYNC_R2_SCHEDULE: "3 2 * * *"
       VOLSYNC_STORAGECLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass

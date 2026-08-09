@@ -33,6 +33,7 @@ spec:
       VOLSYNC_CAPACITY: 10Gi
       # Low criticality: bookmarks - backup every 2 hours (staggered +25min)
       VOLSYNC_LOCAL_SCHEDULE: "25 */2 * * *"
+      VOLSYNC_R2_SCHEDULE: "49 1 * * *"
       VOLSYNC_STORAGECLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass

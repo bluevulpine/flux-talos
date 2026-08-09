@@ -35,3 +35,4 @@ spec:
       VOLSYNC_COPYMETHOD: Snapshot
       # Low criticality: config-only, easily rebuilt - backup every 4 hours
       VOLSYNC_LOCAL_SCHEDULE: "0 */4 * * *"
+      VOLSYNC_R2_SCHEDULE: "57 4 * * *"

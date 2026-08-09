@@ -31,6 +31,7 @@ spec:
       VOLSYNC_CAPACITY: 4Gi
       # High criticality: TV library DB - backup every hour
       VOLSYNC_LOCAL_SCHEDULE: "0 * * * *"
+      VOLSYNC_R2_SCHEDULE: "19 5 * * *"
       VOLSYNC_STORAGECLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass

@@ -35,4 +35,5 @@ spec:
       VOLSYNC_CACHE_CLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: tns-csi-nfs
       VOLSYNC_LOCAL_SCHEDULE: "18,48 * * * *"
+      VOLSYNC_R2_SCHEDULE: "3 1 * * *"
 

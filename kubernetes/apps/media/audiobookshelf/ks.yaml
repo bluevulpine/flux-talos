@@ -27,6 +27,7 @@ spec:
       VOLSYNC_CAPACITY: 5Gi
       # Medium criticality: audiobook config - backup every hour (staggered +40min)
       VOLSYNC_LOCAL_SCHEDULE: "40 * * * *"
+      VOLSYNC_R2_SCHEDULE: "3 0 * * *"
       VOLSYNC_STORAGECLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass

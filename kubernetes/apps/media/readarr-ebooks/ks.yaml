@@ -37,3 +37,4 @@ spec:
       VOLSYNC_ACCESSMODES: ReadWriteMany
       VOLSYNC_COPYMETHOD: Snapshot
       VOLSYNC_LOCAL_SCHEDULE: "25 * * * *"
+      VOLSYNC_R2_SCHEDULE: "41 4 * * *"

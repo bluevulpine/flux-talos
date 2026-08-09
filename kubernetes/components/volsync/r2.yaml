@@ -32,7 +32,31 @@ metadata:
 spec:
   sourcePVC: "${APP:=temp}"
   trigger:
-    schedule: "0 0 * * *"
+    # Must be staggered per-app via VOLSYNC_R2_SCHEDULE in the app's ks.yaml.
+    #
+    # This was hardcoded to "0 0 * * *" for every app, which fired all ~39 R2
+    # sources against the TrueNAS API simultaneously. Under that load a
+    # CreateVolume call can take 40s+, and the external-provisioner then issues a
+    # duplicate CreateVolume. tns-csi v0.17.6's already-exists path returns a
+    # response without volume.content_source, so the provisioner rejects it with
+    # "volume content source missing" and rolls back by calling DeleteVolume —
+    # destroying the ZFS dataset behind an already-Bound PV. The mover then hangs
+    # in ContainerCreating on ENOENT or ESTALE and that night's backup is lost.
+    #
+    # 18 days of controller logs showed 9 such incidents across 6 apps and both
+    # NFS and NVMe-oF, every one between 00:02:10 and 00:03:06 -- one burst
+    # destroyed two volumes in the same second. The local sources, which have
+    # always been staggered, have never hit it.
+    #
+    # Staggering does not fix the driver bug (0.17.6 is the newest release); it
+    # removes the concurrency that triggers it. See
+    # docs/runbooks/volsync-mover-stuck.md.
+    #
+    # Slots run 00:03-05:49, ~8min apart. **Hour 03 is deliberately left empty**:
+    # kopia-maint-r2 runs at "0 3 * * *" against the same Kopia R2 repository
+    # these backups write to, and unifi-phantom-clients-cleanup also runs then.
+    # Keep new apps out of hour 03.
+    schedule: "${VOLSYNC_R2_SCHEDULE}"
   kopia:
     # Default to Direct for NFS (clone intermediate skips snapshot overhead for RWX PVCs)
     # iSCSI/NVMe-oF workloads should override with VOLSYNC_COPYMETHOD: Snapshot

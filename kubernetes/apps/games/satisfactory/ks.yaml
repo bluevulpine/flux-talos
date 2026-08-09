@@ -36,3 +36,4 @@ spec:
       VOLSYNC_SNAPSHOTCLASS: tns-csi-nvmeof-snapshot
       VOLSYNC_COPYMETHOD: Snapshot
       VOLSYNC_LOCAL_SCHEDULE: "55 * * * *"
+      VOLSYNC_R2_SCHEDULE: "3 5 * * *"

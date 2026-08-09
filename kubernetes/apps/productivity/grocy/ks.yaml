@@ -37,3 +37,4 @@ spec:
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
       # Low criticality: inventory, infrequent changes - backup every 2 hours (staggered +15min)
       VOLSYNC_LOCAL_SCHEDULE: "15 */2 * * *"
+      VOLSYNC_R2_SCHEDULE: "11 1 * * *"

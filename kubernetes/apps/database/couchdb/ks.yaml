@@ -35,4 +35,5 @@ spec:
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
       VOLSYNC_LOCAL_SCHEDULE: "14,44 * * * *"
+      VOLSYNC_R2_SCHEDULE: "41 0 * * *"
 

@@ -35,3 +35,4 @@ spec:
       VOLSYNC_COPYMETHOD: Snapshot
       # Low criticality: config + torrent state, easily rebuilt - backup every 2 hours
       VOLSYNC_LOCAL_SCHEDULE: "0 */2 * * *"
+      VOLSYNC_R2_SCHEDULE: "19 4 * * *"

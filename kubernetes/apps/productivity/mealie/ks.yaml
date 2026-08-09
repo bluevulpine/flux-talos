@@ -32,6 +32,7 @@ spec:
       GATUS_SERVICE: mealie
       VOLSYNC_CAPACITY: 5Gi
       VOLSYNC_LOCAL_SCHEDULE: "10,40 * * * *"
+      VOLSYNC_R2_SCHEDULE: "11 2 * * *"
       VOLSYNC_STORAGECLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass

@@ -39,4 +39,5 @@ spec:
       VOLSYNC_RUN_AS_GROUP: "1000"
       VOLSYNC_FS_GROUP: "1000"
       VOLSYNC_LOCAL_SCHEDULE: "16,46 * * * *"
+      VOLSYNC_R2_SCHEDULE: "27 1 * * *"
 
