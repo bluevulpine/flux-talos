@@ -204,6 +204,14 @@ return &csi.CreateVolumeResponse{
 }, nil
 ```
 
+A ready-to-apply patch implementing this is in
+`docs/tns-csi-idempotency-fix.patch` (apply with `git am`). Rather than patching
+each handler, it enforces the invariant once in a thin `CreateVolume` wrapper, so
+that a new protocol or a new early-return path cannot silently reintroduce the
+data loss. It includes a regression test that fails without the fix, driving the
+real "volume already exists" path through the public `CreateVolume` API. Verified
+against `origin/main`: full unit suite green, `golangci-lint run` reports 0 issues.
+
 Two hardening suggestions beyond the immediate fix:
 
 1. Treat `EBUSY` from `DeleteDataset` as fatal rather than something to retry

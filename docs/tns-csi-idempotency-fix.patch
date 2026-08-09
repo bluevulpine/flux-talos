@@ -1,0 +1,283 @@
+From b1433e56a9a75e9f2b122b355afa9abe78ec861b Mon Sep 17 00:00:00 2001
+From: Derek Jacobs <far.gem3670@derekjacobs.dev>
+Date: Sun, 9 Aug 2026 12:01:42 -0500
+Subject: [PATCH] fix: Preserve VolumeContentSource on idempotent CreateVolume
+
+CreateVolume must be idempotent, and the CSI spec requires that an
+idempotent reply carry "the corresponding CreateVolumeResponse" -- which,
+for a volume created from a snapshot or clone, includes its content
+source. We had five independent "volume already exists" paths (the
+generic one in checkExistingVolume, plus handleExisting{NFS,NVMeOF,
+ISCSI,SMB}Volume) and none of them populated ContentSource, because none
+of them can see the original request's content source.
+
+When external-provisioner retried CreateVolume for a snapshot-sourced
+PVC, it rejected the reply with "volume content source missing" and
+rolled back by calling DeleteVolume. That destroyed the dataset or ZVOL
+behind a volume which had already been provisioned and Bound, with no
+warning. The PVC stays Bound while its backing storage is gone, and the
+symptom differs by protocol and mount state:
+
+- NFS, not yet mounted: mount.nfs "No such file or directory"
+- NFS, already mounted: applyFSGroup "stale file handle"
+- NVMe-oF: NodeStageVolume DeadlineExceeded
+
+In one affected cluster this destroyed 9 volumes over 18 days across 6
+applications and both protocols, always when several snapshot-sourced
+PVCs were provisioned concurrently and CreateVolume was slow enough to
+earn a provisioner retry.
+
+Enforce the invariant once, in a thin CreateVolume wrapper, rather than
+in each handler. A new protocol or a new early-return path then cannot
+silently reintroduce the data loss. The existing behaviour is preserved
+whenever a handler already set ContentSource, and plain (non-cloned)
+volumes are untouched.
+
+Adds a regression test that fails without the fix, exercising the real
+"volume already exists" path through the public CreateVolume API, plus
+unit coverage for the helper.
+---
+ pkg/driver/controller.go                    |  48 ++++++
+ pkg/driver/controller_contentsource_test.go | 170 ++++++++++++++++++++
+ 2 files changed, 218 insertions(+)
+ create mode 100644 pkg/driver/controller_contentsource_test.go
+
+diff --git a/pkg/driver/controller.go b/pkg/driver/controller.go
+index 4966a07..47a3629 100644
+--- a/pkg/driver/controller.go
++++ b/pkg/driver/controller.go
+@@ -582,7 +582,55 @@ func (s *ControllerService) tryPromoteAndDeleteDataset(ctx context.Context, data
+ }
+ 
+ // CreateVolume creates a new volume.
++//
++// This is a thin wrapper around createVolume that guarantees the CSI content
++// source invariant on every successful reply; see ensureContentSource.
+ func (s *ControllerService) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
++	resp, err := s.createVolume(ctx, req)
++	if err != nil {
++		return nil, err
++	}
++
++	ensureContentSource(resp, req)
++
++	return resp, nil
++}
++
++// ensureContentSource copies the request's VolumeContentSource onto a successful
++// CreateVolumeResponse that is missing one.
++//
++// The CSI spec requires CreateVolume to be idempotent: if the volume already
++// exists and is compatible with the request, the plugin MUST reply OK with "the
++// corresponding CreateVolumeResponse" — which, for a volume created from a
++// snapshot or clone, includes its content source.
++//
++// We have five independent "volume already exists" paths (the generic one in
++// checkExistingVolume plus handleExisting{NFS,NVMeOF,ISCSI,SMB}Volume). None of
++// them can see the original content source, so all of them used to return a
++// Volume with a nil ContentSource. When external-provisioner retried CreateVolume
++// for a snapshot-sourced PVC it rejected that reply with "volume content source
++// missing" and rolled back by calling DeleteVolume — destroying the dataset or
++// ZVOL behind a volume that was already provisioned and Bound, with no warning.
++//
++// Enforcing the invariant here rather than in each handler means a new protocol
++// or a new early-return path cannot silently reintroduce the data loss.
++func ensureContentSource(resp *csi.CreateVolumeResponse, req *csi.CreateVolumeRequest) {
++	src := req.GetVolumeContentSource()
++	if src == nil || resp.GetVolume() == nil {
++		return
++	}
++
++	if resp.GetVolume().GetContentSource() != nil {
++		return
++	}
++
++	klog.V(4).Infof("Populating missing ContentSource on CreateVolumeResponse for volume %s", req.GetName())
++	resp.Volume.ContentSource = src
++}
++
++// createVolume contains the CreateVolume implementation. Callers should use
++// CreateVolume so that the content source invariant is applied to the result.
++func (s *ControllerService) createVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+ 	// Log at Info level (not V(4)) so we can see when CreateVolume is called in CI
+ 	klog.Infof("=== CreateVolume CALLED === Name: %s", req.GetName())
+ 	if req.GetVolumeContentSource() != nil {
+diff --git a/pkg/driver/controller_contentsource_test.go b/pkg/driver/controller_contentsource_test.go
+new file mode 100644
+index 0000000..6050cf1
+--- /dev/null
++++ b/pkg/driver/controller_contentsource_test.go
+@@ -0,0 +1,170 @@
++package driver
++
++import (
++	"context"
++	"testing"
++
++	"github.com/container-storage-interface/spec/lib/go/csi"
++
++	"github.com/fenio/tns-csi/pkg/tnsapi"
++)
++
++// Regression tests for the CSI content-source invariant.
++//
++// CreateVolume must be idempotent, and an idempotent reply for a volume created
++// from a snapshot or clone must still report that content source. When it did
++// not, external-provisioner rejected the reply with "volume content source
++// missing" and rolled back by calling DeleteVolume against a volume that was
++// already provisioned and Bound — destroying live data.
++
++const testSnapshotID = "nfs:tank/csi/pvc-source@snapshot-abc123"
++
++func snapshotContentSource(snapshotID string) *csi.VolumeContentSource {
++	return &csi.VolumeContentSource{
++		Type: &csi.VolumeContentSource_Snapshot{
++			Snapshot: &csi.VolumeContentSource_SnapshotSource{
++				SnapshotId: snapshotID,
++			},
++		},
++	}
++}
++
++func TestEnsureContentSource(t *testing.T) {
++	otherSnapshot := snapshotContentSource("nfs:tank/csi/pvc-other@snapshot-zzz")
++
++	tests := []struct {
++		resp     *csi.CreateVolumeResponse
++		req      *csi.CreateVolumeRequest
++		wantID   string
++		name     string
++		wantNil  bool
++		wantSame bool
++	}{
++		{
++			name:   "populates missing content source on idempotent reply",
++			req:    &csi.CreateVolumeRequest{Name: "v", VolumeContentSource: snapshotContentSource(testSnapshotID)},
++			resp:   &csi.CreateVolumeResponse{Volume: &csi.Volume{VolumeId: "tank/csi/v"}},
++			wantID: testSnapshotID,
++		},
++		{
++			name:     "preserves a content source the handler already set",
++			req:      &csi.CreateVolumeRequest{Name: "v", VolumeContentSource: snapshotContentSource(testSnapshotID)},
++			resp:     &csi.CreateVolumeResponse{Volume: &csi.Volume{VolumeId: "tank/csi/v", ContentSource: otherSnapshot}},
++			wantID:   "nfs:tank/csi/pvc-other@snapshot-zzz",
++			wantSame: true,
++		},
++		{
++			name:    "leaves plain volumes untouched",
++			req:     &csi.CreateVolumeRequest{Name: "v"},
++			resp:    &csi.CreateVolumeResponse{Volume: &csi.Volume{VolumeId: "tank/csi/v"}},
++			wantNil: true,
++		},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			ensureContentSource(tt.resp, tt.req)
++
++			got := tt.resp.GetVolume().GetContentSource()
++			if tt.wantNil {
++				if got != nil {
++					t.Fatalf("expected nil ContentSource, got %+v", got)
++				}
++				return
++			}
++
++			if got == nil {
++				t.Fatal("ContentSource is nil — external-provisioner would roll back with DeleteVolume")
++			}
++			if id := got.GetSnapshot().GetSnapshotId(); id != tt.wantID {
++				t.Errorf("SnapshotId = %q, want %q", id, tt.wantID)
++			}
++			if tt.wantSame && got != otherSnapshot {
++				t.Error("existing ContentSource was replaced instead of preserved")
++			}
++		})
++	}
++}
++
++// ensureContentSource must not panic on the degenerate shapes a handler can
++// legitimately return.
++func TestEnsureContentSourceNilSafety(t *testing.T) {
++	req := &csi.CreateVolumeRequest{Name: "v", VolumeContentSource: snapshotContentSource(testSnapshotID)}
++
++	ensureContentSource(&csi.CreateVolumeResponse{}, req)
++	ensureContentSource(&csi.CreateVolumeResponse{Volume: &csi.Volume{}}, &csi.CreateVolumeRequest{Name: "v"})
++}
++
++// TestCreateVolumeIdempotentReplyKeepsContentSource reproduces the data-loss bug
++// end to end: a snapshot-sourced volume that already exists must still report its
++// content source on the retried CreateVolume.
++//
++// Before the fix this returned a Volume with a nil ContentSource, which is what
++// caused external-provisioner to delete the live dataset.
++func TestCreateVolumeIdempotentReplyKeepsContentSource(t *testing.T) {
++	ctx := context.Background()
++
++	const (
++		volumeName  = "pvc-already-exists"
++		datasetName = "tank/csi/" + volumeName
++		mountpoint  = "/mnt/" + datasetName
++	)
++
++	mockClient := &MockAPIClientForSnapshots{
++		// Dataset() returning non-nil is what drives CreateVolume down the
++		// "volume already exists" path in checkExistingVolume.
++		GetDatasetFunc: func(ctx context.Context, datasetID string) (*tnsapi.Dataset, error) {
++			return &tnsapi.Dataset{
++				ID:         datasetName,
++				Name:       datasetName,
++				Type:       "FILESYSTEM",
++				Mountpoint: mountpoint,
++			}, nil
++		},
++		QueryNFSShareFunc: func(ctx context.Context, path string) ([]tnsapi.NFSShare, error) {
++			return []tnsapi.NFSShare{{ID: 1, Path: mountpoint, Enabled: true}}, nil
++		},
++	}
++
++	service := NewControllerService(mockClient, NewNodeRegistry(), "")
++
++	req := &csi.CreateVolumeRequest{
++		Name: volumeName,
++		VolumeCapabilities: []*csi.VolumeCapability{
++			{
++				AccessType: &csi.VolumeCapability_Mount{Mount: &csi.VolumeCapability_MountVolume{}},
++				AccessMode: &csi.VolumeCapability_AccessMode{
++					Mode: csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER,
++				},
++			},
++		},
++		Parameters: map[string]string{
++			"protocol":      "nfs",
++			"pool":          "tank",
++			"server":        "192.168.1.100",
++			"parentDataset": "tank/csi",
++		},
++		CapacityRange:       &csi.CapacityRange{RequiredBytes: 1 * 1024 * 1024 * 1024},
++		VolumeContentSource: snapshotContentSource(testSnapshotID),
++	}
++
++	resp, err := service.CreateVolume(ctx, req)
++	if err != nil {
++		t.Fatalf("CreateVolume returned an unexpected error: %v", err)
++	}
++
++	if resp.GetVolume() == nil {
++		t.Fatal("expected a volume in the response")
++	}
++
++	got := resp.GetVolume().GetContentSource()
++	if got == nil {
++		t.Fatal("idempotent CreateVolume reply is missing ContentSource — " +
++			"external-provisioner would fail the claim with \"volume content source missing\" " +
++			"and call DeleteVolume on a live, Bound volume")
++	}
++
++	if id := got.GetSnapshot().GetSnapshotId(); id != testSnapshotID {
++		t.Errorf("SnapshotId = %q, want %q", id, testSnapshotID)
++	}
++}
+-- 
+2.50.1 (Apple Git-155)
+
