@@ -27,9 +27,6 @@ spec:
             use_tcp: true
         port: 53
         plugins:
-          - name: acl # prevent ipv6 AAAA queries from resolving in-cluster
-            configBlock: |-
-              filter type AAAA
           - name: errors
           - name: health
             configBlock: |-
@@ -42,6 +39,41 @@ spec:
               fallthrough in-addr.arpa ip6.arpa
           - name: autopath
             parameters: "@kubernetes"
+          # Suppress AAAA cluster-wide: kopia resolves AAAA for R2 and then can't
+          # connect over IPv6 (original rationale, commit 6bb34324d). This replaces
+          # `acl { filter type AAAA }`, which achieved the same suppression but
+          # emitted ~14 errors/sec:
+          #   [ERROR] plugin/acl: Blocking request. Unable to parse source address:
+          #
+          # Measured on 2026-08-09 (5m rates, both pods):
+          #   coredns_acl_blocked_requests_total   14.266666666666666/s
+          #   coredns_cache_prefetch_total         14.266666666666666/s  (identical)
+          #   coredns_cache_served_stale_total     ~14.27/s
+          #   coredns_acl_filtered_requests_total   0.07/s
+          # The blocked and prefetch counters track each other exactly, and stale
+          # serving runs at the same rate. Client resolution was unaffected (60/60
+          # A lookups OK), so the blocked requests are not client queries.
+          #
+          # Inference (consistent with the above, not directly proven): acl rejects
+          # the cache plugin's background refreshes because they carry no parseable
+          # source address, so prefetch never completes, hot entries are never
+          # refreshed, and serve_stale silently covers for them. If so the cache is
+          # effectively stale-only, which would make a brief upstream DNS outage
+          # surface as a hard failure instead of being ridden out.
+          #
+          # template needs no source address, so it cannot hit that path. Client
+          # behaviour is unchanged — AAAA still returns NOERROR with an empty answer
+          # (verified before the change against cloudflare.com and google.com, which
+          # do publish AAAA records).
+          #
+          # VERIFY AFTER APPLY: coredns_acl_* series should disappear entirely, the
+          # [ERROR] plugin/acl log line should stop, and served_stale should fall
+          # well below prefetch. If served_stale still tracks prefetch 1:1, the
+          # inference above was wrong and prefetch is broken for another reason.
+          - name: template
+            parameters: ANY AAAA
+            configBlock: |-
+              rcode NOERROR
           - name: forward
             parameters: . /etc/resolv.conf
           - name: cache

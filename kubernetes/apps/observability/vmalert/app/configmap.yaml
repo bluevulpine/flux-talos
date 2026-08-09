@@ -22,17 +22,37 @@ data:
             # `extract` pulls the repo slug out of the log line so `stats by (repo)`
             # yields one alert per failing repo (label `repo`) — naming exactly
             # which mirror is broken instead of a single aggregate count.
+            # Match on "[E]" rather than a specific failure string. This used to
+            # filter on "failed to update mirror repository", which silently missed
+            # the other shape Gitea emits — `remote URL is not allowed:
+            # migration/cloning from '<host>' is not allowed.` On 2026-08-09 three
+            # failures occurred but only one matched, so the alert under-reported
+            # (1 of 3) and the two hidden entries were the ones naming the real
+            # cause. Both shapes carry "[E]" and "SyncMirrors" and the same
+            # `[repo: <Repository N:owner/name>]` prefix, so extract still works.
             expr: >-
-              _time:1h app:gitea "SyncMirrors" "failed to update mirror repository"
+              _time:1h app:gitea "[E]" "SyncMirrors"
               | extract "Repository <repo_id>:<repo>>]"
               | stats by (repo) count() as failures | filter failures:>0
             labels:
               severity: warning
             annotations:
               summary: 'Gitea mirror sync failing: {{ $labels.repo }}'
+              # Check DNS before credentials. A failure to resolve the upstream host
+              # surfaces as `remote URL is not allowed: migration/cloning from
+              # 'github.com' is not allowed.` — which reads like an auth/policy
+              # problem but is not one. Gitea resolves the host and matches the
+              # returned IPs against its allow-list; an empty answer means no
+              # permitted IP, so it reports permission-denied. This annotation
+              # previously said "most often an expired credential", which sent the
+              # 2026-08-09 investigation toward rolling a perfectly good PAT.
               description: >-
                 {{ $labels.repo }} — {{ $value }} mirror sync failure(s) in the last
-                hour. This mirror can't pull from upstream — most often an expired
-                credential (e.g. a GitHub PAT). Fix: Gitea → this repo → Settings →
+                hour. This mirror can't pull from upstream. Check in this order:
+                (1) DNS — if the log says "Could not resolve host" or "remote URL is
+                not allowed", it is resolution, not auth; confirm with
+                `kubectl exec -n develop deploy/gitea -c gitea -- getent ahostsv4 github.com`
+                and check CoreDNS before touching any credential.
+                (2) Credential — only if DNS resolves: Gitea → this repo → Settings →
                 Mirror Settings → update the upstream credential. Logs: Grafana →
                 Explore → VictoriaLogs: app:gitea "[E]" "SyncMirrors"
