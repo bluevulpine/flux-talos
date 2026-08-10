@@ -101,11 +101,21 @@ spec:
           # AAAA is answered from cache instead of regenerated + served stale.
           # 300s is deliberately modest: a cached NODATA delays any future IPv6
           # enablement by at most that long.
+          #
+          # ⚠️ DO NOT write the SOA names as `ns.dns.{{ .Zone }}` — that is the form
+          # in the upstream CoreDNS examples, but those assume a zone like
+          # `example.com.`. Our server block's zone is `.`, so it renders `ns.dns..`
+          # (double dot), which is an invalid name. CoreDNS then fails the template
+          # and returns SERVFAIL for EVERY AAAA query cluster-wide:
+          #   [ERROR] plugin/errors: ... AAAA: dns: bad SOA Ns: "ns.dns.." at line: 1:22
+          # A-record resolution keeps working, so this does not look like an outage
+          # at first glance — but dual-stack clients get SERVFAIL on the AAAA half.
+          # Use absolute names that do not interpolate the zone, as below.
           - name: template
             parameters: ANY AAAA
             configBlock: |-
               rcode NOERROR
-              authority "{{ .Zone }} 300 IN SOA ns.dns.{{ .Zone }} hostmaster.{{ .Zone }} (1 300 300 300 300)"
+              authority "{{ .Zone }} 300 IN SOA ns.dns. hostmaster.dns. (1 300 300 300 300)"
           - name: forward
             parameters: . /etc/resolv.conf
           - name: cache
