@@ -54,22 +54,34 @@ spec:
           # serving runs at the same rate. Client resolution was unaffected (60/60
           # A lookups OK), so the blocked requests are not client queries.
           #
-          # Inference (consistent with the above, not directly proven): acl rejects
-          # the cache plugin's background refreshes because they carry no parseable
-          # source address, so prefetch never completes, hot entries are never
-          # refreshed, and serve_stale silently covers for them. If so the cache is
-          # effectively stale-only, which would make a brief upstream DNS outage
-          # surface as a hard failure instead of being ridden out.
+          # At the time we inferred acl was rejecting the cache's background
+          # refreshes (no parseable source address), leaving the cache effectively
+          # stale-only. MEASURED AFTER APPLY, that inference did NOT hold:
           #
-          # template needs no source address, so it cannot hit that path. Client
-          # behaviour is unchanged — AAAA still returns NOERROR with an empty answer
-          # (verified before the change against cloudflare.com and google.com, which
-          # do publish AAAA records).
+          #             prefetch/s  served_stale/s  ratio   acl errors/5m
+          #   pre-fix     14.27        14.27        1.000      ~4200
+          #   T+0.4h      16.31        11.77        0.722         0
+          #   T+1.4h      15.93        11.57        0.726         0
+          #   T+2.4h      15.96        11.80        0.738         0
+          #   T+3.5h      16.15        11.72        0.726         0
           #
-          # VERIFY AFTER APPLY: coredns_acl_* series should disappear entirely, the
-          # [ERROR] plugin/acl log line should stop, and served_stale should fall
-          # well below prefetch. If served_stale still tracks prefetch 1:1, the
-          # inference above was wrong and prefetch is broken for another reason.
+          # The 1:1 lock is gone, but served_stale only fell ~18% and then parked
+          # at ~0.73 of prefetch, flat over 3+ hours. Had acl blocking been what
+          # prevented refreshes, removing it should have collapsed stale-serving.
+          # It did not — so ~12/s stale-serving is this cache's normal behaviour
+          # for this TTL and query mix, not damage acl was doing. The pre-fix 1:1
+          # equality was an artifact: every prefetch passed through acl and tripped
+          # the unparseable-source path, so the counters moved together without acl
+          # actually preventing the refresh.
+          #
+          # What the change DID deliver, verified: the acl error stream is gone
+          # (~14/s -> 0, roughly 1.2M log lines/day), coredns_acl_* series no longer
+          # exist, and client behaviour is unchanged — AAAA still returns NOERROR
+          # with an empty answer (cloudflare.com and google.com both 0 IPv6 records
+          # before and after) while A resolution is clean (0/40 failures).
+          #
+          # Keep template regardless: it achieves the same AAAA suppression without
+          # an error path. But do NOT cite this change as a DNS-caching fix.
           - name: template
             parameters: ANY AAAA
             configBlock: |-
