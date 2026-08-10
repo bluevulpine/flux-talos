@@ -80,12 +80,32 @@ spec:
           # with an empty answer (cloudflare.com and google.com both 0 IPv6 records
           # before and after) while A resolution is clean (0/40 failures).
           #
-          # Keep template regardless: it achieves the same AAAA suppression without
-          # an error path. But do NOT cite this change as a DNS-caching fix.
+          # FOLLOW-UP (the actual cache finding): the stale-serving above is the AAAA
+          # suppression itself, not a sick cache. Measured:
+          #   served_stale / denial-cache-hits = 1.06  (~every NODATA hit is stale)
+          #   served_stale / success-cache-hits = 0.42 (normal entries cache fine)
+          #   AAAA 18.3/s vs A 18.3/s — clients all resolve dual-stack
+          #   cache misses 0.05/s — entries never leave cache, they just expire
+          #
+          # `dig` showed why: the suppressed answer was
+          #   status: NOERROR, ANSWER: 0, AUTHORITY: 0
+          # a bare NODATA with NO SOA. Negative-answer cache lifetime comes from the
+          # SOA minimum (RFC 2308); with no authority section there is nothing to
+          # derive a TTL from, so each entry expires ~immediately and every following
+          # AAAA query is served stale and triggers another prefetch. acl's `filter`
+          # emitted an equally bare NODATA, which is exactly why swapping acl->template
+          # barely moved the ratio: it changed which plugin answers, not the fact that
+          # the answer was uncacheable.
+          #
+          # The authority SOA below makes the negative answer cacheable for 300s, so
+          # AAAA is answered from cache instead of regenerated + served stale.
+          # 300s is deliberately modest: a cached NODATA delays any future IPv6
+          # enablement by at most that long.
           - name: template
             parameters: ANY AAAA
             configBlock: |-
               rcode NOERROR
+              authority "{{ .Zone }} 300 IN SOA ns.dns.{{ .Zone }} hostmaster.{{ .Zone }} (1 300 300 300 300)"
           - name: forward
             parameters: . /etc/resolv.conf
           - name: cache
