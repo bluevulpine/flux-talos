@@ -68,6 +68,37 @@ verify the cluster reflects the change (e.g. `kubectl get <resource> -o jsonpath
 Only reconcile manually if the webhook path is known-broken or you pushed to a
 non-trunk branch.
 
+## Querying metrics: use Thanos, not Prometheus
+
+**Prometheus retains only 2 days.** That is deliberate — it is the standard
+Thanos pattern (short local window, sidecar ships blocks to object storage).
+Long-term history lives in Thanos:
+
+| | endpoint | retention |
+| --- | --- | --- |
+| Prometheus (local) | `kube-prometheus-stack-prometheus.observability.svc:9090` | **2d only** |
+| **Thanos (use this)** | `thanos-query-frontend.observability.svc:10902` | raw 14d / 5m 30d / **1h 60d** |
+
+Both speak the same `/api/v1/query` and `/api/v1/query_range` API, so the only
+difference is the host. Querying Prometheus for anything older than 48h returns
+a truncated series that *looks* like "we don't collect that" rather than an
+error — which is exactly how a 2026-08-13 gateway investigation initially
+concluded there was no history, when 60 days of it existed in Thanos.
+
+Do **not** "fix" this by raising `retention:` in the kube-prometheus-stack
+HelmRelease. It would duplicate what Thanos already stores. (For sizing context
+if it ever does come up: ~2.2 GB/day, on a 105 GB PVC using 5.8 GB.)
+
+Two traps when reading the results:
+
+- **Aggregate away label churn.** Exporters that restart with changed labels
+  split one logical series into many. `unpoller_device_memory_utilization_ratio{name="Morpheus"}`
+  was 7 separate series over 60d; without `max by(name)(...)` you silently get
+  one fragment and misread the trend.
+- **A flat series is not proof of no signal.** Check the multi-day shape before
+  concluding a metric is useless — the same UDM memory ratio looked flat and
+  uninformative over 44h but was a clean sawtooth over 60d.
+
 ## Postgres bootstrap: the `postgres-init` init container
 
 Apps that need a Postgres database on the CloudNativePG `postgres16` cluster do
