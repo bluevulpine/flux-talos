@@ -26,7 +26,7 @@ spec:
           app:
             image:
               repository: gitea.derekjacobs.dev/bluevulpine/bluevulpine.net.web
-              tag: "32-8dd3960a" # {"$imagepolicy": "flux-system:bluevulpine-blog:tag"}
+              tag: "33-cc20b4ce" # {"$imagepolicy": "flux-system:bluevulpine-blog:tag"}
             probes:
               liveness: &probes
                 enabled: true
