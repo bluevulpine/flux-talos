@@ -127,3 +127,93 @@ spec:
           for: 5m
           labels:
             severity: critical
+    - name: unifi
+      rules:
+        # ── Why these exist ───────────────────────────────────────────────────
+        # On 2026-08-13 the UniFi Network application on Morpheus (UDM-SE) stopped
+        # answering every /proxy/network/* request. UniFi OS itself was fine —
+        # auth (0.55s), the OS root (0.03s) and Protect (0.39s) all responded
+        # normally through the same reverse proxy. The gateway was simply out of
+        # memory and thrashing: sustained 1.5–2.7 MB/s swap-out, free memory
+        # falling 354→81 MB in 6s, run queue 8–10 on 4 cores. mongod had 217 MB
+        # paged out, so every Network API call had to fault pages back from swap
+        # and blew past every client timeout. The app's own degradation monitor
+        # reported ["low_memory","refault_rate_increasing","cpu_pressure"].
+        #
+        # The only symptom that reached us was KubePodNotReady for
+        # external-dns-unifi — which blames the cluster for a gateway fault and
+        # gives zero lead time. These two rules fix both halves of that.
+        #
+        # ── Threshold derivation (60d of Thanos history, 1h resolution) ───────
+        # unpoller_device_memory_utilization_ratio{name="Morpheus"} is a clean
+        # sawtooth: it climbs, a restart/reboot resets it, it climbs again.
+        # Daily averages:
+        #   normal band ........ 68–78%
+        #   07-14/15 ........... 80%  → mini-episode 07-16 (+10 restarts)
+        #   08-09 .............. 80%  → today's outage 08-13
+        #   08-10 → 08-13 ...... 82 → 84%  (wedged)
+        # So 80% sustained is where trouble reliably begins, and it would have
+        # given ~4 days of warning before this incident and ~2 days before the
+        # July one. We use avg_over_time(...[6h]) rather than `for: 6h` because
+        # the ratio dips intraday (08-09 avg was 80% but min 76%) and a plain
+        # `for` clause would reset on every dip.
+        #
+        # NOTE: this metric is NOT a within-incident signal — it stayed flat at
+        # 0.82–0.89 through the whole outage. It only has predictive value at the
+        # multi-day scale, which is exactly how it's used here.
+        - alert: UnifiGatewayMemoryPressure
+          annotations:
+            summary: >-
+              UniFi gateway {{ $labels.name }} has averaged {{ $value | humanizePercentage }}
+              memory over 6h — above the 80% level that preceded both prior
+              Network-application hangs.
+            description: >-
+              Memory on the UDM-SE climbs as a sawtooth and wedges the Network
+              application (all /proxy/network/* requests hang) somewhere in the
+              82–84% band. Restarting the Network app on the gateway
+              (`systemctl restart unifi`) resets it and buys roughly two weeks.
+              For a durable fix, reduce what the box is holding — the Protect
+              stack and the Network stack are each ~950 MB of the 3.9 GB total.
+              Runbook: docs/runbooks/unifi-network-app-hang.md
+          expr: avg by (name) (avg_over_time(unpoller_device_memory_utilization_ratio{name="Morpheus"}[6h])) > 0.80
+          for: 30m
+          labels:
+            severity: warning
+        - alert: UnifiGatewayMemoryCritical
+          annotations:
+            summary: >-
+              UniFi gateway {{ $labels.name }} has averaged {{ $value | humanizePercentage }}
+              memory over 6h — inside the band where the Network application hung
+              on 2026-08-13. Restart it before it wedges.
+          expr: avg by (name) (avg_over_time(unpoller_device_memory_utilization_ratio{name="Morpheus"}[6h])) > 0.83
+          for: 30m
+          labels:
+            severity: critical
+        # external-dns-unifi is the only workload in the cluster that continuously
+        # exercises the *authenticated* Network API, so its crash loop is our
+        # sharpest live detector that the Network app has wedged. It fatals on any
+        # failed /records call, so a hung gateway shows up as a tight restart loop
+        # (112 restarts in ~9h on 2026-08-13) rather than a single failure.
+        #
+        # Deliberately NOT a blackbox HTTP probe: while the gateway was wedged, an
+        # *unauthenticated* request to the same path still returned 401 in 240 ms,
+        # because UniFi OS rejects before proxying to the Network app. An
+        # unauthenticated probe would have reported the gateway healthy throughout.
+        - alert: UnifiNetworkApplicationWedged
+          annotations:
+            summary: >-
+              external-dns-unifi has restarted {{ $value | printf "%.0f" }} times in 30m —
+              the UniFi Network application is almost certainly not answering
+              /proxy/network/* requests.
+            description: >-
+              This is a gateway fault, not a cluster fault. Confirm with an
+              authenticated call from any pod; if it hangs while
+              https://10.0.10.1/api/auth/login still returns 200, restart the
+              Network app on Morpheus with `systemctl restart unifi`. Existing
+              split-horizon DNS records are unaffected — external-dns fails at the
+              read step and never reaches the sync/delete phase.
+              Runbook: docs/runbooks/unifi-network-app-hang.md
+          expr: increase(kube_pod_container_status_restarts_total{namespace="network", pod=~"external-dns-unifi.*", container="external-dns"}[30m]) >= 3
+          for: 5m
+          labels:
+            severity: critical
