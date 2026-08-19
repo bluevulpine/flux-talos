@@ -27,7 +27,7 @@ spec:
             image:
               repository: docker.io/fosrl/newt
               # renovate: datasource=docker depName=docker.io/fosrl/newt
-              tag: 1.15.0
+              tag: 1.16.0
             # Newt is the tunnel *client*: it dials out to the Pangolin server
             # (PANGOLIN_ENDPOINT over 443 + Gerbil WireGuard over UDP) and, once
             # registered, forwards traffic to the target configured in the
