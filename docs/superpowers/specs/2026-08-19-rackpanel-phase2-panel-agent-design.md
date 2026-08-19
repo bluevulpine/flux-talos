@@ -79,17 +79,34 @@ bus that records every transaction, with no Pi in the loop.
 
 ## The I²C and panel layers: a verbatim port
 
-`golang.org/x/sys/unix` provides **no** GPIO v2 uAPI types (checked against
-v0.43.0). The structs are therefore hand-rolled, exactly mirroring the probe's
-`ctypes` definitions, with the same size assertions promoted to compile-time
-`unsafe.Sizeof` checks:
+**Corrected 2026-08-19.** An earlier draft of this section claimed
+`golang.org/x/sys/unix` provides no GPIO v2 uAPI types. That was checked
+against v0.43.0 with a wrong-cased grep. The version this module actually
+resolves to — **v0.47.0** — ships them, under `GPIOV2…` names (not `GpioV2…`):
 
-| Struct | Size |
+| Provided by `x/sys/unix` v0.47.0 | Notes |
 | --- | --- |
-| `LineAttribute` | 16 |
-| `LineConfigAttribute` | 24 |
-| `LineConfig` | 272 |
-| `LineRequest` | 592 |
+| `GPIOV2LineRequest`, `GPIOV2LineConfig`, `GPIOV2LineConfigAttribute`, `GPIOV2LineAttribute`, `GPIOV2LineValues` | field-for-field identical to the probe's `ctypes` layout |
+| `GPIO_V2_GET_LINE_IOCTL` = `0xc250b407` | encodes size `0x250` = **592** |
+| `GPIO_V2_LINE_SET_VALUES_IOCTL` = `0xc010b40f` | encodes size `0x010` = **16** |
+| `GPIO_V2_LINE_GET_VALUES_IOCTL` = `0xc010b40e` | |
+
+So the structs are **not** hand-rolled, the `_IOWR` arithmetic is not
+reimplemented, and there are no size assertions to maintain — the sizes are
+proven by the upstream ioctl constants themselves. Only the three line-flag
+values are absent from `x/sys` and defined locally:
+
+```go
+const (
+    flagOutput     = 1 << 3 // GPIO_V2_LINE_FLAG_OUTPUT
+    flagOpenDrain  = 1 << 6 // GPIO_V2_LINE_FLAG_OPEN_DRAIN
+    flagBiasPullUp = 1 << 8 // GPIO_V2_LINE_FLAG_BIAS_PULL_UP
+)
+```
+
+This is strictly better than the hand-rolled version it replaces: struct
+layout is the thing most likely to be silently wrong across a uAPI change,
+and it is now upstream's problem rather than ours.
 
 Lines 2 (SDA) and 3 (SCL) requested together as
 `OUTPUT | OPEN_DRAIN | BIAS_PULL_UP`, so one `GPIO_V2_LINE_SET_VALUES` sets both.
@@ -392,13 +409,19 @@ process is UID 0. It is the cgroup v2 device controller, which is why the errno
 is `EPERM` rather than `EACCES`. Capabilities do not bypass it — runc attaches
 the check as an eBPF program on the cgroup.
 
-**The frigate precedent did not hold.** An earlier draft of this section cited
-`kubernetes/apps/home/frigate/app/helmrelease.yaml`, which mounts `/dev/bus/usb`
-via a non-privileged hostPath, as evidence this works on the cluster. The
-measurement supersedes it. That leaves an open question worth checking on its
-own merits, unrelated to rackpanel: if the same rule applies there, frigate's
-Coral TPU may be unreachable and the CPU detector may be running silently.
-**Not verified — recorded so it is not lost.**
+**The frigate precedent did not hold, and checking it found something else.**
+An earlier draft cited `kubernetes/apps/home/frigate/app/helmrelease.yaml`,
+which mounts `/dev/bus/usb` via a non-privileged hostPath, as evidence this
+works on the cluster. It is not evidence of anything: **frigate has no Coral
+configured at all.** Checked 2026-08-19 — the running pod reports a single
+detector, `cpu`, and is serving frigate's stock example config
+(`name_of_your_camera`, a placeholder RTSP URL, MQTT disabled). The
+`SYS_RAWIO` capability and the `/dev/bus/usb` mount are vestigial.
+
+So the hypothesis that a Coral was silently failing is **wrong** — there is no
+Coral to fail. That is a separate finding about frigate, tracked outside this
+spec; it says nothing either way about non-privileged device access, which is
+settled by the controlled measurement above.
 
 **Consequence:** the agent container carries `privileged: true`. Accepted
 because the scope is narrow — one container on four Pis, running a ~3 MB `FROM

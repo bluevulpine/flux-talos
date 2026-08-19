@@ -30,6 +30,7 @@ Copied verbatim from the spec. Every task's requirements implicitly include this
 - **Full-repaint threshold:** more than **48** of 80 rows differ.
 - **Poll interval:** 500 ms (2 Hz). **`X-Display-At` cap:** 5 s.
 - **Go module path:** `gitea.derekjacobs.dev/bluevulpine/rackpanel`
+- **GPIO uAPI:** use `x/sys/unix`'s `GPIOV2*` types and `GPIO_V2_*_IOCTL` constants. Do **not** hand-roll the structs or recompute `_IOWR`.
 - **Conductor URL (in cluster):** `http://rackpanel.observability.svc.cluster.local:8080`
 - **Metric prefix:** `rackpanel_agent_`
 - **No cgo.** `CGO_ENABLED=0` everywhere.
@@ -1189,10 +1190,17 @@ Create `internal/i2c/gpio_linux.go`:
 
 package i2c
 
-// GPIO character-device v2 uAPI, hand-rolled: golang.org/x/sys/unix (v0.43.0)
-// defines no GPIO v2 types. The struct layouts mirror the Phase 0 probe's
-// ctypes definitions exactly, and the size checks below are the same
-// assertions promoted to compile time.
+// GPIO character-device v2 uAPI.
+//
+// CORRECTED 2026-08-19: an earlier draft hand-rolled these structs because a
+// check against x/sys v0.43.0 found no GPIO v2 types. v0.47.0 -- what this
+// module resolves to -- ships them as GPIOV2* (note the casing; a GpioV2*
+// grep finds nothing). Use them: struct layout is the thing most likely to be
+// silently wrong across a uAPI change, and upstream owns it.
+//
+// The sizes the probe asserted are proven by the ioctl constants themselves:
+// GPIO_V2_GET_LINE_IOCTL = 0xc250b407 encodes 0x250 = 592, and
+// GPIO_V2_LINE_SET_VALUES_IOCTL = 0xc010b40f encodes 0x010 = 16.
 
 import (
 	"fmt"
@@ -1202,73 +1210,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// The only GPIO v2 values x/sys does NOT export.
 const (
-	flagOutput     = 1 << 3
-	flagOpenDrain  = 1 << 6
-	flagBiasPullUp = 1 << 8
-
-	linesMax    = 64
-	nameSize    = 32
-	numAttrsMax = 10
-)
-
-type lineAttribute struct {
-	ID      uint32
-	Padding uint32
-	Value   uint64
-}
-
-type lineConfigAttribute struct {
-	Attr lineAttribute
-	Mask uint64
-}
-
-type lineConfig struct {
-	Flags    uint64
-	NumAttrs uint32
-	Padding  [5]uint32
-	Attrs    [numAttrsMax]lineConfigAttribute
-}
-
-type lineRequest struct {
-	Offsets         [linesMax]uint32
-	Consumer        [nameSize]byte
-	Config          lineConfig
-	NumLines        uint32
-	EventBufferSize uint32
-	Padding         [5]uint32
-	FD              int32
-}
-
-type lineValues struct {
-	Bits uint64
-	Mask uint64
-}
-
-// Compile-time size assertions. Each pair forces exact equality: an untyped
-// uintptr constant cannot be negative, so a mismatch in either direction
-// fails the build rather than corrupting an ioctl at runtime.
-const (
-	_ = unsafe.Sizeof(lineAttribute{}) - 16
-	_ = 16 - unsafe.Sizeof(lineAttribute{})
-	_ = unsafe.Sizeof(lineConfigAttribute{}) - 24
-	_ = 24 - unsafe.Sizeof(lineConfigAttribute{})
-	_ = unsafe.Sizeof(lineConfig{}) - 272
-	_ = 272 - unsafe.Sizeof(lineConfig{})
-	_ = unsafe.Sizeof(lineRequest{}) - 592
-	_ = 592 - unsafe.Sizeof(lineRequest{})
-	_ = unsafe.Sizeof(lineValues{}) - 16
-	_ = 16 - unsafe.Sizeof(lineValues{})
-)
-
-func iowr(nr, size uintptr) uintptr {
-	return 3<<30 | size<<16 | 0xB4<<8 | nr
-}
-
-var (
-	ioctlGetLine   = iowr(0x07, unsafe.Sizeof(lineRequest{}))
-	ioctlSetValues = iowr(0x0F, unsafe.Sizeof(lineValues{}))
-	ioctlGetValues = iowr(0x0E, unsafe.Sizeof(lineValues{}))
+	flagOutput     = 1 << 3 // GPIO_V2_LINE_FLAG_OUTPUT
+	flagOpenDrain  = 1 << 6 // GPIO_V2_LINE_FLAG_OPEN_DRAIN
+	flagBiasPullUp = 1 << 8 // GPIO_V2_LINE_FLAG_BIAS_PULL_UP
 )
 
 // gpioPins holds SDA on mask bit 0 and SCL on mask bit 1, so one ioctl
@@ -1277,7 +1223,7 @@ var (
 type gpioPins struct {
 	chip *os.File
 	line int
-	v    lineValues
+	v    unix.GPIOV2LineValues
 }
 
 // OpenGPIO claims sda and scl on chip as open-drain outputs with the
@@ -1289,23 +1235,23 @@ func OpenGPIO(chip string, sda, scl int, consumer string) (Pins, error) {
 		return nil, fmt.Errorf("open %s: %w", chip, err)
 	}
 
-	var req lineRequest
+	var req unix.GPIOV2LineRequest
 	req.Offsets[0] = uint32(sda)
 	req.Offsets[1] = uint32(scl)
-	copy(req.Consumer[:nameSize-1], consumer)
-	req.NumLines = 2
+	copy(req.Consumer[:len(req.Consumer)-1], consumer)
+	req.Num_lines = 2
 	req.Config.Flags = flagOutput | flagOpenDrain | flagBiasPullUp
 
-	if err := ioctl(f.Fd(), ioctlGetLine, unsafe.Pointer(&req)); err != nil {
+	if err := ioctl(f.Fd(), unix.GPIO_V2_GET_LINE_IOCTL, unsafe.Pointer(&req)); err != nil {
 		f.Close()
 		return nil, fmt.Errorf("claim gpio lines %d/%d: %w", sda, scl, err)
 	}
-	if req.FD < 0 {
+	if req.Fd < 0 {
 		f.Close()
 		return nil, fmt.Errorf("kernel returned no line fd for %s", chip)
 	}
 
-	p := &gpioPins{chip: f, line: int(req.FD)}
+	p := &gpioPins{chip: f, line: int(req.Fd)}
 	if err := p.Set(1, 1); err != nil {
 		p.Close()
 		return nil, fmt.Errorf("set idle state: %w", err)
@@ -1316,13 +1262,13 @@ func OpenGPIO(chip string, sda, scl int, consumer string) (Pins, error) {
 func (p *gpioPins) Set(sda, scl int) error {
 	p.v.Mask = 0b11
 	p.v.Bits = uint64(sda&1) | uint64(scl&1)<<1
-	return ioctl(uintptr(p.line), ioctlSetValues, unsafe.Pointer(&p.v))
+	return ioctl(uintptr(p.line), unix.GPIO_V2_LINE_SET_VALUES_IOCTL, unsafe.Pointer(&p.v))
 }
 
 func (p *gpioPins) Get() (int, int, error) {
 	p.v.Mask = 0b11
 	p.v.Bits = 0
-	if err := ioctl(uintptr(p.line), ioctlGetValues, unsafe.Pointer(&p.v)); err != nil {
+	if err := ioctl(uintptr(p.line), unix.GPIO_V2_LINE_GET_VALUES_IOCTL, unsafe.Pointer(&p.v)); err != nil {
 		return 0, 0, err
 	}
 	return int(p.v.Bits & 1), int(p.v.Bits >> 1 & 1), nil
@@ -1354,7 +1300,9 @@ go test ./internal/i2c/ -v
 go vet ./internal/i2c/
 ```
 
-Expected: clean build for `linux/arm64`, tests PASS. A struct-size mismatch surfaces here as a `constant -N overflows uintptr` compile error naming the offending type.
+Expected: clean build for `linux/arm64`, tests PASS.
+
+Note this file is `//go:build linux`: the GPIO types live in `ztypes_linux.go`, so a plain `go build` on macOS will not compile it. The `GOOS=linux GOARCH=arm64` build above is the one that matters.
 
 - [ ] **Step 8: Commit**
 
