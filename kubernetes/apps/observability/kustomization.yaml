@@ -16,6 +16,7 @@ resources:
   - ./graphite-exporter/ks.yaml
   - ./kromgo/ks.yaml
   - ./kube-prometheus-stack/ks.yaml
+  - ./rackpanel/ks.yaml
   - ./smartctl-exporter/ks.yaml
   # - ./snmp-exporter/ks.yaml
   - ./storj-exporter/ks.yaml

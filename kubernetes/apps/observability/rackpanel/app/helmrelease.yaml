@@ -1,0 +1,102 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app rackpanel
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: rackpanel
+  interval: 1h
+  values:
+    # Explicitly enabled (rather than relying on app-template's implicit
+    # "one ServiceAccount named after the release" default) so the identifier
+    # referenced by controllers.rackpanel.serviceAccount.identifier below is
+    # guaranteed to resolve, and so the binding is self-documenting. Verified
+    # against the pulled app-template 5.0.1 chart source
+    # (charts/common/templates/values/_init.tpl and
+    # lib/pod/fields/_serviceAccountName.tpl): a controller's
+    # `serviceAccount.identifier` is looked up against `values.serviceAccount`
+    # and `fail`s the render if no enabled entry with that identifier exists.
+    # Matches the pattern already used by homepage, dragonfly and gatus in
+    # this repo. The ClusterRole/ClusterRoleBinding for the "rackpanel"
+    # identity the chart creates here live in rbac.yaml.
+    serviceAccount:
+      rackpanel:
+        enabled: true
+    controllers:
+      rackpanel:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        replicas: 1
+        strategy: RollingUpdate
+        serviceAccount:
+          identifier: rackpanel
+        containers:
+          app:
+            # First-party image — built by Drone CI from
+            # https://gitea.derekjacobs.dev/bluevulpine/rackpanel
+            image:
+              repository: gitea.derekjacobs.dev/bluevulpine/rackpanel
+              tag: 2-78462a7c # {"$imagepolicy": "flux-system:rackpanel:tag"}
+            env:
+              TZ: "${TIMEZONE}"
+              RACKPANEL_NODES: jormungandr1,jormungandr2,jormungandr3,jormungandr4
+              RACKPANEL_DWELL: "20"
+              RACKPANEL_THANOS_URL: http://thanos-query-frontend.observability.svc:10902
+              RACKPANEL_CLUSTER: home-kubernetes
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: /healthz, port: 8080}
+                  initialDelaySeconds: 10
+                  periodSeconds: 20
+              readiness: *probe
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                memory: 384Mi
+    defaultPodOptions:
+      # app-template 5.0.1 defaults automountServiceAccountToken to false.
+      # Without this, /var/run/secrets/kubernetes.io/serviceaccount/token
+      # never exists, KubeClient.in_cluster() raises FileNotFoundError, and
+      # the failure is swallowed -- NODES/CLUSTER tiles show "--" forever and
+      # FLEET never becomes eligible, with no visible error. Every other app
+      # in this repo that talks to the API server (gatus, homepage, drone,
+      # dragonfly) sets this explicitly for the same reason.
+      automountServiceAccountToken: true
+      # amd64 only: rendering is the one CPU-hungry thing here, and the Pis
+      # are already carrying the panels.
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      imagePullSecrets:
+        - name: gitea-registry-creds
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+    service:
+      app:
+        controller: rackpanel
+        ports:
+          http:
+            port: 8080
+    persistence:
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp

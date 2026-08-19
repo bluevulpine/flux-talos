@@ -15,5 +15,6 @@ resources:
   - ./helium-archiver/ks.yaml
   - ./kia-collector/ks.yaml
   - ./chargepoint-collector/ks.yaml
+  - ./rackpanel/ks.yaml
   # self-repair for the reflector "no tags in database" bug (recurs on reflector restart)
   - ./image-reflector-healer/ks.yaml

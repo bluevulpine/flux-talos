@@ -1,0 +1,37 @@
+---
+# Least privilege: the conductor only ever reads. Node listing is all Phase 1
+# calls (/api/v1/nodes); pod listing and Flux CR access arrive with later
+# scenes that actually read them.
+#
+# The ServiceAccount itself is NOT declared here — it is rendered by the
+# app-template chart via `values.serviceAccount.rackpanel.enabled: true` in
+# helmrelease.yaml (see helmrelease.yaml for why: app-template 5.0.1's
+# `controllers.<name>.serviceAccount.identifier` only resolves against a
+# serviceAccount enabled in chart values; it does not adopt an
+# externally-created ServiceAccount of the same name). This file only binds
+# that chart-created identity to a read-only ClusterRole.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rackpanel-reader
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - "nodes"
+    verbs:
+      - "get"
+      - "list"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: rackpanel-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: rackpanel-reader
+subjects:
+  - kind: ServiceAccount
+    name: rackpanel
+    namespace: observability
