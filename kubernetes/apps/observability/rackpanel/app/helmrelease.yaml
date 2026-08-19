@@ -1,4 +1,3 @@
----
 # yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -40,7 +39,7 @@ spec:
             # https://gitea.derekjacobs.dev/bluevulpine/rackpanel
             image:
               repository: gitea.derekjacobs.dev/bluevulpine/rackpanel
-              tag: 2-78462a7c # {"$imagepolicy": "flux-system:rackpanel:tag"}
+              tag: 3-8dc79527 # {"$imagepolicy": "flux-system:rackpanel:tag"}
             env:
               TZ: "${TIMEZONE}"
               RACKPANEL_NODES: jormungandr1,jormungandr2,jormungandr3,jormungandr4
