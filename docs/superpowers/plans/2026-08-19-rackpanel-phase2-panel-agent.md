@@ -64,7 +64,22 @@ Dependency order: `fb` ← {`blit`, `card`, `panel`}; `i2c` ← `panel`; everyth
 
 ---
 
-### Task 1: Prove non-privileged device access
+### Task 1: Prove non-privileged device access — ✅ DONE 2026-08-19, ANSWER: NO
+
+> **Result: `EPERM`.** Measured with a controlled pair of pods on
+> `jormungandr4` — same node, same `hostPath` `CharDevice` mount, only the
+> security context differing. Unprivileged (`runAsUser: 0`, `drop: [ALL]`,
+> `allowPrivilegeEscalation: false`) failed on **both** `O_RDONLY` and
+> `O_RDWR`; `privileged: true` succeeded. The cgroup v2 device controller is
+> the cause, which is why the errno is `EPERM` and not `EACCES`.
+>
+> **Consequence: the agent container carries `privileged: true`.** Task 10
+> Step 2 below is already written for this outcome — no conditional to
+> evaluate. Steps 1–5 of this task need not be re-run; they are kept as the
+> record of how the answer was obtained.
+>
+> The frigate `/dev/bus/usb` precedent cited in the spec did **not** hold.
+> See the spec's Risks section for the open question that leaves behind.
 
 The spec records this as the plan's one untested assumption. Phase 0 ran a **privileged** pod; the manifest in Task 10 is non-privileged. Under cgroup v2 the device controller can deny `open()` on a char device that is present in the container's filesystem. Settle it now with a throwaway pod, exactly as Phase 0 did, so Task 10 is not a surprise.
 
@@ -2925,9 +2940,18 @@ Add under `controllers:` in `helmrelease.yaml`:
                   initialDelaySeconds: 10
                   periodSeconds: 30
             securityContext:
-              allowPrivilegeEscalation: false
+              # Measured 2026-08-19 (Task 1): a non-privileged hostPath mount
+              # of /dev/gpiochip0 fails open() with EPERM on both O_RDONLY and
+              # O_RDWR, while an otherwise identical privileged pod on the same
+              # node succeeds. The cgroup v2 device controller is the cause and
+              # capabilities do not bypass it. The parent spec's claim that this
+              # could avoid privileged:true was an assumption, not a result.
+              #
+              # Scope is deliberately narrow: one container on four Pis running
+              # a ~3MB FROM scratch image with no shell and no package manager.
+              privileged: true
+              allowPrivilegeEscalation: true
               readOnlyRootFilesystem: true
-              capabilities: {drop: ["ALL"]}
             resources:
               requests:
                 cpu: 100m
@@ -2941,8 +2965,6 @@ Add under `controllers:` in `helmrelease.yaml`:
                 cpu: 500m
                 memory: 64Mi
 ```
-
-**If Task 1 reported `EPERM`:** replace the container `securityContext` above with `privileged: true` and `allowPrivilegeEscalation: true`, and drop the `capabilities` line (it is meaningless under `privileged`). Leave a comment naming Task 1's measured error.
 
 **Set the `tag:` to the real tag from Task 8 Step 6**, not the placeholder above.
 
@@ -3062,7 +3084,7 @@ If they are `CreateContainerError` or `RunContainerError`, read the event:
 ```bash
 kubectl -n observability describe pod -l app.kubernetes.io/component=agent | grep -A5 Events
 ```
-`operation not permitted` on the device is Task 1's `EPERM` case arriving late — apply the `privileged: true` fallback.
+`operation not permitted` on the device would mean the `privileged: true` block from Step 2 did not render — check the rendered DaemonSet rather than adding more permissions blindly.
 
 - [ ] **Step 8: Verify on the actual hardware**
 

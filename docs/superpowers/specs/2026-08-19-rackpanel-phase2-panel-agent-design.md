@@ -373,22 +373,40 @@ Phase 0 probe's final stage.
 
 ## Risks
 
-### The device-access assumption is untested
+### Device access requires `privileged: true` — MEASURED 2026-08-19
 
-The parent spec states device access avoids `privileged: true` via a hostPath
-mount with `runAsUser: 0`. **Phase 0 ran privileged, so this is an assumption,
-not a result.** Under cgroup v2 the device controller can deny `open()` on a
-char device that is present in the container's filesystem, returning `EPERM`.
+**The parent spec was wrong about this, and so was the precedent cited for it.**
 
-Evidence for: `kubernetes/apps/home/frigate/app/helmrelease.yaml` runs a
-non-privileged hostPath mount of `/dev/bus/usb` on this cluster today. That is
-precedent, not proof for this device.
+That spec states device access avoids `privileged: true` via a hostPath mount
+with `runAsUser: 0`. Phase 0 actually ran privileged, so that was an assumption.
+Measured on `jormungandr4` with a controlled pair of pods — same node, same
+`hostPath` `CharDevice` mount, only the security context differing:
 
-**Mitigation:** the first implementation task is a `--probe-device` run of the
-real DaemonSet manifest that does nothing but open `/dev/gpiochip0` read-write
-and report. If it fails, the fallback is `privileged: true` on the agent
-container only — a decision made with an error message in hand rather than an
-argument.
+| Pod security context | `open("/dev/gpiochip0")` |
+| --- | --- |
+| `runAsUser: 0`, `drop: [ALL]`, `allowPrivilegeEscalation: false` | **`EPERM`** on both `O_RDONLY` and `O_RDWR` |
+| `privileged: true` | **OK** |
+
+The device node is not the problem: `stat` reports `crw------- root root` and the
+process is UID 0. It is the cgroup v2 device controller, which is why the errno
+is `EPERM` rather than `EACCES`. Capabilities do not bypass it — runc attaches
+the check as an eBPF program on the cgroup.
+
+**The frigate precedent did not hold.** An earlier draft of this section cited
+`kubernetes/apps/home/frigate/app/helmrelease.yaml`, which mounts `/dev/bus/usb`
+via a non-privileged hostPath, as evidence this works on the cluster. The
+measurement supersedes it. That leaves an open question worth checking on its
+own merits, unrelated to rackpanel: if the same rule applies there, frigate's
+Coral TPU may be unreachable and the CPU detector may be running silently.
+**Not verified — recorded so it is not lost.**
+
+**Consequence:** the agent container carries `privileged: true`. Accepted
+because the scope is narrow — one container on four Pis, running a ~3 MB `FROM
+scratch` image with no shell, no package manager and nothing installed to abuse.
+The alternative considered and rejected was `squat/generic-device-plugin`, which
+would keep the agent unprivileged but moves the privilege into a new third-party
+DaemonSet that is itself privileged, and adds a component to deploy, pin and
+maintain for no net reduction in privilege on the node.
 
 ### Kaniko platform override
 
