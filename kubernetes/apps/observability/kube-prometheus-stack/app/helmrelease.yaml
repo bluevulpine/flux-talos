@@ -89,8 +89,36 @@ spec:
             regex: (apiserver_response_sizes_bucket|apiserver_watch_events_sizes_bucket)
     kubeControllerManager:
       enabled: false
+    # Enabled 2026-08-20. Talos already exposes etcd metrics on every control
+    # plane node -- talconfig.yaml sets
+    # `cluster.etcd.extraArgs.listen-metrics-urls: http://0.0.0.0:2381` -- and
+    # all three answer HTTP 200 on :2381/metrics. Only the scraper was off, so
+    # this is a scraper change, not a cluster change.
+    #
+    # Explicit `endpoints` are required: the chart otherwise builds Endpoints
+    # from a pod selector, and on Talos etcd is a Talos service rather than a
+    # Kubernetes pod, so nothing would match.
+    #
+    # Plain HTTP on 2381 (not the client port 2379), so scheme must be http and
+    # no client certificates are involved.
+    #
+    # Motivation: etcd_disk_backend_commit_duration_seconds and
+    # etcd_disk_wal_fsync_duration_seconds are what make "does workload X add
+    # jitter to etcd?" a measurable question. It came up deciding the CPU limit
+    # for the rackpanel panel-agent, which runs on three control plane nodes,
+    # and could not be answered.
     kubeEtcd:
-      enabled: false
+      enabled: true
+      endpoints:
+        - 10.0.10.31
+        - 10.0.10.32
+        - 10.0.10.33
+      service:
+        enabled: true
+        port: 2381
+        targetPort: 2381
+      serviceMonitor:
+        scheme: http
     kubeScheduler:
       enabled: false
     kubeProxy:
