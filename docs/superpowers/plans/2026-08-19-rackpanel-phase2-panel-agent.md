@@ -177,7 +177,7 @@ git commit -m "docs(superpowers): record measured device-access result for rackp
 
 ---
 
-### Task 2: Geometry, RGB565 packing, and the framebuffer diff
+### Task 2: Geometry, RGB565 packing, and the framebuffer diff — ✅ DONE 2026-08-19
 
 The diff is the component most likely to hold an off-by-one, and it needs no hardware, no cluster and no conductor. Build it first and build it properly.
 
@@ -542,7 +542,7 @@ Threshold is 48 of 80 rows (60%), tested on both sides of the boundary."
 
 ---
 
-### Task 3: Local identity and offline cards
+### Task 3: Local identity and offline cards — ✅ DONE 2026-08-19
 
 So a panel stops showing the vendor boot image within about a second of the pod starting, and shows something honest when the conductor is gone. No TTF, no embedded assets, no network.
 
@@ -765,7 +765,7 @@ panels identical."
 
 ---
 
-### Task 4: Bit-banged I²C over the GPIO character device
+### Task 4: Bit-banged I²C over the GPIO character device — ✅ DONE 2026-08-19
 
 A direct port of `reference/phase0-probe.py`. Every constant and delay in that file was verified against the real hardware; **do not re-derive anything from the vendor C driver in `~/Repositories/pirackpro`.**
 
@@ -1693,7 +1693,7 @@ per row, and that the 700us/10us delays are actually issued."
 
 ---
 
-### Task 6: Conductor client and display-at scheduling
+### Task 6: Conductor client and display-at scheduling — ✅ DONE 2026-08-19
 
 **Files:**
 - Create: `~/Repositories/rackpanel/internal/tile/tile.go`
@@ -2034,7 +2034,7 @@ validator would 304 forever against a frame we never received."
 
 ---
 
-### Task 7: Metrics, probes, and the control loop
+### Task 7: Metrics, probes, and the control loop — ✅ DONE 2026-08-19 (3/3 metrics tests; 38 tests across 7 packages)
 
 **Files:**
 - Create: `~/Repositories/rackpanel/internal/metrics/metrics.go`
@@ -2045,13 +2045,22 @@ validator would 304 forever against a frame we never received."
 - Consumes: everything above.
 - Produces: the `panel-agent` binary, flags `--probe-device`, `--selftest`.
 
-- [ ] **Step 1: Add the Prometheus dependency**
+- [ ] **Step 1: Add the Prometheus dependency and resolve its graph**
 
 ```bash
 cd ~/Repositories/rackpanel
-go get github.com/prometheus/client_golang/prometheus@v1.24.0
-go get github.com/prometheus/client_golang/prometheus/promhttp@v1.24.0
+go get github.com/prometheus/client_golang
+go mod tidy
 ```
+
+`go mod tidy` is not optional here. Adding the module without anything
+importing it records the require line but **not** its transitive closure, so
+`go.sum` stays missing `beorn7/perks`, `cespare/xxhash/v2`,
+`prometheus/client_model`, `prometheus/common`, `prometheus/procfs`,
+`munnerz/goautoneg` and `google.golang.org/protobuf`. Every build then fails
+with `missing go.sum entry` the moment `metrics.go` imports it. Tidy also
+promotes `x/image` and `x/sys` from `// indirect` to direct, which they now
+are.
 
 - [ ] **Step 2: Write the failing test**
 
@@ -2061,6 +2070,7 @@ Create `internal/metrics/metrics_test.go`:
 package metrics
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -2123,7 +2133,9 @@ func TestMetricsExposesTheSpecdSeries(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
-	body := new(strings.Builder)
+	// bytes.Buffer, not strings.Builder: Builder implements io.Writer but
+	// NOT io.ReaderFrom, so it has no ReadFrom method and will not compile.
+	body := new(bytes.Buffer)
 	if _, err := body.ReadFrom(resp.Body); err != nil {
 		t.Fatal(err)
 	}
@@ -2299,6 +2311,32 @@ func (m *Metrics) Handler() http.Handler {
 
 Run: `cd ~/Repositories/rackpanel && go test ./internal/metrics/ -v`
 Expected: PASS, all three cases.
+
+- [ ] **Step 5b: Stub OpenGPIO for non-Linux hosts**
+
+`i2c.OpenGPIO` lives only in `gpio_linux.go` (`//go:build linux`). Once
+`main.go` references it, `go build ./...` and `go test ./...` break on any
+non-Linux developer machine — while CI, which builds on Linux, stays green.
+That asymmetry is how the breakage hides. Create
+`internal/i2c/gpio_other.go`:
+
+```go
+//go:build !linux
+
+package i2c
+
+import (
+	"fmt"
+	"runtime"
+)
+
+// OpenGPIO is unavailable off Linux: the GPIO character device is a Linux
+// uAPI. This stub exists so the module still builds and tests on a
+// developer machine.
+func OpenGPIO(chip string, sda, scl int, consumer string) (Pins, error) {
+	return nil, fmt.Errorf("i2c: GPIO character device unavailable on %s", runtime.GOOS)
+}
+```
 
 - [ ] **Step 6: Write the control loop**
 
