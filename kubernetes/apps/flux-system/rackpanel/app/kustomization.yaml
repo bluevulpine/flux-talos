@@ -5,5 +5,11 @@ kind: Kustomization
 namespace: flux-system
 resources:
   - ./imagerepository.yaml
+  - ./imagerepository-agent.yaml
   - ./imagepolicy.yaml
+  - ./imagepolicy-agent.yaml
+  # NOTE: one ImageUpdateAutomation only. Its update.path is already scoped to
+  # ./kubernetes/apps/observability/rackpanel, so it rewrites BOTH the
+  # conductor and agent markers. A second automation over the same path is the
+  # one-automation-per-app gotcha in docs/runbooks/flux-image-automation.md.
   - ./imageupdateautomation.yaml
