@@ -1326,7 +1326,7 @@ expected. uAPI struct sizes are asserted at compile time."
 
 ---
 
-### Task 5: The RM0004 register protocol
+### Task 5: The RM0004 register protocol — ✅ DONE 2026-08-19 (7/7 passing)
 
 **Files:**
 - Create: `~/Repositories/rackpanel/internal/panel/panel.go`
@@ -1358,6 +1358,9 @@ import (
 // recordBus captures every Write so the register sequence can be asserted.
 type recordBus struct {
 	writes [][]byte
+	// Zero value means a device answers, matching the real panel, so the
+	// other tests in this file need no setup.
+	probeAbsent bool
 }
 
 func (r *recordBus) Write(addr uint8, data []byte) error {
@@ -1367,7 +1370,7 @@ func (r *recordBus) Write(addr uint8, data []byte) error {
 	r.writes = append(r.writes, append([]byte(nil), data...))
 	return nil
 }
-func (r *recordBus) Probe(uint8) (bool, error) { return true, nil }
+func (r *recordBus) Probe(uint8) (bool, error) { return !r.probeAbsent, nil }
 func (r *recordBus) Close() error              { return nil }
 
 // commands returns only the 3-byte register writes.
@@ -1505,6 +1508,21 @@ func TestSizeMismatchesAreRejected(t *testing.T) {
 	}
 	if err := p.WriteRun(0, fb.Height, make([]byte, (fb.Height+1)*fb.RowBytes)); err == nil {
 		t.Error("expected an error for a run past the last row")
+	}
+}
+
+func TestPresentReportsWhatTheBusSaw(t *testing.T) {
+	// The agent refuses to start when Present() is false, so a Panel that
+	// always answered true would boot happily against a dead bus and then
+	// write 25,600 bytes into the void on every frame.
+	p, _, _ := newTestPanel()
+	if ok, err := p.Present(Addr); err != nil || !ok {
+		t.Errorf("Present on an answering bus = (%v, %v), want (true, nil)", ok, err)
+	}
+
+	silent := New(&recordBus{probeAbsent: true}, func(time.Duration) {})
+	if ok, err := silent.Present(Addr); err != nil || ok {
+		t.Errorf("Present on a silent bus = (%v, %v), want (false, nil)", ok, err)
 	}
 }
 ```
