@@ -40,25 +40,51 @@ scrypted, frigate). That is almost certainly the right tool — no new component
 | VLAN | 50 (IOT) | 50 (IOT) |
 | AP | Living Room IW6 | Roof Mesh |
 | `GET /` | **HTTP 401** | **HTTP 302** → `/index.html` |
-| Web UI | HyFix **MobileCM** | HyFix **MobileCM** |
+| Web UI (`:80`) | HyFix **MobileCM** | HyFix **MobileCM** |
+| Also serves | — | `:8088` Wingbits monitor, `:8504` tar1090, `:8542` graphs1090 |
+| Hostname | — | `hyfix.funb.us` |
 
-### ⚠️ Both devices serve HyFix firmware
+### Both devices are HyFix hardware — but the WB200 also runs a full ADS-B stack
 
-The device labelled **"Wingbits WB200" serves the same HyFix `MobileCM` UI** as the
-GEODNET unit, favicon `hyfix.ico` included. Either the UniFi alias is attached to
-the wrong client, or the WB200 is HyFix-manufactured hardware running common
-firmware. **Resolve this before building anything** — it determines whether there
-is an ADS-B receiver on this network at all, and the operator's description
-("read SB feed", "health page with graphs") does not match what `.250` actually
-serves.
+**Confirmed by the operator: the Wingbits WB200 is HyFix-manufactured.** That is
+why both devices serve the same HyFix `MobileCM` UI on port 80.
 
-Checked on `.250` and all returned **404**: `/data/aircraft.json`,
-`/data/stats.json`, `/data/receiver.json`, `/tar1090/`, `/graphs1090/`,
-`/skyaware/`, `/radar/`. So it is **not** a readsb/tar1090 stack. If a real ADS-B
-feeder exists, it is a different device that has not been identified yet — worth
-sweeping VLAN 50 for one.
+⚠️ **An earlier draft of this brief concluded the WB200 "is not a readsb/tar1090
+stack". That was wrong — port 80 was the only port probed.** The ADS-B services
+run on non-default ports, which is exactly why they were missed:
 
-The upside of the two devices sharing firmware: **one probe pattern covers both.**
+| Port on `192.168.50.250` | What it is |
+| --- | --- |
+| `:80` | HyFix **MobileCM** (302 → `/index.html`) — same firmware as the GEODNET unit |
+| `:8088` | **Wingbits Station Monitor** (references readsb + wingbits) |
+| `:8504` | **tar1090** (lighttpd) — `?icao=<hex>` for a specific aircraft |
+| `:8542` | **graphs1090** (lighttpd) — `?timeframe=365d`. This is the "graphs, not Grafana": collectd + RRDtool |
+
+Also reachable as **`hyfix.funb.us`**.
+
+### The readsb JSON is available and rich
+
+`:8504/data/{aircraft,stats,receiver}.json` all return **200**. `stats.json` is
+the prize:
+
+- Top level: `aircraft_with_pos`, `aircraft_without_pos`, `aircraft_count_by_type`,
+  **`estimated_ppm`** (receiver frequency error), **`gain_db`** (RF gain), `now`
+- Windows: `last1min`, `last5min`, `last15min`, `total`
+- Per window: `messages`, `messages_valid`, **`max_distance`** (antenna reach),
+  `position_count_total`, `tracks`, plus
+  `local.{samples_processed, samples_dropped, samples_lost, modes, bad, unknown_icao}`
+  and a `cpu` breakdown
+
+Sampled live: 34 aircraft tracked, `samples_dropped: 0`, `samples_lost: 0`.
+
+`samples_dropped` / `samples_lost` are direct receiver-health signals,
+`max_distance` tracks antenna performance over time, and `gain_db` /
+`estimated_ppm` catch tuning drift. This is a genuinely good metric surface —
+**and scraping it doubles as the health check, because a hung device cannot
+serve it.** Prefer this over probing port 80 for the WB200.
+
+Check for an existing readsb/dump1090 Prometheus exporter before writing one;
+several exist, and `stats.json` is a well-known scrape target.
 
 ### Health-check shape
 
@@ -164,24 +190,31 @@ set. Prefer min/mean/max across *used* satellites by default.
 
 ## Open questions
 
-1. **Is there actually a Wingbits/ADS-B device?** `.250` serves HyFix MobileCM and
-   404s every readsb path. Sweep VLAN 50 before assuming.
-2. **MobileCM auth.** `.68` returns 401. What scheme, and is the device serial the
-   credential? If the local UI exposes satellite/fix data behind that auth, local
-   scraping beats the GEODNET cloud console entirely. **Worth checking before
-   building anything against a vendor API.**
-3. **Does an off-the-shelf GEODNET/HyFix exporter exist?** Check before writing
+1. **~~Is there an ADS-B device?~~ Resolved: yes.** `.250` runs readsb behind
+   tar1090/graphs1090 on `:8504`/`:8542`, with JSON at `:8504/data/`. Start there.
+2. **MobileCM auth.** Both devices return the MobileCM UI on `:80`; `.68` gives a
+   401. The operator will supply a login. Once available, check whether the UI
+   exposes satellite/fix data locally — **local scraping would beat the GEODNET
+   cloud console entirely** (no credentials in-cluster, no third-party dependency,
+   works when their site is down).
+3. **Firmware-update detection (operator request).** Both devices run the same
+   MobileCM firmware, so one check covers both. Likely behind the `:80` login, so
+   it depends on Q2. Shape: scrape the reported firmware version as a labelled
+   gauge (`hyfix_firmware_info{device,version} 1`) and alert on *change* rather
+   than on a hardcoded "latest" — that needs no upstream version feed and still
+   tells you when something shifted under you.
+4. **Does an off-the-shelf GEODNET/HyFix/readsb exporter exist?** Check before writing
    one. Same for MobileCM — if it has a JSON endpoint, this is a small job.
-4. **Cloud vs local for GEODNET.** The console shows uptime/rewards/satellite
+5. **Cloud vs local for GEODNET.** The console shows uptime/rewards/satellite
    counts. Local is preferable (no credentials in-cluster, no third-party
    dependency, works when their site is down), but only if the data is there.
-5. **Alert thresholds for gpsd**, defined *before* building so the metric set is
+6. **Alert thresholds for gpsd**, defined *before* building so the metric set is
    driven by the questions: `fix_mode < 3` for N minutes; satellites used below
    ~4; `ept` above a threshold.
-6. **Is DietPi's node_exporter managed by anything?** If hand-installed, the
+7. **Is DietPi's node_exporter managed by anything?** If hand-installed, the
    textfile writer must be installed and documented the same way, or it is lost on
    the next rebuild.
-7. **Rackpanel scene?** A `TIME`/`GNSS` scene — fix mode, satellites used, PPS
+8. **Rackpanel scene?** A `TIME`/`GNSS` scene — fix mode, satellites used, PPS
    jitter, device health — would fit the tile budget. See the rackpanel design's
    deferred-scene list.
 
@@ -192,4 +225,6 @@ ssh root@chronos 'gpspipe -w -n 40'        # raw TPV + SKY JSON
 ssh root@chronos 'ls /run/node_exporter'   # where .prom files go
 curl -sS -D- http://192.168.50.68/         # MobileCM, 401
 curl -sSL -D- http://192.168.50.250/       # MobileCM, 302 -> /index.html
+curl -sS http://192.168.50.250:8504/data/stats.json   # readsb stats -- the prize
+curl -sS -o /dev/null -w '%{http_code}\n' http://192.168.50.250:8088/  # Wingbits monitor
 ```
