@@ -13,6 +13,26 @@ spec:
     controllers:
       frigate:
         type: deployment
+        # Scaled to zero 2026-08-19. Frigate was never configured: the running
+        # pod was serving the stock EXAMPLE config -- a single camera literally
+        # named "name_of_your_camera" pointing at a placeholder RTSP URL with
+        # detection disabled, no Coral detector, and MQTT off. ffmpeg retried
+        # that dead URL forever while the pod held ~878Mi and reported 1/1
+        # Running, so nothing ever alerted.
+        #
+        # Everything is kept intact and this is reversible: manifests, the
+        # config PVC, the postgres database and the OpenBao key all remain.
+        #
+        # ⚠️ Before scaling this back up, know two things:
+        #   1. The config on PVC "frigate" is still the stock example. Scaling
+        #      up alone gets you the retry-loop back, not a working NVR.
+        #   2. Two Coral USB Accelerators are present (brokkr01, brokkr02, both
+        #      still at the unconfigured USB id 1a6e:089a). Using one needs
+        #      `privileged: true` plus node pinning -- the SYS_RAWIO capability
+        #      and /dev/bus/usb mount below are NOT sufficient, because the
+        #      cgroup v2 device controller denies open() with EPERM. Measured;
+        #      see docs/superpowers/specs/2026-08-19-rackpanel-phase2-panel-agent-design.md
+        replicas: 0
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
