@@ -25,4 +25,22 @@ spec:
       defaultReplicaCount: "3"
       # Allow system-managed components (CSI plugin, instance manager) on tainted nodes
       taintToleration: "node.kubernetes.io/low-power=raspberry-pi:NoSchedule"
-
+    # Longhorn exposes longhorn_volume_*/node_*/disk_* on the manager port,
+    # but the chart ships the ServiceMonitor disabled -- so there were ZERO
+    # longhorn_* series in Prometheus and volume health (robustness, degraded
+    # replicas, per-disk fill) was invisible cluster-wide.
+    #
+    # The chart's ServiceMonitor selects the longhorn-backend Service, which
+    # means Prometheus scrapes every manager pod via its Endpoints. That is
+    # load-bearing, not incidental: each manager only reports the volumes whose
+    # engine it owns, so scraping the ClusterIP directly returns a DIFFERENT
+    # subset on every scrape. Confirmed live -- two consecutive curls against
+    # longhorn-backend:9500 disagreed on whether longhorn_volume_robustness
+    # existed at all.
+    #
+    # Cost: ~3.9k samples x 4 managers = ~15k series against a 1.14M-series
+    # head, i.e. +1.3%. Not worth dropping the client-go/workqueue histograms
+    # via metricRelabelings for that.
+    metrics:
+      serviceMonitor:
+        enabled: true
