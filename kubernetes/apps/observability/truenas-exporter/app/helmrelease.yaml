@@ -1,0 +1,100 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2beta2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app truenas-exporter
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: truenas-exporter
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  dependsOn:
+    - name: kube-prometheus-stack
+      namespace: observability
+  values:
+    controllers:
+      truenas-exporter:
+        type: deployment
+        replicas: 1
+        containers:
+          app:
+            # First-party image — built by Drone CI from
+            # https://gitea.derekjacobs.dev/bluevulpine/truenas-exporter
+            #
+            # Pinned by hand for now. Flux image automation is the eventual
+            # pattern here, but a bad $imagepolicy marker fails SILENTLY and
+            # cost a 14h kia-collector outage once; adding it is a separate,
+            # verifiable change rather than a rider on first deployment.
+            image:
+              repository: gitea.derekjacobs.dev/bluevulpine/truenas-exporter
+              tag: 1-68f917fb
+            env:
+              TZ: "${TIMEZONE}"
+              # /api/current follows whatever the appliance runs, so a TrueNAS
+              # upgrade can change method signatures underneath us. Versioned
+              # endpoints (/api/v25.10.2) exist and are pinnable — the tradeoff
+              # is silent staleness versus a loud break, and a wall panel is
+              # better off loudly broken.
+              TRUENAS_URL: wss://vault.funb.us/api/current
+              TRUENAS_POLL_SECONDS: "60"
+            envFrom:
+              # Supplies TRUENAS_API_KEY. The exporter refuses to start without
+              # it rather than exporting a permanent up=0 that reads like the
+              # NAS is down.
+              - secretRef:
+                  name: truenas-exporter-secret
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: /metrics, port: 9819}
+                  initialDelaySeconds: 10
+                  periodSeconds: 30
+              readiness: *probe
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 10m
+                memory: 48Mi
+              limits:
+                memory: 128Mi
+        pod:
+          imagePullSecrets:
+            - name: truenas-exporter-registry-creds
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+    service:
+      app:
+        controller: truenas-exporter
+        ports:
+          http:
+            port: 9819
+            protocol: TCP
+    serviceMonitor:
+      app:
+        serviceName: truenas-exporter
+        endpoints:
+          - port: http
+            scheme: http
+            path: /metrics
+            # The exporter polls the appliance on its own 60s cadence and
+            # serves a cache, so scraping faster than that only resamples the
+            # same values.
+            interval: 60s
