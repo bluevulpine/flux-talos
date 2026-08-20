@@ -365,17 +365,33 @@ turn, and turning it is safe.
 
 ### Build
 
-Drone gains a `go test ./...` step and a second kaniko step for
-`Dockerfile.agent`: a `golang:1.26` build stage cross-compiling
-`CGO_ENABLED=0 GOARCH=arm64`, then `FROM scratch` with the static binary and
-nothing else.
+**Revised during execution 2026-08-19.** Drone gains a `go test ./...` step,
+a **native cross-compile step**, and a kaniko step that only packages the
+result:
 
-Kaniko builds for the host architecture unless told otherwise, so the arm64
-image must be produced with an explicit platform override
-(`--customPlatform=linux/arm64`). **The exact `plugins/kaniko` setting name for
-this is unverified and must be confirmed during implementation** — an image
-whose config declares `amd64` will be pulled by the Pis and fail with `exec
-format error`.
+```
+test-go              go vet + go test               (golang:1.26-alpine)
+build-agent-binary   CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build
+build-and-push-agent plugins/kaniko, custom_platform: linux/arm64
+```
+
+`Dockerfile.agent` is `FROM scratch` with a single `COPY` — **no build
+stage**. The original design assumed a multi-stage Dockerfile, which is wrong
+in combination with the platform override: kaniko's `--customPlatform` also
+selects the platform base images are pulled for, so the build stage would
+fetch an *arm64* `golang` image and `RUN` an arm64 toolchain on the amd64
+runner. Every Talos amd64 node carries the `binfmt-misc` extension, so that
+would not fail loudly — it would silently emulate a Go compile under qemu.
+Splitting the compile out leaves no base image and no `RUN` to emulate.
+
+The plugin setting was **verified against `drone/drone-kaniko`'s source**, not
+guessed: the flag is read from `PLUGIN_PLATFORM` or `PLUGIN_CUSTOM_PLATFORM`
+and passed as `--customPlatform`.
+
+Confirmed on the first pushed manifest (`6-348390b8`): `Architecture: arm64`,
+`Os: linux`, 1 layer. An `amd64` stamp would surface on the Pis as
+`exec format error`, which reads as a broken binary rather than a mis-stamped
+image.
 
 ## Testing
 

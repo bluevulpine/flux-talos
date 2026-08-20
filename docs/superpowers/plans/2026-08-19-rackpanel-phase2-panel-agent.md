@@ -2608,57 +2608,63 @@ against a reality we no longer know, so the next pass sweeps."
 
 ---
 
-### Task 8: Build the arm64 image
+### Task 8: Build the arm64 image — ✅ DONE 2026-08-19 (image `6-348390b8`, verified `arm64`/`linux`)
+
+> **Restructured during execution.** The original plan used a multi-stage
+> `Dockerfile.agent` with a `golang` build stage plus
+> `custom_platform: linux/arm64`. That combination is wrong: kaniko's
+> `--customPlatform` also selects the platform **base images are pulled for**,
+> so the build stage would fetch an *arm64* `golang:1.26-alpine` and then try
+> to `RUN` an arm64 toolchain on the amd64 runner. All three Talos amd64 nodes
+> carry the `binfmt-misc` extension, so this would **not** fail loudly — it
+> would silently emulate a Go compile under qemu.
+>
+> Fixed by splitting compile from packaging: a Drone step cross-compiles
+> natively on amd64, and `Dockerfile.agent` is `FROM scratch` with no `RUN`.
+> Nothing is left to emulate.
+>
+> **The kaniko setting name was verified, not guessed.** `drone/drone-kaniko`
+> reads the flag from `PLUGIN_PLATFORM` **or** `PLUGIN_CUSTOM_PLATFORM` and
+> passes it as `--customPlatform`, so `custom_platform:` is correct.
+> Confirmed on the pushed manifest: `Architecture: arm64`, `Os: linux`,
+> 1 layer.
 
 **Files:**
 - Create: `~/Repositories/rackpanel/Dockerfile.agent`
-- Modify: `~/Repositories/rackpanel/.dockerignore`
+- Rewrite: `~/Repositories/rackpanel/.dockerignore`
 - Modify: `~/Repositories/rackpanel/.drone.yml`
 
 **Interfaces:**
 - Consumes: the `panel-agent` binary from Task 7.
 - Produces: `gitea.derekjacobs.dev/bluevulpine/rackpanel-agent:<build>-<sha8>`, `linux/arm64`.
 
-- [ ] **Step 1: Write the agent Dockerfile**
-
-Create `Dockerfile.agent`:
+- [x] **Step 1: Write the agent Dockerfile — no build stage**
 
 ```dockerfile
-# Cross-compiled on the amd64 Drone runner; runs on the arm64 Pis.
-# CGO_ENABLED=0 is what makes FROM scratch possible: no libc, no shell, no
-# package manager, nothing to patch in a container that runs as UID 0 with a
-# device mounted.
-FROM golang:1.26-alpine AS build
-WORKDIR /src
-COPY go.mod go.sum ./
-RUN go mod download
-COPY cmd ./cmd
-COPY internal ./internal
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
-    go build -trimpath -ldflags="-s -w" -o /out/panel-agent ./cmd/panel-agent
-
-FROM scratch AS runtime
-COPY --from=build /out/panel-agent /panel-agent
+FROM scratch
+COPY dist/panel-agent /panel-agent
 EXPOSE 8080
 ENTRYPOINT ["/panel-agent"]
 ```
 
-- [ ] **Step 2: Keep the Python build from copying Go sources and vice versa**
+- [x] **Step 2: `.dockerignore`**
 
-Append to `.dockerignore`:
+Shared by both image builds, so it must not exclude `dist/`.
 
 ```dockerignore
+.git*
+.drone.yml
+docs/
+tests/
+reference/
+__pycache__
+*.pyc
+*.egg-info
 .venv
 .pytest_cache
-__pycache__
-*.egg-info
-tests/golden
-reference
 ```
 
-- [ ] **Step 3: Add the Go test and agent build steps to Drone**
-
-Modify `.drone.yml` — add after the existing `test` step:
+- [x] **Step 3: Drone steps**
 
 ```yaml
   - name: test-go
@@ -2666,11 +2672,13 @@ Modify `.drone.yml` — add after the existing `test` step:
     commands:
       - go vet ./...
       - go test ./... -count=1
-```
 
-and after the existing `build-and-push` step:
+  - name: build-agent-binary
+    image: golang:1.26-alpine
+    commands:
+      - CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/panel-agent ./cmd/panel-agent
+      - ls -lh dist/panel-agent
 
-```yaml
   - name: build-and-push-agent
     image: plugins/kaniko
     settings:
@@ -2678,77 +2686,36 @@ and after the existing `build-and-push` step:
       custom_platform: linux/arm64
       registry: gitea.derekjacobs.dev
       repo: gitea.derekjacobs.dev/bluevulpine/rackpanel-agent
-      username:
-        from_secret: registry_user
-      password:
-        from_secret: registry_token
+      username: {from_secret: registry_user}
+      password: {from_secret: registry_token}
       tags:
         - latest
         - ${DRONE_BUILD_NUMBER}-${DRONE_COMMIT_SHA:0:8}
 ```
 
-- [ ] **Step 4: Commit and push, then watch the build**
+- [x] **Step 4: Commit and push**
+
+- [x] **Step 5: Verify the pushed image really is arm64**
 
 ```bash
-cd ~/Repositories/rackpanel
-git add Dockerfile.agent .dockerignore .drone.yml
-git commit -m "ci(agent): cross-compiled arm64 scratch image for the panel-agent"
-git push
-```
-
-- [ ] **Step 5: Verify the pushed image really is arm64**
-
-This is the step that catches the plan's second known unknown. Kaniko builds for the **host** architecture unless told otherwise; an image whose config declares `amd64` will be pulled by the Pis and fail with `exec format error`, which looks like a broken binary rather than a broken build.
-
-```bash
-TAG=$(skopeo list-tags docker://gitea.derekjacobs.dev/bluevulpine/rackpanel-agent \
-  | python3 -c 'import json,sys; print(sorted(t for t in json.load(sys.stdin)["Tags"] if t!="latest")[-1])')
-skopeo inspect "docker://gitea.derekjacobs.dev/bluevulpine/rackpanel-agent:$TAG" \
+CREDS=$(kubectl -n observability get secret gitea-registry-creds \
+  -o jsonpath='{.data.\.dockerconfigjson}' | base64 -d | python3 -c '
+import json,sys,base64
+d=json.load(sys.stdin); a=list(d["auths"].values())[0]
+print(base64.b64decode(a["auth"]).decode() if "auth" in a else a["username"]+":"+a["password"])')
+skopeo inspect --creds "$CREDS" \
+  docker://gitea.derekjacobs.dev/bluevulpine/rackpanel-agent:latest \
   | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["Architecture"], d["Os"])'
 ```
 
-Expected: `arm64 linux`.
+Result: `arm64 linux`. An `amd64` result would mean the Pis pull it and fail
+with `exec format error`, which reads as a broken binary rather than a
+mis-stamped image.
 
-If `skopeo` is not installed locally, run the same check in-cluster instead:
-
-```bash
-kubectl -n observability run arch-check --rm -i --restart=Never \
-  --image=gcr.io/go-containerregistry/crane:latest \
-  --overrides='{"spec":{"imagePullSecrets":[{"name":"gitea-registry-creds"}]}}' \
-  -- config gitea.derekjacobs.dev/bluevulpine/rackpanel-agent:latest \
-  | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["architecture"], d["os"])'
-```
-
-**If it prints `amd64`:** `plugins/kaniko` did not honour `custom_platform`. Replace the `build-and-push-agent` step with a direct executor invocation, which exposes the flag unambiguously:
-
-```yaml
-  - name: build-and-push-agent
-    image: gcr.io/kaniko-project/executor:debug
-    environment:
-      REGISTRY_USER:
-        from_secret: registry_user
-      REGISTRY_TOKEN:
-        from_secret: registry_token
-    commands:
-      - |
-        AUTH=$(printf '%s:%s' "$REGISTRY_USER" "$REGISTRY_TOKEN" | base64 -w0)
-        mkdir -p /kaniko/.docker
-        printf '{"auths":{"gitea.derekjacobs.dev":{"auth":"%s"}}}' "$AUTH" > /kaniko/.docker/config.json
-      - /kaniko/executor
-        --context=.
-        --dockerfile=Dockerfile.agent
-        --customPlatform=linux/arm64
-        --destination=gitea.derekjacobs.dev/bluevulpine/rackpanel-agent:latest
-        --destination=gitea.derekjacobs.dev/bluevulpine/rackpanel-agent:${DRONE_BUILD_NUMBER}-${DRONE_COMMIT_SHA:0:8}
-```
-
-Then re-run Steps 4 and 5.
-
-- [ ] **Step 6: Record the winning tag**
-
-Note the `<build>-<sha8>` tag from Step 5. Task 10 commits it verbatim — a placeholder tag would leave the DaemonSet in `ImagePullBackOff` until the automation's next 30 m interval, and an image pull failure does **not** trip this cluster's job-failure alerting.
-
----
+- [x] **Step 6: Record the winning tag** — **`6-348390b8`**. Task 10 commits
+  this verbatim. A placeholder tag would leave the DaemonSet in
+  `ImagePullBackOff` until the automation's next 30 m interval, and an image
+  pull failure does **not** trip this cluster's job-failure alerting.
 
 ### Task 9: Flux image automation for the agent image
 
@@ -2918,7 +2885,7 @@ Add under `controllers:` in `helmrelease.yaml`:
           app:
             image:
               repository: gitea.derekjacobs.dev/bluevulpine/rackpanel-agent
-              tag: REPLACE_WITH_TASK_8_TAG # {"$imagepolicy": "flux-system:rackpanel-agent:tag"}
+              tag: 6-348390b8 # {"$imagepolicy": "flux-system:rackpanel-agent:tag"}
             env:
               TZ: "${TIMEZONE}"
               NODE_NAME:
