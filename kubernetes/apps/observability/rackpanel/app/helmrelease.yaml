@@ -158,12 +158,20 @@ spec:
                 cpu: 100m
                 memory: 32Mi
               limits:
-                # A deliberate throttle, not a guess. All four agents blit
-                # simultaneously by design and three of these nodes run etcd.
-                # I2C has no minimum clock rate, so CFS throttling makes the
-                # sweep slower and cannot make it incorrect -- the same limit
-                # would be reckless on SPI or WS2812.
-                cpu: 500m
+                # Raised 500m -> 1000m on 2026-08-20 after measurement. At 500m
+                # the agents were throttled in 46-56% of CFS periods while
+                # averaging only ~0.07 cores: bursty work exhausting a 50ms
+                # quota inside each 100ms window during a blit, then stalling.
+                # Full sweeps took 4.24-4.61s, no faster than the unthrottled
+                # Python probe, and 22% of a 20s dwell was spent wiping.
+                #
+                # Still a bound rather than "unlimited": one core of four, so a
+                # blit cannot monopolise a Pi that is also running etcd on
+                # three of the four nodes. Safe to tune either way because I2C
+                # has no minimum clock rate -- CFS throttling makes the sweep
+                # slower and cannot make it incorrect. The same limit would be
+                # reckless on SPI or WS2812.
+                cpu: 1000m
                 memory: 64Mi
     defaultPodOptions:
       # app-template 5.0.1 defaults automountServiceAccountToken to false.
