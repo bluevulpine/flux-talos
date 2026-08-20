@@ -144,18 +144,41 @@ Phase 0's governing lesson was that "the diagonal was clock stretching" is a
 plausible-sounding conclusion the instrument contradicted. Port first, measure
 on hardware, and only then optimise against a number.
 
-### Projected throughput
+### Throughput — PROJECTED vs MEASURED 2026-08-20
 
-Per row: 3 command transactions (3 B each) + 2 data transactions (160 B each) =
-329 bytes = 2,961 bit-times ≈ 8,913 ioctls.
+**The projection was wrong by roughly 4x, and the premise behind it was wrong.**
 
-| | ioctls | delays | total |
-| --- | --- | --- | --- |
-| full frame (80 rows) | ~713,000 | 112 ms + 2.4 ms | **0.83 s @ 1 µs, 1.2 s @ 1.5 µs** |
-| typical diff (15 rows) | ~134,000 | 21 ms | ~0.16–0.22 s |
+| | full sweep (80 rows) | diff (22 rows) |
+| --- | --- | --- |
+| Python probe, unthrottled (Phase 0) | 4.40 s | — |
+| **Go agent, 500m CPU limit (measured)** | **4.24 – 4.61 s** | **1.21 s** |
+| Projected in this spec | 0.83 – 1.2 s | 0.16 – 0.22 s |
 
-Consistent with the parent spec's projection from the arm64 syscall floor.
-Python measured 5.19 µs per ioctl and 4.40 s per frame.
+Cost remains purely proportional to bytes: 22 rows at 1.21 s sits exactly on
+the 80-row / 4.4 s line, so there is still no fixed overhead worth optimising.
+
+**What the projection got wrong.** This spec claimed "the 5.19 µs ioctl is the
+entire bottleneck... a raw `ioctl` syscall on arm64 costs roughly 1 µs; the
+remainder is interpreter overhead." That was a projection from an assumed
+syscall floor, explicitly labelled as such, and the hardware disagrees. A
+compiled agent at a 500m limit performs the same as unthrottled Python.
+
+**But the comparison is not apples to apples**, and the difference matters:
+the Python probe ran in a privileged debug pod with **no CPU limit**, while
+the Go agent runs under a deliberate `limits.cpu: 500m`. Measured CFS
+throttling on the agent containers is **46–56 % of periods**, at an average of
+only ~0.07 cores — the signature of bursty work exhausting its 50 ms quota
+inside each 100 ms window during a blit and then stalling.
+
+So the honest reading is that Go is roughly **2x** faster than Python here,
+not the 4–5x projected, and half the measured 4.5 s is self-inflicted
+throttling. **~2.2 s unthrottled is an inference from the throttle ratio, not
+a measurement** — raising the limit and re-measuring is the outstanding work.
+
+**Synchronization, on the other hand, exceeded the design.** Measured
+`rackpanel_agent_frame_lag_seconds` across all four agents: **0.2 – 1.1 ms**.
+The panels begin their sweep within a millisecond of each other, against a
+design that only hoped for "within milliseconds".
 
 ## Control loop
 
