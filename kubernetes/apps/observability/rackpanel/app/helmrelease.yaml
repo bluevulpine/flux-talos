@@ -48,7 +48,7 @@ spec:
             # https://gitea.derekjacobs.dev/bluevulpine/rackpanel
             image:
               repository: gitea.derekjacobs.dev/bluevulpine/rackpanel
-              tag: 8-8f7ff922 # {"$imagepolicy": "flux-system:rackpanel:tag"}
+              tag: 9-8961ae75 # {"$imagepolicy": "flux-system:rackpanel:tag"}
             env:
               TZ: "${TIMEZONE}"
               RACKPANEL_NODES: jormungandr1,jormungandr2,jormungandr3,jormungandr4
