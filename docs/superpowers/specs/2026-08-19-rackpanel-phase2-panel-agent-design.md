@@ -175,6 +175,28 @@ not the 4–5x projected, and half the measured 4.5 s is self-inflicted
 throttling. **~2.2 s unthrottled is an inference from the throttle ratio, not
 a measurement** — raising the limit and re-measuring is the outstanding work.
 
+**Resolved 2026-08-20 by raising the limit to 1000m.** Measured after the
+roll:
+
+| CPU limit | full sweep | CFS throttling |
+| --- | --- | --- |
+| 500m | 4.24 – 4.61 s | **46 – 56 % of periods** |
+| **1000m** | **2.24 – 2.87 s** | **0 %** |
+
+Zero throttling at 1000m means **2.3 s is the unthrottled speed** — raising the
+limit further buys nothing, and the earlier ~2.2 s inference was right. Final
+accounting: Go is **1.9x** faster than Python (2.3 s vs 4.40 s), not the 4–5x
+projected. The per-ioctl cost is ~2.7 µs, not the ~1 µs the projection assumed
+as the arm64 syscall floor.
+
+Wiping now occupies 11.5 % of a 20 s dwell rather than 22 %.
+
+**What the bit-bang is actually achieving.** A full sweep puts 26,320 bytes on
+the wire (80 rows x (9 command + 320 data)) = 236,880 bit-times. Subtracting
+the fixed delays (160 chunks x 700 µs + 240 commands x 10 µs = 0.115 s) leaves
+2.185 s, i.e. **~108 kbit/s — essentially I2C standard mode**. The bit-bang is
+already running the bus at the speed a 100 kHz hardware controller would.
+
 **Synchronization, on the other hand, exceeded the design.** Measured
 `rackpanel_agent_frame_lag_seconds` across all four agents: **0.2 – 1.1 ms**.
 The panels begin their sweep within a millisecond of each other, against a
