@@ -2914,7 +2914,7 @@ Add under `controllers:` in `helmrelease.yaml`:
               # could avoid privileged:true was an assumption, not a result.
               #
               # Scope is deliberately narrow: one container on four Pis running
-              # a ~3MB FROM scratch image with no shell and no package manager.
+              # a ~10MB FROM scratch image with no shell and no package manager.
               privileged: true
               allowPrivilegeEscalation: true
               readOnlyRootFilesystem: true

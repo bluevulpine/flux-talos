@@ -56,7 +56,9 @@ interface and must not be able to drift between two repositories — Phase 3 and
 both touch it.
 
 Two images, because a single image would make the Pis pull ~150 MB of Python to
-run a 3 MB static binary, and would re-roll the DaemonSet on every conductor
+run a 10 MB static binary (measured 2026-08-19: `GOOS=linux GOARCH=arm64
+CGO_ENABLED=0` with `-trimpath -ldflags="-s -w"` yields **9.9 MB**; an earlier
+draft guessed ~3 MB, which underestimated the Prometheus client library), and would re-roll the DaemonSet on every conductor
 rendering change. A `FROM scratch` agent also has no shell, no package manager
 and nothing to patch, which matters more than usual for a container running as
 UID 0 with a device mounted.
@@ -424,8 +426,8 @@ spec; it says nothing either way about non-privileged device access, which is
 settled by the controlled measurement above.
 
 **Consequence:** the agent container carries `privileged: true`. Accepted
-because the scope is narrow — one container on four Pis, running a ~3 MB `FROM
-scratch` image with no shell, no package manager and nothing installed to abuse.
+because the scope is narrow — one container on four Pis, running a ~10 MB `FROM scratch` image with no shell, no package manager and nothing
+installed to abuse.
 The alternative considered and rejected was `squat/generic-device-plugin`, which
 would keep the agent unprivileged but moves the privilege into a new third-party
 DaemonSet that is itself privileged, and adds a component to deploy, pin and
