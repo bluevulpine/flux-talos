@@ -20,5 +20,12 @@ spec:
       sectionName: https
   rules:
     - backendRefs:
-        - name: rackpanel
+        # "rackpanel-app", not "rackpanel". app-template DERIVES the Service
+        # name and the schema forbids pinning it (service.<key>.name is
+        # rejected). With a single service it rendered as the bare release
+        # name; adding the agent's metrics Service made it disambiguate to
+        # <release>-<key>. Adding or removing a Service in this HelmRelease can
+        # therefore rename this backend out from under the route -- which is
+        # exactly how rackview started returning 500 on 2026-08-20.
+        - name: rackpanel-app
           port: 8080

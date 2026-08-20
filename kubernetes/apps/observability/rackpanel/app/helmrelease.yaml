@@ -120,7 +120,10 @@ spec:
                 valueFrom:
                   fieldRef:
                     fieldPath: spec.nodeName
-              RACKPANEL_CONDUCTOR_URL: http://rackpanel.observability.svc.cluster.local:8080
+              # rackpanel-app, not rackpanel: the Service name is derived
+              # by app-template and changed when the agent's metrics Service
+              # was added. See the note in httproute.yaml.
+              RACKPANEL_CONDUCTOR_URL: http://rackpanel-app.observability.svc.cluster.local:8080
             probes:
               liveness:
                 enabled: true
