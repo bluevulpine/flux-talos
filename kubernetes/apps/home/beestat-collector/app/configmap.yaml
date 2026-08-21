@@ -1,0 +1,50 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: beestat-collector-config
+data:
+  INFLUXDB_URL: "http://influxdb.database.svc.cluster.local:8086"
+  INFLUXDB_ORG: "homelab"
+  # Deliberately NOT the homeassistant bucket. HA already writes its own ecobee
+  # entities there; beestat's 5-minute per-sensor runtime is a different and
+  # richer series, and mixing them would make both harder to reason about.
+  INFLUXDB_BUCKET: "beestat"
+
+  # Trailing window re-fetched every run regardless of watermark. Must be >= how
+  # far beestat can lag behind ecobee, or late-arriving rows land behind the
+  # watermark and are never seen again. The API docs say ingest "can get up to a
+  # week behind"; this account was measured 8 days behind, so 8 is the floor.
+  LOOKBACK_DAYS: "8"
+
+  # Beestat hard-caps 5-minute history at 1 year (api/runtime.php:166), so
+  # reaching further back buys nothing. 400 leaves margin for clock skew.
+  BACKFILL_MAX_DAYS: "400"
+
+  # Must stay under beestat's server-side 31-day maximum range, which is
+  # enforced with errors 10205 / 10405.
+  CHUNK_DAYS: "30"
+
+  # Runaway guard, per series. A cold start needs ~14 chunks.
+  MAX_CHUNKS_PER_SERIES: "30"
+
+  # Drive beestat's ingest from ecobee. Non-negotiable: beestat only syncs when
+  # the account is used, so without this the collector would faithfully archive
+  # a frozen window while the live data expired.
+  SYNC_ENABLED: "true"
+
+  COLLECT_SUMMARY: "true"
+  # Daily summaries span 8+ years. With a 168h shard group duration a large
+  # batch asks InfluxDB to create ~430 shards at once and times out server-side,
+  # so these are written in small batches.
+  SUMMARY_BATCH_SIZE: "250"
+
+  # Fail the Job if the newest archived sensor row is older than this. Converts
+  # "ran fine but archived nothing" into a failed Job so the alert fires.
+  STALE_FAIL_HOURS: "6"
+
+  # Production beestat allows 200 requests/minute per IP (error 1005). 0.4s
+  # between calls is ~150/min, leaving headroom for a human browsing the site
+  # from the same egress address at the same time.
+  BEESTAT_MIN_INTERVAL_SECONDS: "0.4"
+  BEESTAT_RATE_LIMIT_WAIT_SECONDS: "65"

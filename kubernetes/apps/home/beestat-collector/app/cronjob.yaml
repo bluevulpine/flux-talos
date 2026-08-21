@@ -1,0 +1,147 @@
+---
+# Hourly incremental archive.
+#
+# Minute is :23 deliberately. The obvious ":20 past the hour" collides with
+# kia-collector-cached ("*/10 * * * *", which fires at :20) and any multiple of
+# 15 collides with image-reflector-healer ("*/15"). concurrencyPolicy: Forbid
+# does NOT help against a sibling CronJob — it only serialises a CronJob against
+# itself — so the collision has to be avoided at the schedule. :23 is coprime
+# with both.
+#
+# Hourly is also the natural cadence: beestat caches read responses for 900s and
+# rate-limits runtime.sync to once per 15 minutes, so polling faster would
+# return the same rows.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: beestat-collector
+spec:
+  schedule: "23 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      # Auto-delete finished jobs (success OR failure) + pods after 2h. At an
+      # hourly cadence a one-off transient failure ages out on its own (so
+      # KubeJobFailed auto-resolves), while a persistent failure keeps producing
+      # fresh failed Jobs and correctly stays alerting.
+      ttlSecondsAfterFinished: 7200
+      template:
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: beestat-collector
+          # The collector never calls the Kubernetes API. Unlike kia-collector it
+          # has no OpenBao round-trip either (static API key, no persisted state),
+          # so it needs no projected token.
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: collector
+              # Full ref auto-updated by Flux image automation (ImagePolicy flux-system:beestat-collector).
+              # NOTE: no ":tag" suffix on the marker — this is a combined image:repo:tag scalar,
+              # so Flux must write the whole ref. ":tag" would overwrite the scalar with the bare tag.
+              image: gitea.derekjacobs.dev/bluevulpine/beestat-collector:1-3a7fa712 # {"$imagepolicy": "flux-system:beestat-collector"}
+              imagePullPolicy: Always
+              envFrom:
+                - configMapRef:
+                    name: beestat-collector-config
+                - secretRef:
+                    name: beestat-collector-secret
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  # Measured peak RSS for a full re-walk of ~403k points is
+                  # ~122Mi; rows are streamed per chunk rather than accumulated,
+                  # so this does not grow with history length.
+                  memory: 512Mi
+          volumes:
+            - name: tmp
+              emptyDir: {}
+---
+# Daily audit re-walk.
+#
+# The hourly job only refreshes a trailing window, so it steps straight over an
+# interior hole — and holes do occur: beestat's forward sync resumes from
+# data_end and never revisits the past, so a stretch where the account went
+# unused stays missing forever. This re-reads the whole retained range. Writes
+# are idempotent on (measurement, tagset, field, timestamp), so re-writing rows
+# that are already present costs nothing but repairs anything that is not.
+#
+# 04:53 UTC avoids every taken slot: hour 0/6/12/18 (openbao snapshot, talos-backup),
+# hour 3 (kopia r2 maintenance), and minute :23 (the hourly job above).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: beestat-collector-audit
+spec:
+  schedule: "53 4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      ttlSecondsAfterFinished: 21600
+      template:
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: beestat-collector
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: collector
+              # Full ref auto-updated by Flux image automation (ImagePolicy flux-system:beestat-collector).
+              # NOTE: no ":tag" suffix on the marker — see the note above.
+              image: gitea.derekjacobs.dev/bluevulpine/beestat-collector:1-3a7fa712 # {"$imagepolicy": "flux-system:beestat-collector"}
+              imagePullPolicy: Always
+              env:
+                - name: AUDIT_MODE
+                  value: "true"
+              envFrom:
+                - configMapRef:
+                    name: beestat-collector-config
+                - secretRef:
+                    name: beestat-collector-secret
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  memory: 512Mi
+          volumes:
+            - name: tmp
+              emptyDir: {}

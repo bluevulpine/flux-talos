@@ -11,6 +11,7 @@ resources:
   - ./flux-operator/ks.yaml
   - ./flux-instance/ks.yaml
   # these are for image automation (basically, flux-powered Renovate) for images hosted in gitea
+  - ./beestat-collector/ks.yaml
   - ./bluevulpine-blog/ks.yaml
   - ./helium-archiver/ks.yaml
   - ./kia-collector/ks.yaml

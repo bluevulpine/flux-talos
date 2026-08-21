@@ -1,0 +1,89 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+#
+# These alerts are deliberately tighter than kia-collector's. The asymmetry is
+# the point: if the Kia collector dies for a week you lose a week of telemetry
+# that is partly re-derivable. If this collector dies, beestat prunes the
+# high-resolution room-sensor rows and ecobee will not serve them again — the
+# data is gone permanently. So staleness is alerted on directly, not merely
+# inferred from job failure.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: beestat-collector
+spec:
+  groups:
+    - name: beestat-collector.rules
+      rules:
+        # Any failed Job. This also carries the collector's own freshness gate:
+        # exit 4 means the run completed but the archive is not current (see the
+        # exit-code table in the collector README). That deliberate design turns
+        # "succeeded while archiving nothing" — which would otherwise look green
+        # forever — into a Job failure that this alert catches.
+        - alert: BeestatCollectorJobFailed
+          annotations:
+            summary: >-
+              Beestat collector job {{ $labels.job_name }} failed — ecobee
+              history is not being archived and beestat prunes it permanently.
+              Check `kubectl logs -n home job/{{ $labels.job_name }}`.
+              Exit 3 = beestat API error (check the API key in OpenBao
+              secret/beestat-collector); exit 4 = ran but the archive is stale.
+          expr: |
+            kube_job_status_failed{namespace="home", job_name=~"beestat-collector.*"} > 0
+          for: 15m
+          labels:
+            severity: critical
+
+        # A CronJob whose image can't be pulled never RUNS, so it never marks a
+        # Job failed (kube_job_status_failed stays 0) and BeestatCollectorJobFailed
+        # would miss it entirely. This is the exact failure mode that caused the
+        # 14h kia-collector outage on 2026-07-11 — a bad $imagepolicy marker
+        # rewrote the image ref to a bare tag. See
+        # docs/runbooks/flux-image-automation.md.
+        - alert: BeestatCollectorImagePullFailing
+          annotations:
+            summary: >-
+              Beestat collector pod {{ $labels.pod }} can't pull its image
+              ({{ $labels.reason }}) — the collector isn't running at all. Check
+              the image ref in the CronJob and the Flux image automation
+              (kubernetes/apps/flux-system/beestat-collector/).
+          expr: |
+            kube_pod_container_status_waiting_reason{namespace="home", pod=~"beestat-collector.*", reason=~"ImagePullBackOff|ErrImagePull|InvalidImageName"} > 0
+          for: 15m
+          labels:
+            severity: critical
+
+        # Catch-all for silent staleness. The hourly job should succeed every
+        # hour, so 3h is three consecutive missed cycles. This covers everything
+        # the per-job alert cannot see: a CronJob that stopped being scheduled,
+        # pods stuck Pending on resources, and ImagePullBackOff that never
+        # produces a failed Job.
+        - alert: BeestatCollectorStale
+          annotations:
+            summary: >-
+              Beestat collector has not had a successful run in over 3h. Ecobee
+              room-sensor data is only retained upstream for a limited window
+              and is unrecoverable once pruned. Check
+              `kubectl get cronjob,jobs -n home | grep beestat` and recent pod logs.
+          expr: |
+            time() - max(kube_cronjob_status_last_successful_time{namespace="home", cronjob="beestat-collector"}) > 10800
+          for: 15m
+          labels:
+            severity: critical
+
+        # The daily audit is what repairs interior gaps the hourly trailing
+        # window steps over. Losing it is not an emergency — the hourly job
+        # still archives new data — but it should not go unnoticed, so this is
+        # a warning rather than critical.
+        - alert: BeestatCollectorAuditStale
+          annotations:
+            summary: >-
+              Beestat collector audit has not succeeded in over 48h — interior
+              gaps in the archive will not be repaired. The hourly collector is
+              likely still fine; check `kubectl get jobs -n home | grep
+              beestat-collector-audit`.
+          expr: |
+            time() - max(kube_cronjob_status_last_successful_time{namespace="home", cronjob="beestat-collector-audit"}) > 172800
+          for: 30m
+          labels:
+            severity: warning

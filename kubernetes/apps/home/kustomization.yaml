@@ -13,5 +13,6 @@ resources:
   - ./homepage/ks.yaml
   - ./mosquitto/ks.yaml
   - ./scrypted/ks.yaml
+  - ./beestat-collector/ks.yaml
   - ./kia-collector/ks.yaml
   - ./chargepoint-collector/ks.yaml

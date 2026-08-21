@@ -202,6 +202,19 @@ spec:
             # env (INFLUXDB_CHARGEPOINT_TOKEN <- OpenBao grafana/Grafana__InfluxdbChargepointToken).
             secureJsonData:
               token: $INFLUXDB_CHARGEPOINT_TOKEN
+          - name: InfluxDB-Beestat
+            type: influxdb
+            uid: influxdb-beestat
+            access: proxy
+            url: http://influxdb.database.svc.cluster.local:8086
+            jsonData:
+              version: Flux
+              organization: homelab
+              defaultBucket: beestat
+            # Read-only, bucket-scoped token — provisioned via grafana-secret env
+            # (INFLUXDB_BEESTAT_TOKEN <- OpenBao grafana/Grafana__InfluxdbBeestatToken).
+            secureJsonData:
+              token: $INFLUXDB_BEESTAT_TOKEN
     dashboards:
       default:
         cloudflared:

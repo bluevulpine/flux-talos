@@ -1,0 +1,29 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/image.toolkit.fluxcd.io/imageupdateautomation_v1beta2.json
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageUpdateAutomation
+metadata:
+  name: &app beestat-collector
+spec:
+  interval: 30m
+  sourceRef:
+    kind: GitRepository
+    name: flux-talos-ssh
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        name: Flux
+        email: flux@derekjacobs.dev
+      messageTemplate: |
+        chore(images): update {{ range .Changed.Changes }}{{ println .NewValue }}{{ end }}
+    push:
+      branch: main
+  update:
+    # Scoped to this app's directory only. Setters rewrites EVERY $imagepolicy
+    # marker under this path, so a broader scan (e.g. ./kubernetes) would
+    # silently drive other apps' images from this policy.
+    path: ./kubernetes/apps/home/beestat-collector
+    strategy: Setters
