@@ -10,7 +10,7 @@ spec:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    tag: 3.13.1
+    tag: 3.14.0
   url: oci://ghcr.io/home-operations/charts-mirror/metrics-server
   # verify block removed 2026-06-22 — home-operations/charts-mirror stopped publishing keyless cosign
   # signatures (confirmed: "no signatures found", not a network error). Re-enable once upstream
