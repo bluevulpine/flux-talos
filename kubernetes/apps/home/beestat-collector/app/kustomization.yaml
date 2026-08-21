@@ -7,3 +7,17 @@ resources:
   - serviceaccount.yaml
   - cronjob.yaml
   - prometheusrule.yaml
+# Grafana dashboards, provisioned via the sidecar (label grafana_dashboard=1).
+# NOTE: the JSON uses "$$" for Grafana template variables. This Kustomization has
+# postBuild.substitute, whose envsubst would otherwise consume "${sensor:regex}"
+# as an unset variable; "$$" collapses to a literal "$" so Grafana sees "${...}".
+# See docs/runbooks/flux-image-automation.md, Gotcha 4.
+configMapGenerator:
+  - name: beestat-collector-dashboards
+    files:
+      - beestat-detail-dashboard.json
+      - beestat-longterm-dashboard.json
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    grafana_dashboard: "1"

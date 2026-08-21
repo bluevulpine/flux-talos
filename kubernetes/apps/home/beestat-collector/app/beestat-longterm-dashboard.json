@@ -1,0 +1,929 @@
+{
+  "uid": "beestat-longterm",
+  "title": "Beestat \u2014 Long-term Analysis",
+  "description": "Multi-year ecobee history from beestat's daily summaries, which reach back to 2018 \u2014 seven years further than the 5-minute data.",
+  "tags": [
+    "beestat",
+    "ecobee",
+    "hvac",
+    "home"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "",
+  "time": {
+    "from": "now-5y",
+    "to": "now"
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "title": "Beestat",
+      "tags": [
+        "beestat"
+      ],
+      "asDropdown": false,
+      "targetBlank": false,
+      "includeVars": false,
+      "keepTime": false,
+      "icon": "external link",
+      "tooltip": "",
+      "url": ""
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Lifetime Totals",
+      "id": 28,
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Cool",
+      "id": 29,
+      "description": "Total compressor cooling hours in range.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_cool_1\")\n  |> map(fn: (r) => ({_value: r._value / 3600.0}))\n  |> group() |> sum()",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 0,
+          "mappings": [],
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Heat pump",
+      "id": 30,
+      "description": "Total compressor heating hours.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_heat_1\")\n  |> map(fn: (r) => ({_value: r._value / 3600.0}))\n  |> group() |> sum()",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 0,
+          "mappings": [],
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Aux (propane)",
+      "id": 31,
+      "description": "Total auxiliary heat hours \u2014 the propane furnace. Multiply by the furnace's firing rate to convert to gallons burned.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_auxiliary_heat_1\")\n  |> map(fn: (r) => ({_value: r._value / 3600.0}))\n  |> group() |> sum()",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 0,
+          "mappings": [],
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Fan",
+      "id": 32,
+      "description": "Total blower hours, including pure circulation.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_fan\")\n  |> map(fn: (r) => ({_value: r._value / 3600.0}))\n  |> group() |> sum()",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 0,
+          "mappings": [],
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Days of History",
+      "id": 33,
+      "description": "Daily summary rows held. This series reaches back to 2018 \u2014 far beyond the 1 year of 5-minute data beestat retains.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"count\")\n  |> group() |> count()",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Heating Degree Days",
+      "id": 34,
+      "description": "Total heating degree days in range \u2014 the weather's heating demand, independent of how the system responded. Use it to normalise runtime between seasons.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_heating_degree_days\")\n  |> group() |> sum()",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Daily Runtime",
+      "id": 35,
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Runtime by day, with outdoor temperature",
+      "id": 36,
+      "description": "Equivalent of beestat's Analyze view. Stacked daily equipment hours against average outdoor temperature on the right axis. The shape shows the seasonal envelope and, in winter, how much of the heating load falls to propane rather than the heat pump.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_cool_1\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 3600.0}))\n  |> group() |> set(key: \"_field\", value: \"Cool\")",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_heat_1\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 3600.0}))\n  |> group() |> set(key: \"_field\", value: \"Heat pump\")",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_auxiliary_heat_1\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 3600.0}))\n  |> group() |> set(key: \"_field\", value: \"Aux (propane)\")",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"avg_outdoor_temperature\")\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"_field\", value: \"Outdoor temp\")",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 85,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "gradientMode": "opacity",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "pointSize": 4
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Cool"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Heat pump"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Aux (propane)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Outdoor temp"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.stacking",
+                "value": {
+                  "mode": "none",
+                  "group": "B"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "fahrenheit"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Heat Pump vs Propane",
+      "id": 37,
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Balance point \u2014 average heating hours per day by outdoor temperature",
+      "id": 38,
+      "description": "For each 5 degF band of average outdoor temperature, the mean hours per day the heat pump ran versus the propane furnace, across all history. Where the red bars overtake the orange is this system's real-world balance point. Propane appearing at mild temperatures suggests the aux lockout is set higher than it needs to be \u2014 that is burnable money.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "import \"math\"\nfrom(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_auxiliary_heat_1\"\n        or r._field == \"sum_compressor_heat_1\" or r._field == \"avg_outdoor_temperature\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.avg_outdoor_temperature)\n  |> map(fn: (r) => ({\n        bucket: math.floor(x: r.avg_outdoor_temperature / 5.0) * 5.0,\n        aux: r.sum_auxiliary_heat_1 / 3600.0,\n        hp: r.sum_compressor_heat_1 / 3600.0}))\n  |> group(columns: [\"bucket\"])\n  |> reduce(identity: {aux: 0.0, hp: 0.0, n: 0.0},\n      fn: (r, accumulator) => ({aux: accumulator.aux + r.aux,\n        hp: accumulator.hp + r.hp, n: accumulator.n + 1.0}))\n  |> map(fn: (r) => ({outdoor_f: r.bucket,\n        heatpump_h: r.hp / r.n, propane_h: r.aux / r.n, days: r.n}))\n  |> group() |> sort(columns: [\"outdoor_f\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 2,
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "axisPlacement": "auto",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "heatpump_h"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "Heat pump (h/day)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "propane_h"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "Propane aux (h/day)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "days"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "outdoor_f",
+        "orientation": "auto",
+        "showValue": "never",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Trends",
+      "id": 39,
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Heating hours per heating degree day (monthly)",
+      "id": 40,
+      "description": "Total heating runtime divided by the weather's heating demand, per month. Because it is normalised by degree days, a rising line means the system is working harder for the same weather \u2014 the signature of degrading equipment, a failing envelope, or a changed setpoint. Months with under 20 HDD are excluded as too noisy to divide by.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "base = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_heat_1\"\n        or r._field == \"sum_auxiliary_heat_1\" or r._field == \"sum_heating_degree_days\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\nrt = base\n  |> map(fn: (r) => ({_time: r._time,\n        _value: (r.sum_compressor_heat_1 + r.sum_auxiliary_heat_1) / 3600.0}))\n  |> aggregateWindow(every: 1mo, fn: sum, createEmpty: false)\nhd = base\n  |> map(fn: (r) => ({_time: r._time, _value: r.sum_heating_degree_days}))\n  |> aggregateWindow(every: 1mo, fn: sum, createEmpty: false)\njoin(tables: {a: rt, b: hd}, on: [\"_time\"])\n  |> filter(fn: (r) => r._value_b > 20.0)\n  |> map(fn: (r) => ({_time: r._time, _value: r._value_a / r._value_b}))\n  |> group() |> set(key: \"_field\", value: \"Heating hours per HDD\")",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 3,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "gradientMode": "opacity",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "pointSize": 4
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Heating hours per HDD"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "min",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Data coverage",
+      "id": 41,
+      "description": "Share of each day's 288 five-minute intervals that beestat actually holds, weekly mean. Dips are real upstream gaps \u2014 periods where ecobee or beestat lost data. Worth knowing before trusting any comparison that spans one.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"count\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 288.0 * 100.0}))\n  |> aggregateWindow(every: 1w, fn: mean, createEmpty: false)\n  |> group() |> set(key: \"_field\", value: \"Coverage\")",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 25,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "gradientMode": "opacity",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "pointSize": 4
+          },
+          "max": 105,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Coverage"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "min",
+            "mean"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,1971 @@
+{
+  "uid": "beestat-detail",
+  "title": "Beestat \u2014 Ecobee Detail",
+  "description": "Live thermostat and per-room ecobee data archived from beestat.io. Runtime is stored as seconds per 5-minute interval; hours = sum/3600.",
+  "tags": [
+    "beestat",
+    "ecobee",
+    "hvac",
+    "home"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "title": "Beestat",
+      "tags": [
+        "beestat"
+      ],
+      "asDropdown": false,
+      "targetBlank": false,
+      "includeVars": false,
+      "keepTime": false,
+      "icon": "external link",
+      "tooltip": "",
+      "url": ""
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "sensor",
+        "label": "Rooms",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "influxdb-beestat"
+        },
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"beestat\", tag: \"sensor_name\",\n  predicate: (r) => r._measurement == \"runtime_sensor\", start: -30d)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": [],
+        "sort": 1
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Now",
+      "id": 1,
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Indoor",
+      "id": 2,
+      "description": "The thermostat's own reading, most recent 5-minute sample.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"indoor_temperature\")\n  |> group() |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 1,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 66
+              },
+              {
+                "color": "orange",
+                "value": 74
+              },
+              {
+                "color": "red",
+                "value": 78
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Indoor RH",
+      "id": 3,
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 3,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"indoor_humidity\")\n  |> group() |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "humidity",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Outdoor",
+      "id": 4,
+      "description": "Outdoor temperature from ecobee's weather service, not a local sensor.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 6,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"outdoor_temperature\")\n  |> group() |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 1,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Outdoor RH",
+      "id": 5,
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 9,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"outdoor_humidity\")\n  |> group() |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "humidity",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "System Mode",
+      "id": 6,
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 12,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"system_mode\")\n  |> group() |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "cool": {
+                  "color": "blue",
+                  "index": 0
+                },
+                "heat": {
+                  "color": "orange",
+                  "index": 1
+                },
+                "auto": {
+                  "color": "green",
+                  "index": 2
+                },
+                "off": {
+                  "color": "text",
+                  "index": 3
+                },
+                "auxiliary_heat": {
+                  "color": "red",
+                  "index": 4
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Comfort Profile",
+      "id": 7,
+      "description": "Which ecobee comfort profile is in effect (Home / Sleep / WFH / away).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 15,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"climate\")\n  |> group() |> last()\n  |> keep(columns: [\"_time\", \"_value\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Room Spread",
+      "id": 8,
+      "description": "Warmest minus coolest of the SELECTED rooms, right now. This is the number the fan-circulation experiment is trying to shrink. Note the whole-house figure is dominated by the Server closet and the basement Puzzle Room \u2014 use the Rooms variable to compare a meaningful pair.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 18,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "base = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name =~ /^$${sensor:regex}$/)\n  |> group(columns: [\"sensor_name\"]) |> last() |> group()\nbase\n  |> reduce(identity: {mx: -200.0, mn: 200.0, _value: 0.0},\n      fn: (r, accumulator) => ({\n        mx: if r._value > accumulator.mx then r._value else accumulator.mx,\n        mn: if r._value < accumulator.mn then r._value else accumulator.mn,\n        _value: (if r._value > accumulator.mx then r._value else accumulator.mx)\n              - (if r._value < accumulator.mn then r._value else accumulator.mn)}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 1,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 6
+              },
+              {
+                "color": "orange",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 14
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Sensors Reporting",
+      "id": 9,
+      "description": "Distinct sensors that reported in this range. Expect 11; a lower number means a sensor dropped off or its battery died.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 21,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> group(columns: [\"sensor_name\"]) |> last() |> group() |> count()",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Room Temperatures \u2014 now",
+      "id": 10,
+      "description": "Current temperature per room.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name =~ /^$${sensor:regex}$/)\n  |> group(columns: [\"sensor_name\"]) |> last()\n  |> keep(columns: [\"_time\", \"_value\", \"sensor_name\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 1,
+          "color": {
+            "mode": "continuous-BlYlRd"
+          },
+          "min": 55,
+          "max": 82
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "lcd",
+        "showUnfilled": true,
+        "minVizWidth": 8,
+        "minVizHeight": 10,
+        "sizing": "auto",
+        "valueMode": "color"
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Room Temperatures \u2014 mean over range",
+      "id": 11,
+      "description": "Average per room across the whole range. The ranking is the balance story: which rooms sit persistently hot or cold, independent of any single moment. Over 7 days this spans roughly 16 degF.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name =~ /^$${sensor:regex}$/)\n  |> group(columns: [\"sensor_name\"]) |> mean()\n  |> keep(columns: [\"_value\", \"sensor_name\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 1,
+          "color": {
+            "mode": "continuous-BlYlRd"
+          },
+          "min": 55,
+          "max": 82
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "lcd",
+        "showUnfilled": true,
+        "minVizWidth": 8,
+        "minVizHeight": 10,
+        "sizing": "auto",
+        "valueMode": "color"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Thermostat",
+      "id": 12,
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Cool",
+      "id": 13,
+      "description": "Compressor hours in cooling mode over the range.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 15
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"compressor_1\" or r._field == \"compressor_mode\"\n        or r._field == \"auxiliary_heat_1\" or r._field == \"fan\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> filter(fn: (r) => r.compressor_mode == \"cool\")\n  |> map(fn: (r) => ({_value: r.compressor_1 / 3600.0}))\n  |> sum()",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "mappings": [],
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Heat",
+      "id": 14,
+      "description": "Compressor hours in heating mode (heat pump).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 3,
+        "y": 15
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"compressor_1\" or r._field == \"compressor_mode\"\n        or r._field == \"auxiliary_heat_1\" or r._field == \"fan\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> filter(fn: (r) => r.compressor_mode == \"heat\")\n  |> map(fn: (r) => ({_value: r.compressor_1 / 3600.0}))\n  |> sum()",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "mappings": [],
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Aux (propane)",
+      "id": 15,
+      "description": "Auxiliary heat hours. This system's aux is the PROPANE furnace, not electric resistance, so this is a direct proxy for propane burned.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 6,
+        "y": 15
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"compressor_1\" or r._field == \"compressor_mode\"\n        or r._field == \"auxiliary_heat_1\" or r._field == \"fan\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> map(fn: (r) => ({_value: r.auxiliary_heat_1 / 3600.0}))\n  |> sum()",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "mappings": [],
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Fan",
+      "id": 16,
+      "description": "Total blower hours, including circulation with no heat or cool call.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 9,
+        "y": 15
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"compressor_1\" or r._field == \"compressor_mode\"\n        or r._field == \"auxiliary_heat_1\" or r._field == \"fan\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> map(fn: (r) => ({_value: r.fan / 3600.0}))\n  |> sum()",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "mappings": [],
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "percentChangeColorMode": "standard"
+      }
+    },
+    {
+      "type": "state-timeline",
+      "title": "Equipment",
+      "id": 17,
+      "description": "What the system actually did, per 5-minute interval.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"compressor_1\" or r._field == \"compressor_mode\"\n        or r._field == \"auxiliary_heat_1\" or r._field == \"fan\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> map(fn: (r) => ({ _time: r._time, Equipment:\n        if r.auxiliary_heat_1 > 0.0 then \"Aux (propane)\"\n        else if r.compressor_1 > 0.0 and r.compressor_mode == \"cool\" then \"Cool\"\n        else if r.compressor_1 > 0.0 and r.compressor_mode == \"heat\" then \"Heat\"\n        else if r.fan > 0.0 then \"Fan only\"\n        else \"Off\" }))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 90,
+            "insertNulls": false
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "Cool": {
+                  "color": "blue",
+                  "index": 0
+                },
+                "Heat": {
+                  "color": "orange",
+                  "index": 1
+                },
+                "Aux (propane)": {
+                  "color": "red",
+                  "index": 2
+                },
+                "Fan only": {
+                  "color": "semi-dark-purple",
+                  "index": 3
+                },
+                "Off": {
+                  "color": "transparent",
+                  "index": 4
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "left",
+        "rowHeight": 0.35,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Temperatures & Setpoints",
+      "id": 18,
+      "description": "Indoor against outdoor with the active setpoints. Setpoints are drawn as steps because they change discretely with the schedule.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"indoor_temperature\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"_field\", value: \"Indoor\")",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"outdoor_temperature\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"_field\", value: \"Outdoor\")",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"setpoint_cool\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"_field\", value: \"Cool setpoint\")",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"setpoint_heat\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"_field\", value: \"Heat setpoint\")",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "gradientMode": "opacity",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "pointSize": 4
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Indoor"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Outdoor"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "semi-dark-orange"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    6
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Cool setpoint"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "custom.lineInterpolation",
+                "value": "stepAfter"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Heat setpoint"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "custom.lineInterpolation",
+                "value": "stepAfter"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "min",
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "state-timeline",
+      "title": "Comfort Profile",
+      "id": 19,
+      "description": "Which comfort profile was active. Explains the setpoint steps above, and lets any comparison be sliced by occupancy pattern.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"climate\")\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Profile\"})",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 90,
+            "insertNulls": false
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "Home": {
+                  "color": "green",
+                  "index": 0
+                },
+                "Sleep": {
+                  "color": "purple",
+                  "index": 1
+                },
+                "WFH": {
+                  "color": "blue",
+                  "index": 2
+                },
+                "away": {
+                  "color": "text",
+                  "index": 3
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "left",
+        "rowHeight": 0.35,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Rooms",
+      "id": 20,
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Room Temperatures",
+      "id": 21,
+      "description": "Every selected room over time. The equivalent of beestat's Sensor Detail.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name =~ /^$${sensor:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"sensor_name\"])\n  |> keep(columns: [\"_time\", \"_value\", \"sensor_name\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "gradientMode": "opacity",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "pointSize": 4
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Kitchen Ecobee"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Downstairs Guest Room"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Family Room"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Living Room"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Master Bedroom"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "light-blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Office"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Puzzle Room"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Server"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Storage Room"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Theater"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Upstairs Guest Room"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "semi-dark-green"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "min",
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "state-timeline",
+      "title": "Occupancy",
+      "id": 22,
+      "description": "Motion-detected occupancy per room. Useful for checking whether the rooms that run hot are the ones actually being used.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"occupancy\")\n  |> filter(fn: (r) => r.sensor_name =~ /^$${sensor:regex}$/)\n  |> map(fn: (r) => ({_time: r._time, _value: if r._value then \"Occupied\" else \"Empty\",\n        sensor_name: r.sensor_name}))\n  |> group(columns: [\"sensor_name\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 90,
+            "insertNulls": false
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "Occupied": {
+                  "color": "green",
+                  "index": 0
+                },
+                "Empty": {
+                  "color": "transparent",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "left",
+        "rowHeight": 0.9,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Room Spread over time",
+      "id": 23,
+      "description": "Warmest minus coolest of the selected rooms, over time. Falling spread means better circulation. This is the primary A/B metric for fan settings.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 54
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "base = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name =~ /^$${sensor:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"_time\"])\nhi = base |> max() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"hi\"})\nlo = base |> min() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"lo\"})\njoin(tables: {h: hi, l: lo}, on: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: r.hi - r.lo}))\n  |> group()",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "gradientMode": "opacity",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "pointSize": 4
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "min",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Deviation from Thermostat (mean)",
+      "id": 24,
+      "description": "How far each room sits above or below the thermostat's own reading, averaged over the range. The thermostat only controls to ITS location, so these offsets are what every other room actually experiences. Large positive values are rooms that stay hot when cooling satisfies.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 54
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "therm = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\" and r.sensor_name == \"Kitchen Ecobee\")\n  |> group() |> mean() |> findRecord(fn: (key) => true, idx: 0)\nfrom(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name =~ /^$${sensor:regex}$/)\n  |> group(columns: [\"sensor_name\"]) |> mean()\n  |> map(fn: (r) => ({r with _value: r._value - therm._value}))\n  |> keep(columns: [\"_value\", \"sensor_name\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 1,
+          "color": {
+            "mode": "continuous-BlYlRd"
+          },
+          "min": -8,
+          "max": 8
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "lcd",
+        "showUnfilled": true,
+        "minVizWidth": 8,
+        "minVizHeight": 10,
+        "sizing": "auto",
+        "valueMode": "color"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Fan & Circulation",
+      "id": 25,
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 62
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Fan hours per day",
+      "id": 26,
+      "description": "Total blower hours per day, and how many of those had NO heating or cooling call \u2014 that portion is pure circulation cost. A flat 24 means the fan was set to ON rather than AUTO. Use this to compare fan_min_on_time settings against the Room Spread panel above.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 63
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_fan\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 3600.0}))\n  |> group() |> set(key: \"_field\", value: \"Fan\")",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_fan\" or r._field == \"sum_compressor_cool_1\"\n        or r._field == \"sum_compressor_heat_1\" or r._field == \"sum_auxiliary_heat_1\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({_time: r._time, _value: (r.sum_fan - r.sum_compressor_cool_1\n        - r.sum_compressor_heat_1 - r.sum_auxiliary_heat_1) / 3600.0}))\n  |> group() |> set(key: \"_field\", value: \"Fan with no call\")",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "gradientMode": "opacity",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "pointSize": 4
+          },
+          "max": 24,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Fan"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Fan with no call"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "semi-dark-purple"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Fan minimum on time (Home Assistant)",
+      "id": 27,
+      "description": "The ecobee fan_min_on_time setting, read from Home Assistant \u2014 beestat does not expose it. Note this only applies in AUTO mode; while the fan mode is ON the setting is inert, which is why runtime can sit at 24h/day with this reading 10.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-ha"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 63
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-ha"
+          },
+          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.friendly_name == \"Kitchen Ecobee Fan minimum on time\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"_field\", value: \"min/hr\")",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "m",
+          "decimals": 0,
+          "min": 0,
+          "max": 60,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "gradientMode": "none",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "yellow"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    }
+  ]
+}
