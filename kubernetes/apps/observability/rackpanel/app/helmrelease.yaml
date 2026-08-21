@@ -112,7 +112,7 @@ spec:
             # scalar). See docs/runbooks/flux-image-automation.md.
             image:
               repository: gitea.derekjacobs.dev/bluevulpine/rackpanel-agent
-              tag: 9-8961ae75 # {"$imagepolicy": "flux-system:rackpanel-agent:tag"}
+              tag: 10-94e4f9a7 # {"$imagepolicy": "flux-system:rackpanel-agent:tag"}
             env:
               TZ: "${TIMEZONE}"
               NODE_NAME:
