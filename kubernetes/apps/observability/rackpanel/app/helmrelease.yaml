@@ -48,7 +48,7 @@ spec:
             # https://gitea.derekjacobs.dev/bluevulpine/rackpanel
             image:
               repository: gitea.derekjacobs.dev/bluevulpine/rackpanel
-              tag: 10-94e4f9a7 # {"$imagepolicy": "flux-system:rackpanel:tag"}
+              tag: 11-2b495c72 # {"$imagepolicy": "flux-system:rackpanel:tag"}
             env:
               TZ: "${TIMEZONE}"
               RACKPANEL_NODES: jormungandr1,jormungandr2,jormungandr3,jormungandr4
@@ -112,7 +112,7 @@ spec:
             # scalar). See docs/runbooks/flux-image-automation.md.
             image:
               repository: gitea.derekjacobs.dev/bluevulpine/rackpanel-agent
-              tag: 10-94e4f9a7 # {"$imagepolicy": "flux-system:rackpanel-agent:tag"}
+              tag: 11-2b495c72 # {"$imagepolicy": "flux-system:rackpanel-agent:tag"}
             env:
               TZ: "${TIMEZONE}"
               NODE_NAME:
