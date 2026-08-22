@@ -65,9 +65,17 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 256Mi
-              limits:
+                # Measured working set is ~950Mi, so the old 256Mi request was a
+                # fiction: it let the scheduler over-pack the node and made
+                # influxdb a prime eviction candidate under memory pressure.
                 memory: 1Gi
+              limits:
+                # Was 1Gi, which the process was sitting at 93% of. InfluxDB's
+                # footprint tracks series cardinality and the span of open
+                # shards, both of which just grew: the beestat bucket added
+                # ~400k points across 8 years of daily summaries, and its
+                # dashboards run multi-year range queries.
+                memory: 4Gi
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: false

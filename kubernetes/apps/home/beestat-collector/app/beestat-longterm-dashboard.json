@@ -81,7 +81,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h",
+          "unit": "suffix:h",
           "decimals": 0,
           "mappings": [],
           "noValue": "0",
@@ -143,7 +143,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h",
+          "unit": "suffix:h",
           "decimals": 0,
           "mappings": [],
           "noValue": "0",
@@ -205,7 +205,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h",
+          "unit": "suffix:h",
           "decimals": 0,
           "mappings": [],
           "noValue": "0",
@@ -267,7 +267,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h",
+          "unit": "suffix:h",
           "decimals": 0,
           "mappings": [],
           "noValue": "0",
@@ -458,7 +458,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_cool_1\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 3600.0}))\n  |> group() |> set(key: \"_field\", value: \"Cool\")",
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_cool_1\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 3600.0}))\n  |> group() |> rename(columns: {_value: \"Cool\"})",
           "refId": "A"
         },
         {
@@ -466,7 +466,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_heat_1\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 3600.0}))\n  |> group() |> set(key: \"_field\", value: \"Heat pump\")",
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_heat_1\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 3600.0}))\n  |> group() |> rename(columns: {_value: \"Heat pump\"})",
           "refId": "B"
         },
         {
@@ -474,7 +474,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_auxiliary_heat_1\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 3600.0}))\n  |> group() |> set(key: \"_field\", value: \"Aux (propane)\")",
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_auxiliary_heat_1\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 3600.0}))\n  |> group() |> rename(columns: {_value: \"Aux (propane)\"})",
           "refId": "C"
         },
         {
@@ -482,13 +482,13 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"avg_outdoor_temperature\")\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"_field\", value: \"Outdoor temp\")",
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"avg_outdoor_temperature\")\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Outdoor temp\"})",
           "refId": "D"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h",
+          "unit": "suffix:h",
           "decimals": 1,
           "custom": {
             "drawStyle": "bars",
@@ -647,13 +647,13 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "import \"math\"\nfrom(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_auxiliary_heat_1\"\n        or r._field == \"sum_compressor_heat_1\" or r._field == \"avg_outdoor_temperature\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.avg_outdoor_temperature)\n  |> map(fn: (r) => ({\n        bucket: math.floor(x: r.avg_outdoor_temperature / 5.0) * 5.0,\n        aux: r.sum_auxiliary_heat_1 / 3600.0,\n        hp: r.sum_compressor_heat_1 / 3600.0}))\n  |> group(columns: [\"bucket\"])\n  |> reduce(identity: {aux: 0.0, hp: 0.0, n: 0.0},\n      fn: (r, accumulator) => ({aux: accumulator.aux + r.aux,\n        hp: accumulator.hp + r.hp, n: accumulator.n + 1.0}))\n  |> map(fn: (r) => ({outdoor_f: r.bucket,\n        heatpump_h: r.hp / r.n, propane_h: r.aux / r.n, days: r.n}))\n  |> group() |> sort(columns: [\"outdoor_f\"])",
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_auxiliary_heat_1\"\n        or r._field == \"sum_compressor_heat_1\" or r._field == \"avg_outdoor_temperature\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.avg_outdoor_temperature)\n  |> map(fn: (r) => ({\n        bucket: float(v: int(v: (r.avg_outdoor_temperature + 100.0) / 5.0))\n                * 5.0 - 100.0,\n        aux: r.sum_auxiliary_heat_1 / 3600.0,\n        hp: r.sum_compressor_heat_1 / 3600.0}))\n  |> group(columns: [\"bucket\"])\n  |> reduce(identity: {aux: 0.0, hp: 0.0, n: 0.0},\n      fn: (r, accumulator) => ({aux: accumulator.aux + r.aux,\n        hp: accumulator.hp + r.hp, n: accumulator.n + 1.0}))\n  |> map(fn: (r) => ({outdoor_f: r.bucket,\n        heatpump_h: r.hp / r.n, propane_h: r.aux / r.n, days: r.n}))\n  |> group() |> sort(columns: [\"outdoor_f\"])",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h",
+          "unit": "suffix:h",
           "decimals": 2,
           "custom": {
             "lineWidth": 1,
@@ -670,6 +670,22 @@
           }
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "outdoor_f"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "fahrenheit"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byName",
@@ -778,13 +794,13 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "base = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_heat_1\"\n        or r._field == \"sum_auxiliary_heat_1\" or r._field == \"sum_heating_degree_days\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\nrt = base\n  |> map(fn: (r) => ({_time: r._time,\n        _value: (r.sum_compressor_heat_1 + r.sum_auxiliary_heat_1) / 3600.0}))\n  |> aggregateWindow(every: 1mo, fn: sum, createEmpty: false)\nhd = base\n  |> map(fn: (r) => ({_time: r._time, _value: r.sum_heating_degree_days}))\n  |> aggregateWindow(every: 1mo, fn: sum, createEmpty: false)\njoin(tables: {a: rt, b: hd}, on: [\"_time\"])\n  |> filter(fn: (r) => r._value_b > 20.0)\n  |> map(fn: (r) => ({_time: r._time, _value: r._value_a / r._value_b}))\n  |> group() |> set(key: \"_field\", value: \"Heating hours per HDD\")",
+          "query": "base = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_heat_1\"\n        or r._field == \"sum_auxiliary_heat_1\" or r._field == \"sum_heating_degree_days\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\nrt = base\n  |> map(fn: (r) => ({_time: r._time,\n        _value: (r.sum_compressor_heat_1 + r.sum_auxiliary_heat_1) / 3600.0}))\n  |> aggregateWindow(every: 1mo, fn: sum, createEmpty: false)\nhd = base\n  |> map(fn: (r) => ({_time: r._time, _value: r.sum_heating_degree_days}))\n  |> aggregateWindow(every: 1mo, fn: sum, createEmpty: false)\njoin(tables: {a: rt, b: hd}, on: [\"_time\"])\n  |> filter(fn: (r) => r._value_b > 20.0)\n  |> map(fn: (r) => ({_time: r._time, _value: r._value_a / r._value_b}))\n  |> group() |> rename(columns: {_value: \"Heating hours per HDD\"})",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h",
+          "unit": "suffix:h/HDD",
           "decimals": 3,
           "custom": {
             "drawStyle": "line",
@@ -862,7 +878,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"count\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 288.0 * 100.0}))\n  |> aggregateWindow(every: 1w, fn: mean, createEmpty: false)\n  |> group() |> set(key: \"_field\", value: \"Coverage\")",
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"count\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 288.0 * 100.0}))\n  |> aggregateWindow(every: 1w, fn: mean, createEmpty: false)\n  |> group() |> rename(columns: {_value: \"Coverage\"})",
           "refId": "A"
         }
       ],

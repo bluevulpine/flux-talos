@@ -407,7 +407,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
+          "fields": "/.*/",
           "values": false
         },
         "orientation": "auto",
@@ -468,7 +468,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
+          "fields": "/.*/",
           "values": false
         },
         "orientation": "auto",
@@ -500,7 +500,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "base = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name =~ /^$${sensor:regex}$/)\n  |> group(columns: [\"sensor_name\"]) |> last() |> group()\nbase\n  |> reduce(identity: {mx: -200.0, mn: 200.0, _value: 0.0},\n      fn: (r, accumulator) => ({\n        mx: if r._value > accumulator.mx then r._value else accumulator.mx,\n        mn: if r._value < accumulator.mn then r._value else accumulator.mn,\n        _value: (if r._value > accumulator.mx then r._value else accumulator.mx)\n              - (if r._value < accumulator.mn then r._value else accumulator.mn)}))",
+          "query": "base = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name =~ /^$${sensor:regex}$/)\n  |> group(columns: [\"sensor_name\"]) |> last() |> group()\nbase\n  |> reduce(identity: {mx: -200.0, mn: 200.0, _value: 0.0},\n      fn: (r, accumulator) => ({\n        mx: if r._value > accumulator.mx then r._value else accumulator.mx,\n        mn: if r._value < accumulator.mn then r._value else accumulator.mn,\n        _value: (if r._value > accumulator.mx then r._value else accumulator.mx)\n              - (if r._value < accumulator.mn then r._value else accumulator.mn)}))  |> keep(columns: [\"_value\"])",
           "refId": "A"
         }
       ],
@@ -645,6 +645,7 @@
           "color": {
             "mode": "continuous-BlYlRd"
           },
+          "displayName": "$${__field.labels.sensor_name}",
           "min": 55,
           "max": 82
         },
@@ -699,6 +700,7 @@
           "color": {
             "mode": "continuous-BlYlRd"
           },
+          "displayName": "$${__field.labels.sensor_name}",
           "min": 55,
           "max": 82
         },
@@ -761,7 +763,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h",
+          "unit": "suffix:h",
           "decimals": 1,
           "mappings": [],
           "noValue": "0",
@@ -823,7 +825,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h",
+          "unit": "suffix:h",
           "decimals": 1,
           "mappings": [],
           "noValue": "0",
@@ -885,7 +887,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h",
+          "unit": "suffix:h",
           "decimals": 1,
           "mappings": [],
           "noValue": "0",
@@ -947,7 +949,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h",
+          "unit": "suffix:h",
           "decimals": 1,
           "mappings": [],
           "noValue": "0",
@@ -1093,7 +1095,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"indoor_temperature\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"_field\", value: \"Indoor\")",
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"indoor_temperature\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Indoor\"})",
           "refId": "A"
         },
         {
@@ -1101,7 +1103,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"outdoor_temperature\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"_field\", value: \"Outdoor\")",
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"outdoor_temperature\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Outdoor\"})",
           "refId": "B"
         },
         {
@@ -1109,7 +1111,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"setpoint_cool\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"_field\", value: \"Cool setpoint\")",
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"setpoint_cool\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Cool setpoint\"})",
           "refId": "C"
         },
         {
@@ -1117,7 +1119,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"setpoint_heat\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"_field\", value: \"Heat setpoint\")",
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"setpoint_heat\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Heat setpoint\"})",
           "refId": "D"
         }
       ],
@@ -1392,6 +1394,7 @@
             "barAlignment": 0,
             "pointSize": 4
           },
+          "displayName": "$${__field.labels.sensor_name}",
           "color": {
             "mode": "palette-classic"
           }
@@ -1614,6 +1617,7 @@
             "fillOpacity": 90,
             "insertNulls": false
           },
+          "displayName": "$${__field.labels.sensor_name}",
           "mappings": [
             {
               "type": "value",
@@ -1681,7 +1685,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "base = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name =~ /^$${sensor:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"_time\"])\nhi = base |> max() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"hi\"})\nlo = base |> min() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"lo\"})\njoin(tables: {h: hi, l: lo}, on: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: r.hi - r.lo}))\n  |> group()",
+          "query": "base = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name =~ /^$${sensor:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"_time\"])\nhi = base |> max() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"hi\"})\nlo = base |> min() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"lo\"})\njoin(tables: {h: hi, l: lo}, on: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: r.hi - r.lo}))\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Spread\"})",
           "refId": "A"
         }
       ],
@@ -1760,6 +1764,7 @@
           "color": {
             "mode": "continuous-BlYlRd"
           },
+          "displayName": "$${__field.labels.sensor_name}",
           "min": -8,
           "max": 8
         },
@@ -1816,7 +1821,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_fan\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 3600.0}))\n  |> group() |> set(key: \"_field\", value: \"Fan\")",
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_fan\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 3600.0}))\n  |> group() |> rename(columns: {_value: \"Fan\"})",
           "refId": "A"
         },
         {
@@ -1824,13 +1829,13 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_fan\" or r._field == \"sum_compressor_cool_1\"\n        or r._field == \"sum_compressor_heat_1\" or r._field == \"sum_auxiliary_heat_1\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({_time: r._time, _value: (r.sum_fan - r.sum_compressor_cool_1\n        - r.sum_compressor_heat_1 - r.sum_auxiliary_heat_1) / 3600.0}))\n  |> group() |> set(key: \"_field\", value: \"Fan with no call\")",
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_fan\" or r._field == \"sum_compressor_cool_1\"\n        or r._field == \"sum_compressor_heat_1\" or r._field == \"sum_auxiliary_heat_1\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({_time: r._time, _value: (r.sum_fan - r.sum_compressor_cool_1\n        - r.sum_compressor_heat_1 - r.sum_auxiliary_heat_1) / 3600.0}))\n  |> group() |> rename(columns: {_value: \"Fan with no call\"})",
           "refId": "B"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h",
+          "unit": "suffix:h",
           "decimals": 1,
           "custom": {
             "drawStyle": "line",
@@ -1924,7 +1929,7 @@
             "type": "influxdb",
             "uid": "influxdb-ha"
           },
-          "query": "from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.friendly_name == \"Kitchen Ecobee Fan minimum on time\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"_field\", value: \"min/hr\")",
+          "query": "sel = (tables=<-) => tables\n  |> filter(fn: (r) => r.friendly_name == \"Kitchen Ecobee Fan minimum on time\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n// Home Assistant only writes on CHANGE, so a window with no change would be\n// empty. Carry the last value from before the window in at its left edge.\nprior = from(bucket: \"homeassistant\")\n  |> range(start: -2y, stop: v.timeRangeStart)\n  |> sel() |> last()\n  |> map(fn: (r) => ({r with _time: v.timeRangeStart}))\ncurrent = from(bucket: \"homeassistant\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> sel()\nunion(tables: [prior, current])\n  |> sort(columns: [\"_time\"])\n  |> rename(columns: {_value: \"min/hr\"})",
           "refId": "A"
         }
       ],
