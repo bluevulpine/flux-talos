@@ -15,7 +15,7 @@
   "version": 1,
   "refresh": "",
   "time": {
-    "from": "now-5y",
+    "from": "now-10y",
     "to": "now"
   },
   "links": [
@@ -773,7 +773,7 @@
       },
       "gridPos": {
         "h": 11,
-        "w": 16,
+        "w": 14,
         "x": 0,
         "y": 31
       },
@@ -916,17 +916,17 @@
     },
     {
       "type": "barchart",
-      "title": "Indoor temperature held, by peak outdoor band",
+      "title": "Where the heat actually goes \u2014 upstairs vs the thermostat",
       "id": 40,
-      "description": "Mean indoor temperature achieved in each PEAK outdoor band \u2014 the capacity check for the chart to the left. It is not perfectly flat: indoor drifts from about 67.4 degF at a 70 degF peak to 68.6 degF at 100 degF. That ~1 degF rise alongside runtime plateauing near 15 h/day (well short of continuous) says the system has headroom rather than losing the house. Axis clamped to 60-72 degF because the means span only ~65-69; a wider window renders near-identical bars and hides the very drift this panel exists to show.",
+      "description": "The capacity check for the chart on the left, and it tells a very different story than the thermostat alone. 'Thermostat' is ecobee's zoneAveTemp \u2014 the mean of only the four sensors participating in the comfort setting (Kitchen, Office, Master Bedroom, Living Room), NOT the house. It barely moves. The upstairs four (Master Bedroom, Upstairs Guest Room, Office, Theater) climb away from it as it gets hotter: about 1.8 degF apart at a 60 degF peak, but 7.3 degF apart at 95 degF. So the system holds the setpoint where it is measuring and loses the upstairs \u2014 which is the case for circulation, and the reason the fan experiment exists. Per-room data starts 2026-05-01, so this panel covers one cooling season while the rest of the dashboard covers years.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-beestat"
       },
       "gridPos": {
         "h": 11,
-        "w": 8,
-        "x": 16,
+        "w": 10,
+        "x": 14,
         "y": 31
       },
       "targets": [
@@ -935,7 +935,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_cool_1\"\n        or r._field == \"max_outdoor_temperature\"\n        or r._field == \"avg_indoor_temperature\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.max_outdoor_temperature\n        and exists r.sum_compressor_cool_1)\n  |> map(fn: (r) => ({\n        bucket: float(v: int(v: (r.max_outdoor_temperature + 100.0) / 5.0))\n                * 5.0 - 100.0,\n        cool: r.sum_compressor_cool_1 / 3600.0,\n        indoor: r.avg_indoor_temperature}))\n  |> group(columns: [\"bucket\"])\n  |> reduce(identity: {cool: 0.0, mx: 0.0, ind: 0.0, n: 0.0},\n      fn: (r, accumulator) => ({\n        cool: accumulator.cool + r.cool,\n        mx: if r.cool > accumulator.mx then r.cool else accumulator.mx,\n        ind: accumulator.ind + r.indoor,\n        n: accumulator.n + 1.0}))\n  |> map(fn: (r) => ({outdoor_f: r.bucket, cooling_h: r.cool / r.n,\n        busiest_day_h: r.mx, indoor_f: r.ind / r.n, days: r.n}))\n  |> group()\n  |> sort(columns: [\"outdoor_f\"])",
+          "query": "peak = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"outdoor_temperature\")\n  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"peak\"})\nup = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name == \"Master Bedroom\"\n        or r.sensor_name == \"Upstairs Guest Room\"\n        or r.sensor_name == \"Office\" or r.sensor_name == \"Theater\")\n  |> group() |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"upstairs\"})\nallr = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> group() |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"allrooms\"})\nzone = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"indoor_temperature\")\n  |> group() |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"zone\"})\nj1 = join(tables: {a: peak, b: up}, on: [\"_time\"])\nj2 = join(tables: {c: j1, d: allr}, on: [\"_time\"])\njoin(tables: {e: j2, f: zone}, on: [\"_time\"])\n  |> map(fn: (r) => ({b: float(v: int(v: (r.peak + 100.0) / 5.0)) * 5.0 - 100.0,\n        u: r.upstairs, a: r.allrooms, z: r.zone}))\n  |> group(columns: [\"b\"])\n  |> reduce(identity: {u: 0.0, a: 0.0, z: 0.0, n: 0.0},\n      fn: (r, accumulator) => ({u: accumulator.u + r.u, a: accumulator.a + r.a,\n        z: accumulator.z + r.z, n: accumulator.n + 1.0}))\n  |> map(fn: (r) => ({outdoor_f: r.b, upstairs_f: r.u / r.n,\n        all_rooms_f: r.a / r.n, thermostat_f: r.z / r.n, days: r.n}))\n  |> group() |> sort(columns: [\"outdoor_f\"])",
           "refId": "A"
         }
       ],
@@ -977,7 +977,61 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "indoor_f"
+              "options": "upstairs_f"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "Upstairs 4"
+              },
+              {
+                "id": "min",
+                "value": 60
+              },
+              {
+                "id": "max",
+                "value": 78
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "all_rooms_f"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "All 11 rooms"
+              },
+              {
+                "id": "min",
+                "value": 60
+              },
+              {
+                "id": "max",
+                "value": 78
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "thermostat_f"
             },
             "properties": [
               {
@@ -989,7 +1043,7 @@
               },
               {
                 "id": "displayName",
-                "value": "Mean indoor temp"
+                "value": "Thermostat (zone avg)"
               },
               {
                 "id": "min",
@@ -997,39 +1051,7 @@
               },
               {
                 "id": "max",
-                "value": 72
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "cooling_h"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": true,
-                  "tooltip": true,
-                  "viz": true
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "busiest_day_h"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": true,
-                  "tooltip": true,
-                  "viz": true
-                }
+                "value": 78
               }
             ]
           },
