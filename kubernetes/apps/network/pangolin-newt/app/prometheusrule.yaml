@@ -10,11 +10,22 @@
 # couchdb, sso, openspeedtest, echo-server-pangolin, pangolin), so a silent
 # failure here is a multi-service external outage.
 #
-# The severities encode a timing fact measured during the 2026-08-22 incident:
-# when newt's control channel drops, the WireGuard data plane keeps serving on
-# the established session for roughly ten minutes and THEN fails. So a dropped
-# control channel is an outage already in progress with a short grace period --
-# critical, alerted fast -- while the VPS-side exporters going quiet is only a
+# The severities encode a judgement about failure modes, NOT a measured timing.
+# An earlier version of this comment claimed the WireGuard data plane keeps
+# serving for roughly ten minutes after newt's control channel drops. That
+# number is not supportable and nothing here should be tuned to it: the same
+# 2026-08-22 mistake also deleted the A record that every Pangolin hostname
+# CNAMEs onto, and both the CNAMEs and that A record carry a 300s TTL, so public
+# resolvers were aging out their answers on a completely separate clock while
+# the control channel was failing. One observation, two independent countdowns,
+# no isolation. Treat the grace period as UNKNOWN and possibly far shorter.
+# Isolating it means leaving DNS untouched and denying the newt pod egress to
+# the VPS on 443/tcp while leaving 21820/udp open, then timing how long traffic
+# keeps flowing.
+#
+# What survives is the operational conclusion, which never depended on the
+# duration: a dropped control channel is an outage already in progress, so it is
+# critical and alerted fast -- while the VPS-side exporters going quiet is only a
 # loss of visibility and can tolerate a longer window.
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
@@ -25,25 +36,56 @@ spec:
     - name: pangolin-newt.rules
       rules:
         # The headline alert. newt_websocket_connected -- deliberately NOT
-        # newt_site_online, which reads 0 in newt 1.15.0 even when the tunnel is
-        # perfectly healthy and would therefore fire permanently.
+        # newt_site_online, which has never worked in any newt build (its setter
+        # has zero callers upstream; see the runbook) and would therefore fire
+        # permanently.
         #
-        # `for: 3m` is short on purpose: this is not an early warning, it is the
-        # first ten minutes of an outage that has already begun. Waiting 15m
-        # here would mean alerting after the hostnames are already dark.
+        # The `or absent(...)` half is what makes this the alert of record when
+        # the metric itself disappears, and it is not cosmetic. `== 0` cannot
+        # match a series that is not there, so without it the WORST failure --
+        # the pod OOMKilled, evicted, drained away, or rolled onto an image that
+        # will not start, or the ServiceMonitor selector silently ceasing to
+        # match -- fell through to PangolinNewtMetricsMissing at warning/15m.
+        # The total outage paged slower and quieter than a merely degraded
+        # tunnel. From outside we cannot distinguish "tunnel dead" from
+        # "monitoring blind", and blind has to be treated as dead.
+        #
+        # `for: 5m` is the compromise the absent() half forces. Be clear about
+        # what it does and does not buy, because the obvious assumption is wrong
+        # here: this Deployment is `strategy: Recreate` with `replicas: 1`, so
+        # there is NO surge overlap. Every rollout terminates the only pod before
+        # its replacement starts, and the series is absent for the whole gap. The
+        # one rollout since the exporter started emitting left it absent for 51
+        # minutes (2026-08-21 20:53-21:44, a failed HelmRelease upgrade riding out
+        # `retries: 3` before Flux rolled it back).
+        #
+        # So 5m does NOT make upgrades quiet, and pretending otherwise would just
+        # get someone to widen it later for the wrong reason. Any newt upgrade
+        # that does not come up inside five minutes WILL page critical. That is
+        # the correct outcome, not noise to be tuned away: during that same
+        # 51-minute window traffic really did collapse (traefik 200s fell from
+        # ~0.35/s to ~0.01/s, with a 502 at 21:25). An upgrade that is still
+        # broken after five minutes is an outage, whatever caused it.
+        #
+        # The window is therefore chosen to be short enough to sit on nothing,
+        # and is deliberately NOT derived from the discredited "ten minutes of
+        # grace" figure in the header -- we do not know how long the data plane
+        # survives.
         - alert: PangolinControlChannelDown
           annotations:
             summary: >-
-              Newt's control channel to the Pangolin server is down. The tunnel
-              will keep serving on its existing WireGuard session for only a few
-              more minutes, then all Pangolin-routed hostnames (Immich, Mealie,
-              Karakeep, Jellyseerr, CouchDB, SSO) go dark. Check
-              `kubectl logs -n network deploy/pangolin-newt`. The most common
+              Newt's control channel to the Pangolin server is down or its
+              metrics have vanished entirely. Assume all Pangolin-routed
+              hostnames (Immich, Mealie, Karakeep, Jellyseerr, CouchDB, SSO) are
+              already dark or about to be — how long the existing WireGuard
+              session keeps serving is not known. Check
+              `kubectl get pods -n network -l app.kubernetes.io/name=pangolin-newt`
+              and `kubectl logs -n network deploy/pangolin-newt`. The most common
               cause is DNS: newt must resolve pangolin.${SECRET_DOMAIN} to
               re-authenticate. See docs/runbooks/pangolin-vps-setup.md.
           expr: |
-            max(newt_websocket_connected) == 0
-          for: 3m
+            max(newt_websocket_connected) == 0 or absent(newt_websocket_connected)
+          for: 5m
           labels:
             severity: critical
 
@@ -66,21 +108,44 @@ spec:
           labels:
             severity: critical
 
-        # Neither alert above can fire if the SERIES is absent -- `== 0` never
-        # matches a missing metric. That happens if the pod is gone, the
-        # exporter flag is lost on an upgrade, or the ServiceMonitor selector
-        # stops matching (app-template's service label is easy to get wrong).
-        # absent() is the only thing that covers a metric that vanishes.
+        # The narrow sibling of PangolinControlChannelDown, and the split between
+        # the two is the whole point. There are two different ways to lose sight
+        # of newt and they deserve different severities:
+        #
+        #   * The SERIES vanishes -- pod gone, or the ServiceMonitor selector
+        #     stopped matching (app-template's service label is easy to get
+        #     wrong, and a mismatch produces an empty target list with no error).
+        #     Nothing is scraping anything, and we cannot tell that from a dead
+        #     tunnel. That case is handled critically by the `absent()` half of
+        #     PangolinControlChannelDown and is deliberately NOT repeated here,
+        #     or a single event would page twice.
+        #   * The TARGET still exists via the Service/Endpoints but the exporter
+        #     port is closed -- typically `-metrics` or `-metrics-admin-addr`
+        #     dropped from the args on an upgrade. Prometheus keeps the target
+        #     and reports `up == 0`, which is positive evidence that the pod is
+        #     there and almost certainly still tunnelling traffic. That is a pure
+        #     monitoring gap, so warning and a slack 15m window are the right
+        #     weight.
+        #
+        # These are not mutually exclusive at fire time: a closed exporter port
+        # also lets newt_websocket_connected go stale, so the critical absent()
+        # branch fires first at 5m and this arrives ten minutes later. That is
+        # intended -- this alert's job is then to say WHICH of the two happened,
+        # because "up == 0 with a target still present" is exactly the evidence
+        # that separates a broken exporter from a missing pod.
         - alert: PangolinNewtMetricsMissing
           annotations:
             summary: >-
-              No metrics from the newt connector — the Pangolin tunnel is
-              unmonitored and PangolinControlChannelDown cannot fire. Either the
-              pod is down or the exporter/ServiceMonitor wiring broke. Check
-              `kubectl get pods -n network -l app.kubernetes.io/name=pangolin-newt`
-              and that the HelmRelease still passes `-metrics`.
+              The newt connector's scrape target still exists but its metrics
+              endpoint is not answering, so the pod is running and traffic is
+              probably still flowing — this is a monitoring gap, not (by itself)
+              an outage. If PangolinControlChannelDown also fired, this is the
+              alert that says it was the exporter, not the pod. Check that the
+              HelmRelease still passes `-metrics` and
+              `-metrics-admin-addr 0.0.0.0:2112` (the exporter defaults to
+              127.0.0.1 and is then unscrapable).
           expr: |
-            absent(newt_websocket_connected) or max(up{job="pangolin-newt"}) == 0
+            max(up{job="pangolin-newt"}) == 0
           for: 15m
           labels:
             severity: warning

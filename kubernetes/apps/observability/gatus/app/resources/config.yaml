@@ -86,3 +86,58 @@ endpoints:
       - "[STATUS] == 404"
     alerts:
       - type: pushover
+
+  # Pangolin tunnel path (VPS → Newt → Envoy). These are the only checks that
+  # exercise what a user off-LAN actually experiences. Every other Pangolin
+  # signal — newt's websocket, gerbil's wg0, traefik's metrics — is component
+  # health, and during the 2026-08-22 outage all of it stayed green while the
+  # hostnames were dark, because what broke sat in front of the components (DNS).
+  # "All components healthy, users can't connect" is undetectable without an
+  # end-to-end probe, so these exist to catch precisely that.
+  #
+  # dns-resolver is load-bearing, not boilerplate: without it these names resolve
+  # through split-horizon to the LAN Envoy IP (172.16.8.2), the check passes over
+  # the internal path, and it silently tests nothing about the tunnel.
+  #
+  # These conditions assert AVAILABILITY ONLY, deliberately. An earlier draft
+  # also asserted [CERTIFICATE_EXPIRATION] > 168h here; that was dropped for two
+  # reasons. It is not the only cert monitoring — PangolinCertificateExpiringSoon
+  # already alerts on traefik_tls_certs_not_after at 14 days, which is a WEEK
+  # MORE lead time, not less. And folding cert age into an availability probe
+  # corrupts the signal this probe exists to produce: a cert six days from expiry
+  # would mark the endpoint DOWN in gatus's uptime history and page
+  # "health-check failed" for a service that is serving every request perfectly.
+  # A genuine expiry still fails the TLS handshake and is caught here anyway.
+  # (A tailnet-independent cert check would have real value — the PromQL alert
+  # dies with the VPS exporter scrape — but it belongs in its own endpoint, not
+  # bolted onto this one.)
+  #
+  # Coverage is 2 of the 9 hostnames on this path, chosen as the two whose loss
+  # matters most: the Immich data path and the Authentik front door. Traefik
+  # routes per-host, so a failure confined to mealie/karakeep/requests/couchdb/
+  # openspeedtest/echo-server-pangolin is still invisible here.
+  - name: Immich (Pangolin)
+    group: external
+    url: "https://photos.${SECRET_DOMAIN}"
+    interval: 1m
+    client:
+      dns-resolver: tcp://1.1.1.1:53
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: pushover
+
+  - name: Authentik (Pangolin)
+    group: external
+    url: "https://sso.${SECRET_DOMAIN}"
+    interval: 1m
+    client:
+      dns-resolver: tcp://1.1.1.1:53
+    conditions:
+      # Unauthenticated, authentik answers 302 to its default authentication
+      # flow. Gatus follows redirects by default and would then record the 200
+      # from that flow instead — accept both, so this does not page whenever
+      # authentik changes its mind about which one we observe.
+      - "[STATUS] == any(200, 302)"
+    alerts:
+      - type: pushover
