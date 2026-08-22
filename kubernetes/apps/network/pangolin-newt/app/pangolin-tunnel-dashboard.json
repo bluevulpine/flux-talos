@@ -474,7 +474,7 @@
           "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 18,
             "showPoints": "never",
@@ -559,7 +559,7 @@
           "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 8,
             "showPoints": "never",
@@ -637,7 +637,7 @@
           "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
@@ -737,7 +737,7 @@
           "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 8,
             "showPoints": "never",
@@ -815,7 +815,7 @@
           "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
@@ -904,7 +904,7 @@
           "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
@@ -996,7 +996,7 @@
           "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 8,
             "showPoints": "never",
@@ -1026,8 +1026,8 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
+          "displayMode": "table",
+          "placement": "right",
           "showLegend": true,
           "calcs": [
             "lastNotNull",
@@ -1074,7 +1074,7 @@
           "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 8,
             "showPoints": "never",
@@ -1104,8 +1104,8 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
+          "displayMode": "table",
+          "placement": "right",
           "showLegend": true,
           "calcs": [
             "lastNotNull",
@@ -1152,7 +1152,7 @@
           "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
@@ -1182,8 +1182,8 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
+          "displayMode": "table",
+          "placement": "right",
           "showLegend": true,
           "calcs": [
             "lastNotNull",
@@ -1230,7 +1230,7 @@
           "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
@@ -1260,8 +1260,8 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
+          "displayMode": "table",
+          "placement": "right",
           "showLegend": true,
           "calcs": [
             "lastNotNull",
@@ -1298,7 +1298,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
+        "w": 6,
         "x": 0,
         "y": 47
       },
@@ -1308,7 +1308,7 @@
           "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 8,
             "showPoints": "never",
@@ -1376,8 +1376,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 8,
+        "w": 6,
+        "x": 6,
         "y": 47
       },
       "fieldConfig": {
@@ -1386,7 +1386,7 @@
           "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 8,
             "showPoints": "never",
@@ -1465,8 +1465,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 16,
+        "w": 12,
+        "x": 12,
         "y": 47
       },
       "fieldConfig": {
@@ -1475,7 +1475,7 @@
           "min": null,
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
@@ -1506,8 +1506,8 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
+          "displayMode": "table",
+          "placement": "right",
           "showLegend": true,
           "calcs": [
             "lastNotNull",
@@ -1843,7 +1843,7 @@
           "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 8,
             "showPoints": "never",
@@ -1932,7 +1932,7 @@
           "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
@@ -2011,7 +2011,7 @@
           "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
@@ -2089,7 +2089,7 @@
           "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 0,
             "showPoints": "never",
