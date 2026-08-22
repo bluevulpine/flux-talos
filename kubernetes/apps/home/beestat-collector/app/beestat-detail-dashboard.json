@@ -407,7 +407,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "_value",
+          "fields": "/^(Value|_value)$/",
           "values": false
         },
         "orientation": "auto",
@@ -468,7 +468,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "_value",
+          "fields": "/^(Value|_value)$/",
           "values": false
         },
         "orientation": "auto",
