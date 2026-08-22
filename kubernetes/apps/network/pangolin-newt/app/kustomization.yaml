@@ -15,6 +15,9 @@ resources:
   - ./helmrelease.yaml
   # Scrapes newt's built-in Prometheus exporter (see helmrelease `-metrics`).
   - ./servicemonitor.yaml
+  # Alerts for the whole Pangolin path, including the VPS-side gerbil/traefik
+  # metrics -- nothing else alerts on this ingress route.
+  - ./prometheusrule.yaml
 
 # Grafana dashboard, provisioned via the sidecar (label grafana_dashboard=1).
 # NOTE the "$$" in the JSON: Flux runs envsubst over this Kustomization, and
