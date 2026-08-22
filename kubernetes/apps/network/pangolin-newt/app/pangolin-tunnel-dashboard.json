@@ -394,7 +394,7 @@
     {
       "type": "stat",
       "title": "Newt Version",
-      "description": "Running connector build.",
+      "description": "Running connector build. Aggregated on `version` because a range query spanning a pod restart returns one series per pod, and a stat panel draws a tile for each -- which rendered the version twice after a redeploy.",
       "id": 7,
       "datasource": {
         "type": "prometheus",
@@ -445,7 +445,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "newt_build_info",
+          "expr": "max by (version) (newt_build_info)",
           "legendFormat": "{{version}}",
           "refId": "A",
           "editorMode": "code",
@@ -1212,7 +1212,7 @@
     {
       "type": "timeseries",
       "title": "Request Duration p95 by Service",
-      "description": "Time Traefik spent on the request, including the trip through the tunnel to the cluster origin.",
+      "description": "Time Traefik spent on the request, including the trip through the tunnel to the cluster origin. Service names are cleaned the same way hostnames are in the request panels, so the two read consistently.",
       "id": 18,
       "datasource": {
         "type": "prometheus",
@@ -1279,8 +1279,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum by (le, service) (rate(traefik_service_request_duration_seconds_bucket[$$__rate_interval])))",
-          "legendFormat": "{{service}}",
+          "expr": "label_replace(label_replace(histogram_quantile(0.95, sum by (le, service) (rate(traefik_service_request_duration_seconds_bucket[$$__rate_interval]))), \"svc\", \"$$1\", \"service\", \"(.*)\"), \"svc\", \"$$1\", \"service\", \"^[0-9]+-(.*)-service@http$$\")",
+          "legendFormat": "{{svc}}",
           "refId": "A",
           "editorMode": "code",
           "range": true
@@ -1471,7 +1471,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "d",
+          "unit": "suffix: days",
           "min": null,
           "custom": {
             "drawStyle": "line",
@@ -1491,6 +1491,7 @@
             "mode": "palette-classic"
           },
           "mappings": [],
+          "decimals": 1,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1913,7 +1914,7 @@
     {
       "type": "timeseries",
       "title": "Relay UDP Packets",
-      "description": "Packets through gerbil's UDP relay, used when two peers cannot establish a direct path.",
+      "description": "Packets through gerbil's UDP relay, used when two peers cannot establish a direct path. Split by direction and type -- this metric has NO `result` label (unlike the other gerbil counters), so aggregating on one produces a single unlabelled series whose legend just reads \"Value\". The unit is a plain suffix rather than the built-in `pps`, which SI-rescales these small rates into unreadable \"60 mp/s\" milli-packets.",
       "id": 28,
       "datasource": {
         "type": "prometheus",
@@ -1927,7 +1928,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "pps",
+          "unit": "suffix: pkt/s",
           "min": 0,
           "custom": {
             "drawStyle": "line",
@@ -1947,6 +1948,7 @@
             "mode": "palette-classic"
           },
           "mappings": [],
+          "decimals": 3,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1980,8 +1982,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (result) (rate(gerbil_udp_packets_total[$$__rate_interval]))",
-          "legendFormat": "{{result}}",
+          "expr": "sum by (direction, type) (rate(gerbil_udp_packets_total[$$__rate_interval]))",
+          "legendFormat": "{{direction}} {{type}}",
           "refId": "A",
           "editorMode": "code",
           "range": true
