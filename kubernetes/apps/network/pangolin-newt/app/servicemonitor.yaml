@@ -1,0 +1,21 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/servicemonitor_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: pangolin-newt
+spec:
+  # The label value here is VERIFIED against the live Service, not inferred.
+  # app-template stamps `app.kubernetes.io/service`, and when a release declares
+  # a SINGLE service that value is the bare release name -- not
+  # `<release>-<serviceKey>` as it is for multi-service releases like rackpanel.
+  # Selecting on the key name (`pangolin-newt-metrics`) matches nothing and
+  # yields an empty target list with no error anywhere.
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: pangolin-newt
+      app.kubernetes.io/service: pangolin-newt
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s

@@ -153,3 +153,115 @@ curl -o /dev/null -s -w 'up=%{speed_upload}B/s http=%{http_code}\n' \
 
 Related: `docs/runbooks/flux-image-automation.md`, and the memory
 `project_cloudflare_tunnel_pi_retire_pangolin`.
+
+## Metrics and the Grafana dashboard
+
+Added 2026-08-22. Dashboard: **Pangolin Tunnel (newt / gerbil / traefik)**,
+`grafana.<domain>/d/pangolin-tunnel`. It is the Pangolin counterpart to the
+Cloudflare Tunnels (cloudflared) dashboard.
+
+Three exporters, two of which live on the VPS:
+
+| Source | Where | Port | Enabled by |
+| --- | --- | --- | --- |
+| **newt** | cluster | `2112` | `-metrics` flag in the HelmRelease |
+| **gerbil** | VPS | `3004` | nothing — it ships the exporter on by default |
+| **traefik** | VPS | `8082` | `metrics.prometheus` in `traefik_config.yml` |
+
+The Pangolin app itself has **no** `/metrics`. Port 3002 answers 200 to
+`/metrics`, but it is the Next.js catch-all returning the HTML app — do not
+mistake that for an exporter.
+
+### Cluster side (GitOps)
+
+`kubernetes/apps/network/pangolin-newt/app/` carries the `-metrics` args, a
+Service exposing the named `metrics` port, a ServiceMonitor, and the dashboard
+ConfigMap. Two traps, both of which fail silently:
+
+- The exporter defaults to `127.0.0.1:2112`. It **must** be
+  `-metrics-admin-addr 0.0.0.0:2112` or nothing can scrape it.
+- app-template stamps `app.kubernetes.io/service` with the **bare release name**
+  when a release declares a single Service — not `<release>-<serviceKey>` as it
+  does for multi-Service releases. A ServiceMonitor selecting the key name
+  matches nothing and reports an empty target list with no error.
+
+### VPS side (manual — not in this repo)
+
+Both exporter ports are published **bound to the tailnet address**
+(`100.65.0.27`), never `0.0.0.0`:
+
+```yaml
+# /opt/pangolin/docker-compose.yml, on the *gerbil* service --
+# traefik uses network_mode: service:gerbil, so its ports belong there too.
+      - 100.65.0.27:3004:3004 # gerbil Prometheus exporter (tailnet only)
+      - 100.65.0.27:8082:8082 # traefik Prometheus exporter (tailnet only)
+```
+
+Binding to the tailnet IP **is** the access control. A ufw rule would not work:
+Docker's published ports traverse `DOCKER-USER`, not ufw's `INPUT` chain, so an
+`0.0.0.0`-published port stays reachable from the public IP regardless of ufw.
+
+Traefik's exporter is on its own `metrics` entryPoint (`:8082`) so `/metrics` is
+never served on the public `web`/`websecure` listeners.
+
+Because the ports bind to a tailscale address, `/etc/systemd/system/docker.service.d/10-wait-tailscale.conf`
+orders docker after `tailscaled` and waits for the address. Without it, a reboot
+where dockerd wins the race fails the bind and crash-loops **gerbil** — which
+also carries `:80`/`:443` for every Pangolin-routed hostname.
+
+Prometheus reaches both via `ScrapeConfig`s in
+`kubernetes/apps/observability/kube-prometheus-stack/app/scrapeconfig.yaml`,
+scraping tailnet IPs directly (cluster CoreDNS cannot resolve `*.ts.net`). Pod
+egress to the tailnet is masqueraded to the node's own tailnet address, so the
+scrape arrives as `tag:server`; no Tailscale ACL change is needed.
+
+### Reading the numbers
+
+- `newt_tunnel_bytes_total{direction=...}` is from **newt's** perspective:
+  `ingress` = internet → cluster (user uploads, e.g. Immich backups),
+  `egress` = cluster → internet (users viewing). Verified empirically: 25 HTTP
+  GETs produced ~18 kB egress against ~3 kB ingress.
+- `newt_site_online` is **broken** in newt 1.15.0 — it reports
+  `{site_id="self"} 0` while the tunnel is healthy. Use
+  `newt_websocket_connected` instead. Note also that `newt_tunnel_sessions` and
+  `newt_site_online` use `site_id="self"` while every other newt metric uses the
+  real site ID, so joining on `site_id` across metrics does not work.
+- `newt_tunnel_sessions` **disappears** rather than reporting 0 when idle; the
+  dashboard uses `or vector(0)`.
+- A control channel that reads DOWN is an outage **already in progress**, not a
+  warning — the data plane keeps forwarding on the established WireGuard session
+  for several minutes before failing.
+
+### Restarting the VPS stack
+
+`docker compose up -d` recreates gerbil and traefik (pangolin is untouched).
+Expect a brief 502 on every Pangolin-routed hostname while Newt re-handshakes;
+it cleared on the first retry when this was done on 2026-08-22.
+
+### ⚠️ Never apply this app with `kustomize build | kubectl apply`
+
+`dnsendpoint.yaml` uses `${SECRET_DOMAIN}` and the dashboard JSON uses `$$` for
+Grafana's `$__rate_interval`. Both are resolved by Flux's **envsubst**, which
+`kustomize build` does not run. Applying by hand on 2026-08-22 published a
+literal `pangolin.${SECRET_DOMAIN}`, external-dns removed the real
+`pangolin.<domain>` record, and newt lost the hostname it needs to authenticate
+— taking every Pangolin-routed hostname down about ten minutes later.
+
+Recovery, in order:
+
+1. `flux -n network resume ks pangolin-newt` (if suspended) and reconcile — this
+   restores the correct DNSEndpoint.
+2. `kubectl rollout restart -n network deploy/external-dns-cloudflare` to
+   republish the record.
+3. The zone's negative TTL is **1800s**, so the LAN resolver and the Talos host
+   resolver (`169.254.116.108`) keep serving NXDOMAIN for up to 30 minutes.
+   Restarting CoreDNS is *not* enough — it forwards to those.
+4. To restore service without waiting out the TTL, pin the hostname on the newt
+   pod only:
+
+   ```bash
+   kubectl patch deploy -n network pangolin-newt --type=json \
+     -p '[{"op":"add","path":"/spec/template/spec/hostAliases","value":[{"ip":"<vps-ip>","hostnames":["pangolin.<domain>"]}]}]'
+   ```
+
+   Remove it (or let Flux revert it) once DNS resolves again.
