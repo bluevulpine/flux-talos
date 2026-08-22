@@ -1,0 +1,151 @@
+---
+# Five-minute incremental collector.
+#
+# Cadence is driven by the Home Assistant automation, not by the archive: the
+# aux-heat switchover should happen when the utility sheds the heat pump, not
+# after the indoor temperature has drooped far enough for the thermostat to
+# stage up on its own. Five minutes is the latency budget for that.
+#
+# Minutes are 2-59/5 (:02, :07, :12, ...) rather than */5. A bare */5 fires on
+# :00/:10/:20 alongside kia-collector's "*/10" and on :00/:15/:30/:45 alongside
+# image-reflector-healer's "*/15". concurrencyPolicy: Forbid does NOT help
+# against a sibling CronJob — it only serialises a CronJob against itself — so
+# the collision has to be avoided at the schedule. The +2 offset clears both.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: minnkota-collector
+spec:
+  schedule: "2-59/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      # Finished jobs age out in 1h. At a 5-minute cadence a one-off transient
+      # failure disappears on its own (so KubeJobFailed auto-resolves), while a
+      # persistent failure keeps producing fresh failed Jobs and stays alerting.
+      ttlSecondsAfterFinished: 3600
+      template:
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: minnkota-collector
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: collector
+              # Full ref auto-updated by Flux image automation (ImagePolicy
+              # flux-system:minnkota-collector).
+              # NOTE: no ":tag" suffix on the marker — this is a combined
+              # image:repo:tag scalar, so Flux must write the whole ref. A
+              # ":tag" suffix would overwrite the scalar with the bare tag and
+              # produce ImagePullBackOff.
+              image: gitea.derekjacobs.dev/bluevulpine/minnkota-collector:2-a2d17889 # {"$imagepolicy": "flux-system:minnkota-collector"}
+              imagePullPolicy: Always
+              envFrom:
+                - configMapRef:
+                    name: minnkota-collector-config
+                - secretRef:
+                    name: minnkota-collector-secret
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 64Mi
+                limits:
+                  # The incremental run holds two days of rows (~70) in memory.
+                  # The audit run holds the full history (~12.5k rows / ~116k
+                  # points) and is the sizing case.
+                  memory: 512Mi
+          volumes:
+            - name: tmp
+              emptyDir: {}
+---
+# Daily audit re-walk.
+#
+# The 5-minute job only refreshes a trailing 3-day window, so it steps straight
+# over any interior hole — and holes happen whenever the cluster or the API is
+# unavailable for more than that. This re-reads the entire retained range
+# (2025-09-13 onward, 172 calls, ~68s). Writes are idempotent on
+# (measurement, tagset, field, timestamp), so re-writing rows that are already
+# present costs nothing but repairs anything that is not.
+#
+# 47 minutes past hour 5 avoids every taken slot: hours 0/6/12/18 (openbao
+# snapshot, talos-backup), hour 3 (kopia r2 maintenance), hour 4:53
+# (beestat-collector audit), and the 2-59/5 minutes of the job above.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: minnkota-collector-audit
+spec:
+  schedule: "47 5 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      ttlSecondsAfterFinished: 21600
+      template:
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: minnkota-collector
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: collector
+              # See the marker note on the incremental job above.
+              image: gitea.derekjacobs.dev/bluevulpine/minnkota-collector:2-a2d17889 # {"$imagepolicy": "flux-system:minnkota-collector"}
+              imagePullPolicy: Always
+              env:
+                - name: AUDIT_MODE
+                  value: "true"
+                # The audit is the archive's repair pass, not the live signal.
+                # Leaving MQTT on would republish state from a run that takes
+                # ~70s, racing the incremental job for no benefit.
+                - name: MQTT_ENABLED
+                  value: "false"
+              envFrom:
+                - configMapRef:
+                    name: minnkota-collector-config
+                - secretRef:
+                    name: minnkota-collector-secret
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  memory: 512Mi
+          volumes:
+            - name: tmp
+              emptyDir: {}

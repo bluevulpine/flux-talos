@@ -1,0 +1,149 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minnkota-collector-config
+data:
+  INFLUXDB_URL: "http://influxdb.database.svc.cluster.local:8086"
+  INFLUXDB_ORG: "homelab"
+  INFLUXDB_BUCKET: "minnkota"
+
+  MINNKOTA_BASE_URL: "https://api.minnkotadr.com"
+  # Required by the server, but inert: every area returns identical data and
+  # every row is labelled coop "Red River" / substation "Ada". Load groups are
+  # globally unique across the ripple system, so filtering happens on `lg`.
+  MINNKOTA_AREA: "redlake"
+
+  # The API emits YYMMDDTHHMMSS in LOCAL WALL-CLOCK time and follows DST.
+  # Evidence: through Nov 2025 load group 2.06 sheds at exactly 07:10/17:10
+  # daily, unchanged across the 2025-11-02 DST boundary. Reading these as UTC
+  # shifts every event 5-6h and destroys the join against beestat runtime.
+  SOURCE_TZ: "America/Chicago"
+
+  # First day the API serves. 2025-09-12 returns zero rows; 2025-09-13 returns
+  # 19. The full walk is 172 calls / ~68s, so the daily audit re-reads all of it.
+  BACKFILL_START_DATE: "2025-09-13"
+
+  # Trailing window for the 5-minute job. The API returns a 2-day window per
+  # call, so 3 days is 2 calls — enough overlap to absorb a missed run without
+  # making the frequent job expensive.
+  LOOKBACK_DAYS: "3"
+
+  # Audit-only freshness gate. Deliberately generous and deliberately scoped to
+  # ALL load groups: the user's own groups (2.06/3.09) went 16 consecutive days
+  # without a command in May 2026, which is normal off-season behaviour. Across
+  # all groups the longest measured quiet run was 6 days.
+  STALE_FAIL_DAYS: "10"
+
+  # Politeness floor against an unauthenticated public utility API. No rate
+  # limit has ever been observed; this is courtesy, not a documented cap.
+  MIN_INTERVAL_SECONDS: "0.15"
+
+  # An 11-month backfill spans ~50 weekly shard groups. One large batch asks
+  # InfluxDB to create them all at once and times out server-side.
+  WRITE_BATCH_SIZE: "2000"
+
+  # The two loads that matter. Tagging is on the stable DO index, never the
+  # human name, so correcting a label does not fork the series.
+  HEAT_PUMP_LOAD_GROUP: "3.09"
+  HEAT_PUMP_DO: "DO13"
+  EVSE_LOAD_GROUP: "2.06"
+  EVSE_DO: "DO09"
+
+  MQTT_ENABLED: "true"
+  MQTT_HOST: "mosquitto.home.svc.cluster.local"
+  MQTT_PORT: "1883"
+  MQTT_DISCOVERY_PREFIX: "homeassistant"
+  MQTT_NODE_ID: "minnkota"
+  # Six missed 5-minute runs. A CronJob pod exits, so an MQTT last-will cannot
+  # express liveness; expire_after is what stops a stale retained value from
+  # looking live forever if the collector dies.
+  MQTT_EXPIRE_AFTER: "1800"
+
+  # Extracted from the SPA bundle object `UP` (main.1b282323.js, 2026-08-21).
+  # PER LOAD GROUP, not global — DO13 is "Dual Heat" in 3.09 and something else
+  # entirely elsewhere. Re-verify after a site redeploy; the hash will change.
+  DO_NAME_MAP_JSON: >-
+    {
+      "2.06": {"9": "Battery Storage", "16": "Battery Storage"},
+      "3.09": {"9": "Dual Heat", "10": "Dual Heat", "11": "Dual Heat",
+               "12": "Dual Heat", "13": "Dual Heat", "14": "Dual Heat",
+               "15": "Dual Heat", "16": "Dual Heat", "17": "Misc Heat 3",
+               "18": "Misc Heat 3", "24": "Ind. Contr Loads 3"},
+      "3.01": {"9": "Dual Heat", "10": "Dual Heat", "11": "Dual Heat",
+               "12": "Dual Heat", "13": "Dual Heat", "14": "Dual Heat",
+               "15": "Dual Heat", "16": "Dual Heat", "17": "Misc Heat 3",
+               "18": "Misc Heat 3", "19": "Dual Heat", "20": "Dual Heat",
+               "21": "Dual Heat", "22": "Dual Heat",
+               "24": "Ind. Controlled Loads 3"},
+      "1.01": {"9": "Grain Dryers", "10": "Pk Ind Light", "11": "Water Heaters",
+               "12": "Water Heaters", "13": "Water Heaters",
+               "14": "Water Heaters", "15": "Clothes Dryer", "16": "Office Heat",
+               "17": "Space Heat", "18": "Space Heat", "19": "Warehouse Fans",
+               "20": "Warehouse Fans", "21": "Warehouse Heat",
+               "22": "Warehouse Heat", "23": "Warehouse Heat",
+               "24": "Warehouse Heat"},
+      "1.02": {"11": "Water Heaters", "12": "Water Heaters",
+               "13": "Water Heaters", "14": "Water Heaters",
+               "15": "Misc Heat 1", "16": "Misc Heat 1", "17": "Water Heaters",
+               "18": "Water Heaters", "19": "Water Heaters",
+               "20": "Water Heaters", "24": "Ind. Controlled Loads 1"},
+      "2.01": {"9": "Slab Heat", "10": "Slab Heat", "11": "Slab Heat",
+               "12": "Slab Heat", "13": "Slab Heat", "14": "Slab Heat",
+               "15": "Misc Heat 2", "16": "Misc Heat 2",
+               "17": "Thermal Storage Heat", "18": "Thermal Storage Heat",
+               "19": "Water Heaters", "20": "Water Heaters",
+               "21": "Thermal Storage Heat", "22": "Thermal Storage Heat",
+               "23": "Thermal Storage Heat", "24": "Ind. Controlled Loads 2"},
+      "2.02": {"12": "Misc Loads 2", "13": "Misc Loads 2",
+               "19": "Water Heaters", "20": "Water Heaters",
+               "24": "Ind. Controlled Loads 2"},
+      "2.03": {"9": "Slab Heat", "10": "Slab Heat", "11": "Slab Heat",
+               "12": "Slab Heat", "13": "Slab Heat", "14": "Slab Heat",
+               "15": "Misc Heat 2", "16": "Misc Heat 2",
+               "17": "Thermal Storage Heat", "18": "Thermal Storage Heat",
+               "19": "Water Heaters", "20": "Water Heaters",
+               "21": "Thermal Storage Heat", "22": "Thermal Storage Heat",
+               "23": "Thermal Storage Heat", "24": "Ind. Controlled Loads 2"},
+      "2.04": {"12": "Misc Loads 2", "13": "Misc Loads 2",
+               "19": "Water Heaters", "20": "Water Heaters",
+               "24": "Ind. Controlled Loads 2"},
+      "3.06": {"9": "Interruptible Alert", "10": "Industrial Loads",
+               "11": "Commercial", "12": "Commercial", "13": "Commercial",
+               "14": "Commercial", "15": "Industrial", "16": "Commercial",
+               "17": "Commercial", "18": "Commercial", "19": "Commercial",
+               "23": "Ind. Controlled Loads 3",
+               "24": "Ind. Controlled Loads 3"},
+      "3.07": {"9": "Interruptible Alert", "10": "Comm, Direct Control",
+               "11": "Comm, Direct Control", "12": "Misc Loads 3",
+               "13": "Misc Loads 3", "14": "Comm, Direct Control",
+               "15": "Comm, Direct Control", "16": "Comm, Direct Control",
+               "17": "Misc Loads 3", "18": "Misc Loads 3",
+               "19": "Comm, Direct Control", "20": "Comm, Direct Control",
+               "21": "Ind Controlled Loads 3", "22": "Voltage Reduction",
+               "23": "Comm, Indirect Control", "24": "Ind Controlled Loads 3"},
+      "3.08": {"10": "Industrial Interruptible Loads",
+               "15": "Industrial Interruptible Loads"},
+      "6.01": {"9": "Industrial Interruptible Loads",
+               "10": "Low Temperature Grain Dryers",
+               "11": "Reserved for Future Use", "12": "Miscellaneous Loads",
+               "13": "Miscellaneous Loads", "14": "Reserved for Future Use",
+               "15": "Reserved for Future Use", "16": "Reserved for Future Use",
+               "17": "Reserved for Future Use", "18": "Reserved for Future Use",
+               "19": "Reserved for Future Use",
+               "20": "Irrigation Incremental Pricing Plan",
+               "21": "Residential Locally Cycled Air Conditioning Loads",
+               "22": "Commercial Locally Cycled Air Conditioning Loads",
+               "23": "Indirectly Controlled Residential Loads",
+               "24": "Indirectly Controlled Commercial Loads"}
+    }
+
+  # Programme tier, keyed on the integer prefix of the load group. From the
+  # same bundle, object `WP`.
+  TIER_NAME_MAP_JSON: >-
+    {
+      "1": "Short-Term Loads (water heaters)",
+      "2": "Intermediate-Term Loads (storage heat)",
+      "3": "Long-Term Loads (dual heating furnaces, back-up generators)",
+      "6": "Summer-Only Loads (irrigation, cycled air conditioning)"
+    }

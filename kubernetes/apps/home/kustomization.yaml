@@ -16,3 +16,4 @@ resources:
   - ./beestat-collector/ks.yaml
   - ./kia-collector/ks.yaml
   - ./chargepoint-collector/ks.yaml
+  - ./minnkota-collector/ks.yaml
