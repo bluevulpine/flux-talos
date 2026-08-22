@@ -85,15 +85,18 @@ spec:
 # (measurement, tagset, field, timestamp), so re-writing rows that are already
 # present costs nothing but repairs anything that is not.
 #
-# 47 minutes past hour 5 avoids every taken slot: hours 0/6/12/18 (openbao
+# 45 minutes past hour 5 avoids every taken slot: hours 0/6/12/18 (openbao
 # snapshot, talos-backup), hour 3 (kopia r2 maintenance), hour 4:53
-# (beestat-collector audit), and the 2-59/5 minutes of the job above.
+# (beestat-collector audit). The minute must not be ≡ 2 (mod 5) — the job
+# above runs on 2-59/5 (:02, :07, :12, ... :47, :52, :57), so :47 collides
+# with it (a previous version of this comment claimed :47 was clear; it is
+# not — 47 mod 5 == 2). :45 is 0 mod 5, so it never lands on that cadence.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: minnkota-collector-audit
 spec:
-  schedule: "47 5 * * *"
+  schedule: "45 5 * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 5

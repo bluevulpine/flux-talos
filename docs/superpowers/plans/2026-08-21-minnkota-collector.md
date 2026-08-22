@@ -2324,15 +2324,18 @@ spec:
 # (measurement, tagset, field, timestamp), so re-writing rows that are already
 # present costs nothing but repairs anything that is not.
 #
-# 47 minutes past hour 5 avoids every taken slot: hours 0/6/12/18 (openbao
+# 45 minutes past hour 5 avoids every taken slot: hours 0/6/12/18 (openbao
 # snapshot, talos-backup), hour 3 (kopia r2 maintenance), hour 4:53
-# (beestat-collector audit), and the 2-59/5 minutes of the job above.
+# (beestat-collector audit). The minute must not be ≡ 2 (mod 5) — the job
+# above runs on 2-59/5 (:02, :07, :12, ... :47, :52, :57), so :47 collides
+# with it (a previous version of this comment claimed :47 was clear; it is
+# not — 47 mod 5 == 2). :45 is 0 mod 5, so it never lands on that cadence.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: minnkota-collector-audit
 spec:
-  schedule: "47 5 * * *"
+  schedule: "45 5 * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 5
@@ -2997,7 +3000,7 @@ two causes have opposite fixes, so the panel now separates them."
 | No OpenBao K8s auth role; `automountServiceAccountToken: false` | 8 |
 | CronJob, `Forbid`, `ttlSecondsAfterFinished`, non-root, RO rootfs, drop ALL, requests/limits | 8 |
 | PrometheusRule: job-failed, ImagePullBackOff, last-success staleness, non-zero exit on archiving nothing | 10 |
-| Poll every 5–10 min, avoiding taken cron slots | 8 (`2-59/5`, `47 5`) |
+| Poll every 5–10 min, avoiding taken cron slots | 8 (`2-59/5`, `45 5`) |
 | Stateless watermark, re-fetch with overlap | 3, 5 |
 | Schema: `ripple_state` tagged on stable `do`, plus `dr_plan` / `dr_schedule` / `system_condition` | 2, 5 |
 | Beware InfluxDB write traps (mixed types, batch/shard count) | 2, 3, 5 |
