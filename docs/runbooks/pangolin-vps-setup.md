@@ -197,9 +197,19 @@ Both exporter ports are published **bound to the tailnet address**
       - 100.65.0.27:8082:8082 # traefik Prometheus exporter (tailnet only)
 ```
 
-Binding to the tailnet IP **is** the access control. A ufw rule would not work:
-Docker's published ports traverse `DOCKER-USER`, not ufw's `INPUT` chain, so an
-`0.0.0.0`-published port stays reachable from the public IP regardless of ufw.
+Binding to the tailnet IP **is** the access control, and it is the deliberate
+choice rather than the only option: a port that was never published on the public
+interface has no rule left to be reordered, flushed, or lost when docker
+restarts, so it fails closed by construction.
+
+The trap to avoid is reaching for a plain ufw rule. Docker DNATs published ports
+before ufw's `INPUT` chain ever sees them, so an `0.0.0.0`-published port stays
+reachable from the public IP no matter what ufw says. Docker does provide
+`DOCKER-USER` for exactly this purpose and rules inserted there **do** apply — a
+firewall approach is entirely possible, it is just more moving parts for the same
+outcome. Verified from off-network against the public IP: `443` and `80` answer
+(the controls, proving the probe reached the host), while `3004`, `8082` and
+`3002` are filtered.
 
 Traefik's exporter is on its own `metrics` entryPoint (`:8082`) so `/metrics` is
 never served on the public `web`/`websecure` listeners.
@@ -219,18 +229,47 @@ scrape arrives as `tag:server`; no Tailscale ACL change is needed.
 
 - `newt_tunnel_bytes_total{direction=...}` is from **newt's** perspective:
   `ingress` = internet → cluster (user uploads, e.g. Immich backups),
-  `egress` = cluster → internet (users viewing). Verified empirically: 25 HTTP
-  GETs produced ~18 kB egress against ~3 kB ingress.
-- `newt_site_online` is **broken** in newt 1.15.0 — it reports
-  `{site_id="self"} 0` while the tunnel is healthy. Use
-  `newt_websocket_connected` instead. Note also that `newt_tunnel_sessions` and
+  `egress` = cluster → internet (users viewing). Confirmed in source, not just by
+  inference: `proxy/manager.go:677` counts the write toward the origin as
+  `ingress` and `:684` counts the write back toward the user as `egress`. It
+  matches the empirical check too — 25 HTTP GETs produced ~18 kB egress against
+  ~3 kB ingress.
+  **Do not read these bytes as link utilisation.** They are counted at newt's own
+  proxy layer, before WireGuard encapsulation, so the bytes actually crossing the
+  258/135 Mbit WAN are strictly more than what this counter reports. (Newt is a
+  raw TCP proxy to `external.network.svc:443`, so the origin-side TLS record
+  framing *is* already inside the count — what is excluded is the WireGuard, UDP
+  and IP overhead wrapped around it, not the TLS.) The dashboard draws the 258 Mbit figure as a reference line on
+  the upload panel, but a series that appears to be approaching it has already
+  saturated the link — treat the headroom it implies as optimistic.
+- `newt_site_online` has **never** worked, in any build — this is not a 1.15.0
+  regression and 1.16.0 does not fix it. Upstream, the only thing that can move
+  the gauge is `SetOnline(b bool)` at `internal/state/telemetry_view.go:53`, and
+  it has **zero callers anywhere** in the tree, so the metric is pinned at
+  `{site_id="self"} 0` permanently. Its neighbour `TouchHeartbeat` is uncalled
+  for the same reason, which is why `newt_site_last_heartbeat` never emits at all
+  rather than emitting something stale. No upstream issue tracks this; the only
+  related one is fosrl/newt#131, the closed feature request that added these
+  metrics in the first place. So use `newt_websocket_connected` and do not wait
+  for a version bump. Note also that `newt_tunnel_sessions` and
   `newt_site_online` use `site_id="self"` while every other newt metric uses the
   real site ID, so joining on `site_id` across metrics does not work.
 - `newt_tunnel_sessions` **disappears** rather than reporting 0 when idle; the
   dashboard uses `or vector(0)`.
 - A control channel that reads DOWN is an outage **already in progress**, not a
-  warning — the data plane keeps forwarding on the established WireGuard session
-  for several minutes before failing.
+  warning. The data plane can keep forwarding on the established WireGuard
+  session after the control channel drops — but **how long is unknown**, and the
+  "roughly ten minutes" figure this runbook used to quote should not be planned
+  around. It was observed once, on 2026-08-22, and never isolated: the same
+  mistake deleted the A record that every Pangolin hostname CNAMEs onto, and both
+  the CNAMEs and that A record carry a **300s TTL**, so public resolvers were
+  aging out their cached answers on an entirely separate clock while the control
+  channel was failing. Two independent countdowns, one observation — the ten
+  minutes cannot be attributed to WireGuard session survival, and the real grace
+  period may be far shorter. Measuring it properly means leaving DNS completely
+  alone and denying the newt pod egress to the VPS on `443/tcp` while leaving
+  `21820/udp` open, then timing how long traffic keeps flowing. Until someone
+  does that, treat DOWN as "already dark".
 
 ### Restarting the VPS stack
 
@@ -245,7 +284,14 @@ Grafana's `$__rate_interval`. Both are resolved by Flux's **envsubst**, which
 `kustomize build` does not run. Applying by hand on 2026-08-22 published a
 literal `pangolin.${SECRET_DOMAIN}`, external-dns removed the real
 `pangolin.<domain>` record, and newt lost the hostname it needs to authenticate
-— taking every Pangolin-routed hostname down about ten minutes later.
+— every Pangolin-routed hostname was dark about ten minutes later.
+
+Losing that one record breaks users **and** the tunnel by two separate
+mechanisms, which is worth holding on to when reading the timeline: the app
+hostnames are CNAMEs onto `pangolin.<domain>`, so external resolution dies on its
+own 300s TTL whether or not the tunnel is healthy. That is why the ten minutes
+above must not be read as a WireGuard grace period (see "Reading the numbers"),
+and why recovery has both a tunnel-side and a user-side half.
 
 Recovery, in order:
 
@@ -256,8 +302,8 @@ Recovery, in order:
 3. The zone's negative TTL is **1800s**, so the LAN resolver and the Talos host
    resolver (`169.254.116.108`) keep serving NXDOMAIN for up to 30 minutes.
    Restarting CoreDNS is *not* enough — it forwards to those.
-4. To restore service without waiting out the TTL, pin the hostname on the newt
-   pod only:
+4. **Restore the _tunnel_ without waiting out the TTL.** Pinning the hostname on
+   the newt pod lets newt re-authenticate immediately:
 
    ```bash
    kubectl patch deploy -n network pangolin-newt --type=json \
@@ -265,3 +311,27 @@ Recovery, in order:
    ```
 
    Remove it (or let Flux revert it) once DNS resolves again.
+
+   Be honest about what this buys: `hostAliases` rewrites resolution **inside the
+   newt pod only**. An external user never asks the cluster anything — they
+   resolve `photos.<domain>`, follow the CNAME to `pangolin.<domain>`, and get
+   nothing back from their own resolver while that record is missing. A perfectly
+   healthy tunnel is still a total outage for them. This step fixes the connector,
+   not the service.
+
+5. **Restore _user-facing_ service.** Confirm the A record is genuinely back at
+   the authoritative source and at a public resolver — step 2 should republish
+   it, but verify rather than assume:
+
+   ```bash
+   dig +short pangolin.<domain> @1.1.1.1
+   dig +short photos.<domain> @1.1.1.1   # should CNAME → pangolin.<domain>
+   ```
+
+   Then wait out the public negative TTL (the zone's SOA minimum, 1800s — nothing
+   you control can shorten what a third-party resolver has already cached). If
+   that is too long to sit through, the only real lever is to temporarily replace
+   the app CNAMEs with A records pointing straight at the VPS IP, bypassing the
+   missing name entirely. Revert them once `pangolin.<domain>` resolves again,
+   otherwise a future VPS IP change will silently break exactly the hostnames you
+   edited and nothing else — a failure mode that is very hard to spot.
