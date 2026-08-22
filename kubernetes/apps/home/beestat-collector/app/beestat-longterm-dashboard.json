@@ -771,7 +771,7 @@
       },
       "gridPos": {
         "h": 11,
-        "w": 24,
+        "w": 16,
         "x": 0,
         "y": 31
       },
@@ -865,10 +865,122 @@
             },
             "properties": [
               {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "days"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "outdoor_f",
+        "orientation": "auto",
+        "showValue": "never",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Indoor temperature held, by outdoor band",
+      "id": 40,
+      "description": "Mean indoor temperature achieved in each outdoor band. This is the capacity check for the chart to the left: flat across the hot bands means the system holds the house even at its busiest. A rise at the right-hand end would mean it is losing ground. Zeroed at 55 degF so the variation is legible rather than a row of identical full-height bars.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 8,
+        "x": 16,
+        "y": 31
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_cool_1\"\n        or r._field == \"avg_outdoor_temperature\"\n        or r._field == \"avg_indoor_temperature\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.avg_outdoor_temperature\n        and exists r.sum_compressor_cool_1)\n  |> map(fn: (r) => ({\n        bucket: float(v: int(v: (r.avg_outdoor_temperature + 100.0) / 5.0))\n                * 5.0 - 100.0,\n        cool: r.sum_compressor_cool_1 / 3600.0,\n        indoor: r.avg_indoor_temperature}))\n  |> group(columns: [\"bucket\"])\n  |> reduce(identity: {cool: 0.0, mx: 0.0, ind: 0.0, n: 0.0},\n      fn: (r, accumulator) => ({\n        cool: accumulator.cool + r.cool,\n        mx: if r.cool > accumulator.mx then r.cool else accumulator.mx,\n        ind: accumulator.ind + r.indoor,\n        n: accumulator.n + 1.0}))\n  |> map(fn: (r) => ({outdoor_f: r.bucket, cooling_h: r.cool / r.n,\n        busiest_day_h: r.mx, indoor_f: r.ind / r.n, days: r.n}))\n  |> group()\n  |> filter(fn: (r) => r.days >= 3.0)\n  |> sort(columns: [\"outdoor_f\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 1,
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "axisPlacement": "auto",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "outdoor_f"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "fahrenheit"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "indoor_f"
+            },
+            "properties": [
+              {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "text"
+                  "fixedColor": "green"
                 }
               },
               {
@@ -876,24 +988,44 @@
                 "value": "Mean indoor temp"
               },
               {
-                "id": "unit",
-                "value": "fahrenheit"
+                "id": "min",
+                "value": 55
               },
               {
-                "id": "custom.axisPlacement",
-                "value": "right"
-              },
+                "id": "max",
+                "value": 75
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cooling_h"
+            },
+            "properties": [
               {
-                "id": "custom.drawStyle",
-                "value": "line"
-              },
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "busiest_day_h"
+            },
+            "properties": [
               {
-                "id": "custom.lineWidth",
-                "value": 2
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 0
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
               }
             ]
           },
@@ -936,7 +1068,7 @@
     {
       "type": "row",
       "title": "Trends",
-      "id": 40,
+      "id": 41,
       "collapsed": false,
       "panels": [],
       "gridPos": {
@@ -949,7 +1081,7 @@
     {
       "type": "timeseries",
       "title": "Heating hours per heating degree day (monthly)",
-      "id": 41,
+      "id": 42,
       "description": "Total heating runtime divided by the weather's heating demand, per month. Because it is normalised by degree days, a rising line means the system is working harder for the same weather \u2014 the signature of degrading equipment, a failing envelope, or a changed setpoint. Months with under 20 HDD are excluded as too noisy to divide by.",
       "datasource": {
         "type": "influxdb",
@@ -1033,7 +1165,7 @@
     {
       "type": "timeseries",
       "title": "Data coverage",
-      "id": 42,
+      "id": 43,
       "description": "Share of each day's 288 five-minute intervals that beestat actually holds, weekly mean. Dips are real upstream gaps \u2014 periods where ecobee or beestat lost data. Worth knowing before trusting any comparison that spans one.",
       "datasource": {
         "type": "influxdb",
