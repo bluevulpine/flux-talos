@@ -915,6 +915,8 @@ cp ~/Repositories/beestat-collector/influx_archive.py .
 
 `series_bounds()` exists in beestat because that collector must discover how far *back* its archive already reaches, chunk by chunk, against a 31-day server-side range cap. None of that applies here: the entire Minnkota history is 172 calls and the daily audit simply re-walks all of it. Delete `series_bounds` and keep `newest`, `write`, and the two helpers.
 
+**Keep `newest()` even though nothing calls it yet** — Task 5 uses it for a post-write read-back that verifies the write actually landed. It is not dead code.
+
 Replace the module docstring with:
 
 ```python
@@ -1281,7 +1283,10 @@ reading publishes OFF, never ON -- absence of data must not force propane."
 - Create: `~/Repositories/minnkota-collector/README.md`
 
 **Interfaces:**
-- Consumes: everything from Tasks 1–4.
+- Consumes: everything from Tasks 1–4. Note this task calls
+  `InfluxArchive.newest(measurement, field, lookback_days)` from Task 3 for the
+  post-write read-back — that method exists for exactly this and has no other
+  caller.
 - Produces: a `main()` entry point with the documented exit codes.
 
 ### Exit codes
@@ -1292,7 +1297,7 @@ reading publishes OFF, never ON -- absence of data must not force propane."
 | 2 | Configuration error (missing/invalid env) |
 | 3 | Minnkota API error |
 | 4 | Audit ran but the API returned no rows for **any** load group over `STALE_FAIL_DAYS` — the source looks dead |
-| 5 | InfluxDB error |
+| 5 | InfluxDB error, including a failed post-write read-back |
 | 6 | MQTT error |
 
 Exit 4 deliberately does **not** gate on the user's own load groups. Measured: groups 2.06 and 3.09 went 16 consecutive days with no command in May 2026, and that is normal off-season behaviour. Across *all* groups the longest quiet run was 6 days, so a 10-day window has margin. The check only runs in audit mode, because the 5-minute job fetches a 2-day window and cannot see 10 days.
@@ -1588,12 +1593,42 @@ def main() -> int:
     # Write
     # ------------------------------------------------------------------
     try:
-        points = to_points(rows.values(), do_names, tiers, area)
-        points.extend(extra_points)
+        ripple_points = to_points(rows.values(), do_names, tiers, area)
         # Small batches: an 11-month backfill spans ~50 weekly shard groups and
         # a single large batch asks InfluxDB to create all of them at once,
         # which times out server-side. See reference-influxdb-write-traps.
-        written = influx.write(points, batch_size=env_int("WRITE_BATCH_SIZE", 2000))
+        written = influx.write(
+            ripple_points + extra_points,
+            batch_size=env_int("WRITE_BATCH_SIZE", 2000),
+        )
+
+        # Read-back verification.
+        #
+        # A write that silently no-ops -- wrong bucket, a token scoped to a
+        # different bucket, a server that accepted and dropped -- is otherwise
+        # indistinguishable from success, forever. This is the one failure mode
+        # that would let the collector report green while archiving nothing.
+        #
+        # It compares against what THIS run actually fetched rather than
+        # against wall-clock, which is what makes it safe: the co-op
+        # legitimately issues no commands for days at a time, so any
+        # wall-clock freshness gate would false-positive every off-season.
+        # If this run produced no ripple points there is nothing to verify.
+        if ripple_points:
+            expected = max(r.timestamp for r in rows.values())
+            # Look back far enough to cover the newest row's own age plus a
+            # week of slack, so a quiet period cannot push it out of range.
+            age_days = max(0, (_utcnow() - expected).days)
+            archived = influx.newest("ripple_state", "curtailed", age_days + 7)
+            if archived is None or archived < expected:
+                log.error(
+                    "read-back failed: archive newest is %s but this run fetched "
+                    "up to %s -- the write did not land",
+                    archived,
+                    expected,
+                )
+                return EXIT_INFLUX
+
         elapsed = time.monotonic() - started
         influx.write(
             [
@@ -1605,10 +1640,9 @@ def main() -> int:
                 .time(_utcnow(), WritePrecision.S)
             ]
         )
-        log.info("wrote %d points in %.1fs", written, elapsed)
+        log.info("wrote %d points in %.1fs (read-back ok)", written, elapsed)
     except Exception as exc:  # influxdb-client raises a wide variety
         log.error("InfluxDB error: %s", exc)
-        influx.close()
         return EXIT_INFLUX
     finally:
         influx.close()
@@ -1900,9 +1934,19 @@ topic write homeassistant/sensor/minnkota/#
 
 Restart mosquitto so it reloads:
 
+**No restart is needed.** The mosquitto pod runs a `hasher` sidecar that
+watches the mounted secret, re-hashes `passwd.conf`, copies `acl.conf`, and
+sends SIGHUP to the broker. Verified live: ESO resync → kubelet propagation
+→ hasher SIGHUP took ~30 s end to end.
+
+(Note also that mosquitto is a **StatefulSet**, not a Deployment, so
+`rollout restart deployment/mosquitto` would fail outright.)
+
+To watch it happen:
+
 ```bash
-kubectl -n home rollout restart deployment/mosquitto
-kubectl -n home rollout status deployment/mosquitto
+kubectl -n home annotate externalsecret mosquitto-secret "force-sync=$(date +%s)" --overwrite
+kubectl -n home logs sts/mosquitto -c hasher --tail=10
 ```
 
 - [ ] **Step 6: Verify the credentials work end-to-end**
