@@ -7,3 +7,16 @@ resources:
   - serviceaccount.yaml
   - cronjob.yaml
   - prometheusrule.yaml
+# Grafana dashboard, provisioned via the sidecar (label grafana_dashboard=1).
+# NOTE: this Kustomization has postBuild.substitute, so any "${...}" in the JSON
+# would be eaten by envsubst as an unset variable. This dashboard deliberately
+# contains none — no Grafana template variables and no "${__field...}" display
+# names — so it needs no "$$" escaping. Keep it that way, or escape on the way in.
+configMapGenerator:
+  - name: minnkota-collector-dashboards
+    files:
+      - minnkota-dashboard.json
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    grafana_dashboard: "1"
