@@ -615,7 +615,7 @@
     },
     {
       "type": "row",
-      "title": "Heat Pump vs Propane",
+      "title": "Load vs Outdoor Temperature",
       "id": 37,
       "collapsed": false,
       "panels": [],
@@ -647,7 +647,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_auxiliary_heat_1\"\n        or r._field == \"sum_compressor_heat_1\" or r._field == \"avg_outdoor_temperature\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.avg_outdoor_temperature)\n  |> map(fn: (r) => ({\n        bucket: float(v: int(v: (r.avg_outdoor_temperature + 100.0) / 5.0))\n                * 5.0 - 100.0,\n        aux: r.sum_auxiliary_heat_1 / 3600.0,\n        hp: r.sum_compressor_heat_1 / 3600.0}))\n  |> group(columns: [\"bucket\"])\n  |> reduce(identity: {aux: 0.0, hp: 0.0, n: 0.0},\n      fn: (r, accumulator) => ({aux: accumulator.aux + r.aux,\n        hp: accumulator.hp + r.hp, n: accumulator.n + 1.0}))\n  |> map(fn: (r) => ({outdoor_f: r.bucket,\n        heatpump_h: r.hp / r.n, propane_h: r.aux / r.n, days: r.n}))\n  |> group() |> sort(columns: [\"outdoor_f\"])",
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_auxiliary_heat_1\"\n        or r._field == \"sum_compressor_heat_1\" or r._field == \"avg_outdoor_temperature\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.avg_outdoor_temperature)\n  |> map(fn: (r) => ({\n        bucket: float(v: int(v: (r.avg_outdoor_temperature + 100.0) / 5.0))\n                * 5.0 - 100.0,\n        aux: r.sum_auxiliary_heat_1 / 3600.0,\n        hp: r.sum_compressor_heat_1 / 3600.0}))\n  |> group(columns: [\"bucket\"])\n  |> reduce(identity: {aux: 0.0, hp: 0.0, n: 0.0},\n      fn: (r, accumulator) => ({aux: accumulator.aux + r.aux,\n        hp: accumulator.hp + r.hp, n: accumulator.n + 1.0}))\n  |> map(fn: (r) => ({outdoor_f: r.bucket,\n        heatpump_h: r.hp / r.n, propane_h: r.aux / r.n, days: r.n}))\n  |> group()\n  |> filter(fn: (r) => r.days >= 3.0)\n  |> sort(columns: [\"outdoor_f\"])",
           "refId": "A"
         }
       ],
@@ -761,22 +761,195 @@
       }
     },
     {
+      "type": "barchart",
+      "title": "Cooling load \u2014 average and busiest-day hours by outdoor temperature",
+      "id": 39,
+      "description": "The cooling counterpart to the balance point above. Orange is the mean hours per day in each 5 degF band; the paler bar is the busiest single day in that band, so the gap between them is the headroom before the system would run flat out. The line is mean indoor temperature: it holding flat across the hot buckets is the evidence the system keeps up. Buckets with fewer than 3 days are dropped, since a one-day 'average' is not one.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_cool_1\"\n        or r._field == \"avg_outdoor_temperature\"\n        or r._field == \"avg_indoor_temperature\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.avg_outdoor_temperature\n        and exists r.sum_compressor_cool_1)\n  |> map(fn: (r) => ({\n        bucket: float(v: int(v: (r.avg_outdoor_temperature + 100.0) / 5.0))\n                * 5.0 - 100.0,\n        cool: r.sum_compressor_cool_1 / 3600.0,\n        indoor: r.avg_indoor_temperature}))\n  |> group(columns: [\"bucket\"])\n  |> reduce(identity: {cool: 0.0, mx: 0.0, ind: 0.0, n: 0.0},\n      fn: (r, accumulator) => ({\n        cool: accumulator.cool + r.cool,\n        mx: if r.cool > accumulator.mx then r.cool else accumulator.mx,\n        ind: accumulator.ind + r.indoor,\n        n: accumulator.n + 1.0}))\n  |> map(fn: (r) => ({outdoor_f: r.bucket, cooling_h: r.cool / r.n,\n        busiest_day_h: r.mx, indoor_f: r.ind / r.n, days: r.n}))\n  |> group()\n  |> filter(fn: (r) => r.days >= 3.0)\n  |> sort(columns: [\"outdoor_f\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix:h",
+          "decimals": 2,
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "axisPlacement": "auto",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "outdoor_f"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "fahrenheit"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cooling_h"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "Cooling (h/day, mean)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "busiest_day_h"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "super-light-blue"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "Busiest day (h)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "indoor_f"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "Mean indoor temp"
+              },
+              {
+                "id": "unit",
+                "value": "fahrenheit"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "days"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "outdoor_f",
+        "orientation": "auto",
+        "showValue": "never",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
       "type": "row",
       "title": "Trends",
-      "id": 39,
+      "id": 40,
       "collapsed": false,
       "panels": [],
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 31
+        "y": 42
       }
     },
     {
       "type": "timeseries",
       "title": "Heating hours per heating degree day (monthly)",
-      "id": 40,
+      "id": 41,
       "description": "Total heating runtime divided by the weather's heating demand, per month. Because it is normalised by degree days, a rising line means the system is working harder for the same weather \u2014 the signature of degrading equipment, a failing envelope, or a changed setpoint. Months with under 20 HDD are excluded as too noisy to divide by.",
       "datasource": {
         "type": "influxdb",
@@ -786,7 +959,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 32
+        "y": 43
       },
       "targets": [
         {
@@ -860,7 +1033,7 @@
     {
       "type": "timeseries",
       "title": "Data coverage",
-      "id": 41,
+      "id": 42,
       "description": "Share of each day's 288 five-minute intervals that beestat actually holds, weekly mean. Dips are real upstream gaps \u2014 periods where ecobee or beestat lost data. Worth knowing before trusting any comparison that spans one.",
       "datasource": {
         "type": "influxdb",
@@ -870,7 +1043,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 32
+        "y": 43
       },
       "targets": [
         {
