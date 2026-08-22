@@ -2,9 +2,135 @@
 
 **Date:** 2026-08-21
 **Status:** Scoping brief. Reconnaissance done, nothing built. Read this, then start.
+**Revised:** 2026-08-21 — a second recon pass corrected two load-bearing premises. See
+**Corrections** immediately below; they override anything later in this document.
 **Source repo:** `git@gitea.derekjacobs.dev:bluevulpine/minnkota-collector.git` (empty; created for this work)
 **Closest reference implementation:** `~/Repositories/beestat-collector` + `kubernetes/apps/home/beestat-collector/`
 **Related brief:** none. Related memory: `project-beestat-collector`, `reference-beestat-api`.
+
+---
+
+## Corrections (verified live 2026-08-21, second pass)
+
+These override the original text below. Each was measured against the live API,
+not inferred.
+
+### 1. History EXISTS — the "rolling window" premise was wrong
+
+The original brief says *"there is no historical data — the site only exposes a
+rolling window — so every day not collected is lost permanently."* **False.**
+
+`/api/Ripple/list` serves history back to **2025-09-13** (bisected; 2025-09-12
+returns 0 rows, 2025-09-13 returns 19). That is the whole 2025-26 heating season,
+**342 days**, reachable in ~172 calls.
+
+Consequence: this is not a race against data expiry. **Backfill the full range on
+first run.** The balance-point question can be answered immediately rather than
+after another winter. Confirmed shed events already visible in that history:
+
+| Date | Shed (local) | Duration |
+| --- | --- | --- |
+| 2025-11-07 | 07:21 → 13:43 | 6 h 22 m |
+| 2025-11-12 | 07:47 → 13:24 | 5 h 37 m |
+| 2025-11-12 | 15:30 → 22:02 | 6 h 32 m |
+| 2025-12-08 | 07:16 → 10:48 | 3 h 32 m |
+
+Morning-peak and evening-peak sheds — exactly the hours the balance-point panel
+currently attributes to thermostat lockout.
+
+### 2. `startDate=X` returns a TWO-day window (X and X+1)
+
+Not one day. Verified: `startDate=2026-08-18` returns rows dated `260818` and
+`260819`. There is no `endDate` parameter. Walk history at a **2-day stride**
+(or 1-day for deliberate overlap — writes are idempotent, so overlap is free).
+
+`area` is a **required** parameter (a deliberate 400 says so) even though its
+value does not change the response.
+
+### 3. The DO → load-name mapping is RESOLVED — extract it, do not guess
+
+The full table is object `UP` in the SPA bundle, keyed by load group. The two
+that matter:
+
+```
+2.06: {9:"Battery Storage", 16:"Battery Storage"}
+3.09: {9..16:"Dual Heat", 17:"Misc Heat 3", 18:"Misc Heat 3", 24:"Ind. Contr Loads 3"}
+```
+
+- **3.09 / DO13 = "Dual Heat"** — confirms the brief's hypothesis. This is the
+  heat-pump/propane control and the whole point of the collector.
+- **2.06 / DO09 + DO16 = "Battery Storage"** — the brief called this "EVSE".
+  The utility's own label is *Battery Storage*. The behaviour is still an
+  off-peak charging window; only the name was wrong. Tag on the `do` index so
+  the label can be corrected later without forking the series.
+
+Load-group *tier* names come from a second dict (`WP`), keyed on the integer
+prefix: `1` = Short-Term (water heaters), `2` = Intermediate-Term (storage heat),
+`3` = Long-Term (dual heating furnaces, back-up generators), `6` = Summer-Only.
+
+Both tables are pinned into `configmap.yaml` as JSON. Bundle hash
+`main.1b282323.js` was unchanged between both recon passes.
+
+### 4. `---` does NOT mean "not controlled" — rows are PARTIAL
+
+This is the correction most likely to produce silently wrong data.
+
+The original brief says `---` = "not controlled for that load group". That is only
+half true. A row is **one command addressed to a subset of DOs**; every DO the
+command did not address reads `---`, including DOs that are controlled and
+currently hold a state. Observed:
+
+```
+251203T071900  lg=3.09  OFF=DO09,DO10,DO11,DO12            (all others '---')
+251203T072200  lg=3.09  OFF=DO09..DO18,DO24                (3 minutes later)
+```
+
+Between 07:19 and 07:22, DO13 was still **ON** — it simply was not addressed by
+the 07:19 command. A collector that treats `---` as "no state" leaves holes; one
+that treats it as OFF invents sheds that never happened.
+
+**Therefore: carry state forward per `(load_group, do)`.** Write a point only for
+the DOs a row actually addresses, and let queries use last-value-carried-forward.
+
+Related: the log is **not** strictly one-row-per-change. Rows repeat the same
+state periodically (2.06 emitted identical ON rows at 00:00, 00:56 and 01:31 on
+2026-08-21). Deduplicate on timestamp; never infer a transition merely from the
+arrival of a new row.
+
+### 5. Timestamps are LOCAL wall-clock (America/Chicago), including DST
+
+`datetime` is `YYMMDDTHHMMSS` with no zone. It is **local wall-clock time**, and
+it follows DST rather than sitting at a fixed offset.
+
+Evidence: through Nov 2025, load group 2.06 sheds at exactly `07:10` and `17:10`
+every single day — across the 2025-11-02 DST boundary, with no one-hour shift.
+A UTC or fixed-offset reading would place that shed at 01:10/11:10 local, which
+is not a peak period under any tariff.
+
+Parse with `ZoneInfo("America/Chicago")`, then convert to UTC for InfluxDB.
+Getting this wrong shifts every event by 5–6 hours and silently destroys the
+join against beestat runtime.
+
+### 6. New requirement: live signal into Home Assistant
+
+Beyond archiving, the collector must publish the **current** curtailment state so
+a Home Assistant automation can flip the ecobee to *aux heat only* the moment the
+utility disables the heat pump — rather than waiting for indoor temperature to
+droop far enough for the thermostat to stage up on its own.
+
+Delivery is **retained MQTT with Home Assistant discovery**, on the existing
+`mosquitto` broker in the `home` namespace. Runtime shape confirmed with the user:
+**CronJob every 5 minutes** (`2-59/5`), matching the sibling collectors — not a
+long-running Deployment.
+
+### 7. `/api/Status/list?area=<slug>` is a useful current-state snapshot
+
+Not probed in the first pass. Returns one row per load group with the last-change
+timestamp and all DOs as named fields (`dO9`..`dO25` — note `dO25` exists here and
+not in the 16-element `do` array). Timestamps are `MM/DD/YYYY hh:mm:ss AM/PM`.
+Useful as a cheap cross-check that carried-forward state has not drifted.
+
+---
 
 ## Why this matters
 
@@ -20,9 +146,10 @@ may instead be the utility having switched the heat pump off. **Without this dat
 existing balance-point analysis is not just incomplete, it is potentially wrong.**
 
 The user has never seen the heat pump disabled in cooling months; it starts once
-temperatures drop. There is **no historical data** — the site only exposes a rolling
+temperatures drop. ~~There is **no historical data** — the site only exposes a rolling
 window — so every day not collected is lost permanently, exactly like the beestat
-room-sensor problem.
+room-sensor problem.~~ **Superseded — see Correction 1: history reaches back to
+2025-09-13 and must be backfilled.**
 
 ## What the site actually is (verified 2026-08-21, do not re-derive)
 
@@ -64,8 +191,9 @@ Valid `area` values are the subdomain slugs, listed verbatim in the bundle:
 
 - `datetime` is **`YYMMDDTHHMMSS`**, not ISO 8601. Timezone is unstated — assume
   America/Chicago and **verify against a known switching event** before trusting it.
-- `do` is a 16-element array mapping to **DO09..DO24**, values `ON` / `OFF` / `---`
-  (`---` = not controlled for that load group).
+- `do` is a 16-element array mapping to **DO09..DO24**, values `ON` / `OFF` / `---`.
+  ~~(`---` = not controlled for that load group)~~ **Superseded — see Correction 4:
+  `---` means "not addressed by this command"; state must be carried forward.**
 - `lg` = load group (e.g. `2.06`), `name` = substation, `coop` = co-op name.
 - A full day returned only **35 rows** — this is event-driven, not sampled. Volume is
   trivial; the whole problem is *not missing an event*.
@@ -76,8 +204,8 @@ The user's controlled loads, confirmed against live API state on 2026-08-21:
 
 | Load group | DO | What it is | Evidence |
 | --- | --- | --- | --- |
-| **2.06** | **DO09** | **EVSE** | `currentStatus: OFF`, `lastOn 2026-08-21T00:00`, `lastOff 2026-08-21T10:01` — a nightly on/morning-off cycle is an off-peak charging window |
-| **3.09** | **DO13** | **Heat pump** | `currentStatus: ON`, last cycled `2026-05-12` (end of heating season) and ON ever since — matches "never seen it disabled in cooling months" |
+| **2.06** | **DO09** | **EVSE** — utility label is **"Battery Storage"** (Corr. 3) | `currentStatus: OFF`, `lastOn 2026-08-21T00:00`, `lastOff 2026-08-21T10:01` — a nightly on/morning-off cycle is an off-peak charging window |
+| **3.09** | **DO13** | **Heat pump** — utility label **"Dual Heat"**, confirmed (Corr. 3) | `currentStatus: ON`, last cycled `2026-05-12` (end of heating season) and ON ever since — matches "never seen it disabled in cooling months" |
 
 The user predicted, before these were queried, that the EVSE would read OFF and the
 heat pump ON at that moment. Both matched. **These two series are the point of the
@@ -113,7 +241,7 @@ several different mapping dictionaries, e.g.
 
 and elsewhere `"Dual Heat"`, `"Commercial"`, `"Comm, Direct Control"`, `"Test"`.
 **`Dual Heat` is almost certainly the heat-pump/propane dual-fuel control** — the
-signal this whole collector exists to capture. Extract the correct dictionary for the
+signal this whole collector exists to capture. **Now confirmed — see Correction 3.** Extract the correct dictionary for the
 user's load group from the bundle and **pin it in config**, do not hardcode DO09 = a
 guess. Mislabelling here silently attributes propane burn to the wrong cause.
 
@@ -159,8 +287,9 @@ CronJobs, so offsets must be chosen deliberately — e.g. `*/7` or `4-59/10`.
 
 Same pattern as `beestat-collector`: hold no state, recover the resume point by querying
 the bucket's own max timestamp per series, and re-fetch a deliberate overlap window.
-`/api/Ripple/list` takes `startDate`, so walk back from the watermark by whole days.
-InfluxDB dedupes on `(measurement, tagset, field, timestamp)`, so overlap is free.
+`/api/Ripple/list` takes `startDate`, so walk back from the watermark by whole days
+(**2-day stride — see Correction 2**). InfluxDB dedupes on
+`(measurement, tagset, field, timestamp)`, so overlap is free.
 
 ### Suggested schema
 
