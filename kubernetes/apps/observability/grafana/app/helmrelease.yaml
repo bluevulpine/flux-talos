@@ -215,6 +215,19 @@ spec:
             # (INFLUXDB_BEESTAT_TOKEN <- OpenBao grafana/Grafana__InfluxdbBeestatToken).
             secureJsonData:
               token: $INFLUXDB_BEESTAT_TOKEN
+          - name: InfluxDB-Minnkota
+            type: influxdb
+            uid: influxdb-minnkota
+            access: proxy
+            url: http://influxdb.database.svc.cluster.local:8086
+            jsonData:
+              version: Flux
+              organization: homelab
+              defaultBucket: minnkota
+            # Read-only, bucket-scoped token — provisioned via grafana-secret env
+            # (INFLUXDB_MINNKOTA_TOKEN <- OpenBao grafana/Grafana__InfluxdbMinnkotaToken).
+            secureJsonData:
+              token: $INFLUXDB_MINNKOTA_TOKEN
     dashboards:
       default:
         cloudflared:
