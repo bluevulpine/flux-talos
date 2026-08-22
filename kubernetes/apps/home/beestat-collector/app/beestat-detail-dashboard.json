@@ -55,6 +55,32 @@
         },
         "options": [],
         "sort": 1
+      },
+      {
+        "name": "spread_scope",
+        "label": "Spread scope",
+        "type": "custom",
+        "query": "Living space : Kitchen Ecobee|Living Room|Family Room|Downstairs Guest Room|Master Bedroom|Upstairs Guest Room|Office|Theater,All rooms : .*",
+        "options": [
+          {
+            "selected": true,
+            "text": "Living space",
+            "value": "Kitchen Ecobee|Living Room|Family Room|Downstairs Guest Room|Master Bedroom|Upstairs Guest Room|Office|Theater"
+          },
+          {
+            "selected": false,
+            "text": "All rooms",
+            "value": ".*"
+          }
+        ],
+        "current": {
+          "selected": true,
+          "text": "Living space",
+          "value": "Kitchen Ecobee|Living Room|Family Room|Downstairs Guest Room|Master Bedroom|Upstairs Guest Room|Office|Theater"
+        },
+        "multi": false,
+        "includeAll": false,
+        "description": "Puzzle and Storage are conditioned but kept behind closed doors, so they run 5-8 F below every other room; Server carries equipment heat. Including them makes 'room spread' a measurement of those rooms rather than of stratification."
       }
     ]
   },
@@ -483,7 +509,7 @@
       "type": "stat",
       "title": "Room Spread",
       "id": 8,
-      "description": "Warmest minus coolest of the SELECTED rooms, right now. This is the number the fan-circulation experiment is trying to shrink. Note the whole-house figure is dominated by the Server closet and the basement Puzzle Room \u2014 use the Rooms variable to compare a meaningful pair.",
+      "description": "Widest gap between any two rooms right now, over the rooms selected by the 'Spread scope' variable (default: living space). Switch to 'All rooms' to include Server, Puzzle and Storage.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-beestat"
@@ -500,7 +526,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "base = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name =~ /^$${sensor:regex}$/)\n  |> group(columns: [\"sensor_name\"]) |> last() |> group()\nbase\n  |> reduce(identity: {mx: -200.0, mn: 200.0, _value: 0.0},\n      fn: (r, accumulator) => ({\n        mx: if r._value > accumulator.mx then r._value else accumulator.mx,\n        mn: if r._value < accumulator.mn then r._value else accumulator.mn,\n        _value: (if r._value > accumulator.mx then r._value else accumulator.mx)\n              - (if r._value < accumulator.mn then r._value else accumulator.mn)}))  |> keep(columns: [\"_value\"])",
+          "query": "base = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name =~ /^($${spread_scope:raw})$/)\n  |> group(columns: [\"sensor_name\"]) |> last() |> group()\nbase\n  |> reduce(identity: {mx: -200.0, mn: 200.0, _value: 0.0},\n      fn: (r, accumulator) => ({\n        mx: if r._value > accumulator.mx then r._value else accumulator.mx,\n        mn: if r._value < accumulator.mn then r._value else accumulator.mn,\n        _value: (if r._value > accumulator.mx then r._value else accumulator.mx)\n              - (if r._value < accumulator.mn then r._value else accumulator.mn)}))  |> keep(columns: [\"_value\"])",
           "refId": "A"
         }
       ],
@@ -556,7 +582,7 @@
       "type": "stat",
       "title": "Sensors Reporting",
       "id": 9,
-      "description": "Distinct sensors that reported in this range. Expect 11; a lower number means a sensor dropped off or its battery died.",
+      "description": "Sensors with a temperature reading in the last hour of the selected range.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-beestat"
@@ -573,7 +599,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> group(columns: [\"sensor_name\"]) |> last() |> group() |> count()",
+          "query": "// \"Reporting\" means recently, not \"seen at some point in the dashboard range\" - over a\n// 7-day range the old form counted a sensor that died six days ago.\n// Freshness is computed with raw nanosecond arithmetic on purpose: date.sub() and\n// experimental.subDuration() both need an import, and Grafana prepends `option v = {...}`\n// to every panel query while Flux requires imports to come first, so no import compiles here.\nfrom(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> group(columns: [\"sensor_name\"]) |> last()\n  |> filter(fn: (r) => int(v: v.timeRangeStop) - int(v: r._time) < 3600000000000)\n  |> group() |> count()\n",
           "refId": "A"
         }
       ],
@@ -646,8 +672,8 @@
             "mode": "continuous-BlYlRd"
           },
           "displayName": "$${__field.labels.sensor_name}",
-          "min": 55,
-          "max": 82
+          "min": 50,
+          "max": 95
         },
         "overrides": []
       },
@@ -701,8 +727,8 @@
             "mode": "continuous-BlYlRd"
           },
           "displayName": "$${__field.labels.sensor_name}",
-          "min": 55,
-          "max": 82
+          "min": 50,
+          "max": 95
         },
         "overrides": []
       },
@@ -1668,7 +1694,7 @@
       "type": "timeseries",
       "title": "Room Spread over time",
       "id": 23,
-      "description": "Warmest minus coolest of the selected rooms, over time. Falling spread means better circulation. This is the primary A/B metric for fan settings.",
+      "description": "Widest gap between any two rooms right now, over the rooms selected by the 'Spread scope' variable (default: living space). Switch to 'All rooms' to include Server, Puzzle and Storage.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-beestat"
@@ -1685,7 +1711,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "base = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name =~ /^$${sensor:regex}$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"_time\"])\nhi = base |> max() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"hi\"})\nlo = base |> min() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"lo\"})\njoin(tables: {h: hi, l: lo}, on: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: r.hi - r.lo}))\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Spread\"})",
+          "query": "base = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name =~ /^($${spread_scope:raw})$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"_time\"])\nhi = base |> max() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"hi\"})\nlo = base |> min() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"lo\"})\njoin(tables: {h: hi, l: lo}, on: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: r.hi - r.lo}))\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"Spread\"})",
           "refId": "A"
         }
       ],
@@ -1829,7 +1855,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_fan\" or r._field == \"sum_compressor_cool_1\"\n        or r._field == \"sum_compressor_heat_1\" or r._field == \"sum_auxiliary_heat_1\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({_time: r._time, _value: (r.sum_fan - r.sum_compressor_cool_1\n        - r.sum_compressor_heat_1 - r.sum_auxiliary_heat_1) / 3600.0}))\n  |> group() |> rename(columns: {_value: \"Fan with no call\"})",
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_fan\" or r._field == \"sum_compressor_cool_1\"\n        or r._field == \"sum_compressor_heat_1\" or r._field == \"sum_auxiliary_heat_1\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  // Clamped at zero: aux and compressor stages can overlap inside a 5-minute\n  // interval, and both are subtracted, so the raw difference can go negative.\n  |> map(fn: (r) => ({_time: r._time, s: r.sum_fan - r.sum_compressor_cool_1\n        - r.sum_compressor_heat_1 - r.sum_auxiliary_heat_1}))\n  |> map(fn: (r) => ({_time: r._time,\n        _value: (if r.s > 0.0 then r.s else 0.0) / 3600.0}))\n  |> group() |> rename(columns: {_value: \"Fan with no call\"})",
           "refId": "B"
         }
       ],
@@ -1935,7 +1961,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "m",
+          "unit": "suffix:min/hr",
           "decimals": 0,
           "min": 0,
           "max": 60,

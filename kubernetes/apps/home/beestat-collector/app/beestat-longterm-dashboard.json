@@ -628,9 +628,9 @@
     },
     {
       "type": "barchart",
-      "title": "Balance point \u2014 average heating hours per day by outdoor temperature",
+      "title": "Balance point \u2014 average heating hours per day by MEAN outdoor temperature",
       "id": 38,
-      "description": "For each 5 degF band of average outdoor temperature, the mean hours per day the heat pump ran versus the propane furnace, across all history. Where the red bars overtake the orange is this system's real-world balance point. Propane appearing at mild temperatures suggests the aux lockout is set higher than it needs to be \u2014 that is burnable money.",
+      "description": "Heating runtime banded on daily MEAN outdoor temperature (the conventional balance-point x-axis, and the better predictor here: R2 0.48 vs 0.46 for peak). Bands with fewer than 3 days are dropped.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-beestat"
@@ -766,7 +766,7 @@
       "type": "barchart",
       "title": "Cooling load \u2014 average and busiest-day hours by PEAK outdoor temperature",
       "id": 39,
-      "description": "The cooling counterpart to the balance point above. Orange is the mean hours per day in each 5 degF band; the paler bar is the busiest single day in that band, so the gap between them is the headroom before the system would run flat out. The line is mean indoor temperature: it holding flat across the hot buckets is the evidence the system keeps up. Buckets with fewer than 3 days are dropped, since a one-day 'average' is not one.",
+      "description": "Cooling runtime banded on daily PEAK outdoor temperature. Note that daily MEAN outdoor temperature is actually the better predictor of cooling runtime here (R2 0.61 vs 0.55 over 1073 cooling days) - PEAK is kept because this panel is about whether the equipment can keep up on the worst part of the day, not about seasonal energy. The neighbouring balance-point panel bands on daily MEAN, which is the right choice for a heating-load question. 'Busiest single day' is a maximum, so it is not comparable between bands with very different day counts.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-beestat"
@@ -783,7 +783,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_cool_1\"\n        or r._field == \"max_outdoor_temperature\"\n        or r._field == \"avg_indoor_temperature\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.max_outdoor_temperature\n        and exists r.sum_compressor_cool_1)\n  |> map(fn: (r) => ({\n        bucket: float(v: int(v: (r.max_outdoor_temperature + 100.0) / 5.0))\n                * 5.0 - 100.0,\n        cool: r.sum_compressor_cool_1 / 3600.0,\n        indoor: r.avg_indoor_temperature}))\n  |> group(columns: [\"bucket\"])\n  |> reduce(identity: {cool: 0.0, mx: 0.0, ind: 0.0, n: 0.0},\n      fn: (r, accumulator) => ({\n        cool: accumulator.cool + r.cool,\n        mx: if r.cool > accumulator.mx then r.cool else accumulator.mx,\n        ind: accumulator.ind + r.indoor,\n        n: accumulator.n + 1.0}))\n  |> map(fn: (r) => ({outdoor_f: r.bucket, cooling_h: r.cool / r.n,\n        busiest_day_h: r.mx, indoor_f: r.ind / r.n, days: r.n}))\n  |> group()\n  |> sort(columns: [\"outdoor_f\"])",
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_cool_1\"\n        or r._field == \"max_outdoor_temperature\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.max_outdoor_temperature\n        and exists r.sum_compressor_cool_1)\n  |> map(fn: (r) => ({\n        bucket: float(v: int(v: (r.max_outdoor_temperature + 100.0) / 5.0))\n                * 5.0 - 100.0,\n        cool: r.sum_compressor_cool_1 / 3600.0}))\n  |> group(columns: [\"bucket\"])\n  |> reduce(identity: {cool: 0.0, mx: 0.0, n: 0.0},\n      fn: (r, accumulator) => ({\n        cool: accumulator.cool + r.cool,\n        mx: if r.cool > accumulator.mx then r.cool else accumulator.mx,\n        n: accumulator.n + 1.0}))\n  |> map(fn: (r) => ({outdoor_f: r.bucket, cooling_h: r.cool / r.n,\n        busiest_day_h: r.mx, days: r.n}))\n  |> group()\n  // Bands below ~55F have no cooling at all; showing them squeezes the real\n  // signal into the right-hand third of the axis. Bands with <3 days are\n  // dropped because \"busiest day\" over 1-2 days is just that day.\n  |> filter(fn: (r) => r.days >= 3.0 and r.cooling_h > 0.01)\n  |> sort(columns: [\"outdoor_f\"])",
           "refId": "A"
         }
       ],
@@ -856,23 +856,7 @@
               },
               {
                 "id": "displayName",
-                "value": "Busiest day (h)"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "indoor_f"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": true,
-                  "tooltip": true,
-                  "viz": true
-                }
+                "value": "Busiest single day in band (h)"
               }
             ]
           },
@@ -916,9 +900,9 @@
     },
     {
       "type": "barchart",
-      "title": "Where the heat actually goes \u2014 upstairs vs the thermostat",
+      "title": "Stratification by zone, at matched outdoor temperature",
       "id": 40,
-      "description": "The capacity check for the chart on the left, and it tells a very different story than the thermostat alone. 'Thermostat' is ecobee's zoneAveTemp \u2014 the mean of only the four sensors participating in the comfort setting (Kitchen, Office, Master Bedroom, Living Room), NOT the house. It barely moves. The upstairs four (Master Bedroom, Upstairs Guest Room, Office, Theater) climb away from it as it gets hotter: about 1.8 degF apart at a 60 degF peak, but 7.3 degF apart at 95 degF. So the system holds the setpoint where it is measuring and loses the upstairs \u2014 which is the case for circulation, and the reason the fan experiment exists. Per-room data starts 2026-05-01, so this panel covers one cooling season while the rest of the dashboard covers years.",
+      "description": "Split-level house, so this is three thermal zones and not an upstairs/downstairs pair. 'Over garage' (Office, Theater) takes roof and solar gain and sits 5-10 F above the main level at EVERY outdoor temperature, including 50 F - that is a permanent offset, not a hot-weather problem. 'Upper' (Master Bedroom, Upstairs Guest Room) is level with the main floor below 65 F and only opens up as it gets hot - that is stratification. The two need different fixes. Server is excluded (equipment heat); Puzzle and Storage are excluded (fed by the HVAC but kept behind closed doors, so they are over-conditioned and not representative). Bands with fewer than 3 days are dropped. Note the Office also carries an intermittent 3D-printer load.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-beestat"
@@ -935,7 +919,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "peak = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"outdoor_temperature\")\n  |> aggregateWindow(every: 1d, fn: max, createEmpty: false)\n  |> group() |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"peak\"})\nup = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name == \"Master Bedroom\"\n        or r.sensor_name == \"Upstairs Guest Room\"\n        or r.sensor_name == \"Office\" or r.sensor_name == \"Theater\")\n  |> group() |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"upstairs\"})\nallr = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\")\n  |> filter(fn: (r) => r._field == \"temperature\")\n  |> group() |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"allrooms\"})\nzone = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat\")\n  |> filter(fn: (r) => r._field == \"indoor_temperature\")\n  |> group() |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"zone\"})\nj1 = join(tables: {a: peak, b: up}, on: [\"_time\"])\nj2 = join(tables: {c: j1, d: allr}, on: [\"_time\"])\njoin(tables: {e: j2, f: zone}, on: [\"_time\"])\n  |> map(fn: (r) => ({b: float(v: int(v: (r.peak + 100.0) / 5.0)) * 5.0 - 100.0,\n        u: r.upstairs, a: r.allrooms, z: r.zone}))\n  |> group(columns: [\"b\"])\n  |> reduce(identity: {u: 0.0, a: 0.0, z: 0.0, n: 0.0},\n      fn: (r, accumulator) => ({u: accumulator.u + r.u, a: accumulator.a + r.a,\n        z: accumulator.z + r.z, n: accumulator.n + 1.0}))\n  |> map(fn: (r) => ({outdoor_f: r.b, upstairs_f: r.u / r.n,\n        all_rooms_f: r.a / r.n, thermostat_f: r.z / r.n, days: r.n}))\n  |> group() |> sort(columns: [\"outdoor_f\"])",
+          "query": "// Stratification by thermal zone, banded on daily PEAK outdoor temperature.\n// Split-level house: \"over garage\" (Office, Theater) takes roof/solar gain and is a\n// different problem from \"upper\" (bedrooms above the main level). Pooling them, as the\n// old four-room \"upstairs\" did, averaged two unrelated mechanisms. Server is excluded\n// (equipment heat); Puzzle/Storage are excluded (kept behind closed doors, so they are\n// over-conditioned and not representative of the main level).\n// Days are LOCAL days, matching the beestat daily summary the neighbouring panels band on.\nLOC = {zone: \"America/Chicago\", offset: 0s}\nday = (tbl, f) => tbl\n  |> aggregateWindow(every: 1d, fn: f, createEmpty: false, timeSrc: \"_start\", location: LOC)\nsrc = from(bucket: \"beestat\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\nrooms = (re) => src\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\" and r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name =~ re)\n  |> group()\npeak = day(tbl: src |> filter(fn: (r) => r._measurement == \"runtime_thermostat\"\n        and r._field == \"outdoor_temperature\"), f: max)\n  |> group() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"peak\"})\ngarage = day(tbl: rooms(re: /^(Office|Theater)$/), f: mean)\n  |> group() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"garage\"})\nupper = day(tbl: rooms(re: /^(Master Bedroom|Upstairs Guest Room)$/), f: mean)\n  |> group() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"upper\"})\nmain = day(tbl: rooms(re: /^(Kitchen Ecobee|Living Room|Family Room|Downstairs Guest Room)$/), f: mean)\n  |> group() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"main\"})\nj1 = join(tables: {a: peak, b: garage}, on: [\"_time\"])\nj2 = join(tables: {c: j1, d: upper}, on: [\"_time\"])\njoin(tables: {e: j2, f: main}, on: [\"_time\"])\n  |> map(fn: (r) => ({band: float(v: int(v: (r.peak + 100.0) / 5.0)) * 5.0 - 100.0,\n        g: r.garage - r.main, u: r.upper - r.main}))\n  |> group(columns: [\"band\"])\n  |> reduce(identity: {g: 0.0, u: 0.0, n: 0.0}, fn: (r, accumulator) => ({\n        g: accumulator.g + r.g, u: accumulator.u + r.u, n: accumulator.n + 1.0}))\n  |> filter(fn: (r) => r.n >= 3.0)\n  |> map(fn: (r) => ({outdoor_f: r.band, over_garage_f: r.g / r.n, upper_f: r.u / r.n, days: r.n}))\n  |> group() |> sort(columns: [\"outdoor_f\"])\n",
           "refId": "A"
         }
       ],
@@ -977,7 +961,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "upstairs_f"
+              "options": "over_garage_f"
             },
             "properties": [
               {
@@ -989,69 +973,26 @@
               },
               {
                 "id": "displayName",
-                "value": "Upstairs 4"
-              },
-              {
-                "id": "min",
-                "value": 60
-              },
-              {
-                "id": "max",
-                "value": 78
+                "value": "Over garage (Office, Theater) \u2212 main level"
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "all_rooms_f"
+              "options": "upper_f"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "orange"
                 }
               },
               {
                 "id": "displayName",
-                "value": "All 11 rooms"
-              },
-              {
-                "id": "min",
-                "value": 60
-              },
-              {
-                "id": "max",
-                "value": 78
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "thermostat_f"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "green"
-                }
-              },
-              {
-                "id": "displayName",
-                "value": "Thermostat (zone avg)"
-              },
-              {
-                "id": "min",
-                "value": 60
-              },
-              {
-                "id": "max",
-                "value": 78
+                "value": "Upper (Master Bed, Upstairs Guest) \u2212 main level"
               }
             ]
           },
@@ -1110,7 +1051,7 @@
       "type": "timeseries",
       "title": "Heating hours per heating degree day (monthly)",
       "id": 42,
-      "description": "Total heating runtime divided by the weather's heating demand, per month. Because it is normalised by degree days, a rising line means the system is working harder for the same weather \u2014 the signature of degrading equipment, a failing envelope, or a changed setpoint. Months with under 20 HDD are excluded as too noisy to divide by.",
+      "description": "aggregateWindow stamps at the window STOP by default, which drew every month one tick to the right - December 2025's 1662 HDD appeared on the 2026-01-01 tick. timeSrc: \"_start\" fixes the label; the inline location record gives local month boundaries without an import (Grafana prepends `option v`, and Flux requires imports first, so `import \"timezone\"` will not compile inside a panel query).",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-beestat"
@@ -1127,7 +1068,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "base = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_heat_1\"\n        or r._field == \"sum_auxiliary_heat_1\" or r._field == \"sum_heating_degree_days\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\nrt = base\n  |> map(fn: (r) => ({_time: r._time,\n        _value: (r.sum_compressor_heat_1 + r.sum_auxiliary_heat_1) / 3600.0}))\n  |> aggregateWindow(every: 1mo, fn: sum, createEmpty: false)\nhd = base\n  |> map(fn: (r) => ({_time: r._time, _value: r.sum_heating_degree_days}))\n  |> aggregateWindow(every: 1mo, fn: sum, createEmpty: false)\njoin(tables: {a: rt, b: hd}, on: [\"_time\"])\n  |> filter(fn: (r) => r._value_b > 20.0)\n  |> map(fn: (r) => ({_time: r._time, _value: r._value_a / r._value_b}))\n  |> group() |> rename(columns: {_value: \"Heating hours per HDD\"})",
+          "query": "base = from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_compressor_heat_1\"\n        or r._field == \"sum_auxiliary_heat_1\" or r._field == \"sum_heating_degree_days\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\nrt = base\n  |> map(fn: (r) => ({_time: r._time,\n        _value: (r.sum_compressor_heat_1 + r.sum_auxiliary_heat_1) / 3600.0}))\n  |> aggregateWindow(every: 1mo, fn: sum, createEmpty: false, timeSrc: \"_start\",\n        location: {zone: \"America/Chicago\", offset: 0s})\nhd = base\n  |> map(fn: (r) => ({_time: r._time, _value: r.sum_heating_degree_days}))\n  |> aggregateWindow(every: 1mo, fn: sum, createEmpty: false, timeSrc: \"_start\",\n        location: {zone: \"America/Chicago\", offset: 0s})\njoin(tables: {a: rt, b: hd}, on: [\"_time\"])\n  |> filter(fn: (r) => r._value_b > 20.0)\n  |> map(fn: (r) => ({_time: r._time, _value: r._value_a / r._value_b}))\n  |> group() |> rename(columns: {_value: \"Heating hours per HDD\"})",
           "refId": "A"
         }
       ],
@@ -1194,7 +1135,7 @@
       "type": "timeseries",
       "title": "Data coverage",
       "id": 43,
-      "description": "Share of each day's 288 five-minute intervals that beestat actually holds, weekly mean. Dips are real upstream gaps \u2014 periods where ecobee or beestat lost data. Worth knowing before trusting any comparison that spans one.",
+      "description": "Fraction of the 288 possible 5-minute intervals beestat actually holds for each day. Weeks are stamped at the window START; see the note on the heating panel.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-beestat"
@@ -1211,7 +1152,7 @@
             "type": "influxdb",
             "uid": "influxdb-beestat"
           },
-          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"count\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 288.0 * 100.0}))\n  |> aggregateWindow(every: 1w, fn: mean, createEmpty: false)\n  |> group() |> rename(columns: {_value: \"Coverage\"})",
+          "query": "from(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"count\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 288.0 * 100.0}))\n  |> aggregateWindow(every: 1w, fn: mean, createEmpty: false, timeSrc: \"_start\",\n        location: {zone: \"America/Chicago\", offset: 0s})\n  |> group() |> rename(columns: {_value: \"Coverage\"})",
           "refId": "A"
         }
       ],
@@ -1273,6 +1214,321 @@
           "sort": "desc"
         }
       }
+    },
+    {
+      "id": 50,
+      "type": "row",
+      "title": "Fan & Circulation A/B",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 52
+      },
+      "panels": []
+    },
+    {
+      "id": 51,
+      "type": "barchart",
+      "title": "Does more circulation close the gap? Matched on outdoor temperature",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 14,
+        "x": 0,
+        "y": 53
+      },
+      "description": "The naive version of this comparison - continuous fan started in late May, so compare before and after - is worthless, because outdoor temperature drives the gap and the calendar moves it. These bars hold daily PEAK outdoor temperature fixed. Arms are derived from MEASURED blower duty rather than a hardcoded date list, so the panel survives the next fan-mode change; the 80-95% duty band is dropped as a mixture. Bands need at least 3 days on BOTH sides. Read this with the day count in the tooltip: the honest summary as of Aug 2026 is that the difference is well under 1 F and does not have a consistent sign, against a gap of 6-8 F. A properly controlled regression puts it at +0.5 F and it does not survive a flexible seasonal control. Blower cycling is not the lever that fixes this.",
+      "options": {
+        "xField": "outdoor_f",
+        "orientation": "auto",
+        "showValue": "never",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "xTickLabelRotation": -45,
+        "xTickLabelSpacing": 0,
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 2,
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "axisPlacement": "auto",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "outdoor_f"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "fahrenheit"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cycling_f"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "Blower cycling (<80% duty)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "continuous_f"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "Blower continuous (\u226595% duty)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "days"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "// Fan A/B at matched outdoor conditions.\n// Arms are derived from the DATA (measured blower duty), not from a hardcoded list of\n// dates, so the panel keeps working after the next fan-mode change. The 80-95% duty\n// band is deliberately DROPPED: those days are a mixture and would smear the contrast.\nLOC = {zone: \"America/Chicago\", offset: 0s}\nday = (tbl, f) => tbl\n  |> aggregateWindow(every: 1d, fn: f, createEmpty: false, timeSrc: \"_start\", location: LOC)\nsrc = from(bucket: \"beestat\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\ntstat = (fld) => src |> filter(fn: (r) => r._measurement == \"runtime_thermostat\" and r._field == fld)\nrooms = (re) => src\n  |> filter(fn: (r) => r._measurement == \"runtime_sensor\" and r._field == \"temperature\")\n  |> filter(fn: (r) => r.sensor_name =~ re)\n  |> group()\npeak = day(tbl: tstat(fld: \"outdoor_temperature\"), f: max)\n  |> group() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"peak\"})\nduty = day(tbl: tstat(fld: \"fan\"), f: sum)\n  |> group() |> map(fn: (r) => ({_time: r._time, duty: r._value / 86400.0}))\nup = day(tbl: rooms(re: /^(Master Bedroom|Upstairs Guest Room)$/), f: mean)\n  |> group() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"up\"})\nmain = day(tbl: rooms(re: /^(Kitchen Ecobee|Living Room|Family Room|Downstairs Guest Room)$/), f: mean)\n  |> group() |> keep(columns: [\"_time\", \"_value\"]) |> rename(columns: {_value: \"main\"})\nj1 = join(tables: {a: peak, b: duty}, on: [\"_time\"])\nj2 = join(tables: {c: j1, d: up}, on: [\"_time\"])\njoin(tables: {e: j2, f: main}, on: [\"_time\"])\n  |> map(fn: (r) => ({\n        band: float(v: int(v: (r.peak + 100.0) / 5.0)) * 5.0 - 100.0,\n        gap: r.up - r.main,\n        c: if r.duty >= 0.95 then 1.0 else 0.0,\n        y: if r.duty < 0.80 then 1.0 else 0.0}))\n  |> group(columns: [\"band\"])\n  |> reduce(identity: {sc: 0.0, nc: 0.0, sy: 0.0, ny: 0.0}, fn: (r, accumulator) => ({\n        sc: accumulator.sc + r.gap * r.c, nc: accumulator.nc + r.c,\n        sy: accumulator.sy + r.gap * r.y, ny: accumulator.ny + r.y}))\n  |> filter(fn: (r) => r.nc >= 3.0 and r.ny >= 3.0)\n  |> map(fn: (r) => ({outdoor_f: r.band,\n        cycling_f: r.sy / r.ny, continuous_f: r.sc / r.nc,\n        days: r.ny + r.nc}))\n  |> group() |> sort(columns: [\"outdoor_f\"])\n"
+        }
+      ]
+    },
+    {
+      "id": 52,
+      "type": "timeseries",
+      "title": "Blower duty per day \u2014 the arms this A/B is built on",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 10,
+        "x": 14,
+        "y": 53
+      },
+      "description": "Daily blower duty. The flat ~100% stretches are 'fan ON'; the ragged stretches are 'auto'. Note how high auto still runs in cooling weather - in July 2026 'auto @ 10 min/hr' averaged 70% duty on its own, because the blower runs whenever the compressor does. That is why raising fan_min_on_time to 30 (a floor of 50%) adds only about 1.4 h/day in summer: the hours it would fill are already filled. In the shoulder months it adds 5-6 h/day.",
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 0,
+          "min": 0,
+          "max": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "gradientMode": "opacity",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "pointSize": 4
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Blower duty"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "// Duty is taken from the daily summary, which is already a LOCAL calendar day.\nfrom(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_fan\")\n  |> map(fn: (r) => ({_time: r._time, _value: r._value / 86400.0}))\n  |> group() |> rename(columns: {_value: \"Blower duty\"})\n"
+        }
+      ]
+    },
+    {
+      "id": 53,
+      "type": "timeseries",
+      "title": "What circulation costs \u2014 blower running with no heat or cool call",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-beestat"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 64
+      },
+      "description": "Blower draw is MEASURED, not assumed: regressing the '19 - Furnace' circuit against this thermostat's blower duty over 814 hours gives 486 W attributable to the blower (se 9 W) on top of a 55 W circuit floor. That is well above the ~337 W idle figure the earlier panel-level analysis used. Priced at the blended $0.1177/kWh marginal rate. Only hours with no heating or cooling call are charged here, since the rest of the blower time would have happened anyway. Over the 12 months to Aug 2026 this totalled about $68, concentrated in the mild months - June 2026 alone was $25, while July was only $7 because the compressor was running anyway.",
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "mean"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "gradientMode": "none",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "pointSize": 4
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Circulation cost"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "semi-dark-purple"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-beestat"
+          },
+          "query": "// What circulation costs. Blower draw was MEASURED, not assumed: regressing the\n// \"19 - Furnace\" circuit against this thermostat's blower duty over 814 hours gives\n// 486 W attributable to the blower on top of a 55 W circuit floor (se 9 W). Electricity\n// is the blended $0.1177/kWh marginal rate under monthly net metering.\n// \"Fan only\" = blower seconds with no heating or cooling call, clamped at zero because\n// aux and compressor stages can overlap within a 5-minute interval and would otherwise\n// subtract twice.\nfrom(bucket: \"beestat\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"runtime_thermostat_summary\")\n  |> filter(fn: (r) => r._field == \"sum_fan\" or r._field == \"sum_compressor_cool_1\"\n        or r._field == \"sum_compressor_heat_1\" or r._field == \"sum_auxiliary_heat_1\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({_time: r._time, s: r.sum_fan - r.sum_compressor_cool_1\n        - r.sum_compressor_heat_1 - r.sum_auxiliary_heat_1}))\n  |> map(fn: (r) => ({_time: r._time,\n        _value: (if r.s > 0.0 then r.s else 0.0) / 3600.0 * 0.486 * 0.1177}))\n  |> group() |> rename(columns: {_value: \"Circulation cost\"})\n"
+        }
+      ]
     }
   ]
 }
