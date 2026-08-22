@@ -749,6 +749,8 @@
         "stacking": "none",
         "groupWidth": 0.7,
         "barWidth": 0.9,
+        "xTickLabelRotation": -45,
+        "xTickLabelSpacing": 0,
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
@@ -899,6 +901,8 @@
         "stacking": "none",
         "groupWidth": 0.7,
         "barWidth": 0.9,
+        "xTickLabelRotation": -45,
+        "xTickLabelSpacing": 0,
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
@@ -914,7 +918,7 @@
       "type": "barchart",
       "title": "Indoor temperature held, by outdoor band",
       "id": 40,
-      "description": "Mean indoor temperature achieved in each outdoor band. This is the capacity check for the chart to the left: flat across the hot bands means the system holds the house even at its busiest. A rise at the right-hand end would mean it is losing ground. Zeroed at 55 degF so the variation is legible rather than a row of identical full-height bars.",
+      "description": "Mean indoor temperature achieved in each outdoor band. This is the capacity check for the chart to the left: flat across the hot bands means the system holds the house even at its busiest. A rise at the right-hand end would mean it is losing ground. Axis clamped to 60-72 degF: the observed means span only about 65-69, so a wider window renders 21 near-identical bars and hides the variation it exists to show.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-beestat"
@@ -989,11 +993,11 @@
               },
               {
                 "id": "min",
-                "value": 55
+                "value": 60
               },
               {
                 "id": "max",
-                "value": 75
+                "value": 72
               }
             ]
           },
@@ -1054,6 +1058,8 @@
         "stacking": "none",
         "groupWidth": 0.7,
         "barWidth": 0.9,
+        "xTickLabelRotation": -45,
+        "xTickLabelSpacing": 0,
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
