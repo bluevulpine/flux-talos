@@ -70,29 +70,36 @@ Valid `area` values are the subdomain slugs, listed verbatim in the bundle:
 - A full day returned only **35 rows** — this is event-driven, not sampled. Volume is
   trivial; the whole problem is *not missing an event*.
 
-## The blocker to resolve first
+## Which load groups are the user's — RESOLVED
 
-**`area=redlake` returns byte-identical data to `area=cp`** — every row came back
-`"coop": "Red River"`, substation `"Ada"`, on both. The `area` parameter appears to be
-ignored (or defaulted) by `/api/Ripple/list`.
+The user's controlled loads, confirmed against live API state on 2026-08-21:
 
-Red Lake Electric is in Red Lake Falls, MN; Ada is a Red River town. **So the data
-retrieved so far is very likely the wrong co-op's.** Building the collector before
-settling this would archive a year of confidently-wrong data.
+| Load group | DO | What it is | Evidence |
+| --- | --- | --- | --- |
+| **2.06** | **DO09** | **EVSE** | `currentStatus: OFF`, `lastOn 2026-08-21T00:00`, `lastOff 2026-08-21T10:01` — a nightly on/morning-off cycle is an off-peak charging window |
+| **3.09** | **DO13** | **Heat pump** | `currentStatus: ON`, last cycled `2026-05-12` (end of heating season) and ON ever since — matches "never seen it disabled in cooling months" |
 
-Ways to settle it, cheapest first:
+The user predicted, before these were queried, that the EVSE would read OFF and the
+heat pump ON at that moment. Both matched. **These two series are the point of the
+collector**; archive everything else if convenient, but these are what must not be missed.
 
-1. Load `https://redlake.minnkotadr.com/log` in a real browser with devtools open and
-   **watch what the page actually requests** — parameters, headers, any `Referer` or
-   `Origin` the backend keys off. This is the decisive test and takes two minutes.
-   (Browser automation was unavailable in the session that wrote this brief.)
-2. Compare `/api/Ripple/list` output across several `area` values. If they are all
-   identical, `area` is inert and the real scoping key is something else — likely
-   `coop`, `name` (substation), or `lg`.
-3. `/api/Ripple/lastonoff?area=redlake&loadgroup=<lg>` did return well-formed per-DO
-   data. Check whether *it* honours `area` even though `list` does not.
+Note `2.06 / DO16` moves in lockstep with `DO09` (identical on/off timestamps), so the
+group has more than one controlled output. Do not assume one DO per group.
 
-The user knows their own load group and substation; **ask them** rather than inferring.
+### About the `area` parameter — a red herring, but know why
+
+`area=redlake` returns **byte-identical data to `area=cp`**, and every row is labelled
+`"coop": "Red River"`, substation `"Ada"`. That looks alarming, as though the wrong
+co-op's data is being fetched.
+
+It is not a problem: **load groups are globally unique across the Minnkota ripple
+system**, and 2.06/DO09 and 3.09/DO13 demonstrably reflect this house's own devices.
+The `coop` and `name` fields evidently describe the transmitting substation rather than
+the member being served.
+
+The practical consequence: **filter on `lg`, never on `area`, `coop`, or `name`.**
+Passing `area` at all appears optional. Do not build a filter on fields that are inert
+or that describe something other than what they seem to.
 
 ## The other thing that must not be guessed
 
@@ -159,7 +166,7 @@ InfluxDB dedupes on `(measurement, tagset, field, timestamp)`, so overlap is fre
 
 Model the DO state as one point per (load group, DO) transition:
 
-- measurement `ripple_state` — tags `load_group`, `do` (e.g. `DO09`), `load_name`
+- measurement `ripple_state` — tags `load_group` (`2.06`, `3.09`), `do` (`DO09`, `DO13`), `load_name`
   (from the pinned mapping), `substation`, `coop`; field `state` (boolean on/off) plus
   a string `state_text`. **Tag on the stable `do` index, not the human name**, so a
   mapping correction does not fork the series.
