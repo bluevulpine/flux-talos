@@ -587,7 +587,7 @@
             "type": "influxdb",
             "uid": "influxdb-minnkota"
           },
-          "query": "from(bucket: \"minnkota\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ripple_state\" and r._field == \"curtailed\")\n  |> filter(fn: (r) => r.load_group == \"3.09\" and r.do == \"DO13\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> duplicate(column: \"_value\", as: \"state\")\n  |> difference(nonNegative: false, columns: [\"_value\"], keepFirst: true)\n  |> filter(fn: (r) => not exists r._value or r._value != 0)\n  |> map(fn: (r) => ({_time: r._time, \"Heat pump\": r.state}))",
+          "query": "from(bucket: \"minnkota\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ripple_state\" and r._field == \"curtailed\")\n  |> filter(fn: (r) => r.load_group == \"3.09\" and r.do == \"DO13\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> duplicate(column: \"_value\", as: \"state\")\n  |> difference(nonNegative: false, columns: [\"_value\"], keepFirst: true)\n  |> filter(fn: (r) => not exists r._value or r._value != 0)\n  |> map(fn: (r) => ({_time: r._time, \"Heat pump\": if r.state == 1 then \"CURTAILED\" else \"Permitted\"}))",
           "refId": "A"
         }
       ],
@@ -603,13 +603,11 @@
             {
               "type": "value",
               "options": {
-                "0": {
-                  "text": "Permitted",
+                "Permitted": {
                   "color": "green",
                   "index": 0
                 },
-                "1": {
-                  "text": "CURTAILED",
+                "CURTAILED": {
                   "color": "red",
                   "index": 1
                 }
@@ -623,12 +621,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "text",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
               }
             ]
           },
@@ -662,7 +656,7 @@
       "type": "state-timeline",
       "title": "EV charging — load group 2.06 / DO09 (Battery Storage)",
       "id": 12,
-      "description": "Red bands are periods outside the permitted off-peak charging window. Unlike the heat pump this cycles daily by design. Driven by state transitions: the raw series is 2246 rows over a year, past the 1001-point limit at which Grafana truncates and warns.",
+      "description": "Red bands are periods outside the permitted off-peak charging window. Unlike the heat pump this cycles twice a day by design, so this panel is pinned to the last 30 DAYS regardless of the dashboard time range — a year of it is an unreadable barcode. Driven by state transitions: the raw series is 2246 rows over a year, past the 1001-point limit at which Grafana silently truncates.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-minnkota"
@@ -673,7 +667,7 @@
             "type": "influxdb",
             "uid": "influxdb-minnkota"
           },
-          "query": "from(bucket: \"minnkota\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ripple_state\" and r._field == \"curtailed\")\n  |> filter(fn: (r) => r.load_group == \"2.06\" and r.do == \"DO09\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> duplicate(column: \"_value\", as: \"state\")\n  |> difference(nonNegative: false, columns: [\"_value\"], keepFirst: true)\n  |> filter(fn: (r) => not exists r._value or r._value != 0)\n  |> map(fn: (r) => ({_time: r._time, \"EV charging\": r.state}))",
+          "query": "from(bucket: \"minnkota\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ripple_state\" and r._field == \"curtailed\")\n  |> filter(fn: (r) => r.load_group == \"2.06\" and r.do == \"DO09\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> duplicate(column: \"_value\", as: \"state\")\n  |> difference(nonNegative: false, columns: [\"_value\"], keepFirst: true)\n  |> filter(fn: (r) => not exists r._value or r._value != 0)\n  |> map(fn: (r) => ({_time: r._time, \"EV charging\": if r.state == 1 then \"CURTAILED\" else \"Permitted\"}))",
           "refId": "A"
         }
       ],
@@ -689,13 +683,11 @@
             {
               "type": "value",
               "options": {
-                "0": {
-                  "text": "Permitted",
+                "Permitted": {
                   "color": "green",
                   "index": 0
                 },
-                "1": {
-                  "text": "CURTAILED",
+                "CURTAILED": {
                   "color": "red",
                   "index": 1
                 }
@@ -709,12 +701,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "text",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
               }
             ]
           },
@@ -742,7 +730,8 @@
           "mode": "single",
           "sort": "none"
         }
-      }
+      },
+      "timeFrom": "30d"
     },
     {
       "type": "row",
