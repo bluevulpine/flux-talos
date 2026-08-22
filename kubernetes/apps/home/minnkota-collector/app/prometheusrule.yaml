@@ -1,0 +1,86 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+#
+# Note what is deliberately NOT alerted on: the absence of new ripple rows.
+# The co-op legitimately issues no commands for days at a time — measured, the
+# user's own load groups went 16 consecutive days without one in May 2026, and
+# all groups together went 6. A "no new data" alert would fire every summer and
+# be trained away, which is worse than not having it.
+#
+# Liveness is therefore expressed as "the collector ran", not "the utility did
+# something".
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: minnkota-collector
+spec:
+  groups:
+    - name: minnkota-collector.rules
+      rules:
+        # Any failed Job. Exit 4 means the audit ran but the API returned
+        # nothing for ANY load group over 10 days — the source looks dead.
+        - alert: MinnkotaCollectorJobFailed
+          annotations:
+            summary: >-
+              Minnkota collector job {{ $labels.job_name }} failed — utility
+              demand-response state is not being archived and the Home Assistant
+              aux-heat signal is going stale. Check
+              `kubectl logs -n home job/{{ $labels.job_name }}`.
+              Exit 3 = Minnkota API error; exit 4 = the API returned no rows for
+              any load group in 10 days; exit 5 = InfluxDB; exit 6 = MQTT.
+          expr: |
+            kube_job_status_failed{namespace="home", job_name=~"minnkota-collector.*"} > 0
+          for: 15m
+          labels:
+            severity: critical
+
+        # A CronJob whose image can't be pulled never RUNS, so it never marks a
+        # Job failed and MinnkotaCollectorJobFailed would miss it entirely. This
+        # is the exact failure mode that caused the 14h kia-collector outage on
+        # 2026-07-11 — a bad $imagepolicy marker rewrote the image ref to a bare
+        # tag. See docs/runbooks/flux-image-automation.md.
+        - alert: MinnkotaCollectorImagePullFailing
+          annotations:
+            summary: >-
+              Minnkota collector pod {{ $labels.pod }} can't pull its image
+              ({{ $labels.reason }}) — the collector isn't running at all. Check
+              the image ref in the CronJob and the Flux image automation
+              (kubernetes/apps/flux-system/minnkota-collector/).
+          expr: |
+            kube_pod_container_status_waiting_reason{namespace="home", pod=~"minnkota-collector.*", reason=~"ImagePullBackOff|ErrImagePull|InvalidImageName"} > 0
+          for: 15m
+          labels:
+            severity: critical
+
+        # The live signal is what the aux-heat automation depends on. At a
+        # 5-minute cadence, 30 minutes is six consecutive missed cycles — the
+        # same window as the MQTT expire_after, so Home Assistant marks the
+        # entity unavailable at roughly the moment this fires.
+        - alert: MinnkotaCollectorStale
+          annotations:
+            summary: >-
+              Minnkota collector has not had a successful run in over 30m. The
+              Home Assistant `binary_sensor.minnkota_heat_pump_curtailed` entity
+              will be going unavailable, so the aux-heat automation is blind.
+              Check `kubectl get cronjob,jobs -n home | grep minnkota`.
+          expr: |
+            time() - max(kube_cronjob_status_last_successful_time{namespace="home", cronjob="minnkota-collector"}) > 1800
+          for: 10m
+          labels:
+            severity: critical
+
+        # The daily audit repairs interior gaps the 3-day trailing window steps
+        # over. Losing it is not an emergency — the 5-minute job still archives
+        # new data and still drives Home Assistant — so this is a warning.
+        - alert: MinnkotaCollectorAuditStale
+          annotations:
+            summary: >-
+              Minnkota collector audit has not succeeded in over 48h — interior
+              gaps in the archive will not be repaired. The 5-minute collector
+              is likely still fine; check
+              `kubectl get jobs -n home | grep minnkota-collector-audit`.
+          expr: |
+            time() - max(kube_cronjob_status_last_successful_time{namespace="home", cronjob="minnkota-collector-audit"}) > 172800
+          for: 30m
+          labels:
+            severity: warning

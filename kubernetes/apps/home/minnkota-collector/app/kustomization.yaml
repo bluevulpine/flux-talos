@@ -6,3 +6,4 @@ resources:
   - externalsecret.yaml
   - serviceaccount.yaml
   - cronjob.yaml
+  - prometheusrule.yaml
