@@ -47,7 +47,7 @@ spec:
               # image:repo:tag scalar, so Flux must write the whole ref. A
               # ":tag" suffix would overwrite the scalar with the bare tag and
               # produce ImagePullBackOff.
-              image: gitea.derekjacobs.dev/bluevulpine/minnkota-collector:2-a2d17889 # {"$imagepolicy": "flux-system:minnkota-collector"}
+              image: gitea.derekjacobs.dev/bluevulpine/minnkota-collector:3-a0c21fd1 # {"$imagepolicy": "flux-system:minnkota-collector"}
               imagePullPolicy: Always
               envFrom:
                 - configMapRef:
@@ -79,24 +79,31 @@ spec:
 # Daily audit re-walk.
 #
 # The 5-minute job only refreshes a trailing 3-day window, so it steps straight
-# over any interior hole — and holes happen whenever the cluster or the API is
-# unavailable for more than that. This re-reads the entire retained range
-# (2025-09-13 onward, 172 calls, ~68s). Writes are idempotent on
+# over any interior hole. This re-reads the entire retained range (2025-09-13
+# onward, 172 calls, ~68s). Writes are idempotent on
 # (measurement, tagset, field, timestamp), so re-writing rows that are already
 # present costs nothing but repairs anything that is not.
 #
-# 45 minutes past hour 5 avoids every taken slot: hours 0/6/12/18 (openbao
-# snapshot, talos-backup), hour 3 (kopia r2 maintenance), hour 4:53
-# (beestat-collector audit). The minute must not be ≡ 2 (mod 5) — the job
-# above runs on 2-59/5 (:02, :07, :12, ... :47, :52, :57), so :47 collides
-# with it (a previous version of this comment claimed :47 was clear; it is
-# not — 47 mod 5 == 2). :45 is 0 mod 5, so it never lands on that cadence.
+# Choosing the minute is fiddly and two earlier attempts got it wrong, so the
+# rule is written out explicitly. concurrencyPolicy: Forbid only serialises a
+# CronJob against ITSELF, never against a sibling, so every collision has to be
+# avoided here. The minute must therefore be:
+#   - NOT congruent to 2 (mod 5)  -> else it hits this app's own "2-59/5"
+#                                    incremental job. "47" did exactly that.
+#   - NOT a multiple of 10        -> else it hits kia-collector's "*/10".
+#   - NOT a multiple of 15        -> else it hits image-reflector-healer's
+#                                    "*/15". "45" did exactly that.
+# 38 satisfies all three (38 mod 5 = 3, 38 mod 10 = 8, 38 mod 15 = 8).
+#
+# Hour 5 is chosen because hours 0/6/12/18 are openbao snapshot + talos-backup,
+# hour 3 is kopia r2 maintenance, hours 0/4/8/12/16/20 are kopia local, and
+# beestat-collector's own audit is at 04:53.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: minnkota-collector-audit
 spec:
-  schedule: "45 5 * * *"
+  schedule: "38 5 * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 5
@@ -119,7 +126,7 @@ spec:
           containers:
             - name: collector
               # See the marker note on the incremental job above.
-              image: gitea.derekjacobs.dev/bluevulpine/minnkota-collector:2-a2d17889 # {"$imagepolicy": "flux-system:minnkota-collector"}
+              image: gitea.derekjacobs.dev/bluevulpine/minnkota-collector:3-a0c21fd1 # {"$imagepolicy": "flux-system:minnkota-collector"}
               imagePullPolicy: Always
               env:
                 - name: AUDIT_MODE

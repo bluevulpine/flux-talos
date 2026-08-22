@@ -2286,7 +2286,7 @@ spec:
               # image:repo:tag scalar, so Flux must write the whole ref. A
               # ":tag" suffix would overwrite the scalar with the bare tag and
               # produce ImagePullBackOff.
-              image: gitea.derekjacobs.dev/bluevulpine/minnkota-collector:<IMAGE_TAG> # {"$imagepolicy": "flux-system:minnkota-collector"}
+              image: gitea.derekjacobs.dev/bluevulpine/minnkota-collector:3-a0c21fd1 # {"$imagepolicy": "flux-system:minnkota-collector"}
               imagePullPolicy: Always
               envFrom:
                 - configMapRef:
@@ -2335,7 +2335,7 @@ kind: CronJob
 metadata:
   name: minnkota-collector-audit
 spec:
-  schedule: "45 5 * * *"
+  schedule: "38 5 * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 5
@@ -2358,7 +2358,7 @@ spec:
           containers:
             - name: collector
               # See the marker note on the incremental job above.
-              image: gitea.derekjacobs.dev/bluevulpine/minnkota-collector:<IMAGE_TAG> # {"$imagepolicy": "flux-system:minnkota-collector"}
+              image: gitea.derekjacobs.dev/bluevulpine/minnkota-collector:3-a0c21fd1 # {"$imagepolicy": "flux-system:minnkota-collector"}
               imagePullPolicy: Always
               env:
                 - name: AUDIT_MODE
