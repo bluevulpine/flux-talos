@@ -266,7 +266,7 @@
             "type": "influxdb",
             "uid": "influxdb-minnkota"
           },
-          "query": "from(bucket: \"minnkota\")\n  |> range(start: -7d)\n  |> filter(fn: (r) => r._measurement == \"collector_run\" and r._field == \"points_written\")\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 1)\n  |> map(fn: (r) => ({_value: r._time}))",
+          "query": "from(bucket: \"minnkota\")\n  |> range(start: -7d)\n  |> filter(fn: (r) => r._measurement == \"collector_run\" and r._field == \"points_written\")\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 1)\n  |> map(fn: (r) => ({_time: r._time, _value: float(v: int(v: r._time)) / 1000000.0}))",
           "refId": "A"
         }
       ],
@@ -576,7 +576,7 @@
       "type": "state-timeline",
       "title": "Heat pump — load group 3.09 / DO13 (Dual Heat)",
       "id": 11,
-      "description": "Red bands are periods the utility had the heat pump switched off, forcing the propane furnace. These are the hours the beestat balance-point panel would otherwise attribute to a thermostat aux lockout.",
+      "description": "Red bands are periods the utility had the heat pump switched off, forcing the propane furnace. These are the hours the beestat balance-point panel would otherwise attribute to a thermostat aux lockout. Driven by state TRANSITIONS, not raw rows: the ripple log re-broadcasts unchanged states, and Grafana silently truncates a panel at 1001 points.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-minnkota"
@@ -587,7 +587,7 @@
             "type": "influxdb",
             "uid": "influxdb-minnkota"
           },
-          "query": "from(bucket: \"minnkota\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ripple_state\" and r._field == \"curtailed\")\n  |> filter(fn: (r) => r.load_group == \"3.09\" and r.do == \"DO13\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> rename(columns: {_value: \"Heat pump\"})",
+          "query": "from(bucket: \"minnkota\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ripple_state\" and r._field == \"curtailed\")\n  |> filter(fn: (r) => r.load_group == \"3.09\" and r.do == \"DO13\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> duplicate(column: \"_value\", as: \"state\")\n  |> difference(nonNegative: false, columns: [\"_value\"], keepFirst: true)\n  |> filter(fn: (r) => not exists r._value or r._value != 0)\n  |> map(fn: (r) => ({_time: r._time, \"Heat pump\": r.state}))",
           "refId": "A"
         }
       ],
@@ -625,6 +625,10 @@
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
               }
             ]
           },
@@ -639,7 +643,7 @@
       },
       "options": {
         "mergeValues": true,
-        "showValue": "never",
+        "showValue": "auto",
         "alignValue": "center",
         "rowHeight": 0.9,
         "perPage": 20,
@@ -658,7 +662,7 @@
       "type": "state-timeline",
       "title": "EV charging — load group 2.06 / DO09 (Battery Storage)",
       "id": 12,
-      "description": "Red bands are periods outside the permitted off-peak charging window. Unlike the heat pump this cycles daily by design.",
+      "description": "Red bands are periods outside the permitted off-peak charging window. Unlike the heat pump this cycles daily by design. Driven by state transitions: the raw series is 2246 rows over a year, past the 1001-point limit at which Grafana truncates and warns.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-minnkota"
@@ -669,7 +673,7 @@
             "type": "influxdb",
             "uid": "influxdb-minnkota"
           },
-          "query": "from(bucket: \"minnkota\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ripple_state\" and r._field == \"curtailed\")\n  |> filter(fn: (r) => r.load_group == \"2.06\" and r.do == \"DO09\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> rename(columns: {_value: \"EV charging\"})",
+          "query": "from(bucket: \"minnkota\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ripple_state\" and r._field == \"curtailed\")\n  |> filter(fn: (r) => r.load_group == \"2.06\" and r.do == \"DO09\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> duplicate(column: \"_value\", as: \"state\")\n  |> difference(nonNegative: false, columns: [\"_value\"], keepFirst: true)\n  |> filter(fn: (r) => not exists r._value or r._value != 0)\n  |> map(fn: (r) => ({_time: r._time, \"EV charging\": r.state}))",
           "refId": "A"
         }
       ],
@@ -707,6 +711,10 @@
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
               }
             ]
           },
@@ -721,7 +729,7 @@
       },
       "options": {
         "mergeValues": true,
-        "showValue": "never",
+        "showValue": "auto",
         "alignValue": "center",
         "rowHeight": 0.9,
         "perPage": 20,
@@ -764,7 +772,7 @@
             "type": "influxdb",
             "uid": "influxdb-minnkota"
           },
-          "query": "from(bucket: \"minnkota\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ripple_state\" and r._field == \"curtailed\")\n  |> filter(fn: (r) => r.load_group == \"3.09\" and r.do == \"DO13\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> window(every: 1mo)\n  |> reduce(\n       identity: {prev: 0, prevT: 1970-01-01T00:00:00Z, ns: 0},\n       fn: (r, accumulator) => ({\n         prev: r._value,\n         prevT: r._time,\n         ns: accumulator.ns + (if accumulator.prev == 1\n                then int(v: r._time) - int(v: accumulator.prevT) else 0)}))\n  |> duplicate(column: \"_start\", as: \"_time\")\n  |> map(fn: (r) => ({_time: r._time, hours: float(v: r.ns) / 3600000000000.0}))\n  |> group()\n  |> sort(columns: [\"_time\"])",
+          "query": "import \"date\"\nfrom(bucket: \"minnkota\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ripple_state\" and r._field == \"curtailed\")\n  |> filter(fn: (r) => r.load_group == \"3.09\" and r.do == \"DO13\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> window(every: 1mo)\n  |> reduce(\n       identity: {prev: 0, prevT: 1970-01-01T00:00:00Z, ns: 0},\n       fn: (r, accumulator) => ({\n         prev: r._value,\n         prevT: r._time,\n         ns: accumulator.ns + (if accumulator.prev == 1\n                then int(v: r._time) - int(v: accumulator.prevT) else 0)}))\n  |> duplicate(column: \"_start\", as: \"_time\")\n  |> map(fn: (r) => ({\n        month: string(v: date.year(t: r._time)) + \"-\" +\n               (if date.month(t: r._time) < 10 then \"0\" else \"\") +\n               string(v: date.month(t: r._time)),\n        hours: float(v: r.ns) / 3600000000000.0}))\n  |> group()\n  |> sort(columns: [\"month\"])",
           "refId": "A"
         }
       ],
@@ -813,7 +821,7 @@
       },
       "options": {
         "orientation": "auto",
-        "xField": "_time",
+        "xField": "month",
         "xTickLabelRotation": -45,
         "xTickLabelSpacing": 0,
         "showValue": "auto",
