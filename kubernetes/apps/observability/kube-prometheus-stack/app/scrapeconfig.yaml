@@ -73,3 +73,55 @@ spec:
     - action: replace
       targetLabel: job
       replacement: *name
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: &name pangolin-gerbil
+spec:
+  staticConfigs:
+    # Gerbil (the WireGuard server on the Pangolin VPS) ships a Prometheus
+    # exporter out of the box -- nothing had to be enabled, only published.
+    # Scrape by tailnet IP for the same reason as node-exporter above: cluster
+    # CoreDNS cannot resolve *.ts.net.
+    #
+    # Port 3004 is published on the VPS bound to 100.65.0.27 ONLY (see
+    # /opt/pangolin/docker-compose.yml), so it is not reachable from the public
+    # internet. Pod egress to the tailnet is masqueraded to the node's own
+    # tailnet address, so this scrape arrives as tag:server -- verified by
+    # tcpdump on the VPS, not assumed.
+    - targets:
+        - 100.65.0.27:3004
+      labels:
+        instance: pangolin-vps
+  metricsPath: /metrics
+  relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: *name
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: &name pangolin-traefik
+spec:
+  staticConfigs:
+    # Traefik on the Pangolin VPS. Its exporter listens on a dedicated `metrics`
+    # entryPoint (:8082) so /metrics is never served on the public web/websecure
+    # listeners, and 8082 is likewise published bound to the tailnet IP only.
+    #
+    # This is the only source with a per-hostname view: newt sees the tunnel as
+    # opaque bytes (labelled by tunnel_id, with no hostname anywhere), so
+    # "which app is being hit, and with what status code" can ONLY be answered
+    # here.
+    - targets:
+        - 100.65.0.27:8082
+      labels:
+        instance: pangolin-vps
+  metricsPath: /metrics
+  relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: *name

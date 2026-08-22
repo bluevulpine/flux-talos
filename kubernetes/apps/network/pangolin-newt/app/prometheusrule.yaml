@@ -1,0 +1,161 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+#
+# Alerts for the Pangolin ingress path. This path is NOT covered by any existing
+# alerting: the cloudflared alerts watch a different tunnel, and cert-manager
+# alerts say nothing about Traefik's Let's Encrypt certs, which are issued on the
+# VPS entirely outside the cluster.
+#
+# Nine hostnames ride this path (photos/Immich, mealie, karakeep, requests,
+# couchdb, sso, openspeedtest, echo-server-pangolin, pangolin), so a silent
+# failure here is a multi-service external outage.
+#
+# The severities encode a timing fact measured during the 2026-08-22 incident:
+# when newt's control channel drops, the WireGuard data plane keeps serving on
+# the established session for roughly ten minutes and THEN fails. So a dropped
+# control channel is an outage already in progress with a short grace period --
+# critical, alerted fast -- while the VPS-side exporters going quiet is only a
+# loss of visibility and can tolerate a longer window.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pangolin-newt
+spec:
+  groups:
+    - name: pangolin-newt.rules
+      rules:
+        # The headline alert. newt_websocket_connected -- deliberately NOT
+        # newt_site_online, which reads 0 in newt 1.15.0 even when the tunnel is
+        # perfectly healthy and would therefore fire permanently.
+        #
+        # `for: 3m` is short on purpose: this is not an early warning, it is the
+        # first ten minutes of an outage that has already begun. Waiting 15m
+        # here would mean alerting after the hostnames are already dark.
+        - alert: PangolinControlChannelDown
+          annotations:
+            summary: >-
+              Newt's control channel to the Pangolin server is down. The tunnel
+              will keep serving on its existing WireGuard session for only a few
+              more minutes, then all Pangolin-routed hostnames (Immich, Mealie,
+              Karakeep, Jellyseerr, CouchDB, SSO) go dark. Check
+              `kubectl logs -n network deploy/pangolin-newt`. The most common
+              cause is DNS: newt must resolve pangolin.${SECRET_DOMAIN} to
+              re-authenticate. See docs/runbooks/pangolin-vps-setup.md.
+          expr: |
+            max(newt_websocket_connected) == 0
+          for: 3m
+          labels:
+            severity: critical
+
+        # A flapping control channel can sample as connected=1 at scrape time
+        # while never actually staying up, which would let the alert above miss
+        # it entirely. This catches the reconnect loop directly -- it is the
+        # exact signature of the 2026-08-22 incident, which logged 381 failed
+        # websocket attempts while newt_websocket_connected was intermittently 1.
+        - alert: PangolinNewtReconnectLoop
+          annotations:
+            summary: >-
+              Newt is failing to establish its connection to the Pangolin server
+              ({{ $labels.transport }}), retrying every few seconds. Traffic may
+              still be flowing on the existing session but the tunnel cannot
+              recover once that session expires. Check
+              `kubectl logs -n network deploy/pangolin-newt`.
+          expr: |
+            sum by (transport) (rate(newt_connection_attempts_total{result="failure"}[5m])) > 0.05
+          for: 10m
+          labels:
+            severity: critical
+
+        # Neither alert above can fire if the SERIES is absent -- `== 0` never
+        # matches a missing metric. That happens if the pod is gone, the
+        # exporter flag is lost on an upgrade, or the ServiceMonitor selector
+        # stops matching (app-template's service label is easy to get wrong).
+        # absent() is the only thing that covers a metric that vanishes.
+        - alert: PangolinNewtMetricsMissing
+          annotations:
+            summary: >-
+              No metrics from the newt connector — the Pangolin tunnel is
+              unmonitored and PangolinControlChannelDown cannot fire. Either the
+              pod is down or the exporter/ServiceMonitor wiring broke. Check
+              `kubectl get pods -n network -l app.kubernetes.io/name=pangolin-newt`
+              and that the HelmRelease still passes `-metrics`.
+          expr: |
+            absent(newt_websocket_connected) or max(up{job="pangolin-newt"}) == 0
+          for: 15m
+          labels:
+            severity: warning
+
+        # WireGuard itself on the VPS. If wg0 is down nothing can be tunnelled,
+        # regardless of what the cluster side thinks.
+        - alert: PangolinWireGuardInterfaceDown
+          annotations:
+            summary: >-
+              The WireGuard interface on the Pangolin VPS is down — no traffic
+              can reach the cluster through Pangolin. Check
+              `ssh root@pangolin docker logs gerbil`.
+          expr: |
+            max(gerbil_wg_interface_up) == 0
+          for: 5m
+          labels:
+            severity: critical
+
+        # VPS exporters going quiet is a visibility loss, not an outage: traffic
+        # keeps flowing. Longer window because these are scraped across the
+        # tailnet, where a brief blip is unremarkable. Note this fires for a
+        # genuinely dead VPS too -- but in that case the control-channel alert
+        # fires first and louder, which is the correct ordering.
+        - alert: PangolinVPSExporterDown
+          annotations:
+            summary: >-
+              Prometheus cannot scrape {{ $labels.job }} on the Pangolin VPS, so
+              the edge/WireGuard half of the dashboard is blind. Ports 3004 and
+              8082 are published bound to the VPS tailnet address only — a
+              docker restart that lost the bind, or tailnet trouble, both look
+              like this. See docs/runbooks/pangolin-vps-setup.md.
+          expr: |
+            max by (job) (up{job=~"pangolin-(gerbil|traefik)"}) == 0
+          for: 15m
+          labels:
+            severity: warning
+
+        # Traefik obtains its own Let's Encrypt certificates on the VPS. These
+        # are completely outside cert-manager, so the cluster's certificate
+        # alerts are silent about them and an expiry would be the first anyone
+        # hears of it. 14 days leaves room for several renewal attempts.
+        - alert: PangolinCertificateExpiringSoon
+          annotations:
+            summary: >-
+              The Let's Encrypt certificate for {{ $labels.cn }} on the Pangolin
+              VPS expires in under 14 days and has not renewed. These certs are
+              issued by Traefik on the VPS, NOT by cert-manager, so no other
+              alert covers them. Check
+              `ssh root@pangolin docker logs traefik | grep -i acme`.
+          expr: |
+            (min by (cn) (traefik_tls_certs_not_after) - time()) / 86400 < 14
+          for: 1h
+          labels:
+            severity: warning
+
+        # Server-side failures at the edge. The rate guard on the denominator
+        # matters: these hostnames are quiet for long stretches, and without it
+        # a single 502 during an idle hour becomes a 100% error ratio and pages
+        # for nothing. Redirect/auth codes (307/302/401) are normal here --
+        # authentik fronts several of these services -- so only 5xx counts.
+        - alert: PangolinEdgeErrorRate
+          annotations:
+            summary: >-
+              Over 10% of requests through the Pangolin edge are returning 5xx
+              ({{ $labels.router }}). A 502 with the tunnel healthy means the
+              origin (Envoy or the app) refused, not the transport — check the
+              backing service before touching Pangolin.
+          expr: |
+            (
+              sum by (router) (rate(traefik_router_requests_total{code=~"5.."}[15m]))
+              /
+              sum by (router) (rate(traefik_router_requests_total[15m]))
+            ) > 0.10
+            and
+            sum by (router) (rate(traefik_router_requests_total[15m])) > 0.05
+          for: 15m
+          labels:
+            severity: warning

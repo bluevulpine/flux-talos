@@ -35,6 +35,18 @@ spec:
             # origin cloudflared uses (external.network.svc.cluster.local:443) so
             # the existing Envoy HTTPRoutes/certs/authentik are unchanged. Nothing
             # about the target lives here; only the connector credentials do.
+            # Newt's built-in Prometheus exporter (`-metrics`). It is the only
+            # metrics source for the Pangolin path that lives inside the cluster:
+            # gerbil/traefik on the VPS are behind a Tailscale ACL boundary, so
+            # this is what makes the tunnel observable without depending on the
+            # VPS being scrapable. The default bind is 127.0.0.1:2112, which no
+            # ServiceMonitor could ever reach -- it must be 0.0.0.0 to be scraped.
+            # `-pprof` is deliberately NOT set: it would put debug/heap handlers
+            # on the same unauthenticated admin listener.
+            args:
+              - -metrics
+              - -metrics-admin-addr
+              - 0.0.0.0:2112
             envFrom:
               - secretRef:
                   name: pangolin-newt-secret
@@ -73,7 +85,17 @@ spec:
         runAsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
-    # Outbound-only client: no Service, no ingress ports.
+    # Newt is an outbound-only tunnel client -- this Service exists solely so the
+    # ServiceMonitor has a named `metrics` port to select. Nothing routes traffic
+    # to it. (app-template 5.x does not emit container `ports`, so a PodMonitor
+    # keyed on a port name would silently select nothing -- see the rackpanel
+    # ServiceMonitor for the same trap.)
+    service:
+      metrics:
+        controller: pangolin-newt
+        ports:
+          metrics:
+            port: 2112
     persistence:
       # readOnlyRootFilesystem needs a writable /tmp for any scratch state.
       tmp:

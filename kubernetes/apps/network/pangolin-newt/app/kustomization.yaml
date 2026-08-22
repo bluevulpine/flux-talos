@@ -13,3 +13,23 @@ resources:
   - ./ocirepository.yaml
   - ./externalsecret.yaml
   - ./helmrelease.yaml
+  # Scrapes newt's built-in Prometheus exporter (see helmrelease `-metrics`).
+  - ./servicemonitor.yaml
+  # Alerts for the whole Pangolin path, including the VPS-side gerbil/traefik
+  # metrics -- nothing else alerts on this ingress route.
+  - ./prometheusrule.yaml
+
+# Grafana dashboard, provisioned via the sidecar (label grafana_dashboard=1).
+# NOTE the "$$" in the JSON: Flux runs envsubst over this Kustomization, and
+# drone/envsubst expands bare "$VAR" as well as "${VAR}". Unescaped,
+# "$__rate_interval" would be substituted away to an empty string and every
+# rate() in the dashboard would break at render time -- silently, since the
+# ConfigMap still applies cleanly. "$$" collapses to a literal "$".
+configMapGenerator:
+  - name: pangolin-newt-dashboards
+    files:
+      - pangolin-tunnel-dashboard.json
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    grafana_dashboard: "1"
