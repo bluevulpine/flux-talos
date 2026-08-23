@@ -228,6 +228,19 @@ spec:
             # (INFLUXDB_MINNKOTA_TOKEN <- OpenBao grafana/Grafana__InfluxdbMinnkotaToken).
             secureJsonData:
               token: $INFLUXDB_MINNKOTA_TOKEN
+          - name: InfluxDB-Wican
+            type: influxdb
+            uid: influxdb-wican
+            access: proxy
+            url: http://influxdb.database.svc.cluster.local:8086
+            jsonData:
+              version: Flux
+              organization: homelab
+              defaultBucket: kia-wican
+            # Read-only, bucket-scoped token — provisioned via grafana-secret env
+            # (INFLUXDB_WICAN_TOKEN <- OpenBao grafana/Grafana__InfluxdbWicanToken).
+            secureJsonData:
+              token: $INFLUXDB_WICAN_TOKEN
     dashboards:
       default:
         cloudflared:

@@ -10,3 +10,13 @@ configMapGenerator:
   - name: wican-bridge-config
     files:
       - telegraf.conf
+  # Grafana dashboard, provisioned via the sidecar (label grafana_dashboard=1).
+  # Per-entry options: stable name (no hash) + the sidecar label, without
+  # affecting the telegraf.conf generator above (which keeps its hash to roll the pod).
+  - name: wican-bridge-dashboard
+    files:
+      - kia-wican-dashboard.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
