@@ -2,10 +2,11 @@
 
 Telegraf bridge: WiCAN Pro (EV9 OBD-II dongle) → mosquitto MQTT → InfluxDB.
 
-The WiCAN publishes its E-GMP battery telemetry (Ioniq 9 profile) as a single
-JSON object `{"autopid_data": {"SOC":86.5, "KWH_CHARGED":918, ...}}`. This bridge
-subscribes, flattens `autopid_data.*` into fields, and writes to the **`kia-wican`**
-bucket as:
+The WiCAN publishes its E-GMP battery telemetry (Ioniq 9 profile) over MQTT as a
+FLAT JSON object on `wican/fc012cdbd521/automate`
+(`{"SOC":94,"KWH_CHARGED":931,"HV_A":...,"LV_V":14.6,...}` — confirmed live; the
+webhook variant wraps it in `autopid_data`, MQTT does not). This bridge subscribes,
+turns each numeric key into a field, and writes to the **`kia-wican`** bucket as:
 
 - measurement: `wican`
 - tag: `device=fc012cdbd521`
