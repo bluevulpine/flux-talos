@@ -1,0 +1,67 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wican-bridge
+  labels:
+    app.kubernetes.io/name: wican-bridge
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # single consumer; avoid two clients sharing the same client_id
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wican-bridge
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wican-bridge
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: telegraf
+          image: docker.io/telegraf:1.32-alpine
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--config"
+            - "/etc/telegraf/telegraf.conf"
+          ports:
+            - name: healthz
+              containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: wican-bridge-secret
+          volumeMounts:
+            - name: config
+              mountPath: /etc/telegraf/telegraf.conf
+              subPath: telegraf.conf
+              readOnly: true
+          resources:
+            requests: {cpu: 10m, memory: 48Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          livenessProbe:
+            httpGet: {path: /, port: healthz}
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: {path: /, port: healthz}
+            initialDelaySeconds: 5
+            periodSeconds: 15
+      volumes:
+        - name: config
+          configMap:
+            name: wican-bridge-config
