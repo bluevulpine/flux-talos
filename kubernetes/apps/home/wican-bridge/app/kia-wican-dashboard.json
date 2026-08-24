@@ -525,7 +525,6 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
           "custom": {
             "drawStyle": "line",
             "lineInterpolation": "linear",
@@ -533,8 +532,7 @@
             "pointSize": 6,
             "showPoints": "always",
             "fillOpacity": 10,
-            "spanNulls": true,
-            "axisLabel": "display \u2212 BMS (points)"
+            "spanNulls": true
           }
         },
         "overrides": [
@@ -545,12 +543,40 @@
             },
             "properties": [
               {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "display SoC (%)"
+              },
+              {
                 "id": "custom.hideFrom",
                 "value": {
                   "legend": true,
                   "tooltip": true,
                   "viz": true
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "divergence"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "displayName",
+                "value": "display \u2212 BMS"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "display \u2212 BMS (points)"
               }
             ]
           }
