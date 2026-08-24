@@ -475,7 +475,38 @@
             "spanNulls": true
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "peak discharge (max)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "peak regen (min)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -495,7 +526,7 @@
             "type": "influxdb",
             "uid": "influxdb-wican"
           },
-          "query": "from(bucket: \"kia-wican\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"wican\" and r._field == \"HV_A\")\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> yield(name: \"peak discharge\")"
+          "query": "from(bucket: \"kia-wican\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"wican\" and r._field == \"HV_A\")\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  // drop tags so the legend is readable, and rename the field: Grafana\n  // names series from field+labels and ignores Flux yield(name:), so both\n  // envelope queries would otherwise render as an identical \"HV_A {...}\"\n  |> drop(columns: [\"device\", \"topic\", \"_measurement\", \"_start\", \"_stop\"])\n  |> set(key: \"_field\", value: \"peak discharge (max)\")"
         },
         {
           "refId": "B",
@@ -503,7 +534,7 @@
             "type": "influxdb",
             "uid": "influxdb-wican"
           },
-          "query": "from(bucket: \"kia-wican\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"wican\" and r._field == \"HV_A\")\n  |> aggregateWindow(every: v.windowPeriod, fn: min, createEmpty: false)\n  |> yield(name: \"peak regen\")"
+          "query": "from(bucket: \"kia-wican\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"wican\" and r._field == \"HV_A\")\n  |> aggregateWindow(every: v.windowPeriod, fn: min, createEmpty: false)\n  // drop tags so the legend is readable, and rename the field: Grafana\n  // names series from field+labels and ignores Flux yield(name:), so both\n  // envelope queries would otherwise render as an identical \"HV_A {...}\"\n  |> drop(columns: [\"device\", \"topic\", \"_measurement\", \"_start\", \"_stop\"])\n  |> set(key: \"_field\", value: \"peak regen (min)\")"
         }
       ],
       "description": "Min/max envelope per window, not mean: brief regen spikes average away on wide time ranges. Signed two's-complement from the BMS, verified on a drive at ~+37 A cruising and -148 A / -92.5 kW peak regen."
