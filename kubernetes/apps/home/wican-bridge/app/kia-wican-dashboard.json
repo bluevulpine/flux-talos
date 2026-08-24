@@ -510,7 +510,7 @@
     },
     {
       "id": 9,
-      "type": "xychart",
+      "type": "trend",
       "title": "SoC buffer \u2014 (display \u2212 BMS) vs display SoC",
       "description": "Median divergence per 0.5% SoC step \u2014 the pack's reserved-buffer curve. Positive near full (display leads BMS); expected to cross zero and go negative near empty, where display reaches 0 while charge remains. Bucketed by SoC rather than time, and bounded to plausible divergence so historical corruption doesn't distort it.",
       "datasource": {
@@ -525,18 +525,39 @@
       },
       "fieldConfig": {
         "defaults": {
+          "unit": "percent",
           "custom": {
-            "show": "points",
-            "pointSize": {
-              "fixed": 5
-            }
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "fillOpacity": 10,
+            "spanNulls": true,
+            "axisLabel": "display \u2212 BMS (points)"
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "display_soc"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
-        "mapping": "auto",
-        "series": [],
+        "xField": "display_soc",
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
