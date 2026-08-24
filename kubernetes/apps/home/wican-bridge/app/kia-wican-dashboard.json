@@ -140,7 +140,7 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "SoC (BMS real)",
+      "title": "SoC (display)",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-wican"
@@ -254,7 +254,7 @@
     {
       "id": 5,
       "type": "timeseries",
-      "title": "SoC \u2014 real vs display",
+      "title": "SoC \u2014 display vs BMS",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-wican"
@@ -305,7 +305,7 @@
             "type": "influxdb",
             "uid": "influxdb-wican"
           },
-          "query": "from(bucket: \"kia-wican\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"wican\" and r._field == \"SOC_D\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"SOC_D\")"
+          "query": "from(bucket: \"kia-wican\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"wican\" and r._field == \"SOC_BMS\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"SOC_BMS\")"
         }
       ]
     },
