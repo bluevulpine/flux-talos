@@ -535,23 +535,8 @@
         "overrides": []
       },
       "options": {
-        "mapping": "manual",
-        "series": [
-          {
-            "x": {
-              "matcher": {
-                "id": "byName",
-                "options": "display_soc"
-              }
-            },
-            "y": {
-              "matcher": {
-                "id": "byName",
-                "options": "divergence"
-              }
-            }
-          }
-        ],
+        "mapping": "auto",
+        "series": [],
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
