@@ -452,7 +452,7 @@
     {
       "id": 8,
       "type": "timeseries",
-      "title": "HV current \u2014 RAW (needs signed B\u2192S fix on device)",
+      "title": "HV current (A) \u2014 + discharge / \u2212 regen",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-wican"
@@ -497,7 +497,8 @@
           },
           "query": "from(bucket: \"kia-wican\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"wican\" and r._field == \"HV_A\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"HV_A\")"
         }
-      ]
+      ],
+      "description": "Signed two's-complement current from the BMS, verified on a drive: ~+37 A cruising, peak \u2212148 A on regen (\u221292.5 kW)."
     },
     {
       "id": 9,
