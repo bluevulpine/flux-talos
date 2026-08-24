@@ -470,7 +470,7 @@
             "drawStyle": "line",
             "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 0,
             "showPoints": "never",
             "spanNulls": true
           }
@@ -495,10 +495,18 @@
             "type": "influxdb",
             "uid": "influxdb-wican"
           },
-          "query": "from(bucket: \"kia-wican\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"wican\" and r._field == \"HV_A\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"HV_A\")"
+          "query": "from(bucket: \"kia-wican\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"wican\" and r._field == \"HV_A\")\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> yield(name: \"peak discharge\")"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-wican"
+          },
+          "query": "from(bucket: \"kia-wican\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"wican\" and r._field == \"HV_A\")\n  |> aggregateWindow(every: v.windowPeriod, fn: min, createEmpty: false)\n  |> yield(name: \"peak regen\")"
         }
       ],
-      "description": "Signed two's-complement current from the BMS, verified on a drive: ~+37 A cruising, peak \u2212148 A on regen (\u221292.5 kW)."
+      "description": "Min/max envelope per window, not mean: brief regen spikes average away on wide time ranges. Signed two's-complement from the BMS, verified on a drive at ~+37 A cruising and -148 A / -92.5 kW peak regen."
     },
     {
       "id": 9,
@@ -520,38 +528,11 @@
           "custom": {
             "show": "points",
             "pointSize": {
-              "fixed": 4
-            },
-            "axisLabel": ""
-          },
-          "unit": "percent"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "display_soc"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Display SoC (%)"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "divergence"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "display \u2212 BMS (pts)"
-              }
-            ]
+              "fixed": 5
+            }
           }
-        ]
+        },
+        "overrides": []
       },
       "options": {
         "mapping": "manual",
@@ -577,7 +558,8 @@
           "showLegend": false
         },
         "tooltip": {
-          "mode": "single"
+          "mode": "single",
+          "sort": "none"
         }
       },
       "targets": [
@@ -587,7 +569,7 @@
             "type": "influxdb",
             "uid": "influxdb-wican"
           },
-          "query": "from(bucket: \"kia-wican\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"wican\" and (r._field == \"SOC\" or r._field == \"SOC_BMS\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.SOC and exists r.SOC_BMS)\n  |> map(fn: (r) => ({_time: r._time, display_soc: r.SOC, divergence: r.SOC - r.SOC_BMS}))\n  |> keep(columns: [\"_time\", \"display_soc\", \"divergence\"])"
+          "query": "from(bucket: \"kia-wican\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"wican\" and (r._field == \"SOC\" or r._field == \"SOC_BMS\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.SOC and exists r.SOC_BMS)\n  |> map(fn: (r) => ({display_soc: r.SOC, divergence: r.SOC - r.SOC_BMS}))\n  |> keep(columns: [\"display_soc\", \"divergence\"])"
         }
       ]
     }
