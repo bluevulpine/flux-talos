@@ -512,7 +512,7 @@
       "id": 9,
       "type": "xychart",
       "title": "SoC buffer \u2014 (display \u2212 BMS) vs display SoC",
-      "description": "Traces the pack's reserved-buffer shape. Display SoC is the BMS value rescaled onto the usable window, so divergence is positive near full (top buffer, measured ~3.5 pts) and goes negative near empty (display reaches 0 while charge remains). Use this to set the bridge's MAX_BMS_ABOVE_DISPLAY bound from evidence once low-SoC data exists.",
+      "description": "Median divergence per 0.5% SoC step \u2014 the pack's reserved-buffer curve. Positive near full (display leads BMS); expected to cross zero and go negative near empty, where display reaches 0 while charge remains. Bucketed by SoC rather than time, and bounded to plausible divergence so historical corruption doesn't distort it.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-wican"
@@ -554,7 +554,7 @@
             "type": "influxdb",
             "uid": "influxdb-wican"
           },
-          "query": "from(bucket: \"kia-wican\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"wican\" and (r._field == \"SOC\" or r._field == \"SOC_BMS\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.SOC and exists r.SOC_BMS)\n  |> map(fn: (r) => ({display_soc: r.SOC, divergence: r.SOC - r.SOC_BMS}))\n  |> keep(columns: [\"display_soc\", \"divergence\"])"
+          "query": "from(bucket: \"kia-wican\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"wican\" and (r._field == \"SOC\" or r._field == \"SOC_BMS\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.SOC and exists r.SOC_BMS)\n  |> map(fn: (r) => ({display_soc: r.SOC, divergence: r.SOC - r.SOC_BMS}))\n  // same plausibility bound the bridge applies, so pre-filter corruption\n  // still in the bucket does not distort the curve\n  |> filter(fn: (r) => r.divergence <= 10.0 and r.divergence >= -30.0)\n  // bucket by SoC level, not by time: the curve IS divergence-per-SoC, and\n  // this collapses ~7k raw points to one per 0.5% step (Grafana truncates\n  // above ~688 points at this panel size)\n  |> group(columns: [\"display_soc\"])\n  |> median(column: \"divergence\")\n  |> group()\n  |> keep(columns: [\"display_soc\", \"divergence\"])\n  |> sort(columns: [\"display_soc\"])"
         }
       ]
     }
