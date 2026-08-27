@@ -1,0 +1,26 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kia-trip-archiver-config
+data:
+  OPENBAO_URL: "http://openbao-active.openbao.svc.cluster.local:8200"
+  OPENBAO_KV_MOUNT: "secret"
+  # Separate from the live collector's kia/token. See serviceaccount.yaml.
+  OPENBAO_PORTAL_KV_PATH: "kia/portal-rmtoken"
+  OPENBAO_K8S_ROLE: "kia-trip-archiver"
+  # Re-fetch the whole retained window every run. This is not laziness: `tag` and
+  # `tripCategory` are user-editable on arbitrarily old trips and the edit shows up
+  # in the very next read, so an incremental sync would capture every new trip and
+  # silently miss every edit. At ~750 bytes/trip the entire history of this vehicle
+  # is about 10 KB on the wire. The window also auto-extends to cover anything the
+  # archive has already seen.
+  SYNC_WINDOW_DAYS: "400"
+  # Up to 5 minutes of jitter so the request does not land on the cron minute.
+  SYNC_JITTER_SECONDS: "300"
+  # Fallback zone for trips whose coordinates don't resolve. Trip timestamps are
+  # normally localised from the trip's own lat/lon, because Kia's own
+  # startDateUtcOffset was observed reporting -6 and -5 on the same day in the
+  # same US Central region.
+  DEFAULT_TZ: "${TIMEZONE}"
+  TZ: "${TIMEZONE}"

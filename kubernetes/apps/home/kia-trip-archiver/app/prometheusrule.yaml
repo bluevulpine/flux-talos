@@ -1,0 +1,73 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kia-trip-archiver
+spec:
+  groups:
+    - name: kia-trip-archiver.rules
+      rules:
+        # Catches every failure mode including the one that matters: the archiver
+        # exits 3 when Kia demands an OTP, which no retry can satisfy.
+        #
+        # `kubectl logs` will very likely be EMPTY. restartPolicy is OnFailure, so
+        # backoffLimit counts container restarts inside a single pod; the container
+        # reaches the limit in seconds and the job controller then deletes the pod
+        # along with its logs. Every failure mode looks equally silent by the time a
+        # human looks. Read the durable evidence instead — it is written before the
+        # process exits:
+        #
+        #   psql -d kia_trips -c "SELECT * FROM sync_runs ORDER BY id DESC LIMIT 5"
+        #   psql -d kia_trips -c "SELECT * FROM auth_events ORDER BY id DESC LIMIT 5"
+        #   BAO_ADDR=http://openbao.derekjacobs.dev bao kv get -mount=secret kia/portal-rmtoken
+        #
+        # requires_manual_action = true on the newest sync_runs row, or an
+        # 'otp_required' auth_events row, means the portal rmToken died.
+        - alert: KiaTripArchiverJobFailed
+          annotations:
+            summary: >-
+              Kia trip archiver job {{ $labels.job_name }} failed. If sync_runs
+              shows requires_manual_action, or auth_events has a fresh
+              'otp_required' row, the portal rmToken is dead: run
+              `python -m archiver.bootstrap` (see from-claude-web/README.md) and
+              enter the SMS code. Nothing retries this. `kubectl logs` will be
+              empty — read sync_runs / auth_events in the kia_trips database, or the
+              OpenBao tombstone at secret/kia/portal-rmtoken.
+          expr: |
+            kube_job_status_failed{namespace="home", job_name=~"kia-trip-archiver.*"} > 0
+          for: 15m
+          labels:
+            severity: critical
+
+        # A CronJob whose image can't be pulled never RUNS, so it never marks the
+        # Job failed and the alert above would miss it entirely. This is exactly how
+        # a bad image tag from the Flux image-automation marker manifests.
+        - alert: KiaTripArchiverImagePullFailing
+          annotations:
+            summary: >-
+              Kia trip archiver pod {{ $labels.pod }} can't pull its image
+              ({{ $labels.reason }}) — the archive isn't syncing. Check the image
+              ref in the CronJob and the Flux ImagePolicy.
+          expr: |
+            kube_pod_container_status_waiting_reason{namespace="home", pod=~"kia-trip-archiver.*", reason=~"ImagePullBackOff|ErrImagePull|InvalidImageName"} > 0
+          for: 15m
+          labels:
+            severity: critical
+
+        # Silent staleness. At a 6h cadence, 26h is four missed runs — long enough
+        # not to flap over a single skipped cycle, short enough that a stuck or
+        # never-scheduled job surfaces the same day. Covers the cases where no
+        # individual Job is in a "failed" state at all.
+        - alert: KiaTripArchiverStale
+          annotations:
+            summary: >-
+              Kia trip archiver has not had a successful run in over 26h. Trip
+              history is not being captured, and any user edits to tags or
+              categories in that period are unrecorded. Check
+              `kubectl get jobs -n home | grep kia-trip` and the newest sync_runs row.
+          expr: |
+            time() - max(kube_cronjob_status_last_successful_time{namespace="home", cronjob="kia-trip-archiver"}) > 93600
+          for: 15m
+          labels:
+            severity: critical

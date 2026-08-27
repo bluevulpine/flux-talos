@@ -9,6 +9,44 @@ data:
       # Log-based alerting over VictoriaLogs (type: vlogs). Gitea does not surface
       # mirror-sync failures via the UI or a Prometheus metric; the only signal is
       # its stdout log line, collected by fluent-bit into VictoriaLogs.
+      # The trip archiver exits 3 when Kia forces an OTP, so KiaTripArchiverJobFailed
+      # already fires — but it fires identically for a database outage or a schema
+      # change, and the remedy is completely different. This rule names the cause.
+      #
+      # Matching on the bare marker rather than an `app:` selector is deliberate:
+      # the string is globally unique to this one log line, so the alert does not
+      # depend on how fluent-bit happens to map pod labels into VictoriaLogs fields.
+      - name: kia-trip-archiver
+        type: vlogs
+        interval: 15m
+        rules:
+          - alert: KiaTripArchiverReauthRequired
+            # _time:8h against a 6h sync cadence spans one or two attempts: sticky
+            # enough not to flap between runs, and it auto-resolves within ~8h of a
+            # successful bootstrap rather than dragging on for a day.
+            expr: >-
+              _time:8h "KIA_PORTAL_REAUTH_REQUIRED"
+              | stats count() as events | filter events:>0
+            labels:
+              severity: critical
+            annotations:
+              summary: 'Kia trip archiver needs an OTP — the portal rmToken is dead'
+              # This is a human-with-a-phone job. There is no credential, retry or
+              # backoff that resolves it, which is why the archiver refuses to retry
+              # rather than hammering a credential endpoint into an account lockout.
+              description: >-
+                Kia rejected the stored portal rmToken and demanded SMS verification,
+                so trip history has stopped syncing. Re-enrol:
+                `kubectl run kia-trip-bootstrap -n home ...` then
+                `kubectl exec -n home kia-trip-bootstrap -it -- python -m archiver.bootstrap`
+                (full invocation in the archiver.bootstrap docstring). Nothing retries
+                this and nothing else will clear it.
+                How long the dead token lasted is recorded, in seconds, on the newest
+                `otp_required` row of the kia_trips database's auth_events table —
+                that measurement is the whole reason this alert exists, because the
+                portal rmToken has no known lifetime. Do NOT infer one from the live
+                telemetry collector's rmtoken: whether the two are even the same
+                credential is unresolved. The oft-quoted ~90 days is folklore.
       - name: gitea
         type: vlogs
         interval: 15m

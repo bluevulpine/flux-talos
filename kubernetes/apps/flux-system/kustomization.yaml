@@ -15,6 +15,7 @@ resources:
   - ./bluevulpine-blog/ks.yaml
   - ./helium-archiver/ks.yaml
   - ./kia-collector/ks.yaml
+  - ./kia-trip-archiver/ks.yaml
   - ./chargepoint-collector/ks.yaml
   - ./rackpanel/ks.yaml
   - ./minnkota-collector/ks.yaml
