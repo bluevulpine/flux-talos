@@ -36,7 +36,7 @@ spec:
               # Full ref auto-updated by Flux image automation (ImagePolicy flux-system:kia-collector).
               # NOTE: no ":tag" suffix on the marker — this is a combined image:repo:tag scalar,
               # so Flux must write the whole ref. ":tag" would overwrite the scalar with the bare tag.
-              image: gitea.derekjacobs.dev/bluevulpine/kia-collector:10-5e53d770 # {"$imagepolicy": "flux-system:kia-collector"}
+              image: gitea.derekjacobs.dev/bluevulpine/kia-collector:11-604bbb82 # {"$imagepolicy": "flux-system:kia-collector"}
               imagePullPolicy: Always
               envFrom:
                 - configMapRef:
@@ -113,7 +113,7 @@ spec:
               # Full ref auto-updated by Flux image automation (ImagePolicy flux-system:kia-collector).
               # NOTE: no ":tag" suffix on the marker — this is a combined image:repo:tag scalar,
               # so Flux must write the whole ref. ":tag" would overwrite the scalar with the bare tag.
-              image: gitea.derekjacobs.dev/bluevulpine/kia-collector:10-5e53d770 # {"$imagepolicy": "flux-system:kia-collector"}
+              image: gitea.derekjacobs.dev/bluevulpine/kia-collector:11-604bbb82 # {"$imagepolicy": "flux-system:kia-collector"}
               imagePullPolicy: Always
               env:
                 - name: FORCE_REFRESH
