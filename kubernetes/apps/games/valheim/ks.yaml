@@ -76,6 +76,8 @@ spec:
       VOLSYNC_R2_SCHEDULE: "41 5 * * *"
       # Syncthing: expose files for player editing
       SYNCTHING_SERVICE_TYPE: LoadBalancer
+      # Keep config off tns-csi-nvmeof; it was wiped by the storage migration
+      SYNCTHING_CONFIG_STORAGECLASS: longhorn
     substituteFrom:
       - kind: ConfigMap
         name: cluster-settings
