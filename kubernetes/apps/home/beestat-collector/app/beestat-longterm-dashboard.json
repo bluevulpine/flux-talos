@@ -1051,7 +1051,7 @@
       "type": "timeseries",
       "title": "Heating hours per heating degree day (monthly)",
       "id": 42,
-      "description": "aggregateWindow stamps at the window STOP by default, which drew every month one tick to the right - December 2025's 1662 HDD appeared on the 2026-01-01 tick. timeSrc: \"_start\" fixes the label; the inline location record gives local month boundaries without an import (Grafana prepends `option v`, and Flux requires imports first, so `import \"timezone\"` will not compile inside a panel query).",
+      "description": "aggregateWindow stamps at the window STOP by default, which drew every month one tick to the right - December 2025's 1662 HDD appeared on the 2026-01-01 tick. timeSrc: \"_start\" fixes the label, and the inline location record gives local month boundaries. The location record is equivalent to import \"timezone\" + timezone.location(); imports do work in a Grafana panel query (this Grafana injects its `option v` after any leading imports), so the inline form is just a way to keep the panel dependency-free.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb-beestat"
