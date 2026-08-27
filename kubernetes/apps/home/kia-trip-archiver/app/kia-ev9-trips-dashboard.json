@@ -1,0 +1,912 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30m",
+  "time": {
+    "from": "now-90d",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Kia EV9 \u2014 Trip Archive",
+  "uid": "kia-ev9-trips",
+  "tags": [
+    "kia",
+    "ev9",
+    "trips"
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Distance archived",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-kiatrips"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-kiatrips"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT sum(miles_driven) AS v FROM trips WHERE superseded_at IS NULL AND $$__timeFilter(start_dt)",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "text",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "mi",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Energy used",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-kiatrips"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-kiatrips"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT sum(ev_total_power_wh)/1000.0 AS v FROM trips WHERE superseded_at IS NULL AND $$__timeFilter(start_dt)",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "text",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Efficiency",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-kiatrips"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-kiatrips"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT sum(miles_driven) / NULLIF(sum(ev_total_power_wh)/1000.0, 0) AS v FROM trips WHERE superseded_at IS NULL AND ev_total_power_wh IS NOT NULL AND $$__timeFilter(start_dt)",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "text",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Trips",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-kiatrips"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-kiatrips"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS v FROM trips WHERE superseded_at IS NULL AND $$__timeFilter(start_dt)",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "text",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Days covered",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-kiatrips"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-kiatrips"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS v FROM sync_coverage_ledger WHERE status = 'synced' AND coverage_date BETWEEN $$__timeFrom()::date AND $$__timeTo()::date",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "text",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Days driven",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-kiatrips"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-kiatrips"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS v FROM sync_coverage_ledger WHERE status = 'synced' AND trip_count > 0 AND coverage_date BETWEEN $$__timeFrom()::date AND $$__timeTo()::date",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "text",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Where the energy went",
+      "description": "Drivetrain + climate + accessories + battery management sum exactly to the trip total; regeneration sits outside that sum and has its own panel. Merged trips carry no energy breakdown at all \u2014 Kia drops the key rather than zeroing it \u2014 so they are excluded here but still counted in distance.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-kiatrips"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 16,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-kiatrips"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT local_date AS time,\n       sum(ev_drivetrain_wh)/1000.0    AS \"Drivetrain\",\n       sum(ev_climate_wh)/1000.0       AS \"Climate\",\n       sum(ev_accessories_wh)/1000.0   AS \"Accessories\",\n       sum(ev_battery_mgmt_wh)/1000.0  AS \"Battery mgmt\"\nFROM trips\nWHERE superseded_at IS NULL AND ev_total_power_wh IS NOT NULL AND $$__timeFilter(start_dt)\nGROUP BY local_date ORDER BY local_date",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "calcs": [
+            "sum"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 2,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "barAlignment": 0,
+            "axisSoftMin": 0,
+            "gradientMode": "none",
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Drivetrain"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Climate"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Accessories"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Battery mgmt"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Climate as a share of consumption",
+      "description": "The seasonal question: how much of the battery is going to cabin heating and cooling rather than moving the car. Expect this to climb sharply below freezing \u2014 that is the range loss people actually notice.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-kiatrips"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 4,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-kiatrips"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT local_date AS time,\n       100.0 * sum(ev_climate_wh) / NULLIF(sum(ev_total_power_wh),0) AS \"Climate share\"\nFROM trips\nWHERE superseded_at IS NULL AND ev_total_power_wh IS NOT NULL AND $$__timeFilter(start_dt)\nGROUP BY local_date ORDER BY local_date",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#d95926"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "auto",
+            "pointSize": 8,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Efficiency per trip",
+      "description": "Miles per kWh for each individual trip, not a daily average \u2014 short cold trips and long warm ones tell different stories and averaging hides both. Do not use Kia's own effScore/inEffScore: they read 0.0/100.0 on every trip this vehicle has ever recorded.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-kiatrips"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-kiatrips"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT start_dt AS time,\n       miles_driven / NULLIF(ev_total_power_wh/1000.0, 0) AS \"mi/kWh\"\nFROM trips\nWHERE superseded_at IS NULL AND ev_total_power_wh > 0 AND $$__timeFilter(start_dt)\nORDER BY start_dt",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "custom": {
+            "drawStyle": "points",
+            "pointSize": 8,
+            "lineWidth": 0,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Regeneration recovered",
+      "description": "Regen is NOT part of the drivetrain/climate/accessories/battery-management identity \u2014 it is energy returned, tracked separately. Shown against drivetrain draw because the ratio is the interesting figure: how much of what was spent moving the car came back.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-kiatrips"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-kiatrips"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT local_date AS time,\n       100.0 * sum(ev_regen_wh) / NULLIF(sum(ev_drivetrain_wh),0) AS \"Recovered vs drivetrain\"\nFROM trips\nWHERE superseded_at IS NULL AND ev_total_power_wh IS NOT NULL AND $$__timeFilter(start_dt)\nGROUP BY local_date ORDER BY local_date",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#008300"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 0,
+            "barAlignment": 0,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 11,
+      "type": "state-timeline",
+      "title": "Coverage \u2014 what the archive actually knows",
+      "description": "The whole reason a ledger exists. An absent trip row is ambiguous between 'did not drive' and 'the sync never ran'; this table records which. 'Driven' and 'No driving' are both successful syncs. A gap in this strip is a date nobody has determined anything about.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-kiatrips"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-kiatrips"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT coverage_date AS time,\n       CASE WHEN status <> 'synced' THEN status\n            WHEN trip_count > 0 THEN 'Driven'\n            ELSE 'No driving' END AS \"Coverage\"\nFROM sync_coverage_ledger\nWHERE coverage_date BETWEEN $$__timeFrom()::date AND $$__timeTo()::date\nORDER BY coverage_date",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "rowHeight": 0.9,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "fillOpacity": 90,
+            "lineWidth": 0
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "Driven": {
+                  "color": "#3987e5",
+                  "index": 0
+                },
+                "No driving": {
+                  "color": "#4a4a48",
+                  "index": 1
+                },
+                "known_gap_outage": {
+                  "color": "#c98500",
+                  "index": 2
+                },
+                "manual_entry": {
+                  "color": "#199e70",
+                  "index": 3
+                },
+                "sync_failed": {
+                  "color": "#e66767",
+                  "index": 4
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "Credential lifetimes \u2014 how long each portal token survived",
+      "description": "Not diagnostics: a finding. The rmToken has no TTL \u2014 it is invalidated when a human logs into the owner portal, which re-runs device enrolment and mints a replacement. Measured here as 8.87 days and then 17 minutes, the difference being nothing but when the account owner next opened My Trips. Take the FIRST otp_required after each otp_completed; retries append duplicates. Recovery does not need an OTP \u2014 copy the browser's rmToken_v2 cookie (see the archive README).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-kiatrips"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-kiatrips"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT occurred_at AS \"When\",\n       round(gap_seconds/86400.0, 3) AS \"Days survived\",\n       rmtoken_fingerprint AS \"Token\",\n       detail AS \"Detail\"\nFROM auth_events\nWHERE event = 'otp_required' AND gap_seconds IS NOT NULL\nORDER BY occurred_at DESC",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Days survived"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 120
+              },
+              {
+                "id": "decimals",
+                "value": 3
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "type": "table",
+      "title": "Recent syncs",
+      "description": "requires_manual_action is the row that matters: it means Kia demanded an OTP and no amount of retrying will help. `kubectl logs` will be empty by the time you look \u2014 OnFailure deletes the pod with its logs \u2014 so this table and auth_events are the durable record.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-kiatrips"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 27,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-kiatrips"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT started_at AS \"Started\", status AS \"Status\",\n       requires_manual_action AS \"Needs a human\",\n       trips_fetched AS \"Fetched\", trips_inserted AS \"New\",\n       trips_updated AS \"Changed\", trips_superseded AS \"Superseded\",\n       trips_restored AS \"Restored\", earliest_trip_date AS \"Earliest trip\"\nFROM sync_runs ORDER BY id DESC LIMIT 50",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "success": {
+                        "color": "#199e70",
+                        "index": 0
+                      },
+                      "partial": {
+                        "color": "#c98500",
+                        "index": 1
+                      },
+                      "failure": {
+                        "color": "#e66767",
+                        "index": 2
+                      },
+                      "running": {
+                        "color": "#8e8e8e",
+                        "index": 3
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Needs a human"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "true": {
+                        "color": "#e66767",
+                        "text": "OTP needed",
+                        "index": 0
+                      },
+                      "false": {
+                        "color": "#8e8e8e",
+                        "text": "\u2014",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

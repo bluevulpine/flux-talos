@@ -176,6 +176,22 @@ spec:
             # (INFLUXDB_KIA_TOKEN <- OpenBao grafana/Grafana__InfluxdbKiaToken).
             secureJsonData:
               token: $INFLUXDB_KIA_TOKEN
+          # The Kia EV9 trip archive. Unlike every other datasource here this is
+          # Postgres, not InfluxDB: trips are rows with user-editable fields and a
+          # coverage ledger, not a time series. Read-only role (SELECT only).
+          - name: Postgres-KiaTrips
+            type: grafana-postgresql-datasource
+            uid: postgres-kiatrips
+            access: proxy
+            url: ${POSTGRES_HOST}:5432
+            database: kia_trips
+            user: $$KIA_TRIPS_GRAFANA_USER
+            jsonData:
+              sslmode: disable
+              postgresVersion: 1500
+              timescaledb: false
+            secureJsonData:
+              password: $$KIA_TRIPS_GRAFANA_PASSWORD
           - name: InfluxDB-HA
             type: influxdb
             uid: influxdb-ha

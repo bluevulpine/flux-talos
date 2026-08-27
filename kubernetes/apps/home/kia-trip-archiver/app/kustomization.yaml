@@ -8,3 +8,13 @@ resources:
   - ./serviceaccount.yaml
   - ./cronjob.yaml
   - ./prometheusrule.yaml
+# Grafana dashboard, provisioned via the sidecar (label grafana_dashboard=1).
+# Reads the Postgres-KiaTrips datasource declared in the Grafana HelmRelease.
+configMapGenerator:
+  - name: kia-trip-archiver-dashboard
+    files:
+      - kia-ev9-trips-dashboard.json
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    grafana_dashboard: "1"
