@@ -23,7 +23,7 @@ spec:
             image:
               repository: public.ecr.aws/docker/library/busybox
               # renovate: datasource=docker depName=public.ecr.aws/docker/library/busybox
-              tag: "1.37.0"
+              tag: "1.38.0"
             command:
               - sh
               - -c
