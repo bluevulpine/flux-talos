@@ -15,6 +15,21 @@ spec:
         type: deployment
         annotations:
           reloader.stakater.com/auto: "true"
+        initContainers:
+          # The image only chowns .XDG inside its `if [ ! -d ]` branch, so a
+          # pre-mounted tmpfs is left root-owned and the abc (568) user cannot
+          # create sockets in it. Set ownership/mode here instead.
+          init-xdg:
+            image:
+              repository: public.ecr.aws/docker/library/busybox
+              # renovate: datasource=docker depName=public.ecr.aws/docker/library/busybox
+              tag: "1.37.0"
+            command:
+              - sh
+              - -c
+              - |
+                chown 568:568 /config/.XDG
+                chmod 700 /config/.XDG
         containers:
           app:
             image:
@@ -97,4 +112,16 @@ spec:
         sizeLimit: 1Gi
         globalMounts:
           - path: /dev/shm
+      # XDG_RUNTIME_DIR is hardcoded to $HOME/.XDG by the image's
+      # init-selkies-config, putting UNIX sockets (obsidian-cli, wayland) on the
+      # RWX config PVC. Longhorn re-exports that PVC over NFS, and NFSv4.1
+      # readdir returns EINVAL on a directory containing them - which broke the
+      # volsync mover for both local and R2 backups. tmpfs keeps sockets off the
+      # exported volume, and matches what XDG_RUNTIME_DIR is meant to be.
+      xdg:
+        type: emptyDir
+        medium: Memory
+        sizeLimit: 64Mi
+        globalMounts:
+          - path: /config/.XDG
 
