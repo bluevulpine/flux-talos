@@ -4,7 +4,7 @@ clusterName: &cluster home-kubernetes
 # renovate: datasource=github-releases depName=siderolabs/talos
 talosVersion: v1.13.9
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
-kubernetesVersion: v1.37.0
+kubernetesVersion: v1.36.2
 
 endpoint: https://10.0.10.30:6443
 clusterPodNets:
@@ -19,7 +19,6 @@ additionalApiServerCertSans: &sans
 additionalMachineCertSans: *sans
 cniConfig:
   name: none
-
 
 nodes:
   - hostname: "jormungandr1"
@@ -53,9 +52,9 @@ nodes:
             - siderolabs/tailscale
             - siderolabs/util-linux-tools
     extensionServices: &extensionServices
-    - name: tailscale
-      environment:
-      - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
+      - name: tailscale
+        environment:
+          - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
 
   - hostname: "jormungandr2"
     ipAddress: "10.0.10.32"
@@ -125,28 +124,27 @@ nodes:
     volumes:
       - name: EPHEMERAL
         provisioning:
-            grow: false
-            diskSelector:
-                match: disk.model == "2115"
-            maxSize: 100GiB
-    # userVolumes:
-    #   - name: data-1
-    #     provisioning:
-    #         diskSelector:
-    #             match: disk.model == "2115"
-    #         grow: true
-    #         minSize: 100GiB
-    #     filesystem:
-    #         type: xfs
-    #     encryption:
-    #         provider: luks2 # schema says this is an error but it's what the app actually wants
-    #         keys:
-    #             - slot: 0
-    #               tpm: {}
-    #             - slot: 1
-    #               static:
-    #                 passphrase: ${SECRET_VOLUME_KEY}
-
+          grow: false
+          diskSelector:
+            match: disk.model == "2115"
+          maxSize: 100GiB
+          # userVolumes:
+          #   - name: data-1
+          #     provisioning:
+          #         diskSelector:
+          #             match: disk.model == "2115"
+          #         grow: true
+          #         minSize: 100GiB
+          #     filesystem:
+          #         type: xfs
+          #     encryption:
+          #         provider: luks2 # schema says this is an error but it's what the app actually wants
+          #         keys:
+          #             - slot: 0
+          #               tpm: {}
+          #             - slot: 1
+          #               static:
+          #                 passphrase: ${SECRET_VOLUME_KEY}
 
   - hostname: "brokkr01"
     ipAddress: "10.0.10.38"
@@ -163,8 +161,8 @@ nodes:
           updelay: 200
           downdelay: 200
           interfaces:
-          - enx844709336c1f
-          - enx844709336c20
+            - enx844709336c1f
+            - enx844709336c20
         dhcp: true
         mtu: 9000
         vlans: *vlans
@@ -195,49 +193,49 @@ nodes:
     volumes:
       - name: EPHEMERAL
         provisioning:
-            grow: false
-            diskSelector:
-                match: disk.model == "AirDisk 1TB SSD"
-            maxSize: 100GiB
+          grow: false
+          diskSelector:
+            match: disk.model == "AirDisk 1TB SSD"
+          maxSize: 100GiB
       - name: IMAGECACHE
         provisioning:
-            grow: false
-            diskSelector:
-                match: disk.model == "AirDisk 1TB SSD"
-            maxSize: 100GiB
+          grow: false
+          diskSelector:
+            match: disk.model == "AirDisk 1TB SSD"
+          maxSize: 100GiB
     userVolumes:
       - name: data-1
         provisioning:
-            diskSelector:
-                match: disk.model == "AirDisk 1TB SSD"
-            grow: true
-            minSize: 100GiB
+          diskSelector:
+            match: disk.model == "AirDisk 1TB SSD"
+          grow: true
+          minSize: 100GiB
         filesystem:
-            type: xfs
+          type: xfs
         encryption:
-            provider: luks2 # schema says this is an error but it's what the app actually wants
-            keys:
-                - slot: 0
-                  tpm: {}
-                - slot: 1
-                  static:
-                    passphrase: ${SECRET_VOLUME_KEY}
+          provider: luks2 # schema says this is an error but it's what the app actually wants
+          keys:
+            - slot: 0
+              tpm: {}
+            - slot: 1
+              static:
+                passphrase: ${SECRET_VOLUME_KEY}
       - name: data-2
         provisioning:
-            diskSelector:
-                match: disk.model == "WD_BLACK SN770 2TB"
-            grow: true
-            minSize: 100GiB
+          diskSelector:
+            match: disk.model == "WD_BLACK SN770 2TB"
+          grow: true
+          minSize: 100GiB
         filesystem:
-            type: xfs
+          type: xfs
         encryption:
-            provider: luks2 # schema says this is an error but it's what the app actually wants
-            keys:
-                - slot: 0
-                  tpm: {}
-                - slot: 1
-                  static:
-                    passphrase: ${SECRET_VOLUME_KEY}
+          provider: luks2 # schema says this is an error but it's what the app actually wants
+          keys:
+            - slot: 0
+              tpm: {}
+            - slot: 1
+              static:
+                passphrase: ${SECRET_VOLUME_KEY}
     patches:
       - |-
         machine:
@@ -264,8 +262,8 @@ nodes:
           updelay: 200
           downdelay: 200
           interfaces:
-          - enx844709336ca1
-          - enx844709336ca2
+            - enx844709336ca1
+            - enx844709336ca2
         dhcp: true
         mtu: 9000
         vlans: *vlans
@@ -274,49 +272,49 @@ nodes:
     volumes:
       - name: EPHEMERAL
         provisioning:
-            grow: false
-            diskSelector:
-                match: disk.model == "AirDisk 1TB SSD"
-            maxSize: 100GiB
+          grow: false
+          diskSelector:
+            match: disk.model == "AirDisk 1TB SSD"
+          maxSize: 100GiB
       - name: IMAGECACHE
         provisioning:
-            grow: false
-            diskSelector:
-                match: disk.model == "AirDisk 1TB SSD"
-            maxSize: 100GiB
+          grow: false
+          diskSelector:
+            match: disk.model == "AirDisk 1TB SSD"
+          maxSize: 100GiB
     userVolumes:
       - name: data-1
         provisioning:
-            diskSelector:
-                match: disk.model == "AirDisk 1TB SSD"
-            grow: true
-            minSize: 100GiB
+          diskSelector:
+            match: disk.model == "AirDisk 1TB SSD"
+          grow: true
+          minSize: 100GiB
         filesystem:
-            type: xfs
+          type: xfs
         encryption:
-            provider: luks2 # schema says this is an error but it's what the app actually wants
-            keys:
-                - slot: 0
-                  tpm: {}
-                - slot: 1
-                  static:
-                    passphrase: ${SECRET_VOLUME_KEY}
+          provider: luks2 # schema says this is an error but it's what the app actually wants
+          keys:
+            - slot: 0
+              tpm: {}
+            - slot: 1
+              static:
+                passphrase: ${SECRET_VOLUME_KEY}
       - name: data-2
         provisioning:
-            diskSelector:
-                match: disk.model == "SPCC M.2 PCIe SSD"
-            grow: true
-            minSize: 100GiB
+          diskSelector:
+            match: disk.model == "SPCC M.2 PCIe SSD"
+          grow: true
+          minSize: 100GiB
         filesystem:
-            type: xfs
+          type: xfs
         encryption:
-            provider: luks2 # schema says this is an error but it's what the app actually wants
-            keys:
-                - slot: 0
-                  tpm: {}
-                - slot: 1
-                  static:
-                    passphrase: ${SECRET_VOLUME_KEY}
+          provider: luks2 # schema says this is an error but it's what the app actually wants
+          keys:
+            - slot: 0
+              tpm: {}
+            - slot: 1
+              static:
+                passphrase: ${SECRET_VOLUME_KEY}
     patches:
       - |-
         machine:
@@ -343,8 +341,8 @@ nodes:
           updelay: 200
           downdelay: 200
           interfaces:
-          - enx844709337101
-          - enx844709337102
+            - enx844709337101
+            - enx844709337102
         dhcp: true
         mtu: 9000
         vlans: *vlans
@@ -353,49 +351,49 @@ nodes:
     volumes:
       - name: EPHEMERAL
         provisioning:
-            grow: false
-            diskSelector:
-                match: disk.model == "AirDisk 1TB SSD"
-            maxSize: 100GiB
+          grow: false
+          diskSelector:
+            match: disk.model == "AirDisk 1TB SSD"
+          maxSize: 100GiB
       - name: IMAGECACHE
         provisioning:
-            grow: false
-            diskSelector:
-                match: disk.model == "AirDisk 1TB SSD"
-            maxSize: 100GiB
+          grow: false
+          diskSelector:
+            match: disk.model == "AirDisk 1TB SSD"
+          maxSize: 100GiB
     userVolumes:
       - name: data-1
         provisioning:
-            diskSelector:
-                match: disk.model == "AirDisk 1TB SSD"
-            grow: true
-            minSize: 100GiB
+          diskSelector:
+            match: disk.model == "AirDisk 1TB SSD"
+          grow: true
+          minSize: 100GiB
         filesystem:
-            type: xfs
+          type: xfs
         encryption:
-            provider: luks2 # schema says this is an error but it's what the app actually wants
-            keys:
-                - slot: 0
-                  tpm: {}
-                - slot: 1
-                  static:
-                    passphrase: ${SECRET_VOLUME_KEY}
+          provider: luks2 # schema says this is an error but it's what the app actually wants
+          keys:
+            - slot: 0
+              tpm: {}
+            - slot: 1
+              static:
+                passphrase: ${SECRET_VOLUME_KEY}
       - name: data-2
         provisioning:
-            diskSelector:
-                match: disk.model == "Samsung SSD 990 EVO 2TB"
-            grow: true
-            minSize: 100GiB
+          diskSelector:
+            match: disk.model == "Samsung SSD 990 EVO 2TB"
+          grow: true
+          minSize: 100GiB
         filesystem:
-            type: xfs
+          type: xfs
         encryption:
-            provider: luks2 # schema says this is an error but it's what the app actually wants
-            keys:
-                - slot: 0
-                  tpm: {}
-                - slot: 1
-                  static:
-                    passphrase: ${SECRET_VOLUME_KEY}
+          provider: luks2 # schema says this is an error but it's what the app actually wants
+          keys:
+            - slot: 0
+              tpm: {}
+            - slot: 1
+              static:
+                passphrase: ${SECRET_VOLUME_KEY}
     patches:
       - |-
         machine:
