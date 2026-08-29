@@ -35,18 +35,23 @@ spec:
       # only the 3 control-plane nodes (no Longhorn storage, no PDB) took
       # v1.13.9 while all 4 storage nodes failed.
       #
-      # allow-if-replica-is-stopped was tried first and does NOT work here:
-      # tested 2026-08-29 on brokkr01, the PDB held at disruptionsAllowed:0 for
-      # a full 10 minutes of draining and never released. The instance-manager
-      # also serves engines for volumes attached from OTHER nodes, so evicting
-      # brokkr01's own workloads never leaves every relevant replica "stopped".
+      # Deliberately left at Longhorn's default guard. always-allow was used
+      # on 2026-08-29 to complete the Talos v1.13.9 roll and it works — but it
+      # lets Longhorn detach a volume from a pod that has not finished shutting
+      # down, which corrupted sabnzbd's SQLite history DB and VolSync's kopia
+      # cache for influxdb during that roll.
       #
-      # always-allow is the only value that unblocks it. Switching live released
-      # the PDB instantly and brokkr01 completed its upgrade within ~2 minutes.
-      # The risk it accepts is bounded: Longhorn no longer refuses a drain that
-      # takes a 1-replica volume offline, but a drain is already evicting those
-      # workloads anyway.
-      nodeDrainPolicy: "always-allow"
+      # allow-if-replica-is-stopped does NOT help: tested on brokkr01, the
+      # instance-manager PDB held at disruptionsAllowed:0 for 10 minutes,
+      # because that pod also serves engines for volumes attached from other
+      # nodes.
+      #
+      # So node drains WILL block while volumes are attached. That is the
+      # intended trade: to drain a storage node, scale down the workloads
+      # holding volumes on it first (graceful shutdown), then drain. That
+      # procedure completed brokkr03 with zero corruption. Flipping this to
+      # always-allow for an unattended roll is what causes silent data damage.
+      nodeDrainPolicy: "block-if-contains-last-replica"
     # Longhorn exposes longhorn_volume_*/node_*/disk_* on the manager port,
     # but the chart ships the ServiceMonitor disabled -- so there were ZERO
     # longhorn_* series in Prometheus and volume health (robustness, degraded
