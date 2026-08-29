@@ -3,8 +3,16 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  # renovate: datasource=github-releases depName=dragonflydb/dragonfly-operator
-  - https://raw.githubusercontent.com/dragonflydb/dragonfly-operator/v1.6.1/manifests/crd.yaml
+  # CRD is vendored, not fetched. It previously pointed straight at
+  # raw.githubusercontent.com, which meant every reconcile needed a live
+  # GitHub fetch to succeed -- a TLS handshake timeout on 2026-08-29 failed
+  # the whole kustomize build and fired FluxKustomizationBuildfailed.
+  #
+  # Vendored from, and must be re-vendored when the operator is upgraded:
+  #   https://raw.githubusercontent.com/dragonflydb/dragonfly-operator/v1.6.1/manifests/crd.yaml
+  # Note the operator is deployed via the generic bjw-s app-template chart,
+  # which ships no CRDs of its own, so this file is the only source for them.
+  - ./crd.yaml
   - ./ocirepository.yaml
   - ./helmrelease.yaml
   - ./rbac.yaml
