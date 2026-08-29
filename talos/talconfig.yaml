@@ -557,7 +557,7 @@ patches:
               - https://gcr.nexus.${SECRET_DOMAIN}
           registry.k8s.io:
             endpoints:
-              - https://gcr.nexus.${SECRET_DOMAIN}
+              - https://registry-k8s.nexus.${SECRET_DOMAIN}
           public.ecr.aws:
             endpoints:
               - https://ecr.nexus.${SECRET_DOMAIN}
