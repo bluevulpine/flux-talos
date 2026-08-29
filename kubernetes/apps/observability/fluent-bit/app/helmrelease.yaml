@@ -84,6 +84,18 @@ spec:
           json_date_format iso8601
           compress gzip
           log_response_payload false
+    # Log collection must cover every node, so tolerate all taints rather than
+    # naming them. Without this the DaemonSet only scheduled on the 3 brokkr
+    # workers: the jormungandr control-plane nodes carry
+    # node-role.kubernetes.io/control-plane:NoSchedule and jormungandr4 carries
+    # node.kubernetes.io/low-power:NoSchedule, so 4 of 7 nodes shipped no logs at
+    # all. That silently hid every control-plane-hosted workload — tuppr among
+    # them, which is why a failed Talos upgrade left nothing in VictoriaLogs to
+    # diagnose. Enumerating the current taints would reintroduce the same gap the
+    # next time a node gains one.
+    tolerations:
+      - operator: Exists
+
     dashboards:
       enabled: true
     serviceMonitor:
