@@ -128,8 +128,14 @@ spec:
           # Headless Chrome for web page screenshots
           chrome:
             image:
-              repository: gcr.io/zenika-hub/alpine-chrome
-              # renovate: datasource=docker depName=gcr.io/zenika-hub/alpine-chrome
+              # Zenika's GCR mirror is gone -- gcr.io/zenika-hub/alpine-chrome now
+              # returns 403 Forbidden on the token request, and containerd reports
+              # the tag as "not found". Docker Hub is the live source. This only
+              # surfaced on 2026-08-29 when a Talos node drain rescheduled the pod
+              # onto a node without the image cached; the old node had been running
+              # on a locally cached layer that masked the dead registry.
+              repository: docker.io/zenika/alpine-chrome
+              # renovate: datasource=docker depName=docker.io/zenika/alpine-chrome
               tag: "124"
             command:
               - chromium-browser
