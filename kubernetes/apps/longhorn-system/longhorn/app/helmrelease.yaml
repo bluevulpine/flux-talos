@@ -35,11 +35,18 @@ spec:
       # only the 3 control-plane nodes (no Longhorn storage, no PDB) took
       # v1.13.9 while all 4 storage nodes failed.
       #
-      # allow-if-replica-is-stopped lets the drain proceed once the workload
-      # pods are evicted and their volumes detach, which is the normal drain
-      # ordering, while still refusing to yank a volume that is actively
-      # attached.
-      nodeDrainPolicy: "allow-if-replica-is-stopped"
+      # allow-if-replica-is-stopped was tried first and does NOT work here:
+      # tested 2026-08-29 on brokkr01, the PDB held at disruptionsAllowed:0 for
+      # a full 10 minutes of draining and never released. The instance-manager
+      # also serves engines for volumes attached from OTHER nodes, so evicting
+      # brokkr01's own workloads never leaves every relevant replica "stopped".
+      #
+      # always-allow is the only value that unblocks it. Switching live released
+      # the PDB instantly and brokkr01 completed its upgrade within ~2 minutes.
+      # The risk it accepts is bounded: Longhorn no longer refuses a drain that
+      # takes a 1-replica volume offline, but a drain is already evicting those
+      # workloads anyway.
+      nodeDrainPolicy: "always-allow"
     # Longhorn exposes longhorn_volume_*/node_*/disk_* on the manager port,
     # but the chart ships the ServiceMonitor disabled -- so there were ZERO
     # longhorn_* series in Prometheus and volume health (robustness, degraded
