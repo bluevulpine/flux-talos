@@ -72,7 +72,7 @@ spec:
       enabled: true
       storageClass: longhorn-1-replica
       size: 100Gi
-      retainDeleted: false  # Delete PVC when StatefulSet is deleted
+      retainDeleted: false # Delete PVC when StatefulSet is deleted
       retainScaled: true
 
     # Enable chown init container to fix PVC ownership
@@ -92,7 +92,7 @@ spec:
     metrics:
       enabled: true
       serviceMonitor:
-        enabled: false  # Using separate ServiceMonitor
+        enabled: false # Using separate ServiceMonitor
 
     # Service configuration
     service:
@@ -125,6 +125,9 @@ spec:
         - port: 5007
           name: cgr
           containerPort: 5007
+        - port: 5008
+          name: registry-k8s
+          containerPort: 5008
 
     # Ingress disabled (using HTTPRoute instead)
     ingress:
@@ -179,29 +182,29 @@ spec:
           format: docker
           mode: delete
           criteria:
-            lastDownloaded: "2592000"  # 30 days in seconds
+            lastDownloaded: "2592000" # 30 days in seconds
         # APT packages not downloaded in 90 days
         - name: apt-cleanup
           notes: "Remove APT packages not downloaded in 90 days"
           format: apt
           mode: delete
           criteria:
-            lastDownloaded: "7776000"  # 90 days in seconds
+            lastDownloaded: "7776000" # 90 days in seconds
         # npm/PyPI packages not downloaded in 60 days
         - name: packages-cleanup
           notes: "Remove npm/PyPI packages not downloaded in 60 days"
           format: ALL_FORMATS
           mode: delete
           criteria:
-            lastDownloaded: "5184000"  # 60 days in seconds
+            lastDownloaded: "5184000" # 60 days in seconds
 
       # Repository configuration
       repos:
-        # ========================================
-        # DOCKER REGISTRY PROXIES
-        # ========================================
-        # Shared defaults for Docker proxy repositories (REGISTRY index type)
         - &docker-proxy-defaults
+          # ========================================
+          # DOCKER REGISTRY PROXIES
+          # ========================================
+          # Shared defaults for Docker proxy repositories (REGISTRY index type)
           name: ghcr-proxy
           format: docker
           type: proxy
@@ -269,17 +272,39 @@ spec:
             forceBasicAuth: false
             httpPort: 5004
 
-        # Google Container Registry mirror (mirror.gcr.io)
+        # Google Container Registry (gcr.io)
+        # NOTE: this previously pointed at mirror.gcr.io, which is Google's
+        # pull-through cache of DOCKER HUB -- not a mirror of gcr.io. It cannot
+        # serve gcr.io-hosted repositories at all, so every gcr.io pull silently
+        # fell through to the public internet uncached. Verified 2026-08-29:
+        # mirror.gcr.io serves library/alpine but returns "manifest unknown" for
+        # google-containers/pause, a live gcr.io image.
         - <<: *docker-proxy-defaults
           name: gcr-mirror-proxy
           proxy:
-            remoteUrl: https://mirror.gcr.io
+            remoteUrl: https://gcr.io
             contentMaxAge: 1440
             metadataMaxAge: 1440
           docker:
             v1Enabled: false
             forceBasicAuth: false
             httpPort: 5005
+
+        # Kubernetes registry (registry.k8s.io)
+        # Its own proxy: registry.k8s.io is a distinct registry, not a gcr.io
+        # path. It was previously routed at the gcr proxy, which pointed at
+        # mirror.gcr.io and could not serve it -- so core Kubernetes images were
+        # never cached either.
+        - <<: *docker-proxy-defaults
+          name: registry-k8s-proxy
+          proxy:
+            remoteUrl: https://registry.k8s.io
+            contentMaxAge: 1440
+            metadataMaxAge: 1440
+          docker:
+            v1Enabled: false
+            forceBasicAuth: false
+            httpPort: 5008
 
         # AWS ECR Public (public.ecr.aws)
         - <<: *docker-proxy-defaults

@@ -128,7 +128,7 @@ spec:
         - name: nexus-nexus3
           port: 5004
 ---
-# Google Container Registry mirror proxy (gcr.io, registry.k8s.io)
+# Google Container Registry proxy (gcr.io)
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -187,3 +187,23 @@ spec:
     - backendRefs:
         - name: nexus-nexus3
           port: 5007
+---
+# Kubernetes registry proxy (registry.k8s.io)
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: nexus-registry-k8s
+  annotations:
+    gatus.home-operations.com/enabled: "false"
+spec:
+  hostnames:
+    - "registry-k8s.nexus.${SECRET_DOMAIN}"
+  parentRefs:
+    - name: internal
+      namespace: network
+      sectionName: https
+  rules:
+    - backendRefs:
+        - name: nexus-nexus3
+          port: 5008
