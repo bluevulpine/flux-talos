@@ -25,6 +25,21 @@ spec:
       defaultReplicaCount: "3"
       # Allow system-managed components (CSI plugin, instance manager) on tainted nodes
       taintToleration: "node.kubernetes.io/low-power=raspberry-pi:NoSchedule"
+      # Longhorn's default (block-if-contains-last-replica) makes every storage
+      # node permanently undrainable here. longhorn-1-replica is the default
+      # StorageClass (202 of 222 volumes), so every attached volume's only
+      # replica IS its last replica -- Longhorn therefore holds a per-node
+      # instance-manager PDB at minAvailable:1 over exactly 1 pod, i.e.
+      # disruptionsAllowed:0, which no eviction can ever satisfy. A Talos
+      # upgrade drain hangs on that pod until the job times out; that is why
+      # only the 3 control-plane nodes (no Longhorn storage, no PDB) took
+      # v1.13.9 while all 4 storage nodes failed.
+      #
+      # allow-if-replica-is-stopped lets the drain proceed once the workload
+      # pods are evicted and their volumes detach, which is the normal drain
+      # ordering, while still refusing to yank a volume that is actively
+      # attached.
+      nodeDrainPolicy: "allow-if-replica-is-stopped"
     # Longhorn exposes longhorn_volume_*/node_*/disk_* on the manager port,
     # but the chart ships the ServiceMonitor disabled -- so there were ZERO
     # longhorn_* series in Prometheus and volume health (robustness, degraded
