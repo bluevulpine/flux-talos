@@ -458,8 +458,22 @@ patches:
           featureGates:
             ImageVolume: true
         extraArgs:
-          image-gc-low-threshold: 50
-          image-gc-high-threshold: 55
+          # Raised from 50/55 (k8s defaults are 80/85). At 50/55 brokkr01 sat at
+          # 53.5% of its 107 GB EPHEMERAL -- 1.6 GB from the trigger -- so image
+          # GC ran essentially continuously and evicted layers before Spegel's
+          # peers could ever serve them. That is why no node held karakeep's
+          # chrome image when it rescheduled on 2026-08-29.
+          #
+          # Not going to the full 80/85: EPHEMERAL is capped at maxSize 100GiB on
+          # the brokkr nodes, and 85% would leave only ~16 GB free, which is the
+          # exhaustion scenario the original 50/55 was set to avoid. 70% leaves
+          # ~32 GB while roughly doubling usable image cache (59 -> 75 GB).
+          #
+          # Safe because Longhorn does NOT live here: it uses the u-data-1
+          # (916 GB) and u-data-2 (2 TB) user volumes on separate partitions, so
+          # EPHEMERAL holds only images, logs and containerd state.
+          image-gc-low-threshold: 65
+          image-gc-high-threshold: 70
         nodeIP:
           validSubnets:
             - "10.0.10.0/24"
