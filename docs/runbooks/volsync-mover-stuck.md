@@ -126,6 +126,78 @@ kubectl logs -n kube-system deploy/tns-csi-controller -c csi-provisioner --since
   | grep 'volume content source missing'
 ```
 
+## Fourth fingerprint: a *stale* dataset blocks the clone (2026-08-29)
+
+The three symptoms above all follow from the dataset being **deleted**. This one is the
+inverse — the dataset **already existed** and refused the clone:
+
+```
+controller_snapshot_clone.go:359 Failed to clone snapshot: ... [EFAULT] Failed to clone
+  snapshot: cannot create 'apps/tns-csi/nvmeof/pvc-<uid>': dataset already exists
+```
+
+Node side, the NVMe-oF controller attaches with the correct NQN but the namespace never
+appears, so kubelet retries forever:
+
+```
+node_nvmeof_discovery.go:312 Device path /dev/nvme2n1 still not ready after ns-rescan
+  (controller: nvme2) - returning unhealthy status
+MountVolume.MountDevice failed ... code = DeadlineExceeded desc = context deadline exceeded
+```
+
+**Distinguish it from the deletion cases before acting:** here `nouuid` is present on the
+StorageClasses, and the rollback fingerprint (`volume content source missing` plus a
+`DeleteDataset` for the same uid) is **absent**. `zfs list` will *find* the dataset rather
+than miss it.
+
+### Recovery — pause the source FIRST
+
+The wedged object is the transient clone PVC (`volsync-<app>-<dest>-src`), never the app's
+live PVC. Deleting it directly will stall in `Terminating`: VolSync immediately respawns a
+mover that re-grabs the PVC and holds the `pvc-protection` finalizer.
+
+```bash
+# 1. stop the actor, or the next two steps fight it
+kubectl -n <ns> patch replicationsource <app>-local --type=merge -p '{"spec":{"paused":true}}'
+
+# 2. clear the mover and the wedged clone PVC (reclaimPolicy=Delete removes the dataset)
+kubectl -n <ns> delete pod -l volsync.backube/mover --force --grace-period=0
+kubectl -n <ns> delete pvc volsync-<app>-local-src
+
+# 3. resume
+kubectl -n <ns> patch replicationsource <app>-local --type=merge -p '{"spec":{"paused":false}}'
+```
+
+**Then restore the trigger.** If you used a manual trigger to test recovery, remove it — a
+lingering `spec.trigger.manual` parks the source on `WaitingForManual` and it silently stops
+running on schedule:
+
+```bash
+kubectl -n <ns> patch replicationsource <app>-local --type=merge \
+  -p '{"spec":{"trigger":{"schedule":"<original>","manual":null}}}'
+# verify: reason should read WaitingForSchedule, not WaitingForManual
+```
+
+## ⚠️ The stagger mitigation is known-insufficient (2026-08-29)
+
+The model below — that all 9 recorded incidents fell in `00:02:10`–`00:03:06` when the R2
+component fired ~39 sources at once, and that *"the staggered `-local` sources ... have never
+hit it"* — **no longer holds.**
+
+`games/valheim-local` wedged at **~23:00 on 2026-08-29**: a staggered `-local` source, nowhere
+near the R2 burst, with no concurrent fan-out to explain it. Concurrency is therefore not a
+sufficient explanation, and staggering is not a sufficient mitigation.
+
+Also, the escape hatch below is closed: `bfenski/tns-csi` newest published tag is **still
+v0.17.6** (checked 2026-08-30). There is nothing to upgrade to.
+
+**Durable mitigation instead:** move affected sources off CSI staging entirely with
+`VOLSYNC_COPYMETHOD: Direct`, which reads the live PVC and never calls `CreateVolume`.
+Caveats: Direct is a crash-consistent live read (do **not** use it for apps holding live
+SQLite, e.g. frigate/jellyfin), and on a **ReadWriteOnce** source the mover must land on the
+app's node — see `spec.kopia.moverAffinity`. As of 2026-08-30 all 14 existing Direct sources
+in this cluster are RWX; RWO Direct is being canaried on `games/valheim`.
+
 **Mitigation applied (not a fix).** 18 days of logs showed 9 incidents across 6
 apps and both protocols — **every one between 00:02:10 and 00:03:06** (one burst
 destroyed two volumes in the same second), when

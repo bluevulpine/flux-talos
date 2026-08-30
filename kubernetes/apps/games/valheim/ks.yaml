@@ -66,7 +66,23 @@ spec:
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       VOLSYNC_STORAGECLASS: tns-csi-nvmeof
       VOLSYNC_SNAPSHOTCLASS: tns-csi-nvmeof-snapshot
-      VOLSYNC_COPYMETHOD: Snapshot
+      # Direct reads the live PVC and never stages a CSI snapshot/clone, which is
+      # where tns-csi's non-idempotent CreateVolume wedges. valheim-local hung
+      # 7.5h on 2026-08-29 ("cannot create ...: dataset already exists", NVMe-oF
+      # namespace never appearing) and had wedged before on 2026-07-05.
+      #
+      # CANARY: this is the FIRST Direct source in the cluster on a ReadWriteOnce
+      # volume -- all 14 existing Direct sources are RWX. On RWO the mover must
+      # land on the app's node or it will sit Pending with a Multi-Attach error.
+      # VolSync exposes spec.kopia.moverAffinity for that; we are deliberately
+      # testing without it first, because whether VolSync already co-locates a
+      # Direct mover for RWO is unverified here. If the mover goes Pending,
+      # add moverAffinity (podAffinity on app.kubernetes.io/name=valheim,
+      # topologyKey kubernetes.io/hostname) or revert this line.
+      #
+      # satisfactory is the other RWO/nvmeof candidate and is deliberately NOT
+      # changed yet -- it waits on this canary.
+      VOLSYNC_COPYMETHOD: Direct
       VOLSYNC_CACHE_CLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: tns-csi-nvmeof
       VOLSYNC_RUN_AS_USER: "1000"
