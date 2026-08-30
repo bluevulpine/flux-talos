@@ -34,6 +34,12 @@ spec:
       VOLSYNC_CACHE_CLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: tns-csi-nvmeof
       VOLSYNC_SNAPSHOTCLASS: tns-csi-nvmeof-snapshot
-      VOLSYNC_COPYMETHOD: Snapshot
+      # Direct reads the live PVC and never calls CreateVolume, so tns-csi's
+      # clone bug is unreachable. Same RWO/nvmeof profile as valheim, which
+      # canaried this on 2026-08-30 and proved the open question: VolSync
+      # schedules a Direct mover onto the source PVC's node by itself (mover
+      # landed on brokkr03 alongside the app), so no spec.kopia.moverAffinity
+      # is required. Backup completed; no clone PVC is created at all.
+      VOLSYNC_COPYMETHOD: Direct
       VOLSYNC_LOCAL_SCHEDULE: "55 * * * *"
       VOLSYNC_R2_SCHEDULE: "3 5 * * *"
