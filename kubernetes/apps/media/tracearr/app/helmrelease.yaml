@@ -53,14 +53,27 @@ spec:
               # (status: ok | degraded | maintenance). Read from index.ts:
               # "Every value returned here is read from in-memory caches".
               #
-              # That makes /health a good liveness probe - a DB or Redis outage
-              # cannot restart the pod, which is the jellyfin failure mode - and
-              # a weak readiness probe, since it reports 200 while migrations
-              # are still running. Upstream builds for this: the web client
-              # polls /health and renders a maintenance banner, and the server
-              # 503s /api/* until ready. With a single replica there is no
-              # second pod to shift traffic to, so gating readiness would only
-              # replace that banner with a connection error.
+              # The exemption is deliberate, not an oversight - the maintenance
+              # hook names /health explicitly and returns before the 503 it
+              # applies to everything else:
+              #   if (request.url === '/health') return;
+              #   if (isMaintenance()) return reply.code(503).send({...});
+              #
+              # So a DB or Redis outage cannot restart the pod - the jellyfin
+              # failure mode is structurally unreachable here. Readiness is
+              # correspondingly decorative: a degraded server still answers 200,
+              # so it can never pull the pod from endpoints. Upstream builds for
+              # that - the web client polls /health and renders a maintenance
+              # banner rather than the connection error a readiness gate
+              # would produce.
+              #
+              # READY DOES NOT MEAN SERVING for this app: the pod reports Ready
+              # while /api/* is still 503ing through migrations. Harmless for a
+              # Recreate singleton - there is no other replica to route to. If
+              # Tracearr ever gains a second replica, readiness gates nothing
+              # and a rollout would cut traffic over to a pod that 503s every
+              # call; point readiness at an /api/* path then, which does honour
+              # maintenance.
               liveness:
                 enabled: true
                 custom: true
@@ -74,7 +87,12 @@ spec:
                   # slow answer means event-loop lag - the one thing we most
                   # want NOT to trigger a restart. Generous timeout, cheap.
                   timeoutSeconds: 10
-                  failureThreshold: 18 # 180s - only a wedged process fails this
+                  # 180s, double upstream's 90s, and upstream's own source is
+                  # the argument for it: initStep is documented as "'migrations'
+                  # and 'timescale' mean interrupting the process risks
+                  # half-applied work". A chart that says that should not ship a
+                  # 90s liveness budget. Only a wedged process fails this.
+                  failureThreshold: 18
               readiness:
                 enabled: true
                 custom: true
