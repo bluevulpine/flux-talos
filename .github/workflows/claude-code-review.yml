@@ -42,11 +42,23 @@ jobs:
           # Must be a form `gh pr view` accepts: a number, or a full URL.
           # This previously passed `${{ github.repository }}/pull/<n>`, which gh
           # parses as a BRANCH NAME - `gh pr view bluevulpine/flux-talos/pull/1712`
-          # returns `no pull requests found for branch "..."`. The review command's
-          # first step gates on being able to see the PR and stops if it cannot,
-          # which is consistent with every run finishing in ~11s over 3 turns and
-          # posting nothing.
+          # returns `no pull requests found for branch "..."`. Correct on its own
+          # terms, but NOT the reason the reviewer is silent: changing it alone
+          # was tested on this PR and the run still went green without posting.
+          # Keeping it because the old form was wrong, not because it was the bug.
           prompt: '/code-review:code-review ${{ github.event.pull_request.html_url }}'
+          # Forces tag mode with a tracking comment. The only comment claude[bot]
+          # has ever posted in this repo (2026-07-14) came from tag mode; the
+          # pull_request-triggered agent mode has never posted anything. This is
+          # the better-grounded hypothesis - it gives the run a comment surface
+          # to write into rather than assuming one exists.
+          track_progress: true
+          # TEMPORARY, for this diagnosis only. Authorised by Derek 2026-09-01.
+          # WARNING, in the input's own words: emits ALL Claude messages including
+          # tool results, "which may contain secrets, API keys", and this
+          # repository is PUBLIC so those logs are world-readable. Revert as soon
+          # as we know why the reviewer is silent.
+          show_full_output: true
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
 
