@@ -27,10 +27,10 @@ spec:
       GATUS_PORT: "8096"
       GATUS_SERVICE: jellyfin
       VOLSYNC_CAPACITY: 10Gi
-      VOLSYNC_STORAGECLASS: tns-csi-nfs
-      VOLSYNC_CLONE_STORAGECLASS: tns-csi-nfs
-      VOLSYNC_SNAPSHOTCLASS: tns-csi-nfs-snapshot
-      VOLSYNC_ACCESSMODES: ReadWriteMany
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
       VOLSYNC_COPYMETHOD: Snapshot
       VOLSYNC_LOCAL_SCHEDULE: "35 * * * *"
       VOLSYNC_R2_SCHEDULE: "33 1 * * *"
