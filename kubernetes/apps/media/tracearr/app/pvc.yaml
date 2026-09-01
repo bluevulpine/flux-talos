@@ -1,0 +1,16 @@
+---
+# Poster cache. Deliberately NOT the volsync claim: it is a rebuildable cache
+# of images fetched from the media servers, and replicating it every 30 minutes
+# would spend backup capacity on data we can always re-fetch. Losing it costs a
+# re-download, not data. Tracearr bounds it itself via IMAGE_CACHE_MIN_FREE_PERCENT.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tracearr-image-cache
+spec:
+  accessModes:
+    - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: longhorn-1-replica
