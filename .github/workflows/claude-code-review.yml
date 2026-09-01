@@ -22,8 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
+      pull-requests: write
+      issues: write
       id-token: write
 
     steps:
@@ -39,7 +39,14 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
-          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
+          # Must be a form `gh pr view` accepts: a number, or a full URL.
+          # This previously passed `${{ github.repository }}/pull/<n>`, which gh
+          # parses as a BRANCH NAME - `gh pr view bluevulpine/flux-talos/pull/1712`
+          # returns `no pull requests found for branch "..."`. The review command's
+          # first step gates on being able to see the PR and stops if it cannot,
+          # which is consistent with every run finishing in ~11s over 3 turns and
+          # posting nothing.
+          prompt: '/code-review:code-review ${{ github.event.pull_request.html_url }}'
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
 
