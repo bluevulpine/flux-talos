@@ -25,7 +25,10 @@ spec:
               TZ: "${TIMEZONE}"
               JELLYFIN_PublishedServerUrl: https://jellyfin.${SECRET_DOMAIN}
             probes:
-              liveness: &probes
+              # Liveness and readiness are deliberately NOT shared. A VACUUM
+              # overlapping a library scan stalls /health for ~50s; readiness
+              # should drop the pod from endpoints, liveness must not kill it.
+              liveness:
                 enabled: true
                 custom: true
                 spec:
@@ -35,8 +38,18 @@ spec:
                   initialDelaySeconds: 0
                   periodSeconds: 10
                   timeoutSeconds: 5
-                  failureThreshold: 5
-              readiness: *probes
+                  failureThreshold: 18
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: *port
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
             resources:
               requests:
                 cpu: 100m
