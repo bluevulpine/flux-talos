@@ -22,10 +22,14 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/connorgallopo/tracearr
-              # renovate: datasource=docker depName=ghcr.io/connorgallopo/tracearr
               # Not `latest`, and not `supervised` - the supervised tags bundle
               # Postgres and Redis into the app container.
+              #
+              # The renovate annotation must sit on the line IMMEDIATELY above the
+              # value: .renovate/customManagers.json5 matches `depName=\S+\n.+`,
+              # so any comment in between makes the dependency untracked, silently.
+              repository: ghcr.io/connorgallopo/tracearr
+              # renovate: datasource=docker depName=ghcr.io/connorgallopo/tracearr
               tag: 2.2.3
             env:
               TZ: "${TIMEZONE}"
@@ -171,9 +175,18 @@ spec:
               - port: *port
                 name: *app
     persistence:
-      # The volsync-managed claim. Tracearr's scheduled logical database dumps
-      # land here (services/backup.ts), which is the logically-consistent layer
-      # a live-volume snapshot of timescaledb structurally cannot provide.
+      # The volsync-managed claim, for Tracearr's logical database dumps.
+      #
+      # IMPORTANT: this is EMPTY until someone turns backups on. Upstream ships
+      # `backupScheduleType: 'disabled'` (services/settings.ts), settings live in
+      # the database with no process.env override, and backupQueue.ts returns
+      # early on 'disabled'. There is no manifest change that enables it - it is
+      # a UI/API action, listed in the rollout gate below.
+      #
+      # Until then volsync replicates an empty directory, twice an hour, green.
+      # The logically-consistent backup layer that a crash-consistent snapshot of
+      # timescaledb cannot provide is therefore NOT yet in place; the capability
+      # is here, switched off. Found by an independent review of this PR.
       backups:
         existingClaim: *app
         globalMounts:
