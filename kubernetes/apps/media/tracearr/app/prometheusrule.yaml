@@ -8,125 +8,121 @@ spec:
   groups:
     - name: tracearr.backups
       rules:
+        # WHAT THIS MEASURES
+        #
+        # `kubelet_volume_stats_inodes_used` on the `tracearr` PVC, which Tracearr
+        # mounts at /data/backup. It is a count of ALLOCATED INODES at scrape time.
+        # It is not a count of directory entries - hard links share an inode - and
+        # it does not identify which files exist, when they were written, or
+        # whether any of them is valid. It is a present-state gauge and nothing in
+        # this file may be read as establishing history or cause.
+        #
+        # WHY A GAUGE AT ALL
+        #
         # Tracearr's logical database backups are the only logically-consistent
-        # copy of the watch history - a volsync snapshot of timescaledb's volume
-        # is crash-consistent, which WAL replay recovers but which cannot give a
-        # per-table or point-in-time restore.
+        # copy of the watch history; a volsync snapshot of timescaledb's volume is
+        # crash-consistent, which WAL replay recovers but which cannot give a
+        # per-table or point-in-time restore. Those backups ship DISABLED
+        # (`backupScheduleType: 'disabled'`, services/settings.ts) and are enabled
+        # through the UI, not through this repo - undeclared state that a rebuild
+        # from git does not restore. A volume sitting at its filesystem baseline is
+        # the cheapest observable that is inconsistent with backups running.
         #
-        # They ship DISABLED (`backupScheduleType: 'disabled'`, services/settings.ts)
-        # and are enabled through the UI, not through this repo. That makes them
-        # undeclared state: a rebuild from git restores every manifest here and
-        # does not restore that toggle. This alert is what turns "somebody
-        # remembered" into something the cluster checks.
+        # INODE COUNTS PRODUCED BY KNOWN CODE PATHS
         #
-        # COUNT INODES, NOT BYTES. The first version used
-        # `used_bytes < 1048576`, a floor reasoned from "an empty ext4 volume still
-        # carries lost+found" without measuring either side of it. Measured live:
-        # lost+found is 24 KB, and one backup is ~49 KB - `pg_dump -Fc` is 205,519
-        # bytes against this database and the same stream through the zip's deflate
-        # level 1 is 48,825. So the volume reads ~73 KB after a successful backup,
-        # 14x BELOW the floor: the alert stayed firing while backups ran, and would
-        # only have cleared once the database grew enough to push a dump past 1 MiB
-        # - i.e. calibrated against however much watch history happens to be
-        # imported. Inodes remove that dependency: the file COUNT is fixed
-        # regardless of database size.
+        # Stated as "this path produces this count", not as "this count means that
+        # happened" - several paths produce the same number.
         #
-        # The reachable states, from services/backup.js:
+        #   11   a freshly-made, untouched ext4 volume. Structural, not a sample:
+        #        ext4 reserves inodes 1-10, root is 2, and the first allocatable
+        #        inode is 11, which mke2fs hands to lost+found. Verify with
+        #        `ls -id <mountpoint>/lost+found`.
         #
-        #   11    filesystem baseline, nothing has ever been written.
-        #         Structural, not a sample: ext4 reserves inodes 1-10, root is 2,
-        #         and the first allocatable inode is 11, which mke2fs hands to
-        #         lost+found. A freshly-made ext4 volume cannot read 12 while
-        #         empty. Verify with `ls -id <mountpoint>/lost+found`.
+        #        Do NOT cite "several volumes read 11" as support. `tdarr` also
+        #        reads 11, on tns-csi-nfs, which has no lost+found and no ext4
+        #        inode reservation - a coincidence, and citing it would license
+        #        reusing this threshold on an NFS-backed claim where the baseline is
+        #        not guaranteed. The ext4 construction argument carries this alone,
+        #        and is why "re-measure if the storageclass or filesystem changes"
+        #        is a mechanism here rather than a hunch.
         #
-        #   12    exactly one entry beyond the baseline. EITHER `tmp/` alone -
-        #         `backupTempDir()` mkdirs `join(BACKUP_DIR, 'tmp')` and mkdtemp()s
-        #         inside it, and the `finally` runs `rm()` on the mkdtemp CHILD
-        #         only, so the first attempt leaves `tmp/` permanently - OR a
-        #         single `restore-point-<ts>.dump`, which `createRestorePoint()`
-        #         writes straight into BACKUP_DIR and never removes.
+        #   12   baseline plus one inode. `backupTempDir()` mkdirs
+        #        `join(BACKUP_DIR, 'tmp')` and mkdtemp()s inside it, and the
+        #        `finally` runs `rm()` on the mkdtemp CHILD only, so `tmp/` persists
+        #        once any attempt has run. A single `restore-point-<ts>.dump`, which
+        #        `createRestorePoint()` writes straight into BACKUP_DIR and never
+        #        removes, produces the same count. So does any one other file.
         #
-        #   >=13  two or more entries. A clean scheduled backup is
-        #         `tmp/` + the zip + its `.meta.json` sidecar = 14. A crash between
-        #         the `rename()` and the sidecar write leaves 13, correctly quiet:
-        #         a dump does exist.
+        #   >=13 baseline plus two or more. A completed scheduled backup is
+        #        `tmp/` + the archive + its `.meta.json` sidecar = 14; a crash
+        #        between the `rename()` and the sidecar write leaves 13. Three
+        #        restore-point dumps also reach 14. The gauge cannot tell these
+        #        apart.
         #
-        # WHAT THIS RULE ACTUALLY MEASURES, stated narrowly: file PRESENCE, not
-        # backup success. An inode gauge cannot identify WHICH files are there, so
-        # three `restore-point-*.dump` files also read 14 and would silence it with
-        # no scheduled backup ever having run. `<= 12` is "this volume is
-        # effectively empty", and it is a proxy for "scheduled backups were never
-        # switched on" - which is the risk being carried today, on a volume holding
-        # only lost+found. It is not a backup-success check and must not be cited
-        # as one.
+        # WHAT THE THRESHOLD DOES
         #
-        # Three further limits, all named rather than left to be discovered:
+        # `<= 12` is true while the volume holds at most one inode beyond its
+        # filesystem baseline. Today it is true, and /data/backup holds only
+        # lost+found. The alert asks an operator to look; it does not diagnose.
         #
-        #   ONE-SHOT.   `cleanupOldBackups` deletes `scheduled.slice(retentionCount)`,
-        #               so any retention >= 1 keeps the newest backup forever. Once
-        #               this clears it can never fire again - disable backups a year
-        #               from now and it stays silent. It answers "did this ever
-        #               work", once, and then retires.
+        # LIMITS, all of them
         #
-        #   CAUSE.      At retentionCount = 0, `slice(0)` deletes everything and the
-        #               volume returns to 12 with `tmp/` left behind - firing after
-        #               backups that genuinely succeeded. The annotation therefore
-        #               asks the operator to check; it does not assert a cause,
-        #               because the gauge cannot establish one.
+        #   Not entry-aware.  Inodes, not directory entries. Two hard-linked names
+        #                     read as one.
+        #   Not identifying.  Cannot distinguish an archive from a restore-point
+        #                     dump from any unrelated file.
+        #   Not historical.   A count of 11 is consistent with a volume that has
+        #                     never been written AND with one whose contents were
+        #                     removed, or with a replaced PVC.
+        #   Not a success check. Says nothing about whether any backup is valid; a
+        #                     complete-but-corrupt archive reads like a good one.
+        #                     `validateBackup` in services/backup.js is the tool for
+        #                     that and needs a job to call it.
+        #   Not repeatable.   `cleanupOldBackups` deletes
+        #                     `scheduled.slice(retentionCount)`, so any retention
+        #                     >= 1 keeps the newest archive. Once this stops being
+        #                     true it will not become true again while that archive
+        #                     remains - including after backups are later disabled.
+        #                     At `retentionCount: 0` everything is deleted and
+        #                     `tmp/` is left, returning the count to 12.
+        #   Not staleness.    Says nothing about when anything was written.
         #
-        #   STALENESS.  Unaddressed. A dump from six months ago reads the same as
-        #               one written last night.
+        # THE REPLACEMENT, which is not blocked on a credential
         #
-        # THE REAL FIX, and it is not blocked on a credential. We twice said
-        # ongoing backup monitoring needs an owner-authenticated API call or an
-        # upstream exporter. It does not. RWO is per-NODE, so a CronJob pinned to
-        # the node holding this PVC can mount it read-only alongside Tracearr and
-        # stat the newest `tracearr-backup-*.zip` - identifying the real artifacts
-        # and giving true staleness. Proven on 2026-09-01 with a throwaway pod on
-        # brokkr02: it mounted `pvc-d5b18d6e` `ro,relatime` while Tracearr held the
-        # volume, listed the directory, was refused a write, and Tracearr stayed up
-        # with 0 restarts. That CronJob is the replacement for this rule, not a
-        # supplement to it.
+        # File mtime on `tracearr-backup-*.zip` is the signal this gauge cannot
+        # give. It does not require an owner-authenticated API call or an upstream
+        # exporter: RWO is per-NODE, so a CronJob pinned to the node holding this
+        # PVC can mount it read-only alongside Tracearr and stat the real artifacts.
+        # Measured on 2026-09-01 with a throwaway pod on brokkr02 - it mounted
+        # `pvc-d5b18d6e` `ro,relatime` while Tracearr held the volume, listed the
+        # directory, was refused a write, and Tracearr stayed up at 0 restarts.
+        # Recorded here as an experiment that was run, not as a property this rule
+        # establishes. That CronJob replaces this rule rather than supplementing it.
+        #
+        # NOT SHIPPED: a staleness alert built on this gauge. Two attempts, both
+        # wrong, recorded so nobody re-derives them:
+        #
+        #   increase(...[14d])  - `increase()` is counter-aware and reads every
+        #     decrease as a reset, so retention pruning is scored as a large
+        #     positive. Signal inverted. Use delta() or max_over_time-min_over_time
+        #     on a gauge.
+        #
+        #   any [14d] window    - kube-prometheus-stack retains 2d. A PrometheusRule
+        #     is evaluated by Prometheus against its LOCAL TSDB (ruleSelector: {}),
+        #     not by thanos-rule, which loads its own
+        #     --rule-file=/etc/thanos/rules/*.yaml. Thanos holds the long-term data
+        #     and does not evaluate this rule. Measured: 3036 samples in [14d]
+        #     against 1437 in [1d] - the series is 2.1 days long. If a long window
+        #     is ever wanted, the place is thanos-rule's rule-file.
         - alert: TracearrBackupVolumeEmpty
           expr: |-
             kubelet_volume_stats_inodes_used{namespace="media", persistentvolumeclaim="tracearr"} <= 12
           for: 24h
           annotations:
             summary: >-
-              Tracearr's backup volume has been effectively empty for 24h — at most
-              one entry beyond the filesystem's own baseline. Check that scheduled
-              backups are enabled in Settings, and check the backup job for
-              failures. volsync replicates /data/backup once archives exist.
+              Tracearr's backup volume has held at most one inode beyond its
+              filesystem baseline for 24h. Check that scheduled backups are enabled
+              in Settings, and check the backup job for failures. volsync replicates
+              /data/backup once archives exist.
           labels:
             severity: warning
-            # NOT SHIPPED: a staleness alert. Two attempts, both wrong, recorded so
-            # nobody re-derives them:
-            #
-            #   increase(...[14d])  - `increase()` is counter-aware and reads every
-            #     decrease as a reset, so retention pruning (the exact event we want
-            #     flagged) is scored as a large positive. Signal inverted. Use
-            #     delta() or max_over_time-min_over_time on a gauge.
-            #
-            #   any [14d] window     - kube-prometheus-stack retains 2d. A
-            #     PrometheusRule is evaluated by Prometheus against its LOCAL TSDB
-            #     (ruleSelector: {}), not by thanos-rule, which loads its own
-            #     --rule-file=/etc/thanos/rules/*.yaml. Thanos holds the long-term
-            #     data and does not evaluate this rule. Measured: 3036 samples in
-            #     [14d] against 1437 in [1d] - the series is 2.1 days long.
-            #
-            # Staleness stays uncovered. An inode count answers "has a backup ever
-            # been written", not "was the last one recent" - a volume holding one
-            # dump from six months ago reads the same as one written last night.
-            # File mtime is the honest signal for freshness, and every backup route
-            # in Tracearr is owner-authenticated, so it needs a credential or a small
-            # exporter. If a long window is ever wanted, the place is thanos-rule's
-            # rule-file, not a PrometheusRule.
-            #
-            # Also still uncovered: a backup that writes a COMPLETE but CORRUPT zip
-            # reads identically to a good one. `createBackup` renames the zip into
-            # place only after it is fully written, so a torn artifact is unlikely,
-            # but nothing here validates the dump. `validateBackup` in the same file
-            # is the tool for that and needs a job to call it.
-            #
-            # TracearrBackupVolumeEmpty answers "was this ever turned on, and is it
-            # producing files", which is the risk actually being carried.
