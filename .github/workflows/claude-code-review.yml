@@ -53,12 +53,20 @@ jobs:
           # the better-grounded hypothesis - it gives the run a comment surface
           # to write into rather than assuming one exists.
           track_progress: true
-          # TEMPORARY, for this diagnosis only. Authorised by Derek 2026-09-01.
-          # WARNING, in the input's own words: emits ALL Claude messages including
-          # tool results, "which may contain secrets, API keys", and this
-          # repository is PUBLIC so those logs are world-readable. Revert as soon
-          # as we know why the reviewer is silent.
-          show_full_output: true
+          # The review command is a multi-agent workflow - it spawns agents to
+          # gate, gather context, summarise, review in parallel and validate each
+          # finding. The run on 91ca8711 recorded permission_denials_count: 26
+          # across 12 turns, roughly two refusals per turn: it tries to spawn
+          # them, is refused, and exits success with nothing to post.
+          #
+          # show_full_output would name the denied tools, but it is NOT set here
+          # deliberately. This repository is public and that input emits all tool
+          # results - "which may contain secrets, API keys" - into world-readable
+          # logs. It is unnecessary: permission_denials_count is already visible
+          # in the ordinary log, so the fix has a free numeric readout. 26 -> 0
+          # means solved. Guessing wrong costs one CI run; a permanent disclosure
+          # would cost until someone remembered to turn it back off.
+          claude_args: '--allowedTools "Task,Read,Grep,Glob,Bash(gh:*)"'
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
 
