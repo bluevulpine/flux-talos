@@ -62,8 +62,13 @@ spec:
         # WHAT THE THRESHOLD DOES
         #
         # `<= 12` is true while the volume holds at most one inode beyond its
-        # filesystem baseline. Today it is true, and /data/backup holds only
-        # lost+found. The alert asks an operator to look; it does not diagnose.
+        # filesystem baseline. It STOPPED being true on 2026-09-01 at 23:32Z, when
+        # the first archive was written; the volume has held four entries and 14
+        # inodes since. The alert asks an operator to look; it does not diagnose.
+        #
+        # Note for anyone re-checking the `11` argument below: `df -i` on this PVC
+        # will not report 11 again. `ls -id <mountpoint>/lost+found` still returns
+        # 11 and is the reproducible check.
         #
         # LIMITS, all of them
         #
@@ -87,7 +92,10 @@ spec:
         #                     retention setting, including 0. Once this expression
         #                     stops being true it will not become true again while
         #                     any such archive remains - including after backups are
-        #                     later disabled.
+        #                     later disabled. On this PVC that has already happened:
+        #                     the 23:32Z archive is `type: manual`, so this alert is
+        #                     retired here permanently. It is not watching anything
+        #                     now; it recorded that the toggle was once off.
         #   Not staleness.    Says nothing about when anything was written.
         #
         # THE REPLACEMENT, which is not blocked on a credential
