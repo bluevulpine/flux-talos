@@ -25,9 +25,14 @@ spec:
               # Not `latest`, and not `supervised` - the supervised tags bundle
               # Postgres and Redis into the app container.
               #
-              # The renovate annotation must sit on the line IMMEDIATELY above the
-              # value: .renovate/customManagers.json5 matches `depName=\S+\n.+`,
-              # so any comment in between makes the dependency untracked, silently.
+              # Annotation kept adjacent to `tag:` so the custom manager in
+              # .renovate/customManagers.json5 captures the version rather than
+              # nothing. NOT because the alternative is known-broken: the
+              # identical `annotation / repository: / tag:` shape used by
+              # homepage is demonstrably updated by renovate (#1348, #1610), so
+              # a native manager evidently handles image.repository/image.tag
+              # regardless of the custom regex. This placement just removes the
+              # question at zero cost.
               repository: ghcr.io/connorgallopo/tracearr
               # renovate: datasource=docker depName=ghcr.io/connorgallopo/tracearr
               tag: 2.2.3
