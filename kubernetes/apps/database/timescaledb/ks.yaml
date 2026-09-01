@@ -38,6 +38,13 @@ spec:
       # for a database. Nothing else mounts this claim, so RWO is correct and
       # stating it keeps the default from being load-bearing.
       VOLSYNC_ACCESSMODES: ReadWriteOnce
+      # Snapshot, not the component default of Direct. Direct has kopia walk a
+      # live PGDATA while Postgres writes to it - files read at different
+      # instants, no consistency point. Snapshot takes an atomic point-in-time
+      # that Postgres crash-recovers from via WAL on restore. Note the limit:
+      # crash-consistent, not logically consistent - no per-table or PITR
+      # restore, and a corrupt page is copied faithfully into every snapshot.
+      VOLSYNC_COPYMETHOD: Snapshot
       # timescaledb-ha runs as postgres, uid/gid 1000.
       VOLSYNC_RUN_AS_USER: "1000"
       VOLSYNC_RUN_AS_GROUP: "1000"
