@@ -31,45 +31,72 @@ spec:
         # imported. Inodes remove that dependency: the file COUNT is fixed
         # regardless of database size.
         #
-        # The three reachable states, from services/backup.js:
+        # The reachable states, from services/backup.js:
         #
-        #   11   nothing has ever been written.
-        #        Structural, not a sample: ext4 reserves inodes 1-10, root is 2,
-        #        and the first allocatable inode is 11, which mke2fs hands to
-        #        lost+found. A freshly-made ext4 volume cannot read 12 while empty.
-        #        Verify with `ls -id <mountpoint>/lost+found`.
+        #   11    filesystem baseline, nothing has ever been written.
+        #         Structural, not a sample: ext4 reserves inodes 1-10, root is 2,
+        #         and the first allocatable inode is 11, which mke2fs hands to
+        #         lost+found. A freshly-made ext4 volume cannot read 12 while
+        #         empty. Verify with `ls -id <mountpoint>/lost+found`.
         #
-        #   12   a backup was ATTEMPTED and produced nothing.
-        #        `backupTempDir()` does `mkdir(join(BACKUP_DIR, 'tmp'))` and then
-        #        mkdtemp()s inside it; the `finally` runs `rm(tempDir)` on the
-        #        mkdtemp CHILD only, never on `tmp` itself. So the first attempt -
-        #        success or failure - leaves `/data/backup/tmp` permanently. A run
-        #        that dies at pg_dump or at the zip lands here with no artifact.
+        #   12    exactly one entry beyond the baseline. EITHER `tmp/` alone -
+        #         `backupTempDir()` mkdirs `join(BACKUP_DIR, 'tmp')` and mkdtemp()s
+        #         inside it, and the `finally` runs `rm()` on the mkdtemp CHILD
+        #         only, so the first attempt leaves `tmp/` permanently - OR a
+        #         single `restore-point-<ts>.dump`, which `createRestorePoint()`
+        #         writes straight into BACKUP_DIR and never removes.
         #
-        #   14   one backup present: `tmp/` + the zip + its `.meta.json` sidecar.
-        #        Two files per backup, always.
+        #   >=13  two or more entries. A clean scheduled backup is
+        #         `tmp/` + the zip + its `.meta.json` sidecar = 14. A crash between
+        #         the `rename()` and the sidecar write leaves 13, correctly quiet:
+        #         a dump does exist.
         #
-        # `<= 12` is therefore "no backup file has ever landed here", and it covers
-        # both "never enabled" and "enabled but failing" - the second of which a
-        # `<= 11` threshold would have silently cleared on.
+        # WHAT THIS RULE ACTUALLY MEASURES, stated narrowly: file PRESENCE, not
+        # backup success. An inode gauge cannot identify WHICH files are there, so
+        # three `restore-point-*.dump` files also read 14 and would silence it with
+        # no scheduled backup ever having run. `<= 12` is "this volume is
+        # effectively empty", and it is a proxy for "scheduled backups were never
+        # switched on" - which is the risk being carried today, on a volume holding
+        # only lost+found. It is not a backup-success check and must not be cited
+        # as one.
         #
-        # Do NOT cite "several volumes read 11" as support. `tdarr` reads 11 on
-        # tns-csi-nfs, which has no lost+found and no ext4 inode reservation - a
-        # coincidence, and citing it would license reusing this threshold on an
-        # NFS-backed claim where the baseline is not guaranteed. The ext4
-        # construction argument carries this rule on its own, and is why
-        # "re-measure if the storageclass or filesystem changes" is a mechanism
-        # here rather than a hunch.
+        # Three further limits, all named rather than left to be discovered:
+        #
+        #   ONE-SHOT.   `cleanupOldBackups` deletes `scheduled.slice(retentionCount)`,
+        #               so any retention >= 1 keeps the newest backup forever. Once
+        #               this clears it can never fire again - disable backups a year
+        #               from now and it stays silent. It answers "did this ever
+        #               work", once, and then retires.
+        #
+        #   CAUSE.      At retentionCount = 0, `slice(0)` deletes everything and the
+        #               volume returns to 12 with `tmp/` left behind - firing after
+        #               backups that genuinely succeeded. The annotation therefore
+        #               asks the operator to check; it does not assert a cause,
+        #               because the gauge cannot establish one.
+        #
+        #   STALENESS.  Unaddressed. A dump from six months ago reads the same as
+        #               one written last night.
+        #
+        # THE REAL FIX, and it is not blocked on a credential. We twice said
+        # ongoing backup monitoring needs an owner-authenticated API call or an
+        # upstream exporter. It does not. RWO is per-NODE, so a CronJob pinned to
+        # the node holding this PVC can mount it read-only alongside Tracearr and
+        # stat the newest `tracearr-backup-*.zip` - identifying the real artifacts
+        # and giving true staleness. Proven on 2026-09-01 with a throwaway pod on
+        # brokkr02: it mounted `pvc-d5b18d6e` `ro,relatime` while Tracearr held the
+        # volume, listed the directory, was refused a write, and Tracearr stayed up
+        # with 0 restarts. That CronJob is the replacement for this rule, not a
+        # supplement to it.
         - alert: TracearrBackupVolumeEmpty
           expr: |-
             kubelet_volume_stats_inodes_used{namespace="media", persistentvolumeclaim="tracearr"} <= 12
           for: 24h
           annotations:
             summary: >-
-              Tracearr's backup volume has held no backup file for 24h — scheduled
-              backups are either still disabled or failing before they write. Enable
-              them in Settings and check the backup job; volsync replicates
-              /data/backup once dumps exist.
+              Tracearr's backup volume has been effectively empty for 24h — at most
+              one entry beyond the filesystem's own baseline. Check that scheduled
+              backups are enabled in Settings, and check the backup job for
+              failures. volsync replicates /data/backup once archives exist.
           labels:
             severity: warning
             # NOT SHIPPED: a staleness alert. Two attempts, both wrong, recorded so
