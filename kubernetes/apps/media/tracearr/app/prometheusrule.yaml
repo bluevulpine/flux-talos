@@ -31,25 +31,26 @@ spec:
               volsync replicates /data/backup once they exist.
           labels:
             severity: warning
-
-        # Deliberately paired with the above, because the above cannot do this
-        # job: once any backup lands, used_bytes stays over the floor forever and
-        # TracearrBackupVolumeEmpty can never fire again - including if backups
-        # later stop. This catches the volume going quiet.
-        #
-        # Known false positive: if retention pruning balances new backups exactly,
-        # usage plateaus while backups are healthy. 14d is chosen to make that
-        # unlikely rather than impossible. Treat a firing as "go look", not as
-        # proof.
-        - alert: TracearrBackupVolumeStale
-          expr: |-
-            increase(kubelet_volume_stats_used_bytes{namespace="media", persistentvolumeclaim="tracearr"}[14d]) <= 0
-              and kubelet_volume_stats_used_bytes{namespace="media", persistentvolumeclaim="tracearr"} >= 1048576
-          for: 6h
-          annotations:
-            summary: >-
-              Tracearr's backup volume has not grown in 14 days. Either scheduled
-              backups stopped, or retention is exactly offsetting new ones — check
-              the newest file in /data/backup.
-          labels:
-            severity: warning
+            # NOT SHIPPED: a staleness alert. Two attempts, both wrong, recorded so
+            # nobody re-derives them:
+            #
+            #   increase(...[14d])  - `increase()` is counter-aware and reads every
+            #     decrease as a reset, so retention pruning (the exact event we want
+            #     flagged) is scored as a large positive. Signal inverted. Use
+            #     delta() or max_over_time-min_over_time on a gauge.
+            #
+            #   any [14d] window     - kube-prometheus-stack retains 2d. A
+            #     PrometheusRule is evaluated by Prometheus against its LOCAL TSDB
+            #     (ruleSelector: {}), not by thanos-rule, which loads its own
+            #     --rule-file=/etc/thanos/rules/*.yaml. Thanos holds the long-term
+            #     data and does not evaluate this rule. Measured: 3036 samples in
+            #     [14d] against 1437 in [1d] - the series is 2.1 days long.
+            #
+            # And the metric is a weak proxy regardless: used_bytes cannot tell a
+            # fresh dump from any other growth. File mtime is the honest signal, and
+            # every backup route in Tracearr is owner-authenticated, so it needs a
+            # credential or a small exporter. If a long window is ever wanted, the
+            # place is thanos-rule's rule-file, not a PrometheusRule.
+            #
+            # TracearrBackupVolumeEmpty answers "was this ever turned on", which is
+            # the risk actually being carried, and answers it correctly.
