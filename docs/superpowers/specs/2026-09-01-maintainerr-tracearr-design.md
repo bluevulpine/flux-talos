@@ -44,7 +44,7 @@ build — see "Database choice" below, which is the least obvious decision here.
 
 | Decision | Choice | Who / why |
 |---|---|---|
-| Media server | **Plex** | Fizz's recommendation; Derek has not contradicted it. Low stakes now that Tracearr supplies cross-platform watch history — it governs library enumeration and where the collection appears. **Still not free to change later** (see Risks). |
+| Media server | **Plex** | **Derek, 2026-09-01**, after establishing what the choice actually controls. Not watch history — Tracearr supplies that for both. It selects the **rule vocabulary**: Plex exposes 49 properties to Jellyfin's 47, sharing 41. The eight Plex-only ones include `Is Watchlisted`, `Watchlisted by (username)` and `Labels`; Jellyfin's six include `Favorited by (username)` and `Tags`. For a tool that deletes things, the highest-value rule is an exemption, and the "keep this" flag lives in whichever server the household marks things in. **Not free to change later** (see Risks). |
 | Collection | **Visible, named "Leaving Soon"** | Derek, 2026-09-01. The collection in Plex *is* the dry-run report. |
 | `arrAction` | **`DO_NOTHING` (4)** for the trial | Fizz/Pollen; Maintainerr has no dry-run mode, so this is the substitute. |
 | `deleteAfterDays` | **30**, explicitly | Not a safety margin — under `DO_NOTHING` nothing acts regardless. The deletion calendar *skips null entirely*, so a real value is what makes the trial legible. |
@@ -184,6 +184,30 @@ one, or they get rewritten later.
 - **TimescaleDB** — *not* a volsync PVC snapshot. A snapshot of a live Postgres volume is
   crash-consistent, not logically consistent. Use a `pg_dump` CronJob to an object store.
 - **Tracearr** — no separate state if it is Postgres-only; confirm at implementation.
+
+## Keeper signals — what can and cannot be read
+
+**There is no way to read both servers' keep-flags.** Verified against the rule constants:
+
+| source | keeper properties | available when media server is |
+|---|---|---|
+| Plex | `Is Watchlisted`, `Watchlisted by (username)`, `Labels` | Plex only |
+| Jellyfin | `Favorited by (username)`, `Tags` | Jellyfin only |
+| Streamystats | `Is in a watchlist`, `In watchlist of (username)` | **Jellyfin only** (hard-bound) |
+| Tautulli | none — 13 properties, all watch history | Plex only (hard-bound) |
+| Tracearr | **none** — 12 properties, all watch history | either |
+| **Seerr** | **`Requested by user (Jellyfin, Emby, Plex or local username)`**, `Requested in Seerr`, `Request date`, `Amount of requests` | **either** |
+
+**Seerr is the only cross-server signal**, and its own property name declares it. `jellyseerr`
+is configured against Plex ("Talos", 3 of 4 libraries enabled, `mediaServerType: 1`), so it
+works today.
+
+**But a request is not a keep.** "Someone asked for this once" is weaker than "someone flagged
+this to keep." Use Seerr as a supplementary exemption, not as a replacement for the watchlist.
+
+**Consequence of choosing Plex:** anything the household marks as a *Jellyfin favourite* is
+invisible to Maintainerr. If Jellyfin use grows, either move keep-flagging to the Plex
+watchlist or to Seerr requests.
 
 ## Risks and open questions
 
