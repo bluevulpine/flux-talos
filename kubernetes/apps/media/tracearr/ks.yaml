@@ -1,0 +1,55 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app tracearr
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    # Tracearr runs migrations and creates its continuous aggregates against
+    # timescaledb at boot, and coordinates its connection-pool budget through
+    # the shared dragonfly. Neither is optional at startup.
+    - name: timescaledb
+      namespace: database
+    - name: dragonfly-cluster
+      namespace: database
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+  interval: 1h
+  path: ./kubernetes/apps/media/tracearr/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: media
+  wait: false
+  postBuild:
+    substitute:
+      APP: *app
+      NS: media
+      GATUS_SUBDOMAIN: tracearr
+      # The volsync claim is Tracearr's own logical database backups, not its
+      # cache. Snapshotting timescaledb's volume is crash-consistent but not
+      # logically consistent; these dumps are what covers that gap, so they are
+      # the thing worth replicating offsite. The poster cache is a separate,
+      # deliberately unbacked-up PVC - see app/pvc.yaml.
+      VOLSYNC_CAPACITY: 10Gi
+      VOLSYNC_LOCAL_SCHEDULE: "27,57 * * * *"
+      VOLSYNC_R2_SCHEDULE: "17 2 * * *"
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      # Set alongside ACCESSMODES, never on its own: the component defaults to
+      # Direct, which reads the volume live. Pollen caught exactly this pairing
+      # missing on timescaledb, 2026-09-01.
+      VOLSYNC_COPYMETHOD: Snapshot
+      # Upstream Dockerfile user is 1001:1001 (tracearr:nodejs) - NOT the 1000
+      # timescaledb uses. A root mover would restore root-owned dumps.
+      VOLSYNC_RUN_AS_USER: "1001"
+      VOLSYNC_RUN_AS_GROUP: "1001"
+      VOLSYNC_FS_GROUP: "1001"

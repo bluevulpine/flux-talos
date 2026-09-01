@@ -1,0 +1,56 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: tracearr-rules
+spec:
+  groups:
+    - name: tracearr.backups
+      rules:
+        # Tracearr's logical database backups are the only logically-consistent
+        # copy of the watch history - a volsync snapshot of timescaledb's volume
+        # is crash-consistent, which WAL replay recovers but which cannot give a
+        # per-table or point-in-time restore.
+        #
+        # They ship DISABLED (`backupScheduleType: 'disabled'`, services/settings.ts)
+        # and are enabled through the UI, not through this repo. That makes them
+        # undeclared state: a rebuild from git restores every manifest here and
+        # does not restore that toggle. This alert is what turns "somebody
+        # remembered" into something the cluster checks.
+        #
+        # 1 MiB floor, not zero: an empty ext4 volume still carries lost+found.
+        - alert: TracearrBackupVolumeEmpty
+          expr: |-
+            kubelet_volume_stats_used_bytes{namespace="media", persistentvolumeclaim="tracearr"} < 1048576
+          for: 24h
+          annotations:
+            summary: >-
+              Tracearr's backup volume has held less than 1MiB for 24h — scheduled
+              backups are almost certainly still disabled. Enable them in Settings;
+              volsync replicates /data/backup once they exist.
+          labels:
+            severity: warning
+            # NOT SHIPPED: a staleness alert. Two attempts, both wrong, recorded so
+            # nobody re-derives them:
+            #
+            #   increase(...[14d])  - `increase()` is counter-aware and reads every
+            #     decrease as a reset, so retention pruning (the exact event we want
+            #     flagged) is scored as a large positive. Signal inverted. Use
+            #     delta() or max_over_time-min_over_time on a gauge.
+            #
+            #   any [14d] window     - kube-prometheus-stack retains 2d. A
+            #     PrometheusRule is evaluated by Prometheus against its LOCAL TSDB
+            #     (ruleSelector: {}), not by thanos-rule, which loads its own
+            #     --rule-file=/etc/thanos/rules/*.yaml. Thanos holds the long-term
+            #     data and does not evaluate this rule. Measured: 3036 samples in
+            #     [14d] against 1437 in [1d] - the series is 2.1 days long.
+            #
+            # And the metric is a weak proxy regardless: used_bytes cannot tell a
+            # fresh dump from any other growth. File mtime is the honest signal, and
+            # every backup route in Tracearr is owner-authenticated, so it needs a
+            # credential or a small exporter. If a long window is ever wanted, the
+            # place is thanos-rule's rule-file, not a PrometheusRule.
+            #
+            # TracearrBackupVolumeEmpty answers "was this ever turned on", which is
+            # the risk actually being carried, and answers it correctly.

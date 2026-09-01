@@ -1,0 +1,207 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app tracearr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: tracearr
+  interval: 1h
+  values:
+    controllers:
+      tracearr:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        # Upstream's own chart pins replicaCount to 1 with the comment
+        # "singleton poller - only 1 supported", so a rolling update would
+        # briefly run two pollers against the same database.
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              # Not `latest`, and not `supervised` - the supervised tags bundle
+              # Postgres and Redis into the app container.
+              #
+              # Annotation kept adjacent to `tag:` so the custom manager in
+              # .renovate/customManagers.json5 captures the version rather than
+              # nothing. NOT because the alternative is known-broken: the
+              # identical `annotation / repository: / tag:` shape used by
+              # homepage is demonstrably updated by renovate (#1348, #1610), so
+              # a native manager evidently handles image.repository/image.tag
+              # regardless of the custom regex. This placement just removes the
+              # question at zero cost.
+              repository: ghcr.io/connorgallopo/tracearr
+              # renovate: datasource=docker depName=ghcr.io/connorgallopo/tracearr
+              tag: 2.2.3
+            env:
+              TZ: "${TIMEZONE}"
+              NODE_ENV: production
+              HOST: 0.0.0.0
+              PORT: &port 3000
+              LOG_LEVEL: info
+              # dragonfly is shared with authentik, immich, nextcloud and
+              # thanos; upstream offers this prefix for exactly that case.
+              REDIS_URL: redis://dragonfly.database.svc.cluster.local:6379
+              REDIS_PREFIX: "tracearr:"
+              # Behind Envoy. TRUST_PROXY makes client IPs and the Secure
+              # cookie attribute follow x-forwarded-*; without it logins fail
+              # over HTTPS and every stream is attributed to the gateway IP.
+              TRUST_PROXY: "true"
+              CORS_ORIGIN: "https://tracearr.${SECRET_DOMAIN}"
+              GZIP_ENABLED: "false" # Envoy already compresses
+            envFrom:
+              - secretRef:
+                  name: tracearr-secret
+            probes:
+              # Deliberately NOT a shared anchor, but also not the usual
+              # live/ready split - upstream exposes one endpoint and it always
+              # returns HTTP 200, reporting state in the JSON body instead
+              # (status: ok | degraded | maintenance). Read from index.ts:
+              # "Every value returned here is read from in-memory caches".
+              #
+              # The exemption is deliberate, not an oversight - the maintenance
+              # hook names /health explicitly and returns before the 503 it
+              # applies to everything else:
+              #   if (request.url === '/health') return;
+              #   if (isMaintenance()) return reply.code(503).send({...});
+              #
+              # So a DB or Redis outage cannot restart the pod - the jellyfin
+              # failure mode is structurally unreachable here. Readiness is
+              # correspondingly decorative: a degraded server still answers 200,
+              # so it can never pull the pod from endpoints. Upstream builds for
+              # that - the web client polls /health and renders a maintenance
+              # banner rather than the connection error a readiness gate
+              # would produce.
+              #
+              # READY DOES NOT MEAN SERVING for this app: the pod reports Ready
+              # while /api/* is still 503ing through migrations. Harmless for a
+              # Recreate singleton - there is no other replica to route to. If
+              # Tracearr ever gains a second replica, readiness gates nothing
+              # and a rollout would cut traffic over to a pod that 503s every
+              # call; point readiness at an /api/* path then, which does honour
+              # maintenance.
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: &healthPath /health
+                    port: *port
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  # Upstream allows 10s here. The handler is synchronous, so a
+                  # slow answer means event-loop lag - the one thing we most
+                  # want NOT to trigger a restart. Generous timeout, cheap.
+                  timeoutSeconds: 10
+                  # 180s, double upstream's 90s, and upstream's own source is
+                  # the argument for it: initStep is documented as "'migrations'
+                  # and 'timescale' mean interrupting the process risks
+                  # half-applied work". A chart that says that should not ship a
+                  # 90s liveness budget. Only a wedged process fails this.
+                  failureThreshold: 18
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: *healthPath
+                    port: *port
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: *healthPath
+                    port: *port
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  # Migrations and the continuous-aggregate build run before
+                  # the server reports ready; initStep names 'migrations' and
+                  # 'timescale' as phases where interrupting risks half-applied
+                  # work. 10 minutes of headroom for the first boot.
+                  failureThreshold: 60
+            securityContext:
+              allowPrivilegeEscalation: false
+              # Upstream sets this false explicitly. Deviating from the repo
+              # default deliberately rather than by omission: the Node runtime
+              # writes outside the two mounted paths on boot. Worth revisiting
+              # once we can see what it actually touches.
+              readOnlyRootFilesystem: false
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 250m
+                memory: 512Mi
+              limits:
+                memory: 2Gi
+    defaultPodOptions:
+      # 1001:1001 is tracearr:nodejs from upstream's Dockerfile - not the 1000
+      # timescaledb runs as. Verified against the published chart's values.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        fsGroupChangePolicy: OnRootMismatch
+      # Upstream allows a full minute; the poller finishes its in-flight work.
+      terminationGracePeriodSeconds: 60
+    service:
+      app:
+        controller: tracearr
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        annotations:
+          gatus.home-operations.com/endpoint: |
+            group: media
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Tracearr"
+          gethomepage.dev/group: "Video"
+          gethomepage.dev/icon: "tautulli.png"
+          gethomepage.dev/description: "Watch History"
+        hostnames:
+          - "tracearr.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - port: *port
+                name: *app
+    persistence:
+      # The volsync-managed claim, for Tracearr's logical database dumps.
+      #
+      # IMPORTANT: this is EMPTY until someone turns backups on. Upstream ships
+      # `backupScheduleType: 'disabled'` (services/settings.ts), settings live in
+      # the database with no process.env override, and backupQueue.ts returns
+      # early on 'disabled'. There is no manifest change that enables it - it is
+      # a UI/API action, listed in the rollout gate below.
+      #
+      # Until then volsync replicates an empty directory, twice an hour, green.
+      # The logically-consistent backup layer that a crash-consistent snapshot of
+      # timescaledb cannot provide is therefore NOT yet in place; the capability
+      # is here, switched off. Found by an independent review of this PR.
+      backups:
+        existingClaim: *app
+        globalMounts:
+          - path: /data/backup
+      # Mounted at the subdirectory, NOT at /app/data: the image ships a
+      # worldwide basemap at /app/data/basemap.pmtiles, and mounting the parent
+      # would shadow it and silently break the stream map.
+      image-cache:
+        existingClaim: tracearr-image-cache
+        globalMounts:
+          - path: /app/data/image-cache
+      tmp:
+        type: emptyDir
