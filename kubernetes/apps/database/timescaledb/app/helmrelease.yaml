@@ -31,8 +31,12 @@ spec:
               # Pinned to exactly what Tracearr's own compose specifies.
               # Tracearr rewrites its continuous-aggregate schema on every
               # startup, so version drift here is not a cosmetic risk.
-              # renovate: datasource=docker depName=docker.io/timescale/timescaledb-ha
+              #
+              # The annotation must sit on the line IMMEDIATELY above the value.
+              # Above `repository:` it matched, and captured the repository
+              # string itself as currentValue - tracked, and tracking nonsense.
               repository: docker.io/timescale/timescaledb-ha
+              # renovate: datasource=docker depName=docker.io/timescale/timescaledb-ha
               tag: pg18.4-ts2.29.1
             env:
               TZ: "${TIMEZONE}"
