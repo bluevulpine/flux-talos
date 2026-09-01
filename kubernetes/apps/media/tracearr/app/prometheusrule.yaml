@@ -78,13 +78,16 @@ spec:
         #                     complete-but-corrupt archive reads like a good one.
         #                     `validateBackup` in services/backup.js is the tool for
         #                     that and needs a job to call it.
-        #   Not repeatable.   `cleanupOldBackups` deletes
-        #                     `scheduled.slice(retentionCount)`, so any retention
-        #                     >= 1 keeps the newest archive. Once this stops being
-        #                     true it will not become true again while that archive
-        #                     remains - including after backups are later disabled.
-        #                     At `retentionCount: 0` everything is deleted and
-        #                     `tmp/` is left, returning the count to 12.
+        #   Not repeatable.   `cleanupOldBackups` only considers entries whose
+        #                     sidecar says `type: 'scheduled'` - "Manual and
+        #                     uploaded backups are never auto-deleted" - and of
+        #                     those deletes `scheduled.slice(retentionCount)`. So
+        #                     retention >= 1 keeps the newest scheduled archive, and
+        #                     a manual or uploaded archive is never removed at any
+        #                     retention setting, including 0. Once this expression
+        #                     stops being true it will not become true again while
+        #                     any such archive remains - including after backups are
+        #                     later disabled.
         #   Not staleness.    Says nothing about when anything was written.
         #
         # THE REPLACEMENT, which is not blocked on a credential
