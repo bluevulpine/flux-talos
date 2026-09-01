@@ -25,15 +25,27 @@ spec:
         # per-table or point-in-time restore. Those backups ship DISABLED
         # (`backupScheduleType: 'disabled'`, services/settings.ts) and are enabled
         # through the UI, not through this repo - undeclared state that a rebuild
-        # from git does not restore. A volume sitting at its filesystem baseline is
-        # the cheapest observable that is inconsistent with backups running.
+        # from git does not restore. A volume at its filesystem baseline is the
+        # cheapest observable worth looking at. It does not establish WHY the volume
+        # is bare - see the note on early failure under the `11` count below.
         #
         # INODE COUNTS PRODUCED BY KNOWN CODE PATHS
         #
         # Stated as "this path produces this count", not as "this count means that
         # happened" - several paths produce the same number.
         #
-        #   11   a freshly-made, untouched ext4 volume. Structural, not a sample:
+        #   11   a freshly-made, untouched ext4 volume - OR one on which every
+        #        backup invocation failed early. `createBackup` validates
+        #        `DATABASE_URL`, runs `ensureBackupDir`, and runs
+        #        `checkPgVersionCompatibility` - which shells out to
+        #        `pg_dump --version` AND queries the database for its version -
+        #        all before it calls `backupTempDir()`. Any of those throws leaves
+        #        the volume untouched. **A database outage therefore fails every
+        #        scheduled backup while the count stays at 11.** That is a failure
+        #        this expression does catch; it is not a state that means "never
+        #        attempted".
+        #
+        #        The 11 itself is structural, not a sample:
         #        ext4 reserves inodes 1-10, root is 2, and the first allocatable
         #        inode is 11, which mke2fs hands to lost+found. Verify with
         #        `ls -id <mountpoint>/lost+found`.
@@ -49,7 +61,8 @@ spec:
         #   12   baseline plus one inode. `backupTempDir()` mkdirs
         #        `join(BACKUP_DIR, 'tmp')` and mkdtemp()s inside it, and the
         #        `finally` runs `rm()` on the mkdtemp CHILD only, so `tmp/` persists
-        #        once any attempt has run. A single `restore-point-<ts>.dump`, which
+        #        once an invocation REACHES `backupTempDir()` - not merely once one
+        #        has been attempted; see the early-exit paths under `11`. A single `restore-point-<ts>.dump`, which
         #        `createRestorePoint()` writes straight into BACKUP_DIR and never
         #        removes, produces the same count. So does any one other file.
         #
