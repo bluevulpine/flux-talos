@@ -94,12 +94,46 @@ boring StatefulSet wins.
 
 ### B. Tracearr
 
-- **Image:** `ghcr.io/connorgallopo/tracearr` — pin a release tag, **not** `latest`, and
-  **not** `supervised` (that bundles Postgres in the app container).
+**Corrected 2026-09-01 against upstream's own Helm chart** (`docker/helm/tracearr/` in the
+repo), which contradicted this section in three places. The original was inferred from
+`.env.example`; the chart is authoritative.
+
+- **Image:** `ghcr.io/connorgallopo/tracearr`, pin **`2.2.3`** — not `latest`, and **not**
+  `supervised` (those bundle Postgres *and* Redis into the app container). Version tags are
+  not on the first page of the GHCR tag list; there are 1048 tags across 11 pages.
 - **Namespace:** `media`
 - **Port:** 3000
-- **Config:** `DATABASE_URL` pointing at component A, from an ExternalSecret.
-- **Storage:** state lives in Postgres; confirm at implementation whether any PVC is needed.
+- **Runs as 1001:1001** (`tracearr:nodejs`) — *not* the 1000 TimescaleDB uses.
+- **Singleton.** Upstream pins `replicaCount: 1`, "singleton poller — only 1 supported", so
+  the Deployment needs `strategy: Recreate`.
+- **Redis is required.** `REDIS_URL` is set unconditionally in upstream's deployment; it
+  coordinates the connection-pool budget across instances. **This dependency was missing
+  from the first draft.** No new component: the existing `dragonfly` in `database/` already
+  serves authentik, immich, nextcloud and thanos. Set `REDIS_PREFIX` — upstream offers it
+  for exactly the shared-instance case.
+- **Config:** `DATABASE_URL` and two auth secrets — `JWT_SECRET` and `COOKIE_SECRET`,
+  32 bytes each — from an ExternalSecret. **The auth secrets were also missing.** Assemble
+  `DATABASE_URL` from two openbao extracts rather than copying the database password under
+  the `tracearr` key, so rotation cannot drift between two copies.
+- **Storage: two PVCs, not zero.**
+
+  | claim | path | backed up |
+  |---|---|---|
+  | volsync claim | `/data/backup` | yes |
+  | plain PVC | `/app/data/image-cache` | no — rebuildable poster cache |
+
+  **Mount the subdirectories, never `/app/data`.** The image ships `basemap.pmtiles` and
+  `BASEMAP_NOTICE.txt` there; mounting the parent shadows both and silently breaks the
+  stream map.
+- **Probes: one endpoint, three budgets.** `/health` **always returns HTTP 200** — state is
+  reported in the JSON body (`ok | degraded | maintenance`) from in-memory caches, with no
+  `reply.code()` in the handler. So liveness cannot be tripped by a database outage (the
+  jellyfin failure mode is unreachable here), and **readiness cannot shift traffic on
+  degradation either** — a broken server still answers 200. Readiness is informational;
+  upstream builds for this, rendering a maintenance banner client-side and 503-ing `/api/*`
+  until ready. The only real detection is a wedged event loop, so liveness gets a long
+  budget and a 10s timeout: a slow answer from a synchronous handler is event-loop lag,
+  which must not cause a restart.
 - **Post-deploy, manual:** connect Plex *and* Jellyfin, then run the Tautulli import.
 - **Note:** Jellyfin/Emby real-time sessions need Tracearr's SSE plugin; without it they
   poll. Polling is sufficient for watch history — the plugin is a latency nicety.
@@ -181,9 +215,26 @@ one, or they get rewritten later.
 - **Maintainerr** — standard volsync component, `longhorn-1-replica` / RWO /
   `longhorn-snapclass`, matching the jellyseerr pattern. **Its PVC contains Plex, Jellyfin
   and *arr API keys**, so the backup contains credentials.
-- **TimescaleDB** — *not* a volsync PVC snapshot. A snapshot of a live Postgres volume is
-  crash-consistent, not logically consistent. Use a `pg_dump` CronJob to an object store.
-- **Tracearr** — no separate state if it is Postgres-only; confirm at implementation.
+- **TimescaleDB** — **reversed on 2026-09-01: volsync, with `VOLSYNC_COPYMETHOD: Snapshot`.**
+  The original objection stands as a *limit*, not a disqualification: a single-volume atomic
+  snapshot is exactly what WAL replay is built to recover, which is not true across two
+  volumes. What it cannot give you is per-table or point-in-time restore, and a corrupt page
+  is copied faithfully into every retained snapshot.
+
+  **`COPYMETHOD` must be set alongside `VOLSYNC_ACCESSMODES`, never on its own.** The
+  component defaults to `Direct`, which has kopia walk a live `PGDATA` while Postgres writes
+  to it. It does not fail loudly — VolSync co-schedules the mover onto the node already
+  holding the volume, and RWO is per-*node*, so the backup completes. **Green
+  ReplicationSources and a restore that may not start.** Caught in review of #1711.
+
+  The logical-dump layer this paragraph originally called for is supplied by Tracearr, below.
+- **Tracearr** — has state, and it closes the gap above. Its own backup subsystem
+  (`services/backup.ts`, `jobs/backupQueue.ts`) writes scheduled **logical** database dumps
+  to `/data/backup`. Putting the volsync claim there — rather than on the rebuildable poster
+  cache — makes those dumps the replicated artifact, which is the logically-consistent layer
+  a live-volume snapshot structurally cannot provide. **No separate `pg_dump` CronJob is
+  needed.** Left on ephemeral storage the feature is worse than absent: backups that vanish
+  on every restart.
 
 ## Keeper signals — what can and cannot be read
 
