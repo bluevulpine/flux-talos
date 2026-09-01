@@ -93,18 +93,39 @@ spec:
               PLEX_ADVERTISE_URL: https://wheels.${SECRET_DOMAIN_MEDIA}:32400,http://${SVC_PLEX_ADDR}:32400
               PLEX_NO_AUTH_NETWORKS: 10.0.10.0/24
             probes:
-              liveness: &probes
+              # Liveness and readiness are deliberately NOT shared. Plex's config
+              # is a ~494 MB SQLite database on an RWX volume, which Longhorn
+              # serves over NFS (local_lock=none). A library scan or scheduled
+              # maintenance can stall /identity for longer than the 30s a shared
+              # 10s x 3 budget allowed - that is what killed jellyfin, which had
+              # 50s. Readiness should pull the pod from endpoints; liveness must
+              # not kill a busy server.
+              #
+              # Plex cannot take jellyfin's other fix: plex-image-cleanup mounts
+              # the same claim, so the volume must stay RWX and therefore NFS.
+              # The probe split is the only mitigation available here.
+              liveness:
                 enabled: true
                 custom: true
                 spec:
                   httpGet:
-                    path: /identity
-                    port: 32400
+                    path: &probePath /identity
+                    port: &probePort 32400
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 10
+                  failureThreshold: 18
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: *probePath
+                    port: *probePort
                   initialDelaySeconds: 0
                   periodSeconds: 10
                   timeoutSeconds: 10
                   failureThreshold: 3
-              readiness: *probes
               startup:
                 enabled: true
                 spec:
