@@ -1,0 +1,134 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app timescaledb
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: timescaledb
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    controllers:
+      timescaledb:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        # A database must not be rolled: two postgres processes on one RWO
+        # volume is data loss. Recreate stops the old pod before starting the new.
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              # Pinned to exactly what Tracearr's own compose specifies.
+              # Tracearr rewrites its continuous-aggregate schema on every
+              # startup, so version drift here is not a cosmetic risk.
+              # renovate: datasource=docker depName=docker.io/timescale/timescaledb-ha
+              repository: docker.io/timescale/timescaledb-ha
+              tag: pg18.4-ts2.29.1
+            env:
+              TZ: "${TIMEZONE}"
+              # The -ha image keeps its cluster under PGDATA; the PVC is mounted
+              # one level up so the data directory is a subdirectory of the mount
+              # rather than the mount itself (initdb refuses a non-empty root,
+              # and lost+found makes an ext4 mount non-empty).
+              PGDATA: /home/postgres/pgdata/data
+              POSTGRES_DB: tracearr
+              POSTGRES_USER: tracearr
+            envFrom:
+              - secretRef:
+                  name: timescaledb-secret
+            probes:
+              # Deliberately NOT shared. Postgres blocks on checkpoints, vacuum
+              # and - for this workload specifically - continuous-aggregate
+              # refreshes. Readiness should pull it from endpoints; liveness must
+              # not kill a database for being busy. Learned on jellyfin, 2026-09-01.
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command:
+                      - "pg_isready"
+                      - "-U"
+                      - "tracearr"
+                      - "-d"
+                      - "tracearr"
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 18
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command:
+                      - "pg_isready"
+                      - "-U"
+                      - "tracearr"
+                      - "-d"
+                      - "tracearr"
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command:
+                      - "pg_isready"
+                      - "-U"
+                      - "tracearr"
+                      - "-d"
+                      - "tracearr"
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 60
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 4Gi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: timescaledb
+        ports:
+          postgres:
+            port: 5432
+    persistence:
+      data:
+        existingClaim: *app
+        globalMounts:
+          - path: /home/postgres/pgdata
+      # Upstream's compose sets shm_size 512m; the container default of 64Mi is
+      # too small for parallel query and large sorts.
+      dshm:
+        type: emptyDir
+        medium: Memory
+        sizeLimit: 512Mi
+        globalMounts:
+          - path: /dev/shm
