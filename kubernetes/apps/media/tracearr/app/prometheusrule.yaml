@@ -19,47 +19,57 @@ spec:
         # does not restore that toggle. This alert is what turns "somebody
         # remembered" into something the cluster checks.
         #
-        # COUNT INODES, NOT BYTES. The first shipped version used
-        # `used_bytes < 1048576` on the reasoning that "an empty ext4 volume still
-        # carries lost+found" - a floor picked without measuring either side of it.
-        # Both sides were then measured, live, on 2026-09-01:
+        # COUNT INODES, NOT BYTES. The first version used
+        # `used_bytes < 1048576`, a floor reasoned from "an empty ext4 volume still
+        # carries lost+found" without measuring either side of it. Measured live:
+        # lost+found is 24 KB, and one backup is ~49 KB - `pg_dump -Fc` is 205,519
+        # bytes against this database and the same stream through the zip's deflate
+        # level 1 is 48,825. So the volume reads ~73 KB after a successful backup,
+        # 14x BELOW the floor: the alert stayed firing while backups ran, and would
+        # only have cleared once the database grew enough to push a dump past 1 MiB
+        # - i.e. calibrated against however much watch history happens to be
+        # imported. Inodes remove that dependency: the file COUNT is fixed
+        # regardless of database size.
         #
-        #   empty volume    11 inodes / 24576 bytes.  Identical on `tracearr` and
-        #                   `tracearr-image-cache`, two independently provisioned
-        #                   longhorn-1-replica volumes - so this is the ext4 baseline,
-        #                   not something Tracearr did.
+        # The three reachable states, from services/backup.js:
         #
-        #   one backup      services/backup.js runs `pg_dump -Fc`, then packs the dump
-        #                   plus metadata.json into a zip at `zlib: { level: 1 }`.
-        #                   Against the live database: -Fc is 205,519 bytes, and the
-        #                   same stream through deflate level 1 is 48,825 bytes.
-        #                   So the artifact on disk is ~49 KB and the volume reads
-        #                   roughly 73 KB - still 14x BELOW the 1 MiB floor.
+        #   11   nothing has ever been written.
+        #        Structural, not a sample: ext4 reserves inodes 1-10, root is 2,
+        #        and the first allocatable inode is 11, which mke2fs hands to
+        #        lost+found. A freshly-made ext4 volume cannot read 12 while empty.
+        #        Verify with `ls -id <mountpoint>/lost+found`.
         #
-        # The old rule therefore kept firing after a successful backup, asserting
-        # "backups are almost certainly still disabled" while they were running. It
-        # only cleared once the database had grown enough to push a dump past 1 MiB,
-        # which depends entirely on how much watch history gets imported - i.e. the
-        # threshold was calibrated against an unknown.
+        #   12   a backup was ATTEMPTED and produced nothing.
+        #        `backupTempDir()` does `mkdir(join(BACKUP_DIR, 'tmp'))` and then
+        #        mkdtemp()s inside it; the `finally` runs `rm(tempDir)` on the
+        #        mkdtemp CHILD only, never on `tmp` itself. So the first attempt -
+        #        success or failure - leaves `/data/backup/tmp` permanently. A run
+        #        that dies at pg_dump or at the zip lands here with no artifact.
         #
-        # Inode count removes that dependency. Each backup writes exactly two files
-        # (the zip and its .meta.json sidecar) regardless of database size, so any
-        # backup at all moves 11 -> 13. `<= 11` is exactly "nothing has ever been
-        # written here".
+        #   14   one backup present: `tmp/` + the zip + its `.meta.json` sidecar.
+        #        Two files per backup, always.
         #
-        # Known limit, in the silent direction: if a future volume's empty baseline
-        # were ever 12 rather than 11, this would stop firing rather than fire
-        # wrongly. Two independent volumes both read 11; re-measure if the
-        # storageclass or filesystem changes.
+        # `<= 12` is therefore "no backup file has ever landed here", and it covers
+        # both "never enabled" and "enabled but failing" - the second of which a
+        # `<= 11` threshold would have silently cleared on.
+        #
+        # Do NOT cite "several volumes read 11" as support. `tdarr` reads 11 on
+        # tns-csi-nfs, which has no lost+found and no ext4 inode reservation - a
+        # coincidence, and citing it would license reusing this threshold on an
+        # NFS-backed claim where the baseline is not guaranteed. The ext4
+        # construction argument carries this rule on its own, and is why
+        # "re-measure if the storageclass or filesystem changes" is a mechanism
+        # here rather than a hunch.
         - alert: TracearrBackupVolumeEmpty
           expr: |-
-            kubelet_volume_stats_inodes_used{namespace="media", persistentvolumeclaim="tracearr"} <= 11
+            kubelet_volume_stats_inodes_used{namespace="media", persistentvolumeclaim="tracearr"} <= 12
           for: 24h
           annotations:
             summary: >-
-              Tracearr's backup volume has held no files for 24h — scheduled backups
-              are almost certainly still disabled. Enable them in Settings; volsync
-              replicates /data/backup once they exist.
+              Tracearr's backup volume has held no backup file for 24h — scheduled
+              backups are either still disabled or failing before they write. Enable
+              them in Settings and check the backup job; volsync replicates
+              /data/backup once dumps exist.
           labels:
             severity: warning
             # NOT SHIPPED: a staleness alert. Two attempts, both wrong, recorded so
@@ -77,14 +87,19 @@ spec:
             #     data and does not evaluate this rule. Measured: 3036 samples in
             #     [14d] against 1437 in [1d] - the series is 2.1 days long.
             #
-            # Staleness stays uncovered. Inode count answers "has a backup ever been
-            # written", not "was the last one recent" - a volume holding one dump from
-            # six months ago reads the same as one written last night. File mtime is
-            # the honest signal for freshness, and every backup route in Tracearr is
-            # owner-authenticated, so it needs a credential or a small exporter. If a
-            # long window is ever wanted, the place is thanos-rule's rule-file, not a
-            # PrometheusRule.
+            # Staleness stays uncovered. An inode count answers "has a backup ever
+            # been written", not "was the last one recent" - a volume holding one
+            # dump from six months ago reads the same as one written last night.
+            # File mtime is the honest signal for freshness, and every backup route
+            # in Tracearr is owner-authenticated, so it needs a credential or a small
+            # exporter. If a long window is ever wanted, the place is thanos-rule's
+            # rule-file, not a PrometheusRule.
             #
-            # TracearrBackupVolumeEmpty answers "was this ever turned on", which is
-            # the risk actually being carried, and now answers it correctly in both
-            # directions.
+            # Also still uncovered: a backup that writes a COMPLETE but CORRUPT zip
+            # reads identically to a good one. `createBackup` renames the zip into
+            # place only after it is fully written, so a torn artifact is unlikely,
+            # but nothing here validates the dump. `validateBackup` in the same file
+            # is the tool for that and needs a job to call it.
+            #
+            # TracearrBackupVolumeEmpty answers "was this ever turned on, and is it
+            # producing files", which is the risk actually being carried.
