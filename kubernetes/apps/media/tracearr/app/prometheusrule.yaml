@@ -1,0 +1,55 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: tracearr-rules
+spec:
+  groups:
+    - name: tracearr.backups
+      rules:
+        # Tracearr's logical database backups are the only logically-consistent
+        # copy of the watch history - a volsync snapshot of timescaledb's volume
+        # is crash-consistent, which WAL replay recovers but which cannot give a
+        # per-table or point-in-time restore.
+        #
+        # They ship DISABLED (`backupScheduleType: 'disabled'`, services/settings.ts)
+        # and are enabled through the UI, not through this repo. That makes them
+        # undeclared state: a rebuild from git restores every manifest here and
+        # does not restore that toggle. This alert is what turns "somebody
+        # remembered" into something the cluster checks.
+        #
+        # 1 MiB floor, not zero: an empty ext4 volume still carries lost+found.
+        - alert: TracearrBackupVolumeEmpty
+          expr: |-
+            kubelet_volume_stats_used_bytes{namespace="media", persistentvolumeclaim="tracearr"} < 1048576
+          for: 24h
+          annotations:
+            summary: >-
+              Tracearr's backup volume has held less than 1MiB for 24h — scheduled
+              backups are almost certainly still disabled. Enable them in Settings;
+              volsync replicates /data/backup once they exist.
+          labels:
+            severity: warning
+
+        # Deliberately paired with the above, because the above cannot do this
+        # job: once any backup lands, used_bytes stays over the floor forever and
+        # TracearrBackupVolumeEmpty can never fire again - including if backups
+        # later stop. This catches the volume going quiet.
+        #
+        # Known false positive: if retention pruning balances new backups exactly,
+        # usage plateaus while backups are healthy. 14d is chosen to make that
+        # unlikely rather than impossible. Treat a firing as "go look", not as
+        # proof.
+        - alert: TracearrBackupVolumeStale
+          expr: |-
+            increase(kubelet_volume_stats_used_bytes{namespace="media", persistentvolumeclaim="tracearr"}[14d]) <= 0
+              and kubelet_volume_stats_used_bytes{namespace="media", persistentvolumeclaim="tracearr"} >= 1048576
+          for: 6h
+          annotations:
+            summary: >-
+              Tracearr's backup volume has not grown in 14 days. Either scheduled
+              backups stopped, or retention is exactly offsetting new ones — check
+              the newest file in /data/backup.
+          labels:
+            severity: warning
