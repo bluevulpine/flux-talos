@@ -11,3 +11,4 @@ resources:
   - ./couchdb/ks.yaml
   - ./dragonfly/ks.yaml
   - ./influxdb/ks.yaml
+  - ./timescaledb/ks.yaml
