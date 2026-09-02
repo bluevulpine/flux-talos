@@ -4,9 +4,22 @@ kind: Namespace
 metadata:
   name: media
   labels:
-    pod-security.kubernetes.io/enforce: privileged
-    pod-security.kubernetes.io/warn: privileged
-    pod-security.kubernetes.io/audit: privileged
+    # Raised from privileged to baseline 2026-09-02, once the two /dev/dri
+    # hostPaths were removed in #1720 - they were the only baseline violation
+    # in this namespace, and neither app was using the device.
+    #
+    # Verified BEFORE this label was written, not predicted:
+    #   kubectl label --dry-run=server --overwrite ns media \
+    #     pod-security.kubernetes.io/enforce=baseline
+    # Before #1720 that warned "jellyfin-... (and 1 other pod): hostPath
+    # volumes". After the pods restarted it prints only the labeled line.
+    #
+    # `restricted` is a much longer road and deliberately not attempted:
+    # runAsUser=0 on flaresolverr/plex/tdarr, runAsNonRoot unset on several
+    # more, seccompProfile missing across most of the namespace.
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: baseline
+    pod-security.kubernetes.io/audit: baseline
   annotations:
     kustomize.toolkit.fluxcd.io/prune: disabled
     volsync.backube/privileged-movers: "true"
