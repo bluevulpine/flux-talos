@@ -1,0 +1,53 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app maintainerr
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  # No dependsOn. Maintainerr boots standalone - every credential (Plex,
+  # Jellyfin, Radarr, Sonarr, Tracearr) is entered in the UI and stored in its
+  # own SQLite, so there is no startup-time dependency to express. The design
+  # spec's ordering constraint - that rules be written against Tracearr
+  # properties from day one - is a rule-AUTHORING constraint, not a boot one,
+  # and this repo reserves dependsOn for things that are "not optional at
+  # startup" (see tracearr/ks.yaml).
+  interval: 1h
+  path: ./kubernetes/apps/media/maintainerr/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: media
+  wait: false
+  postBuild:
+    substitute:
+      APP: *app
+      NS: media
+      GATUS_SUBDOMAIN: maintainerr
+      # /opt/data holds the SQLite database - which contains the Plex, Jellyfin
+      # and *arr API keys - plus the rule definitions and the never-touch-this
+      # exclusion list. That exclusion list is the reason this is backed up at
+      # all: losing it does not just lose configuration, it removes the record
+      # of which media was deliberately protected from deletion.
+      VOLSYNC_CAPACITY: 4Gi
+      VOLSYNC_LOCAL_SCHEDULE: "38 */4 * * *"
+      VOLSYNC_R2_SCHEDULE: "53 1 * * *"
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      # Set alongside ACCESSMODES, never on its own: the component defaults to
+      # Direct, which reads the volume live while better-sqlite3 is writing to
+      # it. Caught missing on timescaledb in review of #1711, 2026-09-01.
+      VOLSYNC_COPYMETHOD: Snapshot
+      # `USER node` in Maintainerr's Dockerfile, which is uid/gid 1000 from the
+      # node:alpine base (`addgroup -g 1000 node && adduser -u 1000 -G node`).
+      # A root mover would restore root-owned files that Maintainerr cannot read.
+      VOLSYNC_RUN_AS_USER: "1000"
+      VOLSYNC_RUN_AS_GROUP: "1000"
+      VOLSYNC_FS_GROUP: "1000"
