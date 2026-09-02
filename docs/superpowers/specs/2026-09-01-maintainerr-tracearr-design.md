@@ -140,9 +140,20 @@ repo), which contradicted this section in three places. The original was inferre
 
 ### C. Maintainerr
 
-- **Image:** `ghcr.io/maintainerr/maintainerr`, pin `v3.9.0`.
+- **Image:** `ghcr.io/maintainerr/maintainerr`, pin **`3.26.0`** — no `v` prefix; the registry's
+  tags are bare semver. *(Corrected 2026-09-02. This originally read `v3.9.0`, which is wrong
+  twice: the reference form does not exist in the registry, and 3.9.0 was 17 minor versions
+  stale. A **lexical** sort of the tag list puts `3.9.0` last, which is almost certainly how it
+  was arrived at — sorted numerically the tail is 3.22.1, 3.23.0, 3.24.0, 3.25.0, 3.26.0. Sort
+  versions as versions.)*
 - **Namespace:** `media`
-- **Port:** 6246 (`UI_PORT`)
+- **Port:** 6246 (`UI_PORT`, and `EXPOSE 6246` in the image config)
+- **Runs as uid/gid 1000:1000.** The Dockerfile ends `USER node`, and `node` is a **name**.
+  Kubernetes cannot verify `runAsNonRoot` against a non-numeric user and **refuses to start the
+  pod**, so the numeric form must be set explicitly. Read from the pinned image layer rather
+  than inferred from the base image: `/etc/passwd` @3.26.0 is
+  `node:x:1000:1000::/home/node:/bin/sh`. *(Added 2026-09-02 — this was unspecified, and would
+  have failed the first deploy.)*
 - **Env:** `TELEMETRY: "off"`, `TZ: "${TIMEZONE}"`, `BASE_PATH` only if path-routed.
 - **Storage:** `/opt/data`, **RWO on `longhorn-1-replica`** — `better-sqlite3`, one file.
   Also holds `logs/` (unbounded in source) and a UI bundle rewritten on every boot.
@@ -193,6 +204,27 @@ if (!radarrSettingsId && !sonarrSettingsId && !sportarrSettingsId) {
 **Under `DO_NOTHING`:** files, *arr state and artwork are all untouched (overlays are gated
 to deleting actions). The media-server collection **is still created** — that is intentional
 and is the dry-run output.
+
+## Corrections after implementation (2026-09-02)
+
+Step 3 shipped as #1718. Two claims in this document were false and are corrected inline above;
+both would have broken the deploy. Recorded here as well because the *mechanism* generalises:
+
+- **The version pin came from a lexical sort.** `3.9.0` sorts last among strings and nowhere near
+  last among versions. The same shape produced a wrong negative during the Tracearr build, from
+  an unpaginated registry query.
+- **A named container user is not a usable `runAsUser`.** `USER node` reads as specified until
+  kubelet refuses the pod for being unable to prove it is non-root.
+
+Everything else in section C held when checked against `3.26.0`: port, `DATA_DIR=/opt/data`,
+both health endpoint paths, and that `docker/start.sh` restages the UI **inside** the data
+volume — which is what makes `readOnlyRootFilesystem: true` viable.
+
+**Also learned in production, and not a defect in this document:** Tracearr creates
+`library_snapshots` with a **1-day** `chunk_time_interval` and backfills it from the earliest
+library item, which on this cluster produced 4,262 chunks holding nine rows each and exhausted
+`max_locks_per_transaction` for ordinary reads. Set to 90 days on 2026-09-02. Anyone deploying
+TimescaleDB for this stack should measure the chunk trajectory before sizing the lock budget.
 
 ## Rollout
 
