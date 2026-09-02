@@ -8,13 +8,26 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  # No dependsOn. Maintainerr boots standalone - every credential (Plex,
-  # Jellyfin, Radarr, Sonarr, Tracearr) is entered in the UI and stored in its
-  # own SQLite, so there is no startup-time dependency to express. The design
-  # spec's ordering constraint - that rules be written against Tracearr
-  # properties from day one - is a rule-AUTHORING constraint, not a boot one,
-  # and this repo reserves dependsOn for things that are "not optional at
-  # startup" (see tracearr/ks.yaml).
+  # Maintainerr's own credentials (Plex, Jellyfin, Radarr, Sonarr, Tracearr) are
+  # all entered in the UI and stored in its SQLite, so the APP has no
+  # startup-time dependency. The MANIFEST does: app/kustomization.yaml pulls in
+  # the volsync component, which creates two ExternalSecrets against the openbao
+  # ClusterSecretStore regardless of whether the app has secrets of its own
+  # (components/volsync/{local,r2}.yaml). Declared accordingly - 16 of the 19
+  # apps using that component do the same.
+  #
+  # Omitting it is not fatal: `wait: false` plus Flux's retry loop converges, and
+  # home/scrypted first-applied without it on 2026-07-10 and has been healthy
+  # since. But that only demonstrates the case where openbao was already up.
+  # Nothing in this cluster tests a first apply against a store that is NOT
+  # ready, and this is not the place to find out.
+  #
+  # The design spec's ordering constraint - that rules be written against
+  # Tracearr properties from day one - is a rule-AUTHORING constraint, not a boot
+  # one, and is deliberately not expressed here.
+  dependsOn:
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
   interval: 1h
   path: ./kubernetes/apps/media/maintainerr/app
   prune: true
@@ -45,8 +58,9 @@ spec:
       # Direct, which reads the volume live while better-sqlite3 is writing to
       # it. Caught missing on timescaledb in review of #1711, 2026-09-01.
       VOLSYNC_COPYMETHOD: Snapshot
-      # `USER node` in Maintainerr's Dockerfile, which is uid/gid 1000 from the
-      # node:alpine base (`addgroup -g 1000 node && adduser -u 1000 -G node`).
+      # `USER node` in Maintainerr's Dockerfile. Read out of the pinned image
+      # layer rather than inferred from the base image's convention:
+      #   /etc/passwd @3.26.0 -> node:x:1000:1000::/home/node:/bin/sh
       # A root mover would restore root-owned files that Maintainerr cannot read.
       VOLSYNC_RUN_AS_USER: "1000"
       VOLSYNC_RUN_AS_GROUP: "1000"
