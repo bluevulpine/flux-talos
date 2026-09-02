@@ -129,9 +129,9 @@ spec:
       # relocate the existing config data and lose it.
       server:
         existingClaim: *app
-        subPath: server
         globalMounts:
           - path: /app/server
+            subPath: server
       media:
         existingClaim: tdarr-media-nfs
         globalMounts:
