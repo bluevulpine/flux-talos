@@ -93,17 +93,81 @@ spec:
               PLEX_ADVERTISE_URL: https://wheels.${SECRET_DOMAIN_MEDIA}:32400,http://${SVC_PLEX_ADDR}:32400
               PLEX_NO_AUTH_NETWORKS: 10.0.10.0/24
             probes:
-              # Liveness and readiness are deliberately NOT shared. Plex's config
-              # is a ~494 MB SQLite database on an RWX volume, which Longhorn
-              # serves over NFS (local_lock=none). A library scan or scheduled
-              # maintenance can stall /identity for longer than the 30s a shared
-              # 10s x 3 budget allowed - that is what killed jellyfin, which had
-              # 50s. Readiness should pull the pod from endpoints; liveness must
-              # not kill a busy server.
+              # Liveness and readiness are deliberately NOT shared. Plex serves
+              # /identity from the same process that runs library maintenance, so
+              # a scan or a scheduled task can stall it for far longer than the
+              # 30s a shared 10s x 3 budget allowed - that is what killed
+              # jellyfin, which had 50s. Readiness should pull the pod from
+              # endpoints; liveness must not kill a busy server.
               #
-              # Plex cannot take jellyfin's other fix: plex-image-cleanup mounts
-              # the same claim, so the volume must stay RWX and therefore NFS.
-              # The probe split is the only mitigation available here.
+              # The config volume is a ~494 MB SQLite database on an RWX claim
+              # that Longhorn serves over NFS. That is context, not cause: the
+              # measurement further down rules the storage out.
+              #
+              # The thresholds below are sized against a measured stall, not an
+              # estimate. On 2026-09-02 Plex froze process-wide twice - 08:13Z and
+              # 18:31Z - with 62s of zero log output and requests completing at
+              # 123,077ms, while jellyseerr issued up to 62 concurrent
+              # /library/metadata/...?includeChildren=1 alongside Plex's own Butler
+              # RefreshPeriodicMetadata. Not CPU-bound: 5m cores with the node at
+              # 18%. What does move is database contention - SLOW QUERY warnings
+              # ran 1259 in hour 03 against 37 and 56 either side - and Plex's
+              # SLOW QUERY measures wall time, so lock waits inflate it just as
+              # much as slow I/O would. Which of those it was is settled below.
+              #
+              # Against a 123s worst case the previous budgets were wrong in both
+              # directions. Readiness at 3 x 10s = 30s fired, ejecting a healthy
+              # Plex from its endpoints for the rest of the stall - and with one
+              # replica and nothing to fail over to, that converts a slow response
+              # into a hard failure. Liveness at 18 x 10s = 180s left only 57s of
+              # headroom, so a slightly longer scan would have had the kubelet kill
+              # Plex mid-maintenance, mid-write to its database.
+              #
+              # 15 x 10s = 150s readiness rides out the measured stall with 27s to
+              # spare and still ejects a genuinely wedged server inside 2.5 minutes.
+              # 30 x 10s = 300s liveness keeps the backstop while restoring the
+              # margin the split was meant to provide.
+              #
+              # This is a cushion, not a fix - it makes the stall survivable, not
+              # shorter. But it is a cushion over the right thing, which was not
+              # obvious: this comment used to reason from the volume being NFS,
+              # and concluded the probe split was "the only mitigation available
+              # here" because plex-image-cleanup mounts the same claim and so Plex
+              # could not take jellyfin's RWO fix.
+              #
+              # Both halves of that are now measured and both are wrong.
+              #
+              # NFS is not the mechanism. /proc/self/mountstats inside the running
+              # pod, over the same 25h that contains both stalls:
+              #
+              #   config (Longhorn share-manager)  READ 1.43ms  COMMIT 2.95ms
+              #                                    retrans 0, timeouts 0, backlog 0
+              #   /data  (TrueNAS vault.funb.us)   READ 30.90ms COMMIT 62.62ms
+              #
+              # timeouts and retrans are cumulative counts, not means, so zero
+              # covers every instant including the stalls; the mount is timeo=600,
+              # so no single RPC ever ran 60s. Jellyfin's win came off the 30ms
+              # store, not this one - a different NFS entirely. And RWO would not
+              # even remove the network hop: longhorn-1-replica sets
+              # dataLocality: disabled, and Plex's sole replica already sits on a
+              # different node than its pod. Idle CPU, a storage path measured
+              # fast, and a freeze that silences every thread at once: that is
+              # serialisation inside the application, not I/O. Note the storage
+              # side is measured at the NFS client, not at the disks behind it -
+              # enough to clear this mount, not a claim about the whole stack.
+              #
+              # The co-mount blocker is also not real. RWO is per-node, not per-pod
+              # (ReadWriteOncePod is the strict one and is not in use), and
+              # plex-image-cleanup ALREADY co-mounts the RWO plex-cache claim
+              # alongside a running Plex in the same pod spec. If RWO blocked this,
+              # it would already be blocked. Migrating is still worth doing - it
+              # takes SQLite's 1.37M LOCK + 1.37M LOCKU RPCs off the wire - but as
+              # hygiene, not as the fix for this stall.
+              #
+              # Measured by Pollen 2026-09-02 and reproduced independently before
+              # this comment was written. Full workings live in the agent
+              # workspace (~/.buzz/RESEARCH/PLEX_RWX_TO_RWO_2026-09-02.md), not in
+              # this repo - the numbers above are the part worth keeping here.
               liveness:
                 enabled: true
                 custom: true
@@ -114,7 +178,7 @@ spec:
                   initialDelaySeconds: 0
                   periodSeconds: 10
                   timeoutSeconds: 10
-                  failureThreshold: 18
+                  failureThreshold: 30
               readiness:
                 enabled: true
                 custom: true
@@ -125,7 +189,7 @@ spec:
                   initialDelaySeconds: 0
                   periodSeconds: 10
                   timeoutSeconds: 10
-                  failureThreshold: 3
+                  failureThreshold: 15
               startup:
                 enabled: true
                 spec:
