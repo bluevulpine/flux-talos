@@ -109,16 +109,51 @@ spec:
         existingClaim: *app
         globalMounts:
           - path: /app/configs
+      # Tdarr's entire database lives under /app/server/Tdarr/DB2 - library
+      # definitions, flows, automations, API keys, users, the file index and
+      # job history. This was an emptyDir, which meant every pod restart wiped
+      # all of it. Discovered 2026-09-02 when #1720's restart destroyed a
+      # configuration Derek was in the middle of building; the empty DB2 had
+      # been read as "never configured" when it was in fact "cannot persist".
+      #
+      # Mounted as a subPath on the existing `tdarr` claim rather than a new PVC
+      # so it inherits that claim's volsync backup - the config half of DB2
+      # (LibrarySettingsJSONDB, FlowsJSONDB, AutomationsJSONDB, ApiKeysJSONDB)
+      # is real human effort and worth replicating. The derived half
+      # (FileJSONDB, JobReports, StatisticsJSONDB) rides along; Tdarr does not
+      # separate them.
+      #
+      # Side effect worth knowing: `config` mounts this claim at its root, so
+      # the DB is also visible at /app/configs/server. Cosmetic - Tdarr reads
+      # /app/server. Left alone deliberately: giving `config` a subPath would
+      # relocate the existing config data and lose it.
       server:
-        type: emptyDir
+        existingClaim: *app
         globalMounts:
           - path: /app/server
+            subPath: server
       media:
         existingClaim: tdarr-media-nfs
         globalMounts:
           - path: /media
+      # Transcode scratch. emptyDir is right - this is genuinely disposable and
+      # wants NVMe rather than the NFS share, which is also serving playback.
+      #
+      # sizeLimit added 2026-09-02, because an unbounded emptyDir here is a
+      # node-level hazard rather than a pod-level one. /temp is backed by
+      # brokkr01's /dev/nvme1n1p4, which had 32G free of 100G when measured, and
+      # that partition is shared with container images, logs and every other
+      # emptyDir on the node. A single 4K transcode can want tens of GB; without
+      # a limit Tdarr can fill the node's ephemeral storage and trigger evictions
+      # across every workload on it. With a limit, the failure is one evicted
+      # tdarr pod.
+      #
+      # 16Gi is deliberately conservative against 32G of headroom. Raise it once
+      # real transcodes show what they actually need - and watch node disk before
+      # raising Tdarr's worker count, which multiplies this.
       transcode-cache:
         type: emptyDir
+        sizeLimit: 16Gi
         globalMounts:
           - path: /temp
 
