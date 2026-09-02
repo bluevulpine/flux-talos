@@ -34,10 +34,13 @@ spec:
               tag: 4.1.6.1116
             env:
               TZ: "${TIMEZONE}"
-              # Sportarr__Port is one of the five env overrides the app actually
-              # honours (src/Constants/ConfigurationKeys.cs). Set explicitly so a
-              # port changed in the UI cannot silently drift from the Service:
-              # config.xml lives on the PVC and survives restarts.
+              # Sportarr__Port is read directly via Environment.GetEnvironmentVariable
+              # in Program.cs, so unlike Sportarr__ApiKey it genuinely takes effect -
+              # verified in the startup log, "Port from Sportarr__Port environment
+              # variable: 1867". Set explicitly so a port changed in the UI cannot
+              # silently drift from the Service: config.xml lives on the PVC and
+              # survives restarts. See externalsecret.yaml for which of the listed
+              # env overrides are actually wired and which are not.
               Sportarr__Port: &port 1867
             envFrom:
               - secretRef:
