@@ -12,6 +12,21 @@ spec:
   values:
     controllers:
       tautulli:
+        # Scaled to zero 2026-09-02. Tracearr (#1712) has taken over watch
+        # history: 1,184 of Tautulli's 1,264 distinct plays were imported, and
+        # Tracearr collects live sessions from both Plex and Jellyfin, which
+        # Tautulli never could.
+        #
+        # NOT deleted, and the PVC is deliberately retained. 80 records did not
+        # import - 79 of them a Plex account, `Guest`, that is `is_active=0` and
+        # no longer shared on the server, so no amount of re-syncing can
+        # recreate it. Those plays exist nowhere else. The recovery path is
+        # known if it ever matters: Tracearr's import matches on
+        # `plexAccountId`, not username (services/import/userMapping.js), so
+        # re-sharing that account and re-importing would land them.
+        #
+        # Deleting this PVC ends the only copy. Leave it.
+        replicas: 0
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
