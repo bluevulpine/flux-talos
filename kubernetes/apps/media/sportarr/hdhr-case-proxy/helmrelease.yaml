@@ -32,7 +32,7 @@ spec:
             # branch. Same image default/onlyflans already uses.
             image:
               repository: nginxinc/nginx-unprivileged
-              tag: 1.29-alpine
+              tag: 1.31-alpine
             probes:
               # /healthz is served by nginx itself, NOT proxied. A probe that
               # passed through to Sportarr would restart this proxy whenever
