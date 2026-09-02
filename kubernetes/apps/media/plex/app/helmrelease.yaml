@@ -101,9 +101,43 @@ spec:
               # 50s. Readiness should pull the pod from endpoints; liveness must
               # not kill a busy server.
               #
-              # Plex cannot take jellyfin's other fix: plex-image-cleanup mounts
-              # the same claim, so the volume must stay RWX and therefore NFS.
-              # The probe split is the only mitigation available here.
+              # The thresholds below are sized against a measured stall, not an
+              # estimate. On 2026-09-02 Plex froze process-wide twice - 08:13Z and
+              # 18:31Z - with 62s of zero log output and requests completing at
+              # 123,077ms, while jellyseerr issued up to 62 concurrent
+              # /library/metadata/...?includeChildren=1 alongside Plex's own Butler
+              # RefreshPeriodicMetadata. Disk/DB-bound, not CPU: 5m cores with the
+              # node at 18%, and SLOW QUERY warnings ran 1259 in hour 03 against 37
+              # and 56 either side.
+              #
+              # Against a 123s worst case the previous budgets were wrong in both
+              # directions. Readiness at 3 x 10s = 30s fired, ejecting a healthy
+              # Plex from its endpoints for the rest of the stall - and with one
+              # replica and nothing to fail over to, that converts a slow response
+              # into a hard failure. Liveness at 18 x 10s = 180s left only 57s of
+              # headroom, so a slightly longer scan would have had the kubelet kill
+              # Plex mid-maintenance with the database on NFS.
+              #
+              # 15 x 10s = 150s readiness rides out the measured stall with 27s to
+              # spare and still ejects a genuinely wedged server inside 2.5 minutes.
+              # 30 x 10s = 300s liveness keeps the backstop while restoring the
+              # margin the split was meant to provide.
+              #
+              # This is a cushion, not a fix - it makes the stall survivable, not
+              # shorter. The real question is whether the config volume can leave
+              # NFS at all, which is why this comment previously concluded "the
+              # probe split is the only mitigation available here": Plex was held
+              # to jellyfin's RWX shape because plex-image-cleanup mounts the same
+              # claim, so it could not take jellyfin's RWO fix.
+              #
+              # That conclusion is now under review and should not be relied on.
+              # RWO is a per-node constraint, not per-pod - ReadWriteOncePod is the
+              # strict one - the cronjob already carries podAffinity requiring
+              # Plex's node, and it already co-mounts the RWO plex-cache claim on a
+              # run that completed (job plex-image-cleanup-26hkr, with this mount
+              # in place since 8124e5bf0). Whether that generalises to a 100Gi
+              # config volume is the open part. Leave the RWX assumption unsettled
+              # in both directions until that research lands.
               liveness:
                 enabled: true
                 custom: true
@@ -114,7 +148,7 @@ spec:
                   initialDelaySeconds: 0
                   periodSeconds: 10
                   timeoutSeconds: 10
-                  failureThreshold: 18
+                  failureThreshold: 30
               readiness:
                 enabled: true
                 custom: true
@@ -125,7 +159,7 @@ spec:
                   initialDelaySeconds: 0
                   periodSeconds: 10
                   timeoutSeconds: 10
-                  failureThreshold: 3
+                  failureThreshold: 15
               startup:
                 enabled: true
                 spec:
