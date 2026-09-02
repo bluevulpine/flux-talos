@@ -1,0 +1,72 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app maintainerr
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  # Maintainerr's own credentials (Plex, Jellyfin, Radarr, Sonarr, Tracearr) are
+  # all entered in the UI and stored in its SQLite, so the APP has no
+  # startup-time dependency. The MANIFEST does: app/kustomization.yaml pulls in
+  # the volsync component, which creates two ExternalSecrets against the openbao
+  # ClusterSecretStore regardless of whether the app has secrets of its own
+  # (components/volsync/{local,r2}.yaml). Declared accordingly. Every
+  # Kustomization in this repo that uses the component declares it except six -
+  # media/audiobookshelf, media/calibre-web, games/satisfactory, home/mosquitto,
+  # home/scrypted and identity/vaultwarden - so 35 of 41 repo-wide, 17 of 19
+  # within media. Count Kustomizations, not kustomization.yaml files: plex/app
+  # and plex/kometa both use the component but share one plex/ks.yaml, which is
+  # the only place a dependsOn can be declared.
+  #
+  # Omitting it is not fatal: `wait: false` plus Flux's retry loop converges, and
+  # home/scrypted first-applied without it on 2026-07-10 and has been healthy
+  # since. But that only demonstrates the case where openbao was already up.
+  # Nothing in this cluster tests a first apply against a store that is NOT
+  # ready, and this is not the place to find out.
+  #
+  # The design spec's ordering constraint - that rules be written against
+  # Tracearr properties from day one - is a rule-AUTHORING constraint, not a boot
+  # one, and is deliberately not expressed here.
+  dependsOn:
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+  interval: 1h
+  path: ./kubernetes/apps/media/maintainerr/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: media
+  wait: false
+  postBuild:
+    substitute:
+      APP: *app
+      NS: media
+      GATUS_SUBDOMAIN: maintainerr
+      # /opt/data holds the SQLite database - which contains the Plex, Jellyfin
+      # and *arr API keys - plus the rule definitions and the never-touch-this
+      # exclusion list. That exclusion list is the reason this is backed up at
+      # all: losing it does not just lose configuration, it removes the record
+      # of which media was deliberately protected from deletion.
+      VOLSYNC_CAPACITY: 4Gi
+      VOLSYNC_LOCAL_SCHEDULE: "38 */4 * * *"
+      VOLSYNC_R2_SCHEDULE: "53 1 * * *"
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      # Set alongside ACCESSMODES, never on its own: the component defaults to
+      # Direct, which reads the volume live while better-sqlite3 is writing to
+      # it. Caught missing on timescaledb in review of #1711, 2026-09-01.
+      VOLSYNC_COPYMETHOD: Snapshot
+      # `USER node` in Maintainerr's Dockerfile. Read out of the pinned image
+      # layer rather than inferred from the base image's convention:
+      #   /etc/passwd @3.26.0 -> node:x:1000:1000::/home/node:/bin/sh
+      # A root mover would restore root-owned files that Maintainerr cannot read.
+      VOLSYNC_RUN_AS_USER: "1000"
+      VOLSYNC_RUN_AS_GROUP: "1000"
+      VOLSYNC_FS_GROUP: "1000"

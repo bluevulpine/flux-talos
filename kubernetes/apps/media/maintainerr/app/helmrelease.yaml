@@ -1,0 +1,135 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app maintainerr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: maintainerr
+  interval: 1h
+  values:
+    controllers:
+      maintainerr:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/maintainerr/maintainerr
+              # renovate: datasource=docker depName=ghcr.io/maintainerr/maintainerr
+              tag: 3.26.0
+            env:
+              TZ: "${TIMEZONE}"
+              UI_PORT: &port 6246
+              # Off by default here rather than relying on upstream's default.
+              # Maintainerr's telemetry reports usage of a tool that deletes
+              # media; there is no reason for this cluster to send it.
+              TELEMETRY: "off"
+            probes:
+              # Split deliberately, using upstream's own two endpoints - NOT one
+              # spec shared through a YAML anchor the way jellyseerr does.
+              # apps/server/src/app/health.controller.ts @v3.26.0:
+              #   @Controller('/api/health')  @Get('/live')  @Get('/ready')
+              # /ready pings the database; /live does not. Sharing one spec
+              # would let a database blip restart the pod instead of just
+              # pulling it out of service.
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health/live
+                    port: *port
+                  initialDelaySeconds: 0
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health/ready
+                    port: *port
+                  initialDelaySeconds: 0
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health/live
+                    port: *port
+                  initialDelaySeconds: 0
+                  periodSeconds: 5
+                  timeoutSeconds: 5
+                  # The entrypoint copies the whole UI bundle into
+                  # ${DATA_DIR}/ui on every boot before the server starts
+                  # (docker/start.sh), so first start on a cold PVC is slower
+                  # than steady state. 30 x 5s = 150s of headroom.
+                  failureThreshold: 30
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 1Gi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        # `USER node` in the Dockerfile, uid/gid 1000 from the node:alpine base.
+        # The numeric form is required: kubelet cannot verify runAsNonRoot
+        # against an image that names its user rather than numbering it, and
+        # refuses to start the pod.
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: maintainerr
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        annotations:
+          gatus.home-operations.com/endpoint: |
+            group: media
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Maintainerr"
+          gethomepage.dev/group: "Video"
+          gethomepage.dev/icon: "maintainerr.png"
+          gethomepage.dev/description: "Media Cleanup"
+        parentRefs:
+          # Internal only, deliberately. Maintainerr deletes media and holds the
+          # Plex, Jellyfin and *arr API keys in its SQLite; there is no reason to
+          # publish it. jellyseerr is externally routed because household members
+          # use it - nobody outside this LAN needs this.
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - "maintainerr.${SECRET_DOMAIN}"
+    persistence:
+      # DATA_DIR=/opt/data in the image. Holds the SQLite database (with the
+      # media-server and *arr API keys), the rule definitions, the exclusion
+      # list, logs/ - unbounded in upstream's source, watch it - and a copy of
+      # the UI bundle restaged on every boot. The UI copy is regenerable and
+      # rides along in the backup; it is small enough not to warrant a second
+      # claim the way tracearr's poster cache did.
+      config:
+        existingClaim: *app
+        globalMounts:
+          - path: /opt/data
+      tmp:
+        type: emptyDir
