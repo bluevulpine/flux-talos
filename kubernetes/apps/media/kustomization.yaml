@@ -26,6 +26,7 @@ resources:
   - ./rreading-glasses/ks.yaml
   - ./recyclarr/ks.yaml
   - ./sonarr/ks.yaml
+  - ./sportarr/ks.yaml
   - ./tautulli/ks.yaml
   - ./tracearr/ks.yaml
   - ./tdarr/ks.yaml
