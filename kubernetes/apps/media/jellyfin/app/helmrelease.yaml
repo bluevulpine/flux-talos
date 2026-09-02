@@ -63,7 +63,12 @@ spec:
         runAsGroup: 568
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
-        # 44 = video, 105 = kvm, 109 = render (for GPU access), 10000 = media
+        # 44 = video, 105 = kvm, 109 = render, 10000 = media.
+        # 109/render is vestigial as of 2026-09-02 - the /dev/dri hostPath was
+        # removed and this app requests no GPU resource. Left in place because
+        # 44 and 10000 govern media file access and this change is deliberately
+        # scoped to the hostPath; drop 109 separately if anyone confirms it is
+        # unused elsewhere.
         supplementalGroups:
           - 44
           - 105
@@ -115,10 +120,4 @@ spec:
         globalMounts:
           - path: /media
             readOnly: true
-      # GPU device access for hardware transcoding
-      dri:
-        type: hostPath
-        hostPath: /dev/dri
-        globalMounts:
-          - path: /dev/dri
 

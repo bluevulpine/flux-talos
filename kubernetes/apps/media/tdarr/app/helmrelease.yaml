@@ -121,10 +121,4 @@ spec:
         type: emptyDir
         globalMounts:
           - path: /temp
-      # GPU device access for hardware transcoding
-      dri:
-        type: hostPath
-        hostPath: /dev/dri
-        globalMounts:
-          - path: /dev/dri
 
