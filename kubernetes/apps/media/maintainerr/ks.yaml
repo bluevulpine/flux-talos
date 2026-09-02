@@ -13,8 +13,13 @@ spec:
   # startup-time dependency. The MANIFEST does: app/kustomization.yaml pulls in
   # the volsync component, which creates two ExternalSecrets against the openbao
   # ClusterSecretStore regardless of whether the app has secrets of its own
-  # (components/volsync/{local,r2}.yaml). Declared accordingly - 16 of the 19
-  # apps using that component do the same.
+  # (components/volsync/{local,r2}.yaml). Declared accordingly. Every
+  # Kustomization in this repo that uses the component declares it except six -
+  # media/audiobookshelf, media/calibre-web, games/satisfactory, home/mosquitto,
+  # home/scrypted and identity/vaultwarden - so 35 of 41 repo-wide, 17 of 19
+  # within media. Count Kustomizations, not kustomization.yaml files: plex/app
+  # and plex/kometa both use the component but share one plex/ks.yaml, which is
+  # the only place a dependsOn can be declared.
   #
   # Omitting it is not fatal: `wait: false` plus Flux's retry loop converges, and
   # home/scrypted first-applied without it on 2026-07-10 and has been healthy
