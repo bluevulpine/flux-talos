@@ -46,10 +46,24 @@ spec:
       # /config holds config.xml and the app's own backups. With the Postgres
       # provider it does NOT hold the database, so it is low-churn - hence the
       # 4-hourly local schedule rather than the hourly one radarr/sonarr use.
-      # Minute 45 and hour 3 were the free slots across media/*.
+      #
+      # Both slots are picked against the WHOLE repo, not just media/. The first
+      # revision of this file used "45 */4" and "5 3", chosen from a scan of
+      # media/*/ks.yaml alone, and both collided:
+      #   minute 45  already held by home/scrypted and home/frigate
+      #   hour 03    RESERVED - components/volsync/r2.yaml says "Hour 03 is
+      #              deliberately left empty: kopia-maint-r2 runs at '0 3 * * *'
+      #              against the same Kopia R2 repository these backups write to
+      #              ... Keep new apps out of hour 03."
+      #
+      # Hour 03 scanned as free precisely BECAUSE it is reserved: an unused slot
+      # and a forbidden one are indistinguishable from a census of who occupies
+      # it. The reservation rests on incident history, not caution - 9
+      # concurrency-driven failures in 18 days, one burst destroying two ZFS
+      # datasets behind already-Bound PVs. See docs/runbooks/volsync-mover-stuck.md.
       VOLSYNC_CAPACITY: 4Gi
-      VOLSYNC_LOCAL_SCHEDULE: "45 */4 * * *"
-      VOLSYNC_R2_SCHEDULE: "5 3 * * *"
+      VOLSYNC_LOCAL_SCHEDULE: "53 */4 * * *"
+      VOLSYNC_R2_SCHEDULE: "57 5 * * *"
       VOLSYNC_STORAGECLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
