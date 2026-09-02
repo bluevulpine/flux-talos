@@ -93,22 +93,27 @@ spec:
               PLEX_ADVERTISE_URL: https://wheels.${SECRET_DOMAIN_MEDIA}:32400,http://${SVC_PLEX_ADDR}:32400
               PLEX_NO_AUTH_NETWORKS: 10.0.10.0/24
             probes:
-              # Liveness and readiness are deliberately NOT shared. Plex's config
-              # is a ~494 MB SQLite database on an RWX volume, which Longhorn
-              # serves over NFS (local_lock=none). A library scan or scheduled
-              # maintenance can stall /identity for longer than the 30s a shared
-              # 10s x 3 budget allowed - that is what killed jellyfin, which had
-              # 50s. Readiness should pull the pod from endpoints; liveness must
-              # not kill a busy server.
+              # Liveness and readiness are deliberately NOT shared. Plex serves
+              # /identity from the same process that runs library maintenance, so
+              # a scan or a scheduled task can stall it for far longer than the
+              # 30s a shared 10s x 3 budget allowed - that is what killed
+              # jellyfin, which had 50s. Readiness should pull the pod from
+              # endpoints; liveness must not kill a busy server.
+              #
+              # The config volume is a ~494 MB SQLite database on an RWX claim
+              # that Longhorn serves over NFS. That is context, not cause: the
+              # measurement further down rules the storage out.
               #
               # The thresholds below are sized against a measured stall, not an
               # estimate. On 2026-09-02 Plex froze process-wide twice - 08:13Z and
               # 18:31Z - with 62s of zero log output and requests completing at
               # 123,077ms, while jellyseerr issued up to 62 concurrent
               # /library/metadata/...?includeChildren=1 alongside Plex's own Butler
-              # RefreshPeriodicMetadata. Disk/DB-bound, not CPU: 5m cores with the
-              # node at 18%, and SLOW QUERY warnings ran 1259 in hour 03 against 37
-              # and 56 either side.
+              # RefreshPeriodicMetadata. Not CPU-bound: 5m cores with the node at
+              # 18%. What does move is database contention - SLOW QUERY warnings
+              # ran 1259 in hour 03 against 37 and 56 either side - and Plex's
+              # SLOW QUERY measures wall time, so lock waits inflate it just as
+              # much as slow I/O would. Which of those it was is settled below.
               #
               # Against a 123s worst case the previous budgets were wrong in both
               # directions. Readiness at 3 x 10s = 30s fired, ejecting a healthy
@@ -116,7 +121,7 @@ spec:
               # replica and nothing to fail over to, that converts a slow response
               # into a hard failure. Liveness at 18 x 10s = 180s left only 57s of
               # headroom, so a slightly longer scan would have had the kubelet kill
-              # Plex mid-maintenance with the database on NFS.
+              # Plex mid-maintenance, mid-write to its database.
               #
               # 15 x 10s = 150s readiness rides out the measured stall with 27s to
               # spare and still ejects a genuinely wedged server inside 2.5 minutes.
@@ -145,8 +150,11 @@ spec:
               # store, not this one - a different NFS entirely. And RWO would not
               # even remove the network hop: longhorn-1-replica sets
               # dataLocality: disabled, and Plex's sole replica already sits on a
-              # different node than its pod. Idle CPU plus idle disk plus a
-              # wholesale freeze means serialisation inside the application.
+              # different node than its pod. Idle CPU, a storage path measured
+              # fast, and a freeze that silences every thread at once: that is
+              # serialisation inside the application, not I/O. Note the storage
+              # side is measured at the NFS client, not at the disks behind it -
+              # enough to clear this mount, not a claim about the whole stack.
               #
               # The co-mount blocker is also not real. RWO is per-node, not per-pod
               # (ReadWriteOncePod is the strict one and is not in use), and
