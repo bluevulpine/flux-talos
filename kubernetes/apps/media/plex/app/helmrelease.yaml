@@ -124,20 +124,42 @@ spec:
               # margin the split was meant to provide.
               #
               # This is a cushion, not a fix - it makes the stall survivable, not
-              # shorter. The real question is whether the config volume can leave
-              # NFS at all, which is why this comment previously concluded "the
-              # probe split is the only mitigation available here": Plex was held
-              # to jellyfin's RWX shape because plex-image-cleanup mounts the same
-              # claim, so it could not take jellyfin's RWO fix.
+              # shorter. But it is a cushion over the right thing, which was not
+              # obvious: this comment used to reason from the volume being NFS,
+              # and concluded the probe split was "the only mitigation available
+              # here" because plex-image-cleanup mounts the same claim and so Plex
+              # could not take jellyfin's RWO fix.
               #
-              # That conclusion is now under review and should not be relied on.
-              # RWO is a per-node constraint, not per-pod - ReadWriteOncePod is the
-              # strict one - the cronjob already carries podAffinity requiring
-              # Plex's node, and it already co-mounts the RWO plex-cache claim on a
-              # run that completed (job plex-image-cleanup-26hkr, with this mount
-              # in place since 8124e5bf0). Whether that generalises to a 100Gi
-              # config volume is the open part. Leave the RWX assumption unsettled
-              # in both directions until that research lands.
+              # Both halves of that are now measured and both are wrong.
+              #
+              # NFS is not the mechanism. /proc/self/mountstats inside the running
+              # pod, over the same 25h that contains both stalls:
+              #
+              #   config (Longhorn share-manager)  READ 1.43ms  COMMIT 2.95ms
+              #                                    retrans 0, timeouts 0, backlog 0
+              #   /data  (TrueNAS vault.funb.us)   READ 30.90ms COMMIT 62.62ms
+              #
+              # timeouts and retrans are cumulative counts, not means, so zero
+              # covers every instant including the stalls; the mount is timeo=600,
+              # so no single RPC ever ran 60s. Jellyfin's win came off the 30ms
+              # store, not this one - a different NFS entirely. And RWO would not
+              # even remove the network hop: longhorn-1-replica sets
+              # dataLocality: disabled, and Plex's sole replica already sits on a
+              # different node than its pod. Idle CPU plus idle disk plus a
+              # wholesale freeze means serialisation inside the application.
+              #
+              # The co-mount blocker is also not real. RWO is per-node, not per-pod
+              # (ReadWriteOncePod is the strict one and is not in use), and
+              # plex-image-cleanup ALREADY co-mounts the RWO plex-cache claim
+              # alongside a running Plex in the same pod spec. If RWO blocked this,
+              # it would already be blocked. Migrating is still worth doing - it
+              # takes SQLite's 1.37M LOCK + 1.37M LOCKU RPCs off the wire - but as
+              # hygiene, not as the fix for this stall.
+              #
+              # Measured by Pollen 2026-09-02 and reproduced independently before
+              # this comment was written. Full workings live in the agent
+              # workspace (~/.buzz/RESEARCH/PLEX_RWX_TO_RWO_2026-09-02.md), not in
+              # this repo - the numbers above are the part worth keeping here.
               liveness:
                 enabled: true
                 custom: true
