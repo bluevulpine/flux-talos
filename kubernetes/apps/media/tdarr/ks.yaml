@@ -26,8 +26,14 @@ spec:
       NS: media
       GATUS_PORT: "8265"
       GATUS_SERVICE: tdarr
-      VOLSYNC_CAPACITY: 4Gi
-      # Low criticality: transcode queue, regenerates - backup every 4 hours (staggered +30min)
+      # Raised from 4Gi 2026-09-02: this claim now also carries Tdarr's database
+      # via a subPath, and Tdarr's own job-report cap defaults to 10 GiB - larger
+      # than the old claim, so the volume would have filled before Tdarr pruned.
+      # 20Gi keeps the claim above its own cleanup threshold.
+      VOLSYNC_CAPACITY: 20Gi
+      # No longer "low criticality, regenerates": as of 2026-09-02 this claim
+      # holds the library definitions and flows, which are hand-built and do not
+      # regenerate. Backup every 4 hours (staggered +30min).
       VOLSYNC_STORAGECLASS: tns-csi-nfs
       VOLSYNC_CLONE_STORAGECLASS: tns-csi-nfs
       VOLSYNC_SNAPSHOTCLASS: tns-csi-nfs-snapshot

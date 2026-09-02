@@ -109,8 +109,27 @@ spec:
         existingClaim: *app
         globalMounts:
           - path: /app/configs
+      # Tdarr's entire database lives under /app/server/Tdarr/DB2 - library
+      # definitions, flows, automations, API keys, users, the file index and
+      # job history. This was an emptyDir, which meant every pod restart wiped
+      # all of it. Discovered 2026-09-02 when #1720's restart destroyed a
+      # configuration Derek was in the middle of building; the empty DB2 had
+      # been read as "never configured" when it was in fact "cannot persist".
+      #
+      # Mounted as a subPath on the existing `tdarr` claim rather than a new PVC
+      # so it inherits that claim's volsync backup - the config half of DB2
+      # (LibrarySettingsJSONDB, FlowsJSONDB, AutomationsJSONDB, ApiKeysJSONDB)
+      # is real human effort and worth replicating. The derived half
+      # (FileJSONDB, JobReports, StatisticsJSONDB) rides along; Tdarr does not
+      # separate them.
+      #
+      # Side effect worth knowing: `config` mounts this claim at its root, so
+      # the DB is also visible at /app/configs/server. Cosmetic - Tdarr reads
+      # /app/server. Left alone deliberately: giving `config` a subPath would
+      # relocate the existing config data and lose it.
       server:
-        type: emptyDir
+        existingClaim: *app
+        subPath: server
         globalMounts:
           - path: /app/server
       media:
