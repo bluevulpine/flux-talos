@@ -1,0 +1,137 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app sportarr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: sportarr
+  interval: 1h
+  values:
+    controllers:
+      sportarr:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          01-init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom:
+              - secretRef:
+                  name: sportarr-secret
+        containers:
+          app:
+            # Upstream Docker Hub image, not ghcr.io/home-operations - there is no
+            # home-operations build of Sportarr. Pinned to the release tag rather
+            # than `latest`: the repo also publishes -dev and -pr tags, and `latest`
+            # tracked 4.1.6.1116 at time of writing anyway.
+            image:
+              repository: docker.io/sportarr/sportarr
+              tag: 4.1.6.1116
+            env:
+              TZ: "${TIMEZONE}"
+              # Sportarr__Port is one of the five env overrides the app actually
+              # honours (src/Constants/ConfigurationKeys.cs). Set explicitly so a
+              # port changed in the UI cannot silently drift from the Service:
+              # config.xml lives on the PVC and survives restarts.
+              Sportarr__Port: &port 1867
+            envFrom:
+              - secretRef:
+                  name: sportarr-secret
+            probes:
+              # Split startup from liveness. First boot applies 39 Postgres
+              # migrations before the listener answers - measured at ~20s against
+              # an idle PG18 on 2026-09-02. radarr's shared-probe pattern would
+              # give that only 30s before the kubelet starts killing the pod, so
+              # the slow path gets its own budget here.
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ping
+                    port: *port
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+                  timeoutSeconds: 3
+                  failureThreshold: 60
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ping
+                    port: *port
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 3
+                  failureThreshold: 3
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                memory: 4Gi
+    defaultPodOptions:
+      # The image ships no USER directive and its entrypoint only drops privileges
+      # when it starts as root (PUID/PGID via setpriv). Starting as 568 skips that
+      # branch entirely and the app runs straight from `dotnet Sportarr.dll`.
+      # Verified against 4.1.6.1116 on 2026-09-02: uid=568, /config writable,
+      # /ping 200, and readOnlyRootFilesystem satisfied with /config and /tmp as
+      # the only writable mounts. The skipped root branch also skips the
+      # /etc/localtime symlink, but .NET reads TZ directly - log timestamps came
+      # back -05:00 under TZ=America/Chicago, so TZ above still takes effect.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: sportarr
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        annotations:
+          gatus.home-operations.com/endpoint: |
+            group: media
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Sportarr"
+          gethomepage.dev/group: "Downloads"
+          gethomepage.dev/icon: "mdi-trophy"
+          gethomepage.dev/description: "Sports"
+          # No widget.* here. Homepage ships a native `sportarr` widget only from
+          # v2.0.0; this cluster runs v1.13.2, where that type does not exist and
+          # the tile would render dead. The pre-2.0 route is a customapi widget
+          # against /api/stats with an X-Api-Key header, which needs a mappings
+          # block that does not express cleanly as annotations. Revisit on the
+          # Homepage v2 upgrade.
+        labels:
+          auth: authentik
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - sportarr.${SECRET_DOMAIN}
+    persistence:
+      config:
+        existingClaim: *app
+      tmp:
+        type: emptyDir
+      media:
+        existingClaim: sportarr-media-nfs
+        globalMounts:
+          - path: /media

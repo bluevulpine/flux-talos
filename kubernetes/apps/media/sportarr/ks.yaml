@@ -1,0 +1,67 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app sportarr
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  # Two hard dependencies, both startup-time rather than merely cosmetic:
+  #   cloudnative-pg-cluster18 - Sportarr's Postgres provider is FRESH-INSTALL
+  #     ONLY (docs/getting-started/database.md). There is no SQLite -> Postgres
+  #     migration path, so if the app ever boots without the DB reachable it
+  #     falls back to creating a SQLite store in /config and that becomes the
+  #     install. Getting to Postgres afterwards means deleting the volume.
+  #   external-secrets-openbao-store - app/kustomization.yaml pulls in the
+  #     volsync component, which creates ExternalSecrets against openbao whether
+  #     or not the app has secrets of its own. This app also has its own.
+  dependsOn:
+    - name: cloudnative-pg-cluster18
+      namespace: database
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+  interval: 1h
+  path: ./kubernetes/apps/media/sportarr/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: media
+  wait: false
+  postBuild:
+    substitute:
+      APP: *app
+      NS: media
+      # No GATUS_PORT / GATUS_SERVICE here, deliberately. Every other *arr sets
+      # them, but nothing in this repo reads them: the only non-ks.yaml matches
+      # for GATUS_ anywhere in the tree are gatus's own GATUS_DELAY_START_SECONDS,
+      # GATUS_CONFIG_PATH and GATUS_AUTHENTIK_BASIC_AUTH. Endpoint discovery is
+      # driven entirely by the gatus.home-operations.com/endpoint annotation on
+      # the route, which this app sets. Verified 2026-09-02; the ~50 ks.yaml
+      # files still carrying them are dead config, out of scope for this change.
+      #
+      # /config holds config.xml and the app's own backups. With the Postgres
+      # provider it does NOT hold the database, so it is low-churn - hence the
+      # 4-hourly local schedule rather than the hourly one radarr/sonarr use.
+      # Minute 45 and hour 3 were the free slots across media/*.
+      VOLSYNC_CAPACITY: 4Gi
+      VOLSYNC_LOCAL_SCHEDULE: "45 */4 * * *"
+      VOLSYNC_R2_SCHEDULE: "5 3 * * *"
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      # Set alongside ACCESSMODES, never on its own: the component defaults to
+      # Direct, which reads the volume live while the app is writing to it.
+      VOLSYNC_COPYMETHOD: Snapshot
+      # The image has no USER directive and its entrypoint drops privileges via
+      # PUID/PGID only when it starts as root. We start it as 568 instead, which
+      # skips that path entirely (verified by running 4.1.6.1116 as 568 on
+      # 2026-09-02). The mover must match or it restores root-owned files the
+      # app cannot read.
+      VOLSYNC_RUN_AS_USER: "568"
+      VOLSYNC_RUN_AS_GROUP: "568"
+      VOLSYNC_FS_GROUP: "568"
