@@ -1,0 +1,184 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app hdhr-case-proxy
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: *app
+  interval: 1h
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    controllers:
+      hdhr-case-proxy:
+        type: deployment
+        replicas: 1
+        strategy: RollingUpdate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            # nginx-unprivileged rather than nginx: it listens on 8080 and runs
+            # as a normal user without fighting the entrypoint's chown/envsubst
+            # branch. Same image default/onlyflans already uses.
+            image:
+              repository: nginxinc/nginx-unprivileged
+              tag: 1.29-alpine
+            probes:
+              # /healthz is served by nginx itself, NOT proxied. A probe that
+              # passed through to Sportarr would restart this proxy whenever
+              # Sportarr was the thing that was down.
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: &port 8080
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 2
+                  failureThreshold: 3
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 10m
+                memory: 16Mi
+              limits:
+                memory: 64Mi
+        pod:
+          securityContext:
+            runAsUser: 101
+            runAsGroup: 101
+            runAsNonRoot: true
+            seccompProfile: {type: RuntimeDefault}
+    service:
+      app:
+        controller: hdhr-case-proxy
+        ports:
+          http:
+            port: *port
+    # No route. Plex reaches this by cluster DNS
+    # (hdhr-case-proxy.media.svc.cluster.local:8080); nothing outside the
+    # cluster needs it, and exposing an unauthenticated proxy to Sportarr's
+    # stream endpoints would hand out the provider key in every stream URL.
+    configMaps:
+      config:
+        data:
+          nginx.conf: |-
+            # Sportarr emits its HDHomeRun JSON in camelCase; the SiliconDust
+            # spec Plex parses is PascalCase, so Plex reads the channel count
+            # but renders every name blank. Upstream's own C# writes
+            # PascalCase - Results.Json then applies ASP.NET's default
+            # camelCase naming policy on the way out. Until that is fixed
+            # upstream this rewrites the keys on the wire.
+            #
+            # Verified 2026-09-02 against Sportarr 4.1.6.1116: with Plex
+            # pointed at this proxy the channel names populate; pointed
+            # straight at Sportarr they are blank.
+
+            # readOnlyRootFilesystem: nginx must not write to /var/run.
+            pid /tmp/nginx.pid;
+
+            worker_processes 1;
+            events { worker_connections 256; }
+
+            http {
+              access_log /dev/stdout;
+              error_log  /dev/stderr;
+
+              # Every scratch path nginx might write to, moved off the read-only
+              # root. The stock unprivileged nginx.conf does this too; we replace
+              # that file wholesale, so it has to be repeated here.
+              client_body_temp_path /tmp/client_body;
+              proxy_temp_path       /tmp/proxy;
+              fastcgi_temp_path     /tmp/fastcgi;
+              uwsgi_temp_path       /tmp/uwsgi;
+              scgi_temp_path        /tmp/scgi;
+
+              server {
+                listen 8080;
+
+                # Sportarr builds its self-referencing URLs from the request
+                # Host. Forwarding it verbatim is what makes the BaseURL and
+                # LineupURL in discover.json point back at THIS proxy; drop it
+                # and Plex follows them straight to Sportarr and gets camelCase
+                # again.
+                proxy_set_header Host $http_host;
+
+                # sub_filter cannot rewrite a gzipped body.
+                proxy_set_header Accept-Encoding "";
+
+                sub_filter_types application/json;
+                sub_filter_once off;
+
+                # Local, so a Sportarr outage does not restart this pod.
+                location = /healthz {
+                  access_log off;
+                  add_header Content-Type text/plain;
+                  return 200 "ok\n";
+                }
+
+                location = /discover.json {
+                  proxy_pass http://sportarr.media.svc.cluster.local:1867;
+                  sub_filter '"friendlyName":'    '"FriendlyName":';
+                  sub_filter '"manufacturer":'    '"Manufacturer":';
+                  sub_filter '"modelNumber":'     '"ModelNumber":';
+                  sub_filter '"firmwareName":'    '"FirmwareName":';
+                  sub_filter '"firmwareVersion":' '"FirmwareVersion":';
+                  sub_filter '"deviceID":'        '"DeviceID":';
+                  sub_filter '"deviceAuth":'      '"DeviceAuth":';
+                  sub_filter '"baseURL":'         '"BaseURL":';
+                  sub_filter '"lineupURL":'       '"LineupURL":';
+                  sub_filter '"tunerCount":'      '"TunerCount":';
+                }
+
+                location = /lineup.json {
+                  proxy_pass http://sportarr.media.svc.cluster.local:1867;
+                  sub_filter '"guideNumber":' '"GuideNumber":';
+                  sub_filter '"guideName":'   '"GuideName":';
+                  sub_filter '"url":'         '"URL":';
+                  sub_filter '"hd":'          '"HD":';
+                  sub_filter '"favorite":'    '"Favorite":';
+                  sub_filter '"videoCodec":'  '"VideoCodec":';
+                  sub_filter '"audioCodec":'  '"AudioCodec":';
+                }
+
+                # device.xml needs no transform - UPnP element names really are
+                # lowercase, so Sportarr ships it correct. lineup_status.json,
+                # /ping and the stream proxy pass through untouched.
+                location / {
+                  proxy_pass http://sportarr.media.svc.cluster.local:1867;
+                  proxy_buffering off;
+                }
+              }
+            }
+    persistence:
+      config-file:
+        type: configMap
+        identifier: config
+        globalMounts:
+          - path: /etc/nginx/nginx.conf
+            subPath: nginx.conf
+            readOnly: true
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
+      cache:
+        type: emptyDir
+        globalMounts:
+          - path: /var/cache/nginx
