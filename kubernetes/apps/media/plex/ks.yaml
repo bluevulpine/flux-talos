@@ -31,6 +31,30 @@ spec:
       VOLSYNC_CACHE_CLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      # The component defaults to Direct, which mounts the LIVE config PVC and
+      # reads it while Plex is writing. That is a ~494 MB SQLite database being
+      # copied under an active writer, 48 times a day on the schedule below plus
+      # once more for R2 - every one of those snapshots can be torn, and the
+      # backup reports success either way. Same class as the defect fixed in
+      # #1711. Snapshot takes a CSI point-in-time copy and the mover reads that
+      # instead, so the database is never read mid-write and the mover stops
+      # co-mounting the volume Plex is using.
+      #
+      # Deliberately NOT paired with VOLSYNC_ACCESSMODES: ReadWriteOnce, which
+      # is the other half of the house pattern. That variable also feeds
+      # components/volsync/claim.yaml, which is what creates the `plex` PVC
+      # itself - so setting it here would try to mutate a bound PVC's
+      # accessModes. Confirmed against the live cluster with a server-side
+      # dry-run: "The PersistentVolumeClaim \"plex\" is invalid: spec:
+      # Forbidden: spec is immutable after creation". One invalid resource
+      # fails the whole kustomize apply while Flux still reports "applied
+      # revision", which is exactly how the jellyfin migration lost a step.
+      # RWO belongs in the RWX->RWO migration, where the PVC is recreated
+      # anyway - not here.
+      #
+      # RWX + Snapshot is not a novel combination in this repo: frigate, tdarr
+      # and both readarr instances already run it.
+      VOLSYNC_COPYMETHOD: Snapshot
       VOLSYNC_LOCAL_SCHEDULE: "20,50 * * * *"
       VOLSYNC_R2_SCHEDULE: "3 4 * * *"
 ---
