@@ -50,4 +50,11 @@ spec:
       VOLSYNC_RUN_AS_GROUP: "1000"
       VOLSYNC_FS_GROUP: "1000"
       VOLSYNC_LOCAL_SCHEDULE: "22,52 * * * *"
-      VOLSYNC_R2_SCHEDULE: "52 1 * * *"
+      # Was "52 1 * * *", which fired at the same minute as this app's own
+      # VOLSYNC_LOCAL_SCHEDULE above ("22,52 * * * *") once a day: two movers
+      # staging the SAME PVC with copyMethod: Snapshot in the same minute. It
+      # also sat 60s from media/maintainerr's R2 slot, inside the 40s+
+      # CreateVolume window r2.yaml documents as the trigger condition.
+      # 06:13 continues the 8-minute R2 grid past 05:57 and is free of every
+      # local mover in every hour. See components/volsync/r2.yaml.
+      VOLSYNC_R2_SCHEDULE: "13 6 * * *"

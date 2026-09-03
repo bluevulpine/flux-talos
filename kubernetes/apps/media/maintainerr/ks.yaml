@@ -54,7 +54,13 @@ spec:
       # of which media was deliberately protected from deletion.
       VOLSYNC_CAPACITY: 4Gi
       VOLSYNC_LOCAL_SCHEDULE: "38 */4 * * *"
-      VOLSYNC_R2_SCHEDULE: "53 1 * * *"
+      # Was "53 1 * * *", 60s after database/timescaledb's R2 slot at 01:52 -
+      # inside the 40s+ CreateVolume window components/volsync/r2.yaml names as
+      # the trigger condition. Both were squeezed in off-grid because hours
+      # 00,01,02,04,05 hold the full 8-slot grid and hour 03 is reserved.
+      # 06:21 continues the grid (05:57 -> 06:05 -> 06:13 -> 06:21) and is free
+      # of every local mover in every hour. Hour 01 is back to its 8 slots.
+      VOLSYNC_R2_SCHEDULE: "21 6 * * *"
       VOLSYNC_STORAGECLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
