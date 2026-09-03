@@ -69,6 +69,27 @@ kubectl -n develop exec -it deploy/hermes -- hermes setup
 Anything that must survive a restart goes under `/opt/data` (which is `HERMES_HOME`);
 `/tmp` is an emptyDir and is not persisted.
 
+## The LLM credential is deliberately NOT in the ExternalSecret
+
+Both supported Anthropic paths establish the credential inside `/opt/data`, not via env:
+
+- **OAuth (Claude Max)** writes a refreshable token to `auth.json`, which Hermes rewrites
+  on every refresh. There is no env-var form of it, so an ExternalSecret cannot carry it.
+- **API key** can come from env — but if `ANTHROPIC_API_KEY` is set, the credential-pool
+  loader auto-seeds a pool entry from it. A placeholder or stale value therefore does not
+  sit inert; it becomes a selectable credential that fails at call time.
+
+So `hermes setup` (or the dashboard's API Keys page, which edits the same `.env` on the
+PVC) owns this, and the PVC is backed up by VolSync. This is a deliberate deviation from
+the repo's usual "every secret via OpenBao" pattern — the alternative is an env var that
+can silently poison the credential pool.
+
+**Read the billing note before choosing OAuth.** Upstream is explicit: the Anthropic OAuth
+path *"only works if you're on a Claude Max plan and have purchased extra usage credits.
+The base Max plan allowance (the usage included in Claude Code by default) is not consumed
+by Hermes — only the extra/overage credits you've added on top are."* Claude Pro cannot
+use this path at all.
+
 ## Authentik
 
 Register a **public** OIDC application with authorization-code + PKCE (S256) — the
