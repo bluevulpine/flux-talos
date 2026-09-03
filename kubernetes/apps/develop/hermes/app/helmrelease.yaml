@@ -1,0 +1,131 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app hermes
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: hermes
+  interval: 1h
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    controllers:
+      hermes:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        # Upstream: "Never run two Hermes gateway containers against the same
+        # data directory simultaneously — session files and memory stores are
+        # not designed for concurrent write access." A RollingUpdate would
+        # briefly run two pods against one PVC.
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: docker.io/nousresearch/hermes-agent
+              tag: v2026.8.31
+            args: ["gateway", "run"]
+            env:
+              TZ: "${TIMEZONE}"
+              HERMES_HOME: /opt/data
+              HERMES_DASHBOARD: "1"
+              HERMES_DASHBOARD_HOST: "0.0.0.0"
+              HERMES_DASHBOARD_PORT: &port 9119
+              # Required behind Envoy: controls OAuth callback construction and
+              # the Host/WebSocket-Origin guard. Must match the HTTPRoute host.
+              HERMES_DASHBOARD_PUBLIC_URL: "https://hermes.${SECRET_DOMAIN}"
+              HERMES_DASHBOARD_OIDC_ISSUER: "https://sso.derekjacobs.dev/application/o/hermes/"
+              # s6-overlay starts as root, chowns /opt/data, then drops to this
+              # uid/gid for the gateway itself. Matches fsGroup below.
+              HERMES_UID: "10000"
+              HERMES_GID: "10000"
+              # The dashboard reaches the gateway over this API, so it cannot be
+              # switched off — but it binds container loopback, NOT the pod IP.
+              # Nothing else in the cluster can reach it, which keeps the
+              # unattended-approval surface (approvals.unattended_mode) closed
+              # without having to argue about its default.
+              API_SERVER_ENABLED: "true"
+              API_SERVER_HOST: "127.0.0.1"
+              API_SERVER_PORT: "8642"
+            envFrom:
+              - secretRef:
+                  name: hermes-secret
+            probes:
+              # exec, not httpGet: kubelet probes the POD IP, and the API server
+              # deliberately listens only on container loopback. curl ships in
+              # the image (Debian 13 base, curl in the apt layer).
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command:
+                      - curl
+                      - -fsS
+                      - -o
+                      - /dev/null
+                      - http://127.0.0.1:8642/health
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness: *probes
+            securityContext:
+              # NOT the usual non-root default. The image's entrypoint is an
+              # s6-overlay dispatcher that must start as root to fix ownership
+              # on /opt/data before dropping to uid 10000. These four caps are
+              # exactly what that drop needs — the same set the TrueNAS catalog
+              # app grants. HERMES_ALLOW_ROOT_GATEWAY is NOT set, so the agent
+              # process itself never runs as root.
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities:
+                drop: ["ALL"]
+                add: ["CHOWN", "DAC_OVERRIDE", "SETGID", "SETUID"]
+            resources:
+              requests:
+                cpu: 100m
+                memory: 1Gi
+              limits:
+                memory: 6Gi
+    defaultPodOptions:
+      securityContext:
+        fsGroup: 10000
+        fsGroupChangePolicy: OnRootMismatch
+      # Keep the agent off the control plane, and off its own reboot target as
+      # much as scheduling allows. This is scheduling preference, not a control:
+      # the real guard against self-immolation is approvals.deny (see README).
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
+    service:
+      app:
+        controller: hermes
+        ports:
+          http:
+            port: *port
+    persistence:
+      data:
+        existingClaim: *app
+        globalMounts:
+          - path: /opt/data
+      # /opt/hermes is read-only by design; the agent still needs somewhere to
+      # put kubectl/talosctl and scratch work. Anything that must survive a
+      # restart belongs under /opt/data.
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp

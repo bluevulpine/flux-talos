@@ -1,0 +1,29 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hermes
+  annotations:
+    gatus.home-operations.com/endpoint: |
+      group: develop
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Hermes"
+    gethomepage.dev/group: "Develop"
+    gethomepage.dev/icon: "si-anthropic"
+    gethomepage.dev/description: "Hermes Agent dashboard"
+spec:
+  # ONE hostname only. HERMES_DASHBOARD_PUBLIC_URL adds its exact host to the
+  # dashboard's Host / WebSocket-Origin guard, so a second name (a tailscale
+  # MagicDNS entry, say) would be rejected at the WebSocket handshake.
+  # Tailnet clients reach this same route: the ts-exit-node Connector advertises
+  # 172.16.8.0/24, and the internal gateway lives at 172.16.8.2.
+  hostnames: ["hermes.${SECRET_DOMAIN}"]
+  parentRefs:
+    - name: internal
+      namespace: network
+      sectionName: https
+  rules:
+    - backendRefs:
+        - name: hermes
+          port: 9119

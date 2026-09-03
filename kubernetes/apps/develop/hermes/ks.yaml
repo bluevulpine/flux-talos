@@ -1,0 +1,43 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app hermes
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+  interval: 1h
+  path: ./kubernetes/apps/develop/hermes/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: develop
+  wait: false
+  postBuild:
+    substitute:
+      APP: *app
+      NS: develop
+      GATUS_PORT: "9119"
+      GATUS_SERVICE: hermes
+      VOLSYNC_CAPACITY: 20Gi
+      # Agent state: config, .env, SOUL.md, sessions, memories, skills, cron.
+      # Hourly local, nightly R2 — it accretes slowly but is expensive to lose.
+      VOLSYNC_LOCAL_SCHEDULE: "23 * * * *"
+      VOLSYNC_R2_SCHEDULE: "43 2 * * *"
+      # Node-local single replica: dataLocality best-effort keeps the replica on
+      # the pod's node without the hard pin of strict-local, so a Talos drain can
+      # still move the agent and rebuild locally. VolSync provides the redundancy.
+      VOLSYNC_STORAGECLASS: longhorn-1-replica-local
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      # RWO + Snapshot: the mover cannot co-mount an RWO volume the agent holds,
+      # and a Direct copy would read a live SQLite state.db mid-write.
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      VOLSYNC_COPYMETHOD: Snapshot
