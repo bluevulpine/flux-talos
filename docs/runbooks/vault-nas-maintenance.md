@@ -373,11 +373,12 @@ kc -n games scale deploy valheim --replicas=1
 kc -n games scale statefulset satisfactory --replicas=1
 kc -n home  scale deploy esphome --replicas=1
 
-# Resume the scheduled work
+# Resume the scheduled work — STAGGERED, see below
 kc get replicationsources -A --no-headers -o custom-columns=NS:.metadata.namespace,N:.metadata.name \
   | awk '$2 ~ /-local$/ || $2 == "valheim-syncthing" {print $1, $2}' \
   | while read -r ns name; do
       kc -n "$ns" patch replicationsource "$name" --type=merge -p '{"spec":{"paused":false}}'
+      sleep 20
     done
 for cj in volsync-system/kopia-maint-kopia-maintenance-local-e48224913bbde0dd \
           kube-system/talos-s3-backup \
@@ -425,6 +426,25 @@ kc -n productivity scale deploy nextcloud --replicas=1
 
 Use the pre-flight snapshot for the counts rather than assuming everything was 1 —
 that is what it is for.
+
+#### 4.6b Stagger the VolSync resume — un-pausing all 44 at once IS a herd
+
+The `*-local` schedules are deliberately spread across the hour precisely to
+avoid a synchronised backup herd. **Un-pausing them in one loop throws that away
+and recreates it**: every source whose window already elapsed fires immediately,
+so ~44 movers try to clone and attach volumes simultaneously.
+
+Observed 2026-09-03: an unstaggered resume left `media/plex-local` wedged for
+~19 minutes. Its Longhorn clone reported `cloneStatus: completed` but sat
+`detached / unknown`, and `AttachVolume.Attach` failed 15 times with
+`volume is not ready for workloads` before it finally attached and the sync
+completed. Nothing was corrupted and it self-healed — but it is the same herd
+signature behind the earlier stuck-mover incidents, so do not manufacture it.
+
+The `sleep 20` above spreads the resume over ~15 minutes. If a mover does wedge,
+it is usually worth waiting ~20 min before intervening: this one recovered on its
+own, and the pause/delete recovery in [`volsync-mover-stuck.md`](volsync-mover-stuck.md)
+is the fallback, not the first move.
 
 Cross-check against the pre-flight snapshot rather than assuming:
 
@@ -548,6 +568,7 @@ temporarily removing the widget.
 
 - **2026-09-03** — Written, then exercised live. Corrections folded in from the
   real run: suspend at the HelmRelease layer (§4.2), Tier 2 needing a manual
-  scale-up on restore (§4.6a), the syncthing-mover /
+  scale-up on restore (§4.6a), the need to stagger the VolSync resume
+  (§4.6b), the syncthing-mover /
   VolSync-controller problem and its destructive non-fix (§4.4a), and the
   discovery script promoted to the authoritative quiesce check (§4.5).
