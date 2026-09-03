@@ -1,0 +1,26 @@
+---
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: SnapshotSchedule
+metadata:
+  name: recyclarr-pilot
+spec:
+  policyRef:
+    name: recyclarr-pilot
+  schedule:
+    # `H` is the whole point of the evaluation. Jenkins-style: it derives a
+    # stable minute from THIS SCHEDULE'S identity rather than meaning minute 0
+    # (docs/backups.md), so 43 schedules carrying one identical cron string
+    # self-distribute instead of needing the hand-maintained 40-slot grid in
+    # components/volsync/r2.yaml. onedr0p/home-ops runs 19 apps on exactly one
+    # cron string with zero per-app overrides.
+    #
+    # The trap, verified before relying on it: jitter derives from
+    # (scheduleUID, slot) - per SCHEDULE, not per matched policy. A single
+    # policySelector schedule over N policies would fire all N at one instant.
+    # The distribution requires one SnapshotSchedule per app, which is what this
+    # is and what onedr0p does.
+    #
+    # Four runs a day is enough signal for a pilot without four-hourly mover
+    # pods against a config volume that changes rarely.
+    cron: "H */6 * * *"
+    jitter: 20m

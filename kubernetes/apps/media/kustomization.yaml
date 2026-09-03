@@ -25,6 +25,7 @@ resources:
   - ./readarr-ebooks/ks.yaml
   - ./rreading-glasses/ks.yaml
   - ./recyclarr/ks.yaml
+  - ./recyclarr-kopiur-pilot/ks.yaml
   - ./sonarr/ks.yaml
   - ./sportarr/ks.yaml
   - ./tautulli/ks.yaml

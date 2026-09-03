@@ -1,0 +1,55 @@
+---
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: Repository
+metadata:
+  name: pilot-local
+spec:
+  backend:
+    s3:
+      # A DEDICATED bucket, deliberately not the shared `kopia` one.
+      #
+      # kopiur supports a key prefix so several repositories can share a bucket
+      # (docs/backends/s3.md), and that would normally be the right answer. It
+      # is not the right answer here: the existing repository is at the ROOT of
+      # `kopia` with no prefix (KOPIA_REPOSITORY = s3://kopia on both the local
+      # and R2 secrets), so a prefixed second repo would sit inside the keyspace
+      # of a live repository whose own maintenance and GC enumerate blobs. This
+      # is an alpha operator; it does not get a key to the bucket holding the
+      # real restore points.
+      #
+      # openbao's snapshot CronJob already establishes this convention in-repo -
+      # it writes to its own `openbao-snapshots` bucket rather than sharing.
+      bucket: kopiur-pilot
+      endpoint: 10.0.10.11:30188
+      region: us-east-1
+      tls:
+        # Same Garage endpoint the volsync local repository uses, which is plain
+        # HTTP on the LAN - the volsync secret sets KOPIA_S3_DISABLE_TLS=true.
+        disableTls: true
+      auth:
+        secretRef:
+          name: recyclarr-kopiur-pilot-secret
+  encryption:
+    passwordSecretRef:
+      name: recyclarr-kopiur-pilot-secret
+      key: KOPIA_PASSWORD
+  create:
+    # Bootstrap the repository on first use. create.{splitter,hash,encryption,ecc}
+    # are immutable after creation (webhook- and apiserver-enforced), so the
+    # defaults are accepted deliberately rather than pinned and then regretted.
+    enabled: true
+  maintenance:
+    enabled: true
+    schedule:
+      # kopiur's DEFAULT maintenance is full at "0 3 * * *" - the one hour this
+      # repo reserves. components/volsync/r2.yaml: "Hour 03 is deliberately left
+      # empty: kopia-maint-r2 runs at '0 3 * * *' ... Keep new apps out of hour
+      # 03." Accepting the default would have walked straight into it.
+      #
+      # This repository is a separate bucket, so it shares no kopia repository
+      # with anything - but it does share the Garage backend, and hour 03 is
+      # reserved on incident history, not caution.
+      quick: {cron: "30 */6 * * *", jitter: 15m}
+      full: {cron: "0 21 * * *", jitter: 30m}
+  scheduleDefaults:
+    timezone: America/Chicago

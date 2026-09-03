@@ -1,0 +1,17 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/ocirepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: kopiur
+spec:
+  interval: 15m
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  ref:
+    # Pin, do not float. The API group is kopiur.home-operations.com/v1alpha1 and
+    # upstream states "the CRD surface may still change between releases" -
+    # 0.10.5 and 0.10.7 shipped five days apart. Bump deliberately.
+    tag: 0.10.7
+  url: oci://ghcr.io/home-operations/charts/kopiur
