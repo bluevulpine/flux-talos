@@ -43,7 +43,7 @@ spec:
               # Required behind Envoy: controls OAuth callback construction and
               # the Host/WebSocket-Origin guard. Must match the HTTPRoute host.
               HERMES_DASHBOARD_PUBLIC_URL: "https://hermes.${SECRET_DOMAIN}"
-              HERMES_DASHBOARD_OIDC_ISSUER: "https://sso.derekjacobs.dev/application/o/hermes/"
+              HERMES_DASHBOARD_OIDC_ISSUER: "https://sso.${SECRET_DOMAIN}/application/o/hermes/"
               # s6-overlay starts as root, chowns /opt/data, then drops to this
               # uid/gid for the gateway itself. Matches fsGroup below.
               HERMES_UID: "10000"

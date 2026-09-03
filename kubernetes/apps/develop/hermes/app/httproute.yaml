@@ -9,8 +9,8 @@ metadata:
       group: develop
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Hermes"
-    gethomepage.dev/group: "Develop"
-    gethomepage.dev/icon: "si-anthropic"
+    gethomepage.dev/group: "Development"
+    gethomepage.dev/icon: "mdi-robot"
     gethomepage.dev/description: "Hermes Agent dashboard"
 spec:
   # ONE hostname only. HERMES_DASHBOARD_PUBLIC_URL adds its exact host to the

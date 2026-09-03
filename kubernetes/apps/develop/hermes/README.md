@@ -97,7 +97,7 @@ Register a **public** OIDC application with authorization-code + PKCE (S256) —
 no client secret.
 
 - Redirect URI: `https://hermes.${SECRET_DOMAIN}/auth/callback`
-- Issuer: `https://sso.derekjacobs.dev/application/o/hermes/`
+- Issuer: `https://sso.${SECRET_DOMAIN}/application/o/hermes/`
 
 **The OIDC gate authenticates but does not authorize.** Hermes has no dashboard-side
 user allowlist — any identity Authentik issues an ID token for gets in. Restrict access

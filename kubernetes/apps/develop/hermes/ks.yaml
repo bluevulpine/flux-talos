@@ -30,7 +30,12 @@ spec:
       # Agent state: config, .env, SOUL.md, sessions, memories, skills, cron.
       # Hourly local, nightly R2 — it accretes slowly but is expensive to lose.
       VOLSYNC_LOCAL_SCHEDULE: "23 * * * *"
-      VOLSYNC_R2_SCHEDULE: "43 2 * * *"
+      # 06:05 = 8 minutes after the last existing slot (05:57), extending the
+      # documented grid instead of wedging into it. Hour 03 is reserved for
+      # kopiamaintenance-r2 ("0 3 * * *"); hour 06 has no R2 source and no
+      # kopia job. The wider problem -- 44 sources in a window sized for ~40,
+      # with 01:52/01:53 and 02:17 already off-grid -- is not this PR's to fix.
+      VOLSYNC_R2_SCHEDULE: "5 6 * * *"
       # Node-local single replica: dataLocality best-effort keeps the replica on
       # the pod's node without the hard pin of strict-local, so a Talos drain can
       # still move the agent and rebuild locally. VolSync provides the redundancy.
