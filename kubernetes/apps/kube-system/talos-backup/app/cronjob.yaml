@@ -63,9 +63,18 @@ spec:
             # the schedule is fixed, so a count needs no date arithmetic and cannot
             # misfire on a timezone or a GNU-vs-BSD `date` difference.
             # NOTE: if the schedule changes, change 121 (= keep + 1) to match.
-            # -P 8: each `aws s3 rm` is its own process (~1s), so the one-time
-            # backfill of ~855 objects is ~14 min serial vs ~2 min at -P 8.
-            # Steady state is 4 deletes per run, where it makes no difference.
+            # Deletes run SERIALLY, deliberately. `xargs -P 8` here OOMKilled this
+            # job on 2026-09-04 (exit 137): aws-cli v2 is a bundled Python
+            # interpreter, and while one process peaks at ~69 MB (measured in-pod),
+            # eight concurrent ones blow past the 256Mi limit below before the
+            # prune can finish. The snapshot is an initContainer in this same Pod,
+            # so every backoff retry took a FRESH etcd snapshot -- the failing
+            # prune inflated the very object count it exists to reduce (9 snapshots
+            # written on 2026-09-04 instead of 4).
+            # Serial costs nothing: steady state is 4 deletes per run (~4s), and
+            # the one-time ~855-object backfill that justified -P 8 is already done.
+            # If a future backfill needs speed, batch with `aws s3api delete-objects`
+            # (1000 keys per call, still ONE process) -- never with more processes.
             - name: prune
               image: amazon/aws-cli:2.36.32
               env:
@@ -86,7 +95,7 @@ spec:
                   echo "$${TOTAL} snapshots present; keeping 120 most recent."
                   aws s3 ls "$${BASE}" --endpoint-url "$${CUSTOM_S3_ENDPOINT}" \
                     | awk '{print $4}' | sort -r | tail -n +121 \
-                    | xargs -r -P 8 -I{} aws s3 rm "$${BASE}{}" \
+                    | xargs -r -I{} aws s3 rm "$${BASE}{}" \
                         --endpoint-url "$${CUSTOM_S3_ENDPOINT}"
                   REMAIN=$(aws s3 ls "$${BASE}" --endpoint-url "$${CUSTOM_S3_ENDPOINT}" | wc -l)
                   echo "Prune complete: $${TOTAL} -> $${REMAIN}."
