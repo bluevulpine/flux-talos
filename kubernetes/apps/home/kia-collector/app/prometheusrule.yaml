@@ -20,10 +20,12 @@ spec:
           annotations:
             summary: >-
               Kia collector job {{ $labels.job_name }} failed — vehicle telemetry
-              is stale. Check `kubectl logs -n home job/{{ $labels.job_name }}`.
-              If the session/rmtoken expired (exit 3), re-run setup.py to
-              re-authenticate with OTP. The collector auto-clears the stale
-              token, so setup.py is all that's needed.
+              is stale. `kubectl logs` will be EMPTY (OnFailure + backoff deletes
+              the pod), so read secret/kia/token in OpenBao instead: blank
+              access_token + cleared_at/cleared_reason = rmtoken died, re-run
+              setup.py for OTP re-auth. Otherwise rerun the job with
+              restartPolicy Never + backoffLimit 0 to capture output.
+              Full detail: docs/runbooks/kia-collector-reauth.md
           expr: |
             kube_job_status_failed{namespace="home", job_name=~"kia-collector.*"} > 0
           for: 15m

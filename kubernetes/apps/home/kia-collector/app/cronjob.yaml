@@ -1,3 +1,4 @@
+---
 # Cached-state poll every 10 min — uses server-side cached data, does not wake
 # the car (no 12V drain). ~145-290 Kia calls/day; well under EU-style caps and
 # the community-recommended USA interval. Freshness is bounded by how often the
@@ -73,9 +74,19 @@ spec:
 # Observed: the force run failed at exactly 12:30 on 2026-08-09 and 2026-08-10
 # (succeeded 08-08); a manual run off-schedule succeeded. Both collectors share one
 # Kia session token in OpenBao (secret/kia/token) and both write it back, so a
-# same-instant overlap is the obvious suspect — but the mechanism is NOT proven:
-# those pods emitted no log output at all, and the known token-death path does log
-# ("No token in OpenBao ... Run setup.py first"), so it was not that.
+# same-instant overlap is the obvious suspect — but the mechanism is NOT proven.
+#
+# ⚠️ An earlier version of this comment ruled OUT the token-death path because
+# "those pods emitted no log output at all" while token-death does log. That
+# reasoning was WRONG and the exclusion does not hold. These pods use
+# restartPolicy: OnFailure, so backoffLimit counts *container restarts inside one
+# pod*, not pod failures — the container crash-loops to the limit in ~20s and the
+# job controller then DELETES the pod, taking its logs with it. Every failure mode
+# looks equally silent by the time a human runs `kubectl logs`. Absence of logs is
+# an artifact of the teardown, not evidence about the cause. (Confirmed 2026-08-24:
+# a token-death failure that logs two clear lines still left nothing retrievable.)
+# To actually capture output, re-run the job with restartPolicy: Never and
+# backoffLimit: 0 so the failed pod is preserved.
 #
 # Removing the overlap is worth doing regardless: it also eliminates the duplicated
 # 12:30 datapoints that 31c31bef had to dedupe in the dashboard instead of
