@@ -67,7 +67,7 @@ spec:
             # backfill of ~855 objects is ~14 min serial vs ~2 min at -P 8.
             # Steady state is 4 deletes per run, where it makes no difference.
             - name: prune
-              image: amazon/aws-cli:2.36.32
+              image: amazon/aws-cli:2.36.40
               env:
                 - name: HOME
                   value: /tmp
