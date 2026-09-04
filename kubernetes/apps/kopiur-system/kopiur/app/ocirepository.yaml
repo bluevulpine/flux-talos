@@ -10,8 +10,10 @@ spec:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    # Pin, do not float. The API group is kopiur.home-operations.com/v1alpha1 and
-    # upstream states "the CRD surface may still change between releases" -
-    # 0.10.5 and 0.10.7 shipped five days apart. Bump deliberately.
+    # Annotated so a bump arrives as a reviewable Renovate PR rather than the
+    # pin silently rotting. The API group is v1alpha1 and upstream states "the
+    # CRD surface may still change between releases" - 0.10.5 and 0.10.7 shipped
+    # five days apart - so these should be read, not rubber-stamped.
+    # renovate: datasource=docker depName=ghcr.io/home-operations/charts/kopiur
     tag: 0.10.7
   url: oci://ghcr.io/home-operations/charts/kopiur

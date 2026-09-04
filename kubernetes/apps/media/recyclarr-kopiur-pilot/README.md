@@ -4,8 +4,10 @@ A **parallel, non-replacing** trial of [kopiur](https://github.com/home-operatio
 against one small PVC. VolSync keeps backing `recyclarr` up exactly as before; nothing in
 `kubernetes/apps/media/recyclarr/` is touched by this directory.
 
-Background and the decision this is meant to inform:
-`~/.buzz/PLANS/KOPIUR_EVALUATION_AND_PILOT.md`.
+The longer evaluation this came out of lives **outside this repository**, in the operator's
+working notes, and is not fetchable from a clone. Everything needed to run, judge, or revert
+the pilot is in this file deliberately — treat that document as provenance, not as a
+dependency.
 
 ## Why this exists
 
@@ -80,11 +82,21 @@ existing manifest. The Garage bucket can then be dropped whole.
 
 ## Notes for whoever picks this up
 
-- **The CRDs are the sharp edge.** Helm installs the chart's `crds/` directory once and
-  never touches it on upgrade. The HelmRelease sets `crds: CreateReplace` on both install
-  and upgrade for that reason. Upstream documents the failure mode as *silent*: an apiserver
-  on an old schema **prunes** unknown fields, the object admits cleanly, and the feature you
-  configured simply never happens. If a field here looks ignored, check the live CRD first.
+- **The CRDs are the sharp edge, and this repo already handles it — do not re-add it here.**
+  Helm installs the chart's `crds/` directory once and never touches it on upgrade. The
+  `cluster-apps` Kustomization patch in `kubernetes/flux/cluster/ks.yaml` injects
+  `crds: CreateReplace` into *every* HelmRelease cluster-wide, which is why this chart's
+  HelmRelease sets nothing (CLAUDE.md: "do not add it to individual HelmRelease manifests").
+  It matters more for this chart than most: upstream documents the failure mode as *silent* —
+  an apiserver on an old schema **prunes** unknown fields, the object admits cleanly,
+  `kubectl get -o yaml` shows no trace, and the feature you configured never happens. If a
+  field here looks ignored, check the live CRD before anything else.
+- **Field names were validated against `deploy/crds/` at the pinned tag**, not against the
+  upstream docs examples, for exactly that reason. Worth repeating if you add fields.
+- **The `$schema` lines point at `k8s-schemas.home-operations.com`**, not the
+  `kubernetes-schemas.pages.dev` host used everywhere else — that host does not carry the
+  `kopiur.home-operations.com` group, and answers **200 with an HTML page** rather than 404,
+  so a status-code-only check silently "passes" on a schema that isn't there.
 - **`readOnly` must stay absent** from the SnapshotPolicy. See the comment there.
 - **Maintenance is pinned off hour 03** — kopiur's default is full at `0 3 * * *`, which is
   the hour this repo reserves.

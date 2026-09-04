@@ -1,4 +1,11 @@
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/repository_v1alpha1.json
+# Schemas come from k8s-schemas.home-operations.com, not the
+# kubernetes-schemas.pages.dev host the rest of this repo uses: that host does
+# not carry the kopiur.home-operations.com group. It does not 404 either - it
+# answers 200 with an HTML page, so a URL check that only reads the status code
+# passes on a schema that does not exist. Verified by reading the body, against
+# a volsync schema on the same host as a control.
 apiVersion: kopiur.home-operations.com/v1alpha1
 kind: Repository
 metadata:
