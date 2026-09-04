@@ -5,7 +5,16 @@ kind: ScheduledBackup
 metadata:
   name: postgres18
 spec:
-  schedule: "@daily"
+  # @weekly (Sun 00:00), not @daily: PITR restores ONE base backup and replays
+  # WAL forward, so a 30d window needs 30d of WAL — not 30 base backups. Weekly
+  # bases cut the retained set from ~395 GB to ~194 GB at the cost of replaying
+  # up to 7d of WAL on restore.
+  #
+  # Use the macro, not a cron string: CNPG's ScheduledBackup takes a SIX-field
+  # spec (seconds first), so a copy-pasted 5-field "0 0 * * 0" silently means
+  # something else. @weekly keeps the existing 00:00 slot, which is already
+  # clear of hour 03 (kopia-maint-r2).
+  schedule: "@weekly"
   immediate: true
   backupOwnerReference: self
   # method: plugin — base backups go through the Barman Cloud Plugin (the default

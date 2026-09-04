@@ -1,4 +1,18 @@
 ---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/batch/cronjob_v1.json
+# Snapshots etcd and uploads it to the Garage `talos` bucket, then prunes.
+#
+# The prune step exists because the retention this job's README has always claimed
+# ("the bucket has a retention of 7 days") was never actually happening on Garage:
+# no lifecycle configuration exists on any Garage bucket, so every snapshot ever
+# taken was still present — 975 objects / 443 GiB going back to 2025-12-27, at
+# 4/day, none ever deleted. The rule almost certainly lived on the old R2 bucket
+# and did not survive the move to Garage.
+#
+# Retention is enforced HERE rather than as a Garage lifecycle rule on purpose:
+# a bucket-side rule is invisible to git, which is precisely how this regressed
+# unnoticed for eight months. Garage exposes no per-bucket object-count metric,
+# so there is nothing to alert on either — a job that fails is the only loud option.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -11,7 +25,9 @@ spec:
         spec:
           nodeSelector:
             kubernetes.io/arch: amd64
-          containers:
+          initContainers:
+            # Snapshot + upload runs to completion FIRST, so the prune below can
+            # never race it and count a not-yet-uploaded snapshot toward the keep set.
             - name: talos-backup
               # renovate: datasource=docker depName=ghcr.io/siderolabs/talos-backup
               image: ghcr.io/siderolabs/talos-backup:v0.1.0-beta.3
@@ -26,15 +42,74 @@ spec:
                 allowPrivilegeEscalation: false
                 runAsNonRoot: true
                 capabilities:
-                  drop: [ALL]
+                  drop:
+                    - ALL
                 seccompProfile:
                   type: RuntimeDefault
-              command: [/talos-backup]
+              command:
+                - /talos-backup
               volumeMounts:
                 - mountPath: /tmp
                   name: tmp
                 - mountPath: /var/run/secrets/talos.dev
                   name: talos-secrets
+          containers:
+            # Keep the 120 most recent snapshots = 30 days at the 4/day schedule
+            # above. 30d rather than the 7d the README used to claim: a snapshot is
+            # ~260 MB and Garage dedupes near-identical ones hard, so the wider
+            # window costs ~24 GB over a 7d one and matches the 30d retention now
+            # used for Postgres (see cluster18/objectstore.yaml).
+            # Count-based rather than date-based (same approach as openbao-snapshot):
+            # the schedule is fixed, so a count needs no date arithmetic and cannot
+            # misfire on a timezone or a GNU-vs-BSD `date` difference.
+            # NOTE: if the schedule changes, change 121 (= keep + 1) to match.
+            # -P 8: each `aws s3 rm` is its own process (~1s), so the one-time
+            # backfill of ~855 objects is ~14 min serial vs ~2 min at -P 8.
+            # Steady state is 4 deletes per run, where it makes no difference.
+            - name: prune
+              image: amazon/aws-cli:2.36.32
+              env:
+                - name: HOME
+                  value: /tmp
+              envFrom:
+                # Supplies AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_REGION
+                # plus BUCKET, S3_PREFIX and CUSTOM_S3_ENDPOINT.
+                - secretRef:
+                    name: talos-s3-secret
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  BASE="s3://$${BUCKET}/$${S3_PREFIX}/"
+                  TOTAL=$(aws s3 ls "$${BASE}" --endpoint-url "$${CUSTOM_S3_ENDPOINT}" | wc -l)
+                  echo "$${TOTAL} snapshots present; keeping 120 most recent."
+                  aws s3 ls "$${BASE}" --endpoint-url "$${CUSTOM_S3_ENDPOINT}" \
+                    | awk '{print $4}' | sort -r | tail -n +121 \
+                    | xargs -r -P 8 -I{} aws s3 rm "$${BASE}{}" \
+                        --endpoint-url "$${CUSTOM_S3_ENDPOINT}"
+                  REMAIN=$(aws s3 ls "$${BASE}" --endpoint-url "$${CUSTOM_S3_ENDPOINT}" | wc -l)
+                  echo "Prune complete: $${TOTAL} -> $${REMAIN}."
+              securityContext:
+                runAsUser: 1000
+                runAsGroup: 1000
+                allowPrivilegeEscalation: false
+                runAsNonRoot: true
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+                seccompProfile:
+                  type: RuntimeDefault
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              volumeMounts:
+                - mountPath: /tmp
+                  name: tmp
           restartPolicy: OnFailure
           tolerations:
             - key: node-role.kubernetes.io/control-plane

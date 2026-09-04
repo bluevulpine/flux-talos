@@ -1,0 +1,28 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app cnpg-offsite
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  path: ./kubernetes/apps/database/cnpg-offsite/app
+  prune: true
+  # Depends on cluster18 so the 30d retentionPolicy is settled before we start
+  # mirroring — syncing a 7d view and then widening it would upload, delete, and
+  # re-upload the same objects (and Storj bills 30 days for each of those).
+  dependsOn:
+    - name: cloudnative-pg-cluster18
+      namespace: database
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: database
+  wait: false
+  interval: 30m
+  retryInterval: 1m
+  timeout: 5m

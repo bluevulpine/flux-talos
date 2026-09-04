@@ -11,7 +11,13 @@ kind: ObjectStore
 metadata:
   name: postgres18-backup
 spec:
-  retentionPolicy: "7d"
+  # 30d, not 7d, because the offsite mirror (cnpg-offsite) targets Storj's
+  # "Archive" tier, which bills a 30-day MINIMUM storage duration per object.
+  # At 7d we were paying for 30 days of every object and only keeping 7 — so a
+  # 30d window is free in billing terms and gives 4x the PITR depth. Keeping
+  # both sides at 30d is also what makes `rclone sync` correct: deletions here
+  # propagate offsite only once Storj has stopped charging for them.
+  retentionPolicy: "30d"
   configuration:
     destinationPath: s3://cnpg/
     endpointURL: ${SECRET_GARAGE_S3_ENDPOINT}

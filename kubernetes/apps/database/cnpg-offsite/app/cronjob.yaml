@@ -1,0 +1,93 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/batch/cronjob_v1.json
+# Mirrors the Garage `cnpg` bucket (Postgres base backups + WAL) offsite to Storj.
+#
+# WHY: Garage lives on tardis — a 2-way mirror of refurbished SAS drives that
+# report no SMART telemetry at all (their firmware rejects LOG SENSE outright).
+# Losing that pool loses the Postgres DR history, which is exactly what you reach
+# for during a disaster. This is the second copy.
+#
+# WHY `sync` AND NOT `copy`: both sides are pinned to a 30d window (see
+# objectstore.yaml). Storj's Archive tier bills a 30-day minimum per object, so
+# propagating Garage's deletions costs nothing that has not already been paid for.
+# If the ObjectStore retentionPolicy is ever shortened below 30d, switch this back
+# to `copy` with an independent prune, or you will pay for objects you deleted early.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cnpg-offsite
+spec:
+  # 07:15 daily: clear of the VolSync R2 herd (00:03-05:49), clear of hour 03
+  # (kopia-maint-r2 + unifi-phantom-clients-cleanup), and after the @weekly
+  # Sunday-00:00 base backup has finished writing.
+  schedule: "15 7 * * *"
+  suspend: false
+  # Forbid + a 12h deadline: the first run seeds ~194 GB over the house uplink and
+  # may well be truncated. That is fine — rclone skips objects already present, so
+  # each subsequent run resumes. Forbid stops a slow seed from stacking up.
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 43200
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: rclone
+              image: rclone/rclone:1.75.0
+              env:
+                # rclone writes its cache under $HOME; the root fs is read-only.
+                - name: HOME
+                  value: /tmp
+                - name: STORJ_BUCKET
+                  value: cnpg
+              envFrom:
+                - secretRef:
+                    name: cnpg-offsite-secret
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  echo "Mirroring garage:cnpg -> storj:$${STORJ_BUCKET} ..."
+                  rclone sync garage:cnpg "storj:$${STORJ_BUCKET}" \
+                    --fast-list \
+                    --transfers 8 \
+                    --checkers 16 \
+                    --retries 3 \
+                    --low-level-retries 10 \
+                    --stats 5m \
+                    --stats-one-line \
+                    --stats-log-level NOTICE
+                  echo "Mirror complete."
+                  rclone size "storj:$${STORJ_BUCKET}"
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 256Mi
+                limits:
+                  memory: 1Gi
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: {}
