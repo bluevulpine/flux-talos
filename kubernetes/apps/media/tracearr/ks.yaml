@@ -38,7 +38,15 @@ spec:
       # the thing worth replicating offsite. The poster cache is a separate,
       # deliberately unbacked-up PVC - see app/pvc.yaml.
       VOLSYNC_CAPACITY: 10Gi
-      VOLSYNC_LOCAL_SCHEDULE: "27,57 * * * *"
+      # Was "27,57 * * * *". Minutes 27 and 57 are both R2 grid slots, and this
+      # source fires EVERY hour, so it collided exactly - same minute, not near
+      # it - with a different app's R2 mover in all five R2 hours: 10 of the 11
+      # exact local/R2 collisions in the repo came from this one line. The R2
+      # grid in components/volsync/r2.yaml spaces R2 sources from each OTHER and
+      # never accounted for local movers, which run hourly on a ~2-minute pitch.
+      # 24 and 54 keep the twice-hourly cadence, are off the R2 grid entirely,
+      # and are free of every other local mover in every hour.
+      VOLSYNC_LOCAL_SCHEDULE: "24,54 * * * *"
       VOLSYNC_R2_SCHEDULE: "17 2 * * *"
       VOLSYNC_STORAGECLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
