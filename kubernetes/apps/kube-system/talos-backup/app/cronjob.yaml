@@ -21,6 +21,15 @@ spec:
   schedule: "10 0/6 * * *"
   jobTemplate:
     spec:
+      # Give up after one retry instead of the default 6. restartPolicy below is
+      # OnFailure, which restarts the container IN PLACE rather than making a new
+      # Pod (verified in-cluster: a deliberately OOMKilled mirror of this Job
+      # produced one Pod whose restartCount climbed, never a second Pod). So this
+      # does not bound anything per-Pod -- what it bounds is how long the Job
+      # thrashes before failing: the default 6 kept the 2026-09-04 18:10Z run
+      # restarting for 32 minutes. Runs are 6h apart against 30d of retention, so
+      # losing one attempt costs nothing and a fast, loud failure is worth more.
+      backoffLimit: 1
       template:
         spec:
           nodeSelector:
@@ -67,10 +76,13 @@ spec:
             # job on 2026-09-04 (exit 137): aws-cli v2 is a bundled Python
             # interpreter, and while one process peaks at ~69 MB (measured in-pod),
             # eight concurrent ones blow past the 256Mi limit below before the
-            # prune can finish. The snapshot is an initContainer in this same Pod,
-            # so every backoff retry took a FRESH etcd snapshot -- the failing
-            # prune inflated the very object count it exists to reduce (9 snapshots
-            # written on 2026-09-04 instead of 4).
+            # prune can finish. Observed side effect: that run wrote 9 snapshots on
+            # 2026-09-04 instead of the scheduled 4, six of them inside the 24-min
+            # failure window, so a job meant to REDUCE the object count increased
+            # it. The mechanism was not reproduced -- OnFailure restarts the
+            # container in place and re-runs no initContainer, so why the snapshot
+            # step ran repeatedly is still unexplained. Do not assume backoffLimit
+            # alone prevents it.
             # Serial costs nothing: steady state is 4 deletes per run (~4s), and
             # the one-time ~855-object backfill that justified -P 8 is already done.
             # If a future backfill needs speed, batch with `aws s3api delete-objects`
