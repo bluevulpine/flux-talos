@@ -63,9 +63,8 @@ spec:
                   set -eu
                   echo "Mirroring garage:cnpg -> storj:$${STORJ_BUCKET} ..."
                   rclone sync garage:cnpg "storj:$${STORJ_BUCKET}" \
-                    --fast-list \
-                    --transfers 8 \
-                    --checkers 16 \
+                    --transfers 2 \
+                    --checkers 8 \
                     --retries 3 \
                     --low-level-retries 10 \
                     --stats 5m \
@@ -79,12 +78,27 @@ spec:
                 capabilities:
                   drop:
                     - ALL
+              # MEASURED, not estimated. Storj does client-side Reed-Solomon erasure
+              # coding: every 64 MiB segment is expanded into 80 pieces in memory
+              # before upload, so footprint scales with --transfers, NOT with object
+              # size or bucket count. At --transfers 8 / 1Gi this was OOMKilled in
+              # under 15s, before moving a single byte, three times over.
+              #
+              # Observed 2026-09-04 at --transfers 2: climbs for ~2min then plateaus
+              # flat at 2504 MiB, sustaining ~23 MiB/s (~1h for the 90 GiB seed).
+              # 4Gi is that plateau plus ~60% headroom. If you raise --transfers,
+              # re-measure with `kubectl top pod` and raise this to match -- the two
+              # numbers move together and the failure mode is a silent nightly OOM.
+              #
+              # --fast-list is deliberately absent: it holds the full listing in
+              # memory on top of the transfer buffers, and the measurement above was
+              # taken without it. At ~7.3k objects it saves little worth the risk.
               resources:
                 requests:
                   cpu: 200m
-                  memory: 256Mi
-                limits:
                   memory: 1Gi
+                limits:
+                  memory: 4Gi
               volumeMounts:
                 - name: tmp
                   mountPath: /tmp
