@@ -1,0 +1,62 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/snapshotpolicy_v1alpha1.json
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: SnapshotPolicy
+metadata:
+  name: recyclarr-pilot
+spec:
+  repository:
+    kind: Repository
+    name: pilot-local
+  sources:
+    - pvc:
+        name: recyclarr
+  # Pinned explicitly, never left to the CRD default. Two reasons: the schema
+  # default is materialised into the stored object, so an alpha CRD that changes
+  # its default would silently change behaviour here; and this must MATCH the
+  # volsync source it is being compared against, or the pilot measures two
+  # variables at once.
+  #
+  # NOTE this deviates from PLANS/KOPIUR_EVALUATION_AND_PILOT.md, which said to
+  # pin Direct. That recommendation existed to dodge the tns-csi CreateVolume
+  # bug - and recyclarr is on longhorn-1-replica, not tns-csi, which is exactly
+  # why the plan chose it as the candidate. With the broken driver out of the
+  # picture, Direct would only add a second difference from the volsync source.
+  copyMethod: Snapshot
+  volumeSnapshotClassName: longhorn-snapclass
+  staging:
+    # One of the two things this pilot exists to evaluate. VolSync's staging
+    # wait is unbounded - the runbook records kubelet retrying an identical
+    # doomed mount x849 over 28h. kopiur fails the run terminally with a named
+    # reason (StagedPvcBindTimeout / StagingTimedOut / VolumeSnapshotFailed).
+    # 10m is the upstream default, stated rather than inherited.
+    timeout: 10m
+  mover:
+    cache:
+      # mode is pinned, not defaulted. The CRD declares it as a nullable enum
+      # (Ephemeral | Persistent) and the field reference gives NO default - and
+      # `storageClassName` only means anything for a PVC-backed cache, so
+      # leaving mode unset risks silently inert neighbours. onedr0p/home-ops
+      # pins Persistent too.
+      mode: Persistent
+      capacity: 2Gi
+      storageClassName: longhorn-1-replica
+    # recyclarr's pod runs as 568:568 (helmrelease.yaml podSecurityContext,
+    # confirmed on the live pod). The mover must match or a restore writes files
+    # the app cannot read.
+    securityContext:
+      runAsUser: 568
+      runAsGroup: 568
+    podSecurityContext:
+      fsGroup: 568
+      fsGroupChangePolicy: OnRootMismatch
+  # readOnly is deliberately ABSENT and must stay absent - it defaults to true.
+  # Setting it false is how you make a mover fsGroup take effect, and under
+  # copyMethod: Direct that recursively chgrps the LIVE volume (which is why
+  # kopiur demands acknowledgeLiveMutation for that combination). Under
+  # Snapshot it only rewrites the throwaway staged PVC, so there is no reason
+  # to touch it here and a very bad reason not to notice if it ever changes.
+  retention:
+    keepLatest: 3
+    keepHourly: 6
+    keepDaily: 7

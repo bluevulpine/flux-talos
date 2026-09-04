@@ -1,0 +1,29 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kopiur-system
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  labels:
+    # restricted, not baseline. Checked against the rendered output of chart
+    # 0.10.7 rather than assumed - both Deployments (kopiur-controller and
+    # kopiur-webhook) already satisfy every restricted requirement as shipped:
+    #   runAsNonRoot: true          (1000 / 65534)
+    #   allowPrivilegeEscalation: false
+    #   capabilities.drop: [ALL]
+    #   seccompProfile.type: RuntimeDefault
+    #   volumes: emptyDir + secret only
+    # and neither uses hostNetwork, hostPID or a hostPath.
+    #
+    # This is inspection of the rendered manifests, not a server-side PSA
+    # verdict - the namespace does not exist yet to dry-run against. If a future
+    # chart release adds a component that needs more, PSA will reject the pod
+    # loudly rather than silently, which is the failure direction to want.
+    #
+    # Note this is STRICTER than volsync-system, which runs privileged and needs
+    # `volsync.backube/privileged-movers: "true"`. kopiur's movers take the
+    # workload's uid/gid and need no such grant - and they run in the workload's
+    # own namespace (media, baseline since #1721), not here.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
