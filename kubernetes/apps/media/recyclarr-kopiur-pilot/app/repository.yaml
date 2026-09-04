@@ -58,5 +58,18 @@ spec:
       # reserved on incident history, not caution.
       quick: {cron: "30 */6 * * *", jitter: 15m}
       full: {cron: "0 21 * * *", jitter: 30m}
-  scheduleDefaults:
-    timezone: America/Chicago
+      # No scheduleDefaults.timezone - deliberately UTC (kopiur's fallback).
+      #
+      # Setting America/Chicago here was a mistake, caught after deploy by reading
+      # status.nextSchedule.at: it evaluated "0 21 * * *" as 02:00 UTC, not 21:00,
+      # putting maintenance in the busiest R2 hour while the comment above reasoned
+      # about hour 21 being clear. The frame I reasoned in and the frame it ran in
+      # were different.
+      #
+      # UTC is also the only frame consistent with everything it interleaves with:
+      # all 87 ReplicationSources carry no timeZone, and 18 of 19 CronJobs likewise
+      # (media/kometa is the lone exception, and it is user-facing).
+      #
+      # The durable reason is DST, not today's placement: a Chicago-evaluated cron
+      # moves an hour against the UTC-scheduled backup grid twice a year, so a slot
+      # verified clear in September silently relocates in November.
