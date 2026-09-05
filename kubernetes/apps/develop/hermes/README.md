@@ -99,6 +99,16 @@ no client secret.
 - Redirect URI: `https://hermes.${SECRET_DOMAIN}/auth/callback`
 - Issuer: `https://sso.${SECRET_DOMAIN}/application/o/hermes/`
 
+**`offline_access` is required, and is not the plugin default.** The bundled scopes are
+`openid profile email`. Without `offline_access` Authentik issues no refresh token, and the
+dashboard — which stores the ID token as the session credential and re-verifies it on every
+request — expires at the ID token's `exp`. Authentik ties that to `access_token_validity`,
+which defaults to **5 minutes**, so the symptom is a full interactive re-login every five
+minutes. Raising `access_token_validity` is the wrong fix: Gitea and Grafana run the same
+5-minute setting happily, because they mint their own app session after the handshake
+instead of re-checking the IdP per request. The `offline_access` scope mapping must also be
+assigned to the provider in Authentik for the request to be granted.
+
 **The OIDC gate authenticates but does not authorize.** Hermes has no dashboard-side
 user allowlist — any identity Authentik issues an ID token for gets in. Restrict access
 with an Authentik policy/group binding on the application, not in this repo.
