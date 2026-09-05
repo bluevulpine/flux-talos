@@ -113,6 +113,15 @@ assigned to the provider in Authentik for the request to be granted.
 falling back to a joined `groups` claim, so without the scope that field is empty. It is
 presentation only — there is still no authorization decision made from it.
 
+**This trades a short expiry for a renewable one — know what that costs.** Before the scope
+was requested, the 5-minute ID token put an incidental 5-minute ceiling on a stale session.
+With a refresh token the session is silently renewable for up to `refresh_token_validity`,
+**30 days** on this provider. Because the gate authenticates but does not authorize (below),
+deprovisioning a user in Authentik no longer ends their dashboard session on its own —
+revoke the token or the Authentik session too. That is the normal OIDC bargain and the
+5-minute ceiling was never a real access control, but it was doing something, and this
+removes it.
+
 **The OIDC gate authenticates but does not authorize.** Hermes has no dashboard-side
 user allowlist — any identity Authentik issues an ID token for gets in. Restrict access
 with an Authentik policy/group binding on the application, not in this repo.

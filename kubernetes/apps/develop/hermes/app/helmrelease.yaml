@@ -45,16 +45,8 @@ spec:
               # the Host/WebSocket-Origin guard. Must match the HTTPRoute host.
               HERMES_DASHBOARD_PUBLIC_URL: "https://hermes.${SECRET_DOMAIN}"
               HERMES_DASHBOARD_OIDC_ISSUER: "https://sso.${SECRET_DOMAIN}/application/o/hermes/"
-              # offline_access is NOT in the plugin default ("openid profile email"),
-              # and without it Authentik issues no refresh token. The dashboard stores
-              # the ID token as the session credential and re-verifies it per request,
-              # so the session dies at the ID token's exp — which Authentik ties to
-              # access_token_validity, minutes=5 on this provider. Upstream's own words
-              # for the no-refresh-token case: "the session then behaves as
-              # access-token-only until expiry." That is the 5-minute re-login.
-              # groups is also mapped on the provider but unrequested, so the
-              # session's org_id (which the plugin derives from the groups claim)
-              # is empty without it.
+              # Not the plugin default ("openid profile email"). Both scopes are
+              # load-bearing and the reasoning is in README.md "## Authentik".
               HERMES_DASHBOARD_OIDC_SCOPES: "openid profile email offline_access groups"
               # s6-overlay starts as root, chowns /opt/data, then drops to this
               # uid/gid for the gateway itself. Matches fsGroup below.
