@@ -37,6 +37,14 @@ jobs:
         uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Without this the action refuses PRs opened by a GitHub App with
+          # "Workflow initiated by non-human actor: fizz-bot-bvn (type: Bot)" and
+          # exits 1 in ~10s, posting nothing - a red check that looks like a
+          # review verdict but is an authorisation refusal. fizz-bot-bvn is the
+          # App the Fizz agent authors PRs through; those are exactly the PRs
+          # that most want reviewing, so it is allow-listed rather than skipped
+          # the way renovate[bot] is in the job-level `if:` above.
+          allowed_bots: 'fizz-bot-bvn'
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           # Must be a form `gh pr view` accepts: a number, or a full URL.
