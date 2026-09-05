@@ -52,7 +52,10 @@ spec:
               # access_token_validity, minutes=5 on this provider. Upstream's own words
               # for the no-refresh-token case: "the session then behaves as
               # access-token-only until expiry." That is the 5-minute re-login.
-              HERMES_DASHBOARD_OIDC_SCOPES: "openid profile email offline_access"
+              # groups is also mapped on the provider but unrequested, so the
+              # session's org_id (which the plugin derives from the groups claim)
+              # is empty without it.
+              HERMES_DASHBOARD_OIDC_SCOPES: "openid profile email offline_access groups"
               # s6-overlay starts as root, chowns /opt/data, then drops to this
               # uid/gid for the gateway itself. Matches fsGroup below.
               HERMES_UID: "10000"

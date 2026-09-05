@@ -109,6 +109,10 @@ minutes. Raising `access_token_validity` is the wrong fix: Gitea and Grafana run
 instead of re-checking the IdP per request. The `offline_access` scope mapping must also be
 assigned to the provider in Authentik for the request to be granted.
 
+`groups` is requested too: the plugin fills `Session.org_id` from `org_id`/`organization`,
+falling back to a joined `groups` claim, so without the scope that field is empty. It is
+presentation only — there is still no authorization decision made from it.
+
 **The OIDC gate authenticates but does not authorize.** Hermes has no dashboard-side
 user allowlist — any identity Authentik issues an ID token for gets in. Restrict access
 with an Authentik policy/group binding on the application, not in this repo.
