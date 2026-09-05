@@ -46,7 +46,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: rclone
-              image: rclone/rclone:1.75.0
+              image: rclone/rclone:1.75.1
               env:
                 # rclone writes its cache under $HOME; the root fs is read-only.
                 - name: HOME
