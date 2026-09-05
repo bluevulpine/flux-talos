@@ -99,6 +99,29 @@ no client secret.
 - Redirect URI: `https://hermes.${SECRET_DOMAIN}/auth/callback`
 - Issuer: `https://sso.${SECRET_DOMAIN}/application/o/hermes/`
 
+**`offline_access` is required, and is not the plugin default.** The bundled scopes are
+`openid profile email`. Without `offline_access` Authentik issues no refresh token, and the
+dashboard — which stores the ID token as the session credential and re-verifies it on every
+request — expires at the ID token's `exp`. Authentik ties that to `access_token_validity`,
+which defaults to **5 minutes**, so the symptom is a full interactive re-login every five
+minutes. Raising `access_token_validity` is the wrong fix: Gitea and Grafana run the same
+5-minute setting happily, because they mint their own app session after the handshake
+instead of re-checking the IdP per request. The `offline_access` scope mapping must also be
+assigned to the provider in Authentik for the request to be granted.
+
+`groups` is requested too: the plugin fills `Session.org_id` from `org_id`/`organization`,
+falling back to a joined `groups` claim, so without the scope that field is empty. It is
+presentation only — there is still no authorization decision made from it.
+
+**This trades a short expiry for a renewable one — know what that costs.** Before the scope
+was requested, the 5-minute ID token put an incidental 5-minute ceiling on a stale session.
+With a refresh token the session is silently renewable for up to `refresh_token_validity`,
+**30 days** on this provider. Because the gate authenticates but does not authorize (below),
+deprovisioning a user in Authentik no longer ends their dashboard session on its own —
+revoke the token or the Authentik session too. That is the normal OIDC bargain and the
+5-minute ceiling was never a real access control, but it was doing something, and this
+removes it.
+
 **The OIDC gate authenticates but does not authorize.** Hermes has no dashboard-side
 user allowlist — any identity Authentik issues an ID token for gets in. Restrict access
 with an Authentik policy/group binding on the application, not in this repo.

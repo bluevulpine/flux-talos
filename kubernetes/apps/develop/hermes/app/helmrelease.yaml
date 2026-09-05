@@ -45,6 +45,9 @@ spec:
               # the Host/WebSocket-Origin guard. Must match the HTTPRoute host.
               HERMES_DASHBOARD_PUBLIC_URL: "https://hermes.${SECRET_DOMAIN}"
               HERMES_DASHBOARD_OIDC_ISSUER: "https://sso.${SECRET_DOMAIN}/application/o/hermes/"
+              # Not the plugin default ("openid profile email"). Both scopes are
+              # load-bearing and the reasoning is in README.md "## Authentik".
+              HERMES_DASHBOARD_OIDC_SCOPES: "openid profile email offline_access groups"
               # s6-overlay starts as root, chowns /opt/data, then drops to this
               # uid/gid for the gateway itself. Matches fsGroup below.
               HERMES_UID: "10000"
