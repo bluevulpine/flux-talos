@@ -10,4 +10,5 @@ resources:
   - ./dev-shell/ks.yaml
   - ./drone/ks.yaml
   - ./gitea/ks.yaml
+  - ./hermes/ks.yaml
   - ./nexus/ks.yaml
