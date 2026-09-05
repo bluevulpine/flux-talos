@@ -30,28 +30,11 @@ spec:
       # Agent state: config, .env, SOUL.md, sessions, memories, skills, cron.
       # Hourly local, nightly R2 — it accretes slowly but is expensive to lose.
       VOLSYNC_LOCAL_SCHEDULE: "23 * * * *"
-      # 06:29, extending the documented 8-minute grid past #1736's slots:
-      # 06:13 (timescaledb) -> 06:21 (maintainerr) -> 06:29. Hour 03 stays
-      # reserved for kopiamaintenance-r2 ("0 3 * * *").
-      #
-      # It was 06:05, which collided EXACTLY with media/bazarr and media/radarr,
-      # whose VOLSYNC_LOCAL_SCHEDULE is "5 */2 * * *" and "5 * * * *". Measured
-      # by expanding every cron in the repo: that was the only exact local/R2
-      # collision left on main, one day after #1736 cleared eleven of them.
-      #
-      # The trap is worth naming because the note this replaces fell into it:
-      # checking a new R2 slot against the other R2 slots is not enough. The
-      # grid in components/volsync/r2.yaml spaces R2 sources from each OTHER and
-      # never modelled local movers, which run hourly on a ~2-minute pitch --
-      # which is exactly how the eleven arose. Minute 29 is free of every local
-      # AND every R2 source in every hour.
-      #
-      # Low severity, stated so it is not over-read: all three apps are on
-      # longhorn-snapclass, not tns-csi, so this never touched the CreateVolume
-      # path the grid exists to protect.
-      #
-      # The wider problem -- 44 sources in a window sized for ~40, with 02:17
-      # still off-grid -- is not this app's to fix.
+      # Continues the 8-minute grid: 06:13 -> 06:21 -> 06:29. Was 06:05, which
+      # collided exactly with media/bazarr and media/radarr locals. Pick a slot
+      # against LOCAL movers too, not just other R2 sources -- the grid in
+      # components/volsync/r2.yaml only spaces R2 from R2, which is how #1736
+      # ended up clearing eleven exact collisions. Minute 29 is free of both.
       VOLSYNC_R2_SCHEDULE: "29 6 * * *"
       # Node-local single replica: dataLocality best-effort keeps the replica on
       # the pod's node without the hard pin of strict-local, so a Talos drain can

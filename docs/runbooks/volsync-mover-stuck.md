@@ -150,7 +150,46 @@ StorageClasses, and the rollback fingerprint (`volume content source missing` pl
 `DeleteDataset` for the same uid) is **absent**. `zfs list` will *find* the dataset rather
 than miss it.
 
-### Recovery — pause the source FIRST
+## Fifth fingerprint: the Longhorn clone fails (2026-09-05)
+
+**Not tns-csi at all.** Every fingerprint above is `tns.csi.io`; this one is
+`driver.longhorn.io`, and the four checks above will all come back clean and send you
+looking in the wrong place. Seen twice in one day: `media/jellyfin-local` wedged
+**23h50m** and `develop/hermes-local` **13h07m**.
+
+The attach error is Longhorn's wording, not a mount failure:
+
+```
+AttachVolume.Attach failed for volume "pvc-<uid>" : rpc error: code = Aborted
+  desc = volume pvc-<uid> is not ready for workloads
+```
+
+Confirm it on the Longhorn volume behind the transient clone PVC — `cloneStatus.state`
+is the tell:
+
+```bash
+PV=$(kubectl -n <ns> get pvc volsync-<app>-local-src -o jsonpath='{.spec.volumeName}')
+kubectl -n longhorn-system get volumes.longhorn.io "$PV" \
+  -o jsonpath='{.status.state}{"  "}{.status.cloneStatus}{"\n"}'
+# detached  {"attemptCount":10,"snapshot":"...","sourceVolume":"...","state":"failed"}
+```
+
+`state: failed` with a climbing `attemptCount` means the clone will never complete, so the
+staged volume never becomes attachable and the mover waits on it forever. **Check the
+source volume too — it is a red herring in this case:** both sources were `attached` /
+`healthy` throughout, so a healthy source does not rule this out.
+
+Distinguishing it in one line: the PVC's StorageClass. `longhorn-1-replica*` is this
+fingerprint; `tns-csi-*` is one of the four above.
+
+Root cause of the clone failure itself is **not established** — the engine warnings in
+`longhorn-manager` (`Failed to get purge status`, `cannot check the CLI API version`) are
+downstream of the volume being detached, not the cause. What is established is the
+remediation below clears it and the next sync succeeds in about a minute.
+
+## Recovery — pause the source FIRST
+
+**Driver-agnostic:** this procedure clears every fingerprint above, tns-csi or Longhorn.
 
 The wedged object is the transient clone PVC (`volsync-<app>-<dest>-src`), never the app's
 live PVC. Deleting it directly will stall in `Terminating`: VolSync immediately respawns a
@@ -161,7 +200,15 @@ mover that re-grabs the PVC and holds the `pvc-protection` finalizer.
 kubectl -n <ns> patch replicationsource <app>-local --type=merge -p '{"spec":{"paused":true}}'
 
 # 2. clear the mover and the wedged clone PVC (reclaimPolicy=Delete removes the dataset)
-kubectl -n <ns> delete pod -l volsync.backube/mover --force --grace-period=0
+#
+# NOTE the selector. This step used to read `-l volsync.backube/mover`, which matches
+# NOTHING -- it prints "No resources found" and exits 0, so the step looks like it worked
+# while leaving the mover in place. A mover pod's actual labels are:
+#   app.kubernetes.io/created-by=volsync
+#   job-name=volsync-src-<app>-<dest>        (plus the batch.kubernetes.io/ equivalents)
+# Scope by job-name, not by created-by alone -- the latter also matches the long-lived
+# Syncthing mover Deployment in `games`.
+kubectl -n <ns> delete pod -l job-name=volsync-src-<app>-local --force --grace-period=0
 kubectl -n <ns> delete pvc volsync-<app>-local-src
 
 # 3. resume
@@ -177,6 +224,22 @@ kubectl -n <ns> patch replicationsource <app>-local --type=merge \
   -p '{"spec":{"trigger":{"schedule":"<original>","manual":null}}}'
 # verify: reason should read WaitingForSchedule, not WaitingForManual
 ```
+
+### Verify a *backup*, not a cleared alert
+
+`lastSyncTime` advances when the wedged sync is torn down, **with no backup behind it**.
+On 2026-09-05 `develop/hermes-local` showed a fresh `lastSyncTime` and
+`latestMoverStatus.result: None` — and that source had never once synced since deploy.
+Read the mover result, not the timestamp:
+
+```bash
+kubectl -n <ns> get replicationsource <app>-local \
+  -o jsonpath='{.status.lastSyncTime}{"  result="}{.status.latestMoverStatus.result}{"\n"}'
+# want: result=Successful   (not None, not Failed)
+```
+
+`lastSyncDuration` is also misleading straight after a wedge — it spans the wedge, so it
+reads in hours. A healthy `-local` mover on a small volume finishes in about a minute.
 
 ## ⚠️ The stagger mitigation is known-insufficient (2026-08-29)
 
@@ -246,7 +309,9 @@ kubectl -n "$NS" patch replicationsource "$SRC" --type=merge -p '{"spec":{"pause
 kubectl -n "$NS" get replicationsource "$SRC" -o jsonpath='{.spec.trigger}{"\n"}'   # note the schedule
 kubectl -n "$NS" patch replicationsource "$SRC" --type=merge \
   -p '{"spec":{"trigger":{"manual":"recovery-verify","schedule":null}}}'
-# ...wait for the fresh mover to reach Running/Completed and lastSyncTime to advance...
+# ...wait for the fresh mover to reach Running/Completed, then check the MOVER RESULT --
+#    lastSyncTime advances on teardown even when nothing was backed up. See
+#    "Verify a *backup*, not a cleared alert" above.
 kubectl -n "$NS" patch replicationsource "$SRC" --type=merge \
   -p '{"spec":{"trigger":{"schedule":"<ORIGINAL>","manual":null}}}'
 ```
@@ -259,6 +324,12 @@ matches the Git manifest again.
 healthy. No respawn-deadlock here — just
 `kubectl -n <ns> delete volumesnapshot volsync-<app>-local-src` and VolSync
 recreates a working one on the next reconcile.
+
+**Do not confuse that with the fifth fingerprint above.** Both are Longhorn and both
+leave a healthy source, but they fail at different stages: there the *VolumeSnapshot*
+never becomes `readyToUse`; in the fifth fingerprint the snapshot is fine and the
+*clone from it* fails (`cloneStatus.state: failed` on the Longhorn volume). Deleting the
+VolumeSnapshot does not fix a failed clone — check `cloneStatus` before choosing.
 
 ## Diagnose
 
