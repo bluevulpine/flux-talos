@@ -1,0 +1,22 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/snapshotschedule_v1alpha1.json
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: SnapshotSchedule
+metadata:
+  name: jellyseerr-pilot
+spec:
+  policyRef:
+    name: jellyseerr-pilot
+  schedule:
+    # Byte-for-byte the same cron string as the recyclarr pilot, on purpose.
+    # `H` derives its minute from the SCHEDULE's identity, so two schedules
+    # carrying one identical string must land on different minutes. If they
+    # collide, the argument for deleting the hand-maintained 40-slot grid in
+    # components/volsync/r2.yaml is wrong, and this is the cheapest possible
+    # test of it: N=2 costs nothing and a wrong answer here is worth far more
+    # than a right one at N=43.
+    #
+    # For reference, recyclarr resolved to minute ~23-37 across slots (H plus
+    # the 20m jitter window). Compare status.nextSchedule.at on both.
+    cron: "H */6 * * *"
+    jitter: 20m

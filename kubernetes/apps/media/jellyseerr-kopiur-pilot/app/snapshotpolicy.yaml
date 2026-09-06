@@ -1,0 +1,53 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/snapshotpolicy_v1alpha1.json
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: SnapshotPolicy
+metadata:
+  name: jellyseerr-pilot
+spec:
+  # Deliberately the SAME repository the recyclarr pilot bootstrapped, not a
+  # second one. Two sources in one kopia repository is the shape a real rollout
+  # would take, and it is the only way to exercise the repository's fan-out cap
+  # and its shared maintenance. kopia keeps the two apart by identity
+  # (username@hostname:sourcePath), so they dedupe against each other's blobs
+  # without being able to prune each other's snapshots.
+  repository:
+    kind: Repository
+    name: pilot-local
+  sources:
+    - pvc:
+        name: jellyseerr
+  # Matches the volsync jellyseerr-local source, for the same reason the
+  # recyclarr pilot does: differing here would mean measuring two variables.
+  copyMethod: Snapshot
+  volumeSnapshotClassName: longhorn-snapclass
+  staging:
+    timeout: 10m
+  mover:
+    cache:
+      mode: Persistent
+      # 2Gi, not the 16Gi volsync asks for. The kopia cache scales with the
+      # repository's index and recently-read content, not with the source, and
+      # the recyclarr pilot's 2Gi has been sufficient for the whole repository.
+      # Revisit if IndexBlobHealth ever degrades.
+      capacity: 2Gi
+      storageClassName: longhorn-1-replica
+    # jellyseerr's pod runs 568:568 (deployment podSecurityContext, confirmed on
+    # the live pod). Measured rather than assumed: exactly ONE entry under
+    # /app/config is root-owned - the PVC mount root itself, which a restore
+    # target recreates anyway - and the other 9,903 are 568-owned. That matters
+    # because the mover cannot chown to root, so any root-owned CONTENT would
+    # come back owned by the mover uid. There is none here.
+    securityContext:
+      runAsUser: 568
+      runAsGroup: 568
+    podSecurityContext:
+      fsGroup: 568
+      fsGroupChangePolicy: OnRootMismatch
+  # readOnly stays ABSENT. See the note in the recyclarr pilot's policy: it
+  # defaults to true, and setting it false under copyMethod: Direct recursively
+  # chgrps the live volume.
+  retention:
+    keepLatest: 3
+    keepHourly: 6
+    keepDaily: 7

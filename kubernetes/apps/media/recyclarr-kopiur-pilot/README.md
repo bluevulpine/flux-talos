@@ -62,16 +62,40 @@ snapshots succeed and maintenance fails later.
 
 ## Success criteria — all four, or the answer is no
 
+**All four passed, verified 2026-09-06 after two days of scheduled runs.**
+
 1. The `SnapshotSchedule` fires and its `Snapshot` reaches `Succeeded`.
+   → **Pass.** 7 retained snapshots, 7 `Succeeded`, `consecutiveFailures: 0`, operator
+   pods at 0 restarts.
 2. `status.stats` shows non-zero `filesNew`/`bytesNew`, and `status.snapshot.kopiaSnapshotID`
    is populated — an empty backup reports zeros and would otherwise look like success.
+   → **Pass.** 2,651 files / 84,262,929 bytes, `kopiaSnapshotID` populated on every one.
+   Note `filesNew` reports the file count *in* the snapshot, not files newly uploaded: the
+   whole bucket holds **88.1 MB across 7 snapshots** of an 84.3 MB source, so content is
+   stored once and deduped. Do not read that field as a cost signal.
 3. **A real restore** into a scratch PVC produces byte-identical content. A backup that has
    never been restored is a hypothesis.
+   → **Pass.** Restored into a scratch PVC and compared against the live volume with both
+   mounted read-only in one pod: 2,651 files, sha256 manifests identical
+   (`7cf3c73dca4b703b…` on both sides), `diff -r` reports no differences.
+   **Two fidelity gaps worth carrying forward**, from a full mode/uid/gid/size/mtime
+   comparison of all 3,154 entries — 36 differ:
+   - 35 **directory** mtimes are not preserved (they take the newest child's). All 2,651
+     file mtimes are.
+   - 1 **ownership** change: a `uid 0` file returns as `uid 568`. The mover runs non-root
+     and cannot `chown` to root, so **any root-owned content restores owned by the mover
+     uid**. Check for root-owned content before pointing kopiur at a new volume.
 4. VolSync's own `recyclarr-local` and `recyclarr-r2` are unaffected throughout.
+   → **Pass.** Both still on their own schedules; across the whole `media` namespace, zero
+   ReplicationSources have a null `lastSyncTime`.
 
 Worth watching, though not pass/fail: what minute `H */6 * * *` actually resolves to —
 `status.nextSchedule.at` on the `SnapshotSchedule`. That number is the entire argument for
 dropping the grid.
+→ Fired at 12:37, 18:25, 00:33, 06:22, 12:28 and 18:23 UTC — hours {0,6,12,18} with the
+20m jitter spreading the minute. It picked its own slot and never needed the grid. The
+real test of that is two schedules sharing one cron string, which is what
+[`jellyseerr-kopiur-pilot`](../jellyseerr-kopiur-pilot/README.md) adds.
 
 ## Rollback
 
@@ -79,6 +103,12 @@ Delete this directory and its line from `kubernetes/apps/media/kustomization.yam
 `kopiur-system` tree if the operator is going too. Nothing here is shared with VolSync: a
 separate operator, a separate bucket, a separate repository password, and no edit to any
 existing manifest. The Garage bucket can then be dropped whole.
+
+**One ordering constraint, added when the pilot was promoted.** This directory now owns the
+`Repository` and the `ExternalSecret` that
+[`jellyseerr-kopiur-pilot`](../jellyseerr-kopiur-pilot/README.md) depends on. Removing this
+one alone would prune the repository out from under it. Remove `jellyseerr-kopiur-pilot`
+first, or remove both together.
 
 ## Notes for whoever picks this up
 
