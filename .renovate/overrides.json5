@@ -26,22 +26,37 @@
       enabled: false,
     },
     {
-      // gitea is a real Helm chart (not app-template) with a top-level
-      // `image.repository`/`image.tag`, which the built-in helm-values manager
-      // tracks natively. The tag line ALSO carries a `# renovate:` annotation
-      // (customManager). Both match the same line, so Renovate opens two PRs for
-      // one bump (helm-values -> docker.io/gitea/gitea, customManager ->
-      // gitea/gitea). The annotation is the repo convention, so suppress only the
-      // helm-values copy.
+      // gitea's HelmRelease has a top-level `image.repository`/`image.tag`
+      // block, which Renovate's built-in *flux* manager extracts natively
+      // (it parses `values:` inside Flux HelmRelease CRs the same way
+      // helm-values parses a chart's values.yaml). The tag line ALSO carries
+      // a `# renovate:` annotation matched by our customManager. Both match
+      // the same line, so Renovate opens two PRs for one bump (flux ->
+      // docker.io/gitea/gitea, customManager -> gitea/gitea). The annotation
+      // is the repo convention, so suppress only the flux-native copy.
+      //
+      // Third time fixing this exact duplicate (#1389, #1540, now #1681):
+      // the first two fixes only ever tuned matchPackageNames and never
+      // questioned matchManagers. "helm-values" is a REAL but WRONG manager
+      // slug here — per Renovate's own docs, `helm-values` only matches
+      // files literally named values.yaml/values.yml, so it can never match
+      // a HelmRelease file like helmrelease.yaml. The manager that actually
+      // extracts image.repository/image.tag from a Flux HelmRelease's
+      // values block is `flux`. Because the manager filter never matched,
+      // `enabled: false` never applied, and the duplicate kept slipping
+      // through no matter how the packageName regex was tuned. Confirmed
+      // against https://docs.renovatebot.com/modules/manager/flux/ and
+      // https://docs.renovatebot.com/modules/manager/helm-values/.
       //
       // Match by regex, NOT the exact string "docker.io/gitea/gitea": Renovate
       // normalizes the Docker Hub packageName to the un-prefixed "gitea/gitea",
-      // so the old exact match never fired and the duplicate (#1540) slipped
-      // through. The `/gitea\/gitea$/` regex matches with or without the
-      // docker.io/ registry prefix. Scoped to matchManagers:["helm-values"] so it
-      // can never disable the annotation-based customManager PR we want to keep.
-      description: "Gitea: drop the helm-values duplicate; image tracked via the # renovate annotation",
-      matchManagers: ["helm-values"],
+      // so the old exact match never fired either. The `/gitea\/gitea$/` regex
+      // matches with or without the docker.io/ registry prefix. Scoped to
+      // matchManagers:["flux"] so it can never disable the annotation-based
+      // customManager PR we want to keep (that one reports as a "regex"
+      // manager, never "flux").
+      description: "Gitea: drop the flux-native duplicate; image tracked via the # renovate annotation",
+      matchManagers: ["flux"],
       matchPackageNames: ["/gitea\\/gitea$/"],
       enabled: false,
     },
