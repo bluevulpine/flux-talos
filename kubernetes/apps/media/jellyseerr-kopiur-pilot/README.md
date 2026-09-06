@@ -28,7 +28,9 @@ Three things follow from that, and they are the point:
    reason the success criterion below is an integrity check rather than a byte
    comparison. **Byte-identity is not available for a live writer** — the source
    changes between snapshot and comparison, so equality would be a coincidence and
-   inequality would prove nothing.
+   inequality would prove nothing. (What a *restore* can and cannot demonstrate
+   about the WAL specifically is set out under criterion 4 — the honest answer is
+   less than it first appears.)
 3. **Two sources in one kopia repository.** Shared blobs, shared maintenance,
    separate identities, and a repository-level fan-out cap that has never had more
    than one source to cap.
@@ -55,19 +57,74 @@ Explicitly **not** chosen:
 
 ## Success criteria
 
+**Verified 2026-09-06, on an on-demand `Snapshot` (`origin: manual`) taken minutes
+after the promotion merged. Four pass outright; criterion 4 passes on everything it
+can actually test, and the part it cannot is corrected below rather than claimed.**
+
 1. The `SnapshotSchedule` fires and its `Snapshot` reaches `Succeeded` against a
    volume that has a live writer on it.
+   → **Pass.** `Succeeded` in 2m18s (≈1m45s staging the VolumeSnapshot, ≈30s moving).
+   `SecurityContextCompatible` came back with the operator's own wording: *"the
+   mover's uid (568) exactly matches every workload writing the source PVC"*.
 2. `status.stats` shows non-zero `filesNew` and `sizeBytes`, and
    `status.snapshot.kopiaSnapshotID` is populated.
+   → **Pass.** 4,956 files / 562,316,974 bytes, `kopiaSnapshotID` populated. kopia
+   identity is `jellyseerr-pilot@media:/pvc/jellyseerr`, distinct from the recyclarr
+   source sharing the repository. Repository stayed `IndexBlobHealth: Healthy` with
+   two sources.
 3. **`H` puts this schedule on a different minute from `recyclarr-pilot`.** Same cron
    string, two schedules — compare `status.nextSchedule.at` on both. This is the
    grid argument at N=2.
+   → **Pass, and provably so.** Same slot, both pinned:
+
+   ```
+   recyclarr-pilot   2026-09-07T00:29:19Z   jitter 20m   timezone UTC
+   jellyseerr-pilot  2026-09-07T00:52:36Z   jitter 20m   timezone UTC
+   ```
+
+   **23m17s apart from a byte-identical cron string.** `jitter` is a forward spread
+   window (docs: *"spread firings over a window"*), so two schedules sharing one `H`
+   minute could differ by at most 20m. 23m17s exceeds the whole window, so the `H`
+   minutes themselves differ — this is not jitter doing the work.
 4. **A restore into a scratch PVC yields a database that opens and passes
-   `PRAGMA integrity_check`** (expected output: the single word `ok`), with the
-   `-wal` recovered rather than discarded.
+   `PRAGMA integrity_check`** (expected output: the single word `ok`).
+   → **Pass on integrity and on content.** Restored into a scratch PVC, copied the
+   three files out, and opened them with **jellyseerr's own `sqlite3@5.1.7` driver
+   from its own image** rather than a generic client:
+
+   ```
+   integrity_check : ok
+   quick_check     : ok
+   foreign_key_check: (no rows)
+   journal_mode    : wal
+   ```
+
+   All 15 tables were then row-counted against the **live** database and every count
+   matches (`media` 1404, `season` 1714, `season_request` 226, `media_request` 76, …).
+
+   > **The `-wal` clause this criterion used to carry has been removed, because this
+   > run could not test it and neither can any scheduled run.** The original wording
+   > said "with the `-wal` recovered rather than discarded." All three files restore
+   > (`db.sqlite3` 536,576 / `-shm` 32,768 / `-wal` 4,144,752, sizes matching live),
+   > but a 4.1 MB WAL does **not** mean 4.1 MB of pending data: SQLite leaves the WAL
+   > at its high-water mark and overwrites from the start rather than truncating.
+   > Opening the **main file alone**, with the `-wal` and `-shm` withheld, returns the
+   > same 15 row counts — so the WAL held nothing pending at capture time and the
+   > recovery path was never exercised. Whether it is load-bearing at any given
+   > snapshot is luck, so it is not a criterion you can schedule.
+   >
+   > What actually protects the db/`-wal`/`-shm` triple is `copyMethod: Snapshot`: a
+   > CSI VolumeSnapshot is a point-in-time capture of the whole filesystem, so the
+   > three files are coherent **by construction**. That is a property of the copy
+   > method, not something this restore demonstrated — and the distinction is the
+   > whole reason to write it down.
 5. VolSync's `jellyseerr-local` and `jellyseerr-r2` are unaffected throughout, and
    the recyclarr pilot's own snapshots keep succeeding once it is sharing the
    repository.
+   → **Pass.** Both VolSync sources untouched on their own schedules; the recyclarr
+   pilot's `consecutiveFailures` stayed 0 across the promotion; the jellyseerr
+   Deployment never restarted (7d22h uptime, 0 restarts) and its PVC was mounted
+   `readOnly: true` for the whole comparison.
 
 ## Notes
 
