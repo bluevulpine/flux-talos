@@ -46,6 +46,13 @@ spec:
               OIDC_AUTO_REDIRECT: "false"
               OIDC_ADMIN_GROUP: "mealie-admins"
               OIDC_USER_GROUP: "mealie-users"
+              # Mealie >= v3.21.0 defaults OIDC_REQUIRES_EMAIL_VERIFICATION to true and
+              # refuses any login whose claims lack email_verified: true. Authentik's
+              # managed "OpenID 'email'" scope mapping hardcodes email_verified: False
+              # (goauthentik/authentik#16206), so every OIDC login 401s. Overriding the
+              # mapping in the authentik UI does not stick: it is a managed system object
+              # and the blueprint importer re-saves it on restart.
+              OIDC_REQUIRES_EMAIL_VERIFICATION: "false"
             envFrom: *envFrom
             probes:
               liveness: &probes
