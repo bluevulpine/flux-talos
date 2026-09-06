@@ -110,7 +110,7 @@ spec:
             # If a future backfill needs speed, batch with `aws s3api delete-objects`
             # (1000 keys per call, still ONE process) -- never with more processes.
             - name: prune
-              image: amazon/aws-cli:2.36.32
+              image: amazon/aws-cli:2.36.40
               env:
                 - name: HOME
                   value: /tmp
