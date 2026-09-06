@@ -24,11 +24,18 @@ spec:
       # Give up after one retry instead of the default 6. restartPolicy below is
       # OnFailure, which restarts the container IN PLACE rather than making a new
       # Pod (verified in-cluster: a deliberately OOMKilled mirror of this Job
-      # produced one Pod whose restartCount climbed, never a second Pod). So this
-      # does not bound anything per-Pod -- what it bounds is how long the Job
-      # thrashes before failing: the default 6 kept the 2026-09-04 18:10Z run
-      # restarting for 32 minutes. Runs are 6h apart against 30d of retention, so
-      # losing one attempt costs nothing and a fast, loud failure is worth more.
+      # produced one Pod whose restartCount climbed, never a second Pod), so an
+      # in-place restart never touches .status.failed. What DOES increment it is
+      # losing the whole Pod -- and on 2026-09-04 that happened seven times via
+      # descheduler eviction, which is exactly why that run reached .status.failed=7
+      # and thrashed for 32 minutes on the default limit.
+      #
+      # That makes this bound sharper than 990289ff claimed. Each increment is one
+      # replacement Pod, and each replacement Pod re-runs the initContainer, so the
+      # limit caps snapshots at backoffLimit + 1 -- it does bound initContainer
+      # executions. At 1, a repeat of that day costs one extra snapshot, not five.
+      # Runs are 6h apart against 30d of retention, so losing one attempt costs
+      # nothing and a fast, loud failure is worth more. See the prune comment below.
       backoffLimit: 1
       template:
         spec:
@@ -76,14 +83,29 @@ spec:
             # job on 2026-09-04 (exit 137): aws-cli v2 is a bundled Python
             # interpreter, and while one process peaks at ~69 MB (measured in-pod),
             # eight concurrent ones blow past the 256Mi limit below before the
-            # prune can finish. Observed side effect: that run wrote 9 snapshots on
-            # 2026-09-04 instead of the scheduled 4, six of them inside the 24-min
-            # failure window, so a job meant to REDUCE the object count increased
-            # it. The mechanism was not reproduced -- OnFailure restarts the
-            # container in place and re-runs no initContainer, so why the snapshot
-            # step ran repeatedly is still unexplained. Do not assume backoffLimit
-            # alone prevents it.
-            # Serial costs nothing: steady state is 4 deletes per run (~4s), and
+            # prune can finish. Thanos confirms it for that run --
+            # kube_pod_container_status_last_terminated_reason returns OOMKilled for
+            # the prune container in all six Pods that reached it, and no Pod ever
+            # logged "Prune complete".
+            #
+            # That run also took 6 etcd snapshots inside its 32-minute failure window
+            # instead of the scheduled 1, so a job meant to REDUCE the object count
+            # raised it by 5. 990289ff left that mechanism unexplained, correctly
+            # ruling out OnFailure (which restarts the container IN PLACE and re-runs
+            # no initContainer). The Pods were not restarting, they were being
+            # REPLACED: the descheduler evicted this Job's Pod seven times, exactly
+            # five minutes apart, strategy=LowNodeUtilization, every one from
+            # brokkr02. An eviction deletes the Pod, so the Job controller creates a
+            # new one -- and a new Pod runs the initContainer again. Snapshot
+            # timestamps line up one-for-one with the evictions.
+            #
+            # The standing hazard is therefore not retries: any run of this Job that
+            # outlives one 5-minute descheduler pass can be restarted from scratch,
+            # snapshot included. backoffLimit above caps that at one extra snapshot,
+            # and a fast prune (62-73s post-fix) is what actually avoids it. Opting
+            # the Pod out of eviction was considered and declined on 2026-09-06; see
+            # ../../descheduler/LOAD_BALANCING_ENHANCEMENT.md.
+            # Serial costs nothing: steady state is ONE delete per run (4/day), and
             # the one-time ~855-object backfill that justified -P 8 is already done.
             # If a future backfill needs speed, batch with `aws s3api delete-objects`
             # (1000 keys per call, still ONE process) -- never with more processes.

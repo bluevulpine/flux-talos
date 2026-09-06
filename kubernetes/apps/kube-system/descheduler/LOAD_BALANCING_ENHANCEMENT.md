@@ -60,6 +60,8 @@ nodeFit: true                   # Only evict if pod can reschedule
 | brokkr03 | 53 | 51% | 31% |
 
 **Status:** ✅ Balanced - The original imbalance (72/21/19) from Nov 2025 has been resolved.
+(Table is a 2026-01-10 snapshot and has drifted; as of 2026-09-06 the counts are
+brokkr01 87, brokkr02 84, brokkr03 67 Running pods out of 110 allocatable each.)
 
 ### Why Evictions Are Limited Now
 
@@ -75,11 +77,57 @@ The descheduler logs show:
 3. `nodeFit: true` prevents evicting pods with nowhere to go
 4. Resource utilization is below targetThresholds
 
+**Update 2026-09-06 — `evictedPods=0` is the common case, not an invariant.** Over the
+retained log window (2026-08-24 → 2026-09-06) the descheduler evicted 62 pods: 55 by
+`RemovePodsViolatingNodeTaints`, which is ordinary drain behaviour, and 7 by
+`LowNodeUtilization` — all seven of them the same Job pod, in one 32-minute window on
+2026-09-04. Reason 3 above did not hold for it. See the next section.
+
+## Job pods: eviction is a restart from scratch, not a retry
+
+`evictLocalStoragePods: true` makes any pod with an `emptyDir` evictable, and that
+includes Job pods. For a Job this is not a retry of the failed step: the pod is
+deleted, the Job controller creates a **replacement**, and a replacement pod re-runs
+every `initContainer` from the beginning.
+
+On 2026-09-04 that hit `kube-system/talos-s3-backup`. Its prune container was
+OOMKilling in a loop (`xargs -P 8`, since fixed), which kept a pod that normally lives
+~60s alive across descheduler passes. `LowNodeUtilization` then evicted it seven times,
+exactly five minutes apart, `18:12:31Z` through `18:42:30Z`. Each replacement re-ran the
+`talos-backup` initContainer, so the window produced six 288 MB etcd snapshots instead
+of one — a job whose entire purpose is deleting old snapshots raised the object count
+by five. Snapshot timestamps line up one-for-one with the evictions.
+
+Two things to know before tuning any of this:
+
+- **Every replacement landed back on `brokkr02`**, the node it had just been evicted
+  from — all seven times, and all three post-fix runs since. The evictions rebalanced
+  nothing.
+- **`nodeFit: true` did not prevent that.** The pod carries
+  `nodeSelector: kubernetes.io/arch: amd64`, so its only candidates are brokkr01-03,
+  and all three were far above the `pods: 20` underutilization threshold — 79/76/61%
+  of pod capacity at 18:20Z on 2026-09-04 per Thanos, 87/84/67 of 110 as of
+  2026-09-06. Why `LowNodeUtilization` selected this pod anyway is **not
+  established**. The descheduler runs at default verbosity and does not log its
+  under/over-utilized node lists; `-v=4` would show them.
+
+**Deliberately not mitigated (2026-09-06).** A Job's `backoffLimit` bounds this: each
+eviction is one `.status.failed` increment and one replacement pod, so initContainer
+runs are capped at `backoffLimit + 1`. `talos-s3-backup` sets it to 1, and its post-fix
+runs finish in 62-73s — roughly 20x under the descheduler's pass interval. The
+alternative, a `DefaultEvictor.labelSelector` opt-out label, changes evictability for
+every workload in the cluster in order to protect one Job. Revisit if a second
+long-running Job gets bitten, or add `backoffLimit` to any new Job whose first step is
+expensive.
+
 ## Monitoring
 
 ```bash
-# Pod distribution
-kubectl get pods -A -o wide --no-headers | awk '{print $8}' | grep brokkr | sort | uniq -c
+# Pod distribution. Not `-o wide | awk '{print $8}'`: a RESTARTS value rendered as
+# "5 (46d ago)" occupies three fields and shifts the node into $10, so that form
+# silently miscounts every pod that has ever restarted.
+kubectl get pods -A --field-selector=status.phase=Running \
+  -o custom-columns=NODE:.spec.nodeName --no-headers | sort | uniq -c | sort -rn
 
 # Node utilization
 kubectl top nodes
@@ -113,3 +161,4 @@ With only 3 worker nodes, aggressive thresholds can cause thrashing. Current 20/
 |------|--------|
 | 2025-11-28 | Added LowNodeUtilization, disabled evictSystemCriticalPods |
 | 2026-01-10 | Documented current balanced state, removed outdated predictions |
+| 2026-09-06 | Documented Job-pod eviction re-running initContainers; declined an opt-out |
