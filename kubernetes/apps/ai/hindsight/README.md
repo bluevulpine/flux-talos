@@ -92,7 +92,7 @@ Both non-default lines are load-bearing:
 
 - **`retainToolCalls: false`** is already the plugin default, but set it explicitly. It is
   the single control that keeps `sops -d` output, `kubectl get secret -o yaml`, and bash
-  results from ever being sent to Google. There is no redaction, sanitisation, or pattern
+  results from ever being sent to Anthropic. There is no redaction, sanitisation, or pattern
   filter anywhere in `retain.py` — `retainMission` is a *prompt instruction*, and the raw
   text is sent in full regardless of what gets extracted. The only pre-send control is not
   retaining at all. **Revisit the whole sensitivity analysis if this is ever turned on.**
@@ -147,9 +147,9 @@ Home Assistant needs a **second Hindsight instance, not a second bank** — with
 one schema, banks are a naming convention, not a boundary.
 
 Also not taken, deliberately: external gateway exposure (internal only during Phase 1; if it
-is ever wanted it needs OAuth via Authentik, not a shared bearer token), the Gemini Batch API
+is ever wanted it needs OAuth via Authentik, not a shared bearer token), the provider Batch API
 (halves cost but turns retain into a minutes-to-hours SLA, and the setting is server-wide so
-it cannot be scoped to one consumer), and OpenCode Zen free models (read the terms first —
+it cannot be scoped to one consumer — the objection is provider-independent), and OpenCode Zen free models (read the terms first —
 free tiers commonly train on submitted data, which would undo the retention reasoning).
 
 ## Teardown
@@ -168,7 +168,7 @@ under an Orphan policy, so do the database work **first**, while credentials sti
 # 3. bao kv delete .../hindsight   (and rotate anything the key touched)
 # 4. laptop: claude plugin uninstall hindsight-memory && rm -rf ~/.hindsight
 #    and remove the hook entries from ~/.claude/settings.json
-# 5. NOT reversible: every transcript already sent to Google.
+# 5. NOT reversible: every transcript already sent to Anthropic.
 ```
 
 Also revert the two out-of-tree edits if nothing else has adopted them: the `ai` entry in

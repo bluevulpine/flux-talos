@@ -67,8 +67,11 @@ spec:
               Hindsight has {{ $value | printf "%.0f" }} operations stuck in
               pending/processing for 30m — retains are queuing, not completing,
               and memory is going stale while the pod reads healthy. Check the
-              Gemini API key and quota first (`kubectl logs -n ai
-              deploy/hindsight -c api | grep -i llm`), then the worker.
+              Anthropic Console credit balance first — an exhausted balance
+              produces exactly this shape, because retain retries then fails
+              cleanly while recall (which makes no LLM call) keeps working. Then
+              the API key itself: `kubectl logs -n ai deploy/hindsight -c api |
+              grep -i llm`. Then the worker.
           expr: |
             sum(hindsight_async_operations{namespace="ai", status=~"pending|processing"}) > 50
           for: 30m
