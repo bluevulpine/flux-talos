@@ -1,0 +1,211 @@
+---
+# Anthropic credit-exhaustion detector.
+#
+# WHY THIS EXISTS AS A CRONJOB rather than a PrometheusRule: there is no metric
+# to alert on. Hindsight's /metrics exposes only hindsight_async_operations,
+# hindsight_consolidation_{backlog,failed}, db-pool and http series — nothing
+# per-stage and nothing about LLM errors. On 2026-09-07 credit exhaustion hit
+# `retain`, consolidation_failed stayed at 0, and the existing
+# HindsightConsolidationFailing alert never fired. The failure is only visible
+# in the API's own /llm-requests rows, so something has to read them.
+#
+# It also cannot be made proactive. The Anthropic Admin API exposes members,
+# workspaces, invites and keys — there is NO remaining-credit-balance endpoint,
+# and no field on a request carries one. Exhaustion is only ever observable
+# after the fact, as a 400 whose message contains "credit balance is too low"
+# (NOT a 429 — do not match on status code alone).
+#
+# Posts to Alertmanager's v2 API rather than to Pushover directly, so the alert
+# inherits the existing routing, grouping, dedup and silences (Pushover is
+# already the default receiver in alertmanagerconfig.yaml). endsAt is set ahead
+# of the next run, so the alert self-resolves once the condition clears instead
+# of needing a separate "all clear" path.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hindsight-credit-alert
+data:
+  check.py: |
+    """Scan every bank's recent LLM requests for credit-exhaustion errors."""
+    import json
+    import os
+    import sys
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+    from datetime import datetime, timedelta, timezone
+
+    API = os.environ["HINDSIGHT_API_URL"].rstrip("/")
+    TOKEN = os.environ["HINDSIGHT_TOKEN"]
+    ALERTMANAGER = os.environ["ALERTMANAGER_URL"].rstrip("/")
+    WINDOW_MIN = int(os.environ.get("WINDOW_MINUTES", "20"))
+    RESOLVE_MIN = int(os.environ.get("RESOLVE_MINUTES", "30"))
+    # Substring of the provider's 400 body. Matching the MESSAGE, not the status,
+    # is deliberate: a 400 is also how a malformed request presents, and paging
+    # on every 400 would be noise.
+    NEEDLE = "credit balance is too low"
+
+    def get(path):
+        req = urllib.request.Request(
+            f"{API}{path}", headers={"Authorization": f"Bearer {TOKEN}"}
+        )
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.load(r)
+
+    def banks():
+        d = get("/v1/default/banks")
+        items = d.get("items") or d.get("banks") or (d if isinstance(d, list) else [])
+        return [b.get("id") or b.get("bank_id") for b in items if isinstance(b, dict)]
+
+    def main():
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=WINDOW_MIN)
+        hits = {}
+        for bank in banks():
+            if not bank:
+                continue
+            q = urllib.parse.quote(bank, safe="")
+            try:
+                rows = get(f"/v1/default/banks/{q}/llm-requests?limit=200").get("items") or []
+            except urllib.error.URLError as e:
+                print(f"warn: {bank}: {e}", file=sys.stderr)
+                continue
+            for r in rows:
+                if r.get("status") == "success":
+                    continue
+                if NEEDLE not in str(r.get("error") or r.get("error_message") or ""):
+                    continue
+                started = str(r.get("started_at") or "")[:19]
+                if not started:
+                    continue
+                try:
+                    when = datetime.fromisoformat(started).replace(tzinfo=timezone.utc)
+                except ValueError:
+                    continue
+                if when >= cutoff:
+                    hits.setdefault(bank, set()).add(r.get("operation") or "?")
+
+        if not hits:
+            print(f"ok: no credit errors in the last {WINDOW_MIN}m")
+            return 0
+
+        detail = "; ".join(f"{b}: {','.join(sorted(ops))}" for b, ops in sorted(hits.items()))
+        print(f"CREDIT EXHAUSTION: {detail}", file=sys.stderr)
+        payload = [
+            {
+                "labels": {
+                    "alertname": "HindsightAnthropicCreditsExhausted",
+                    "severity": "critical",
+                    "namespace": "ai",
+                    "service": "hindsight",
+                },
+                "annotations": {
+                    "summary": (
+                        "Anthropic credits are exhausted — Hindsight LLM calls are "
+                        f"returning 400 'credit balance is too low' ({detail}). Retain "
+                        "should be failing over to Azure (gpt-4o), so memory degrades "
+                        "rather than stops, but extraction quality drops until credits "
+                        "are topped up at console.anthropic.com."
+                    ),
+                },
+                "startsAt": datetime.now(timezone.utc).isoformat(),
+                "endsAt": (
+                    datetime.now(timezone.utc) + timedelta(minutes=RESOLVE_MIN)
+                ).isoformat(),
+            }
+        ]
+        req = urllib.request.Request(
+            f"{ALERTMANAGER}/api/v2/alerts",
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                print(f"alert posted: HTTP {r.status}")
+        except (urllib.error.URLError, OSError) as e:
+            # Deliberate non-zero: we DETECTED the condition but could not report
+            # it, which is the one case that must not pass silently. A clean
+            # message plus a failed Job (KubeJobFailed) is the escalation path —
+            # an unhandled traceback would do the same thing far less legibly.
+            print(f"FATAL: detected credit exhaustion but Alertmanager POST failed: {e}",
+                  file=sys.stderr)
+            return 1
+        # Exit 0 on a successfully-reported alert: a non-zero exit would ALSO trip
+        # KubeJobFailed, double-paging for one condition and making a real script
+        # bug indistinguishable from a detection.
+        return 0
+
+    if __name__ == "__main__":
+        sys.exit(main())
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hindsight-credit-alert
+spec:
+  # Every 10 minutes. WINDOW_MINUTES is 20 — deliberately wider than the period,
+  # so a run that is skipped or slow cannot open a hole the next run misses.
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 300
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      ttlSecondsAfterFinished: 3600
+      template:
+        spec:
+          restartPolicy: OnFailure
+          # Talks only to the Hindsight API and Alertmanager over HTTP; it has no
+          # business holding a Kubernetes API token.
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: check
+              image: docker.io/library/python:3.14-alpine
+              command:
+                - "python3"
+                - "/scripts/check.py"
+              env:
+                # `hindsight-api`, NOT `hindsight` — the chart splits the API and
+                # the control plane into two Services (hindsight-api:8888 and
+                # hindsight-controlplane:3000). There is no `hindsight` Service.
+                - name: HINDSIGHT_API_URL
+                  value: http://hindsight-api.ai.svc.cluster.local:8888
+                - name: ALERTMANAGER_URL
+                  value: http://kube-prometheus-stack-alertmanager.observability.svc.cluster.local:9093
+                # Only the token, not envFrom the whole secret — that would also
+                # mount the Postgres DSNs and both LLM keys into a pod that needs
+                # none of them.
+                - name: HINDSIGHT_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: hindsight-secret
+                      key: HINDSIGHT_API_TENANT_API_KEY
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+          volumes:
+            - name: scripts
+              configMap:
+                name: hindsight-credit-alert
+                defaultMode: 0555

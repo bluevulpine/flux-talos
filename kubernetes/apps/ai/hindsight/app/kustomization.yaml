@@ -7,6 +7,7 @@ resources:
   - ./externalsecret.yaml
   - ./pvc.yaml
   - ./helmrelease.yaml
+  - ./cronjob.yaml
   - ./httproute.yaml
   - ./servicemonitor.yaml
   - ./prometheusrule.yaml
