@@ -56,17 +56,19 @@ Two things are expected to need confirming on the first running pod:
 #    the app role cannot, because pgvector is not a "trusted" extension)
 kubectl -n ai logs deploy/hindsight -c 02-init-vector
 
-# 2. the backlog metric names the PrometheusRule alerts on. Upstream declares
-#    these as dotted OpenTelemetry instruments; the Prometheus mapping is an
-#    inference until scraped, and a wrong name makes the alerts SILENT.
-kubectl -n ai exec deploy/hindsight -c api -- \
-  sh -c 'wget -qO- http://localhost:8888/metrics' \
-  | grep -E '^hindsight_(async_operations|consolidation)'
+# 2. the backlog metric names the PrometheusRule alerts on.
+#    NOTE the image ships neither wget nor curl -- use its own Python.
+kubectl -n ai exec deploy/hindsight -c api -- python -c \
+  "import urllib.request; print(urllib.request.urlopen(
+   'http://localhost:8888/metrics').read().decode())" | grep ^hindsight_
 ```
 
-Expected from the second: `hindsight_async_operations`, `hindsight_consolidation_backlog`,
-`hindsight_consolidation_failed`, each with a `tenant` label. If the exporter added a suffix,
-correct the `expr:` fields in `app/prometheusrule.yaml`.
+Verified on 2026-09-07: `hindsight_consolidation_backlog` and `hindsight_consolidation_failed`
+are both present. **`hindsight_async_operations` is absent until the first retain** and that is
+correct, not a bug -- it is an observable gauge over `_async_ops_counts`, which yields no
+observations while empty, so no series is emitted. Its name follows the same braced-unit rule
+as the two confirmed ones (`{operations}` takes no suffix, unlike unbraced units such as
+`hindsight_llm_tokens_input_tokens_total`).
 
 ## Consumer — Claude Code (the only Phase 1 consumer)
 

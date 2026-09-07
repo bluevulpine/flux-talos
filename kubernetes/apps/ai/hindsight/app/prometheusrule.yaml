@@ -51,16 +51,24 @@ spec:
         # Gauge is refreshed every 30s by a background task
         # (BACKLOG_METRICS_REFRESH_SECONDS), so a 30m window is many samples.
         #
-        # SERIES NAMES ARE AN INFERENCE UNTIL FIRST SCRAPE. Upstream declares
-        # these as OpenTelemetry instruments with dotted names
-        # (hindsight.async_operations, hindsight.consolidation.failed) in
-        # hindsight_api/metrics.py; the Prometheus exporter maps `.` to `_` and
-        # appends no suffix for a gauge whose unit is a `{...}` annotation. That
-        # mapping has not been observed on a running pod. Confirm on first
-        # deploy, because a wrong name makes these alerts permanently SILENT:
-        #   kubectl -n ai exec deploy/hindsight -c api -- \
-        #     sh -c 'wget -qO- http://localhost:8888/metrics' \
-        #     | grep -E '^hindsight_(async_operations|consolidation)'
+        # SERIES NAMES VERIFIED against the running pod on 2026-09-07, with one
+        # caveat. hindsight_consolidation_backlog and _failed were both observed
+        # on /metrics. hindsight_async_operations was NOT -- correctly so: it is
+        # an observable gauge whose callback iterates _async_ops_counts, so with
+        # nothing retained yet it yields no observations and prometheus_client
+        # emits no series at all. It appears on the first retain.
+        #
+        # The name is still right. The exporter maps `.` to `_` and appends the
+        # unit ONLY when unhyphenated -- compare hindsight_llm_tokens_input_tokens_total
+        # (unit "tokens") against hindsight_consolidation_backlog (unit
+        # "{memories}", no suffix). async_operations declares "{operations}", the
+        # same braced form as the two that were confirmed, so it takes no suffix
+        # either.
+        #
+        # Note the image ships NO wget and NO curl. To re-check, use its Python:
+        #   kubectl -n ai exec deploy/hindsight -c api -- python -c \
+        #     "import urllib.request; print(urllib.request.urlopen(
+        #      'http://localhost:8888/metrics').read().decode())" | grep ^hindsight_
         - alert: HindsightRetainBacklog
           annotations:
             summary: >-
