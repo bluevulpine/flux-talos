@@ -190,7 +190,11 @@ The `ks.yaml` should `dependsOn` the cluster so ordering is correct:
 
 ```yaml
   dependsOn:
-    - name: cloudnative-pg-cluster
+    # NOTE the `18` suffix — there is no `cloudnative-pg-cluster` Kustomization.
+    # Flux does not error on a missing dependsOn target; the Kustomization parks
+    # in `dependency not ready` indefinitely, with no event and no alert, so an
+    # app that gets this wrong simply never deploys and nothing says why.
+    - name: cloudnative-pg-cluster18
       namespace: database
     - name: external-secrets-openbao-store
       namespace: external-secrets
