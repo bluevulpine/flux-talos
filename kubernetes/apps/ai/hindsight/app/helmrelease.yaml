@@ -174,11 +174,38 @@ spec:
               # matters because ~80% of retain cost is OUTPUT tokens.
               HINDSIGHT_API_LLM_PROVIDER: anthropic
               HINDSIGHT_API_LLM_MODEL: claude-haiku-4-5
-              # Structured extraction against a schema is the easiest job in the
-              # pipeline; keep a stronger model for reflect, where reasoning
-              # quality actually shows up. reflect is user-initiated and rare, so
-              # this does not touch the per-retain cost above.
-              HINDSIGHT_API_REFLECT_LLM_MODEL: claude-sonnet-5
+              # --- reflect -> Azure OpenAI (gpt-5-mini) ---
+              # This slot was claude-sonnet-5 on the reasoning that "reflect is
+              # user-initiated and rare, so this does not touch the per-retain
+              # cost". That premise was WRONG and cost real money on 2026-09-07.
+              #
+              # The slot does not only serve the user-invoked `reflect` tool: it
+              # also serves `refresh_mental_model` and `mental_model_delta_ops`,
+              # which fire AUTOMATICALLY after consolidation. Measured that day
+              # on the flux-talos bank: 232 calls, 1,646,763 input tokens, $9.84
+              # in ~2h — ~85% of all Anthropic spend, against $1.17 for retain.
+              # Actual user-invoked reflect that day: 3 calls, all failed. So the
+              # expensive half of this slot is automatic, not user-initiated, and
+              # it scales with consolidation volume rather than being rare.
+              #
+              # It is also synthesis over units retain has ALREADY extracted —
+              # the same "low judgment, high volume" shape as consolidation — so
+              # it belongs on the free Azure credits for the same reason.
+              # Retain stays on Anthropic; that is still the stage that decides
+              # what becomes a durable belief.
+              #
+              # WATCH THIS ONE: reflect is an agentic tool-calling loop
+              # (stage=llm.*.reflect_tool_call), not consolidation's single
+              # structured call, so it leans harder on the model. If mental-model
+              # quality degrades, revert this block to claude-sonnet-5 (or try
+              # claude-haiku-4-5, still 3x cheaper than sonnet on both axes).
+              HINDSIGHT_API_REFLECT_LLM_PROVIDER: openai
+              HINDSIGHT_API_REFLECT_LLM_MODEL: gpt-5-mini
+              # Same hard requirement as consolidation: the gpt-5 family rejects
+              # an explicit temperature and reflect's built-in default is 0.9
+              # (config.py DEFAULT_LLM_TEMPERATURE_REFLECT), so every call would
+              # 400 without this.
+              HINDSIGHT_API_LLM_TEMPERATURE_REFLECT: none
               # Default is FALSE, and the default is wrong for us. Off, Hindsight
               # text-injects the schema and json.loads the reply, which upstream
               # warns can be violated by prose preambles and markdown fences —
