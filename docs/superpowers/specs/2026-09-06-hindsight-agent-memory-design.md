@@ -37,7 +37,7 @@ context, so a stale fact does not merely fail to help, it actively misleads an a
 
 Each of these is explained in full further down. They are collected here because every one
 of them fails *quietly*: no error, no alert, just a thing that does not work. Three of the
-four were mistakes in the first draft of this document.
+five were mistakes in the first draft of this document.
 
 - [ ] **`dependsOn` must be `cloudnative-pg-cluster18`**, not `cloudnative-pg-cluster`. Flux
       does not error on a missing target — the Kustomization parks in
@@ -308,7 +308,6 @@ as a side effect of this one.
 One `ExternalSecret` → OpenBao key `hindsight`, PascalCase double-underscore fields per
 house convention, plus the shared `cloudnative-pg` superuser extract:
 
-```yaml
 **Use `${POSTGRES_HOST}`, never the literal hostname.** `cluster-settings.yaml` exists so a
 major-version cluster swap is a one-line cutover; 31 apps honour it and exactly one does
 not. The first draft of this design hardcoded `postgres18-rw...` in three places, which
@@ -333,7 +332,14 @@ would have made Hindsight the second — and would have broken silently at the n
         # Migrations get their own connection so a saturated app pool cannot wedge them.
         HINDSIGHT_API_MIGRATION_DATABASE_URL: *dsn
         # Recall is read-only and is the hot path — send it to the replicas.
-        HINDSIGHT_API_READ_DATABASE_URL: "postgresql://{{ .Hindsight__Postgres__User }}:{{ .Hindsight__Postgres__Password }}@postgres18-ro.database.svc.cluster.local:5432/hindsight"
+        # ${POSTGRES_HOST_RO} DOES NOT EXIST YET. Add it to
+        # kubernetes/components/common/cluster-config/cluster-settings.yaml
+        # alongside POSTGRES_HOST, pointing at postgres18-ro.database.svc.cluster.local.
+        # No app in this repo reads from a replica today, which is why there is no
+        # variable — but hardcoding the literal here would reintroduce the exact
+        # cutover breakage the paragraph above exists to prevent. Unlike that case
+        # this one fails loudly: Flux >= 2.9 errors on an unmapped ${VAR}.
+        HINDSIGHT_API_READ_DATABASE_URL: "postgresql://{{ .Hindsight__Postgres__User }}:{{ .Hindsight__Postgres__Password }}@${POSTGRES_HOST_RO}:5432/hindsight"
         HINDSIGHT_API_LLM_API_KEY: "{{ .Hindsight__Llm__ApiKey }}"
         HINDSIGHT_API_TENANT_API_KEY: "{{ .Hindsight__TenantApiKey }}"
         HINDSIGHT_CP_DATAPLANE_API_KEY: "{{ .Hindsight__TenantApiKey }}"
@@ -1126,7 +1132,14 @@ at `./kubernetes/apps` with no `kustomization.yaml` at that path — kustomize-c
 recurses and autodetects. Commit `4b8f51c5` added the whole `kopiur-system` namespace
 touching only four files, all inside its own directory.
 
-**One file outside the app directory does need editing:**
+**Two files outside the app directory need editing.**
+`kubernetes/components/common/cluster-config/cluster-settings.yaml` needs a
+`POSTGRES_HOST_RO` entry beside `POSTGRES_HOST` — Hindsight is the first app here to read
+from a CNPG replica, so the variable does not exist yet. This one fails loudly rather than
+silently (Flux ≥ 2.9 errors on an unmapped `${VAR}`), so it will not slip through, but it
+does block the build until added.
+
+And:
 `kubernetes/apps/identity/authentik/app/referencegrant.yaml` enumerates source namespaces
 explicitly. `components/common` renders a `SecurityPolicy` into every namespace, and in a
 new `ai` namespace that policy cannot reference `ak-outpost-sso-proxy` until `ai` is added
