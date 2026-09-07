@@ -97,7 +97,9 @@ spec:
             # five minutes apart, strategy=LowNodeUtilization, every one from
             # brokkr02. An eviction deletes the Pod, so the Job controller creates a
             # new one -- and a new Pod runs the initContainer again. Snapshot
-            # timestamps line up one-for-one with the evictions.
+            # timestamps line up one-for-one with the evictions. Seven evictions
+            # yield six snapshots because the seventh Pod was evicted at 18:42:30Z,
+            # the same second the Job hit BackoffLimitExceeded, and logged none.
             #
             # The standing hazard is therefore not retries: any run of this Job that
             # outlives one 5-minute descheduler pass can be restarted from scratch,

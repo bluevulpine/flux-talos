@@ -61,7 +61,9 @@ nodeFit: true                   # Only evict if pod can reschedule
 
 **Status:** ✅ Balanced - The original imbalance (72/21/19) from Nov 2025 has been resolved.
 (Table is a 2026-01-10 snapshot and has drifted; as of 2026-09-06 the counts are
-brokkr01 87, brokkr02 84, brokkr03 67 Running pods out of 110 allocatable each.)
+brokkr01 86, brokkr02 89, brokkr03 64 pods in phase `Running`, out of 110 allocatable each.
+Re-measured 2026-09-06; these drift daily and the ordering flips, so treat any figure here
+as a sample. The durable point is that all three sit far above the `pods: 20` threshold.)
 
 ### Why Evictions Are Limited Now
 
@@ -96,7 +98,27 @@ OOMKilling in a loop (`xargs -P 8`, since fixed), which kept a pod that normally
 exactly five minutes apart, `18:12:31Z` through `18:42:30Z`. Each replacement re-ran the
 `talos-backup` initContainer, so the window produced six 288 MB etcd snapshots instead
 of one — a job whose entire purpose is deleting old snapshots raised the object count
-by five. Snapshot timestamps line up one-for-one with the evictions.
+by five. Snapshot timestamps line up one-for-one with the evictions; seven evictions
+yield six snapshots because the seventh pod was evicted at `18:42:30Z`, the same second
+the Job hit `BackoffLimitExceeded`, and logged none.
+
+The objects are still in the `talos` bucket (nothing prunes below 120, ~30 days), so this
+is checkable rather than remembered — re-verified 2026-09-06:
+
+```
+talos-2026-09-04T18:10:01Z.snap.age   288224168   <- the scheduled 18:10 run
+talos-2026-09-04T18:12:34Z.snap.age   292640744   <- eviction 1
+talos-2026-09-04T18:17:33Z.snap.age   288224168   <- eviction 2
+talos-2026-09-04T18:22:34Z.snap.age   288224168   <- eviction 3
+talos-2026-09-04T18:27:59Z.snap.age   288224168   <- eviction 4
+talos-2026-09-04T18:34:22Z.snap.age   299421272   <- eviction 5
+                                                     evictions 6 and 7: no object
+```
+
+Six objects where the schedule called for one, so five extra — and the gap after
+`18:34:22Z` is the evidence for the last pod producing nothing. What is *not* verifiable
+this far out is the `18:42:30Z` `BackoffLimitExceeded` coincidence itself: those events
+and pod logs have long since aged out, so that detail rests on the original observation.
 
 Two things to know before tuning any of this:
 
@@ -106,15 +128,16 @@ Two things to know before tuning any of this:
 - **`nodeFit: true` did not prevent that.** The pod carries
   `nodeSelector: kubernetes.io/arch: amd64`, so its only candidates are brokkr01-03,
   and all three were far above the `pods: 20` underutilization threshold — 79/76/61%
-  of pod capacity at 18:20Z on 2026-09-04 per Thanos, 87/84/67 of 110 as of
-  2026-09-06. Why `LowNodeUtilization` selected this pod anyway is **not
+  of pod capacity at 18:20Z on 2026-09-04 per Thanos, and 86/89/64 of 110 when
+  re-counted on 2026-09-06 — different nodes lead on different days, but none of
+  them has ever been near 20. Why `LowNodeUtilization` selected this pod anyway is **not
   established**. The descheduler runs at default verbosity and does not log its
   under/over-utilized node lists; `-v=4` would show them.
 
 **Deliberately not mitigated (2026-09-06).** A Job's `backoffLimit` bounds this: each
 eviction is one `.status.failed` increment and one replacement pod, so initContainer
 runs are capped at `backoffLimit + 1`. `talos-s3-backup` sets it to 1, and its post-fix
-runs finish in 62-73s — roughly 20x under the descheduler's pass interval. The
+runs finish in 62-94s — roughly 20x under the descheduler's pass interval. The
 alternative, a `DefaultEvictor.labelSelector` opt-out label, changes evictability for
 every workload in the cluster in order to protect one Job. Revisit if a second
 long-running Job gets bitten, or add `backoffLimit` to any new Job whose first step is
