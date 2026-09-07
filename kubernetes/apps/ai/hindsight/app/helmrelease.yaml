@@ -206,6 +206,19 @@ spec:
               # (config.py DEFAULT_LLM_TEMPERATURE_REFLECT), so every call would
               # 400 without this.
               HINDSIGHT_API_LLM_TEMPERATURE_REFLECT: none
+              # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
+              # floor at all — which is how 232 refreshes ran in ~2h on
+              # 2026-09-07: every consolidation batch queued another with nothing
+              # rate-limiting it. Most of that is redundant work even now that the
+              # stage runs on free Azure credits.
+              #
+              # Safe by construction: a trigger arriving inside the window is
+              # PARKED until it expires, not dropped, so no refresh is lost — and
+              # EXPLICIT refreshes (the hindsight_reflect MCP tool, the API, the
+              # control plane) ignore the floor entirely, so on-demand reflection
+              # stays instant. A per-model `trigger.min_refresh_interval_seconds`
+              # still overrides this.
+              HINDSIGHT_API_MENTAL_MODEL_MIN_REFRESH_INTERVAL_SECONDS: "3600"
               # Default is FALSE, and the default is wrong for us. Off, Hindsight
               # text-injects the schema and json.loads the reply, which upstream
               # warns can be violated by prose preambles and markdown fences —
