@@ -188,6 +188,38 @@ spec:
               # eliminating the invalid-JSON retry storm (issue #1002)."
               HINDSIGHT_API_LLM_STRICT_SCHEMA: "true"
 
+              # --- consolidation -> Azure OpenAI (gpt-5-mini) ---
+              # Consolidation is the bulk of the volume and the cheapest stage to
+              # move: on 2026-09-07 it was 700 of 997 LLM calls (~70%), against
+              # 266 for retain. It is also the LOWEST-judgment stage — it merges
+              # and dedupes units that retain has already extracted — whereas
+              # retain decides what becomes a durable belief injected into every
+              # future session. So retain stays on claude-haiku-4-5 above and
+              # only this moves.
+              #
+              # The point is the $50/month of Visual Studio Enterprise Azure
+              # credits that otherwise expire unused. Note they can NOT buy
+              # Claude: Foundry Marketplace offers are excluded from VS
+              # subscription credits, so this is deliberately a GPT model.
+              #
+              # Provider is plain `openai`, not `azure` — `azure` is not in
+              # Hindsight's supported-provider list, and the endpoint above is
+              # Azure's OpenAI-compatible /openai/v1 surface, which the stock
+              # OpenAI client speaks. Key and base URL come from the
+              # ExternalSecret (shared `azure-ai` OpenBao key).
+              HINDSIGHT_API_CONSOLIDATION_LLM_PROVIDER: openai
+              HINDSIGHT_API_CONSOLIDATION_LLM_MODEL: gpt-5-mini
+              # REQUIRED, not tuning. The gpt-5 family REJECTS an explicit
+              # temperature and consolidation's built-in default is 0.0
+              # (config.py DEFAULT_LLM_TEMPERATURE_CONSOLIDATION), so without
+              # this every consolidation call 400s. `none` omits the parameter
+              # entirely; upstream documents this exact case ("required for
+              # models that reject explicit temperatures, e.g. Azure gpt-5.5").
+              # Scoped to consolidation, so retain keeps its 0.1 on Anthropic.
+              # If gpt-5-mini misbehaves, gpt-4o is deployed and accepts an
+              # explicit temperature — swap the model and drop this line.
+              HINDSIGHT_API_LLM_TEMPERATURE_CONSOLIDATION: none
+
               # --- observability ---
               # Neither HindsightDown nor HindsightImagePullFailing catches the
               # failure mode that actually matters: pod 1/1 Running, retains
