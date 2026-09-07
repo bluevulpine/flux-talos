@@ -33,6 +33,29 @@ context, so a stale fact does not merely fail to help, it actively misleads an a
 `kubectl` against this cluster. That is why Phase 1 below is an evaluation with a
 **zero-wrong-facts** exit criterion and a delete-by date, not a rollout.
 
+## Before you start — the gates that fail silently
+
+Each of these is explained in full further down. They are collected here because every one
+of them fails *quietly*: no error, no alert, just a thing that does not work. Three of the
+four were mistakes in the first draft of this document.
+
+- [ ] **`dependsOn` must be `cloudnative-pg-cluster18`**, not `cloudnative-pg-cluster`. Flux
+      does not error on a missing target — the Kustomization parks in
+      `dependency not ready` forever. *(CLAUDE.md's Postgres section carries the same stale
+      name; fixing it is a separate change.)*
+- [ ] **Add `ai` to `kubernetes/apps/identity/authentik/app/referencegrant.yaml`** *before*
+      relying on the `auth: authentik` label. Without the grant, the `SecurityPolicy`
+      cannot reference `ak-outpost-sso-proxy` and the label does nothing — leaving the
+      control-plane UI open, which is the exact hole this design exists to close.
+- [ ] **Dry-run the PSS label before committing it:**
+      `kubectl label --dry-run=server --overwrite ns ai pod-security.kubernetes.io/enforce=baseline`.
+      This repo's standard (`kopiur-system`, `media`) is to verify, then record how.
+- [ ] **Use `${POSTGRES_HOST}`**, never a literal `postgres18-rw...`. 31 apps honour this;
+      hardcoding breaks the next major-version cutover silently.
+- [ ] **If taking the OpenCode Zen path: read its terms first.** Free tiers commonly train
+      on submitted data, and that would undo the retention reasoning below. This one can
+      change the answer from "tune it" to "no".
+
 ## Why this is low-risk
 
 Two Flux `home-ops` repos already run Hindsight with this repo's exact conventions —
@@ -1107,7 +1130,8 @@ touching only four files, all inside its own directory.
 `kubernetes/apps/identity/authentik/app/referencegrant.yaml` enumerates source namespaces
 explicitly. `components/common` renders a `SecurityPolicy` into every namespace, and in a
 new `ai` namespace that policy cannot reference `ak-outpost-sso-proxy` until `ai` is added
-to the grant. Without it, the Authentik option below silently does not work.
+to the grant. Without it, the `auth: authentik` label described in the Authentik section
+above silently does nothing.
 
 ## Open questions
 
