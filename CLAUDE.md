@@ -30,12 +30,17 @@ Three cases where the rule is **not** "always annotate":
   111 HelmReleases do — the repo is deliberately mixed here. Prefer no annotation for a plain
   semver tag; add one when you want an explicit datasource/depName, as `hermes` (#1743) and
   `timescaledb` (#1715) do.
-- **A real Helm chart's top-level `image.repository`/`image.tag`** is already tracked by the
-  built-in `helm-values` manager. Adding an annotation there makes **two managers match one
-  line and Renovate open two PRs for one bump** — this really happened to `gitea` (#1540) and
-  needed a suppression rule. See the commented block in `.renovate/overrides.json5`. Do not
-  annotate these.
-- **`chartRef` / OCIRepository versions** are handled by the `flux` manager. No annotation.
+- **A HelmRelease's top-level `image.repository`/`image.tag`** is already extracted by the
+  built-in **`flux`** manager, which parses `values:` inside Flux HelmRelease CRs. Adding an
+  annotation there makes **two managers match one line and Renovate open two PRs for one
+  bump** — this happened to `gitea` three times (#1389, #1540, #1681). Do not annotate these.
+
+  **`helm-values` is not the manager involved**, despite the name looking right: per
+  Renovate's docs it only matches files literally named `values.yaml`/`values.yml`, so it can
+  never match a `helmrelease.yaml`. Two successive fixes suppressed the wrong manager and the
+  duplicate kept slipping through. `.renovate/overrides.json5` is the authority here and
+  explains it at length — read it rather than re-deriving.
+- **`chartRef` / OCIRepository versions** are also `flux`-managed. No annotation.
 
 If you add an annotation, check the Renovate Dependency Dashboard (issue #1) afterward for a
 duplicate entry.

@@ -65,7 +65,7 @@ in an `ai` namespace, and both run it beside Hermes.
 
 | Repo | Image | Embed / rerank | LLM | Notable |
 | --- | --- | --- | --- | --- |
-| [`spiceratops/k8s-gitops`](https://github.com/spiceratops/k8s-gitops) | `hindsight-api:0.9.2` (full) | in-process (local BGE + MiniLM) | Gemini `gemini-3.5-flash` | `postgres-init:18` init container — the exact pattern in our CLAUDE.md. Probes commented out. **No tenant auth.** |
+| [`spiceratops/k8s-gitops`](https://github.com/spiceratops/k8s-gitops) | `hindsight-api:0.9.2` (full) | in-process (local BGE + MiniLM) | Gemini `gemini-3.5-flash` | `postgres-init` init container — the same pattern our CLAUDE.md documents, though they pin `:18` where all 22 of our consumers use `:rolling`. Probes commented out. **No tenant auth.** |
 | [`deedee-ops/home-ops`](https://github.com/deedee-ops/home-ops) | `hindsight:0.9.2-slim` | offloaded to in-cluster TEI `embedder` + `reranker` | via a `bifrost` LLM gateway | CNPG `Database` CRD with `extensions: vector`; API-key tenant auth on; 3-rule HTTPRoute |
 
 This design follows spiceratops' shape (simpler: no TEI workloads) and borrows
@@ -270,7 +270,7 @@ initContainers:
   01-init-db:
     image:
       repository: ghcr.io/home-operations/postgres-init
-      tag: 18
+      tag: rolling
     envFrom:
       - secretRef:
           name: hindsight-secret
@@ -279,7 +279,7 @@ initContainers:
     # database 01-init-db just made. Idempotent; safe on every restart.
     image:
       repository: ghcr.io/home-operations/postgres-init
-      tag: 18
+      tag: rolling
     command: ["/bin/sh", "-c"]
     args:
       - |
@@ -835,13 +835,13 @@ cycle, and it is currently unmeasured.
   and an earlier draft of this document overstated it. The facts: app-template nested images
   are detected natively (`kubernetes/apps/productivity/n8n` carries no annotation and has
   nine bump PRs), so `0.9.2` needs nothing. The documented duplicate-PR collision
-  (`.renovate/overrides.json5`, gitea #1540) applies to a **real Helm chart's top-level
-  `image.repository`/`image.tag`**, which the `helm-values` manager also matches — the
-  comment there says "not app-template" explicitly. **No duplicate has ever been observed on
-  an app-template image**, and this repo annotates ~47 of 111 HelmReleases including two
-  app-template ones added in the last week (`hermes` #1743, `timescaledb` #1715). Either
-  choice is defensible; omitting is the lighter one. Check the Dependency Dashboard after
-  the first bump.
+  (`.renovate/overrides.json5`, gitea #1389/#1540/#1681) applies to a HelmRelease's
+  **top-level `image.repository`/`image.tag`**, which the **`flux`** manager extracts from
+  the `values:` block. It is *not* `helm-values` — that manager only matches files literally
+  named `values.yaml`, and suppressing it was the wrong fix twice running. On the Dependency
+  Dashboard the annotated app-template images (`hermes` #1743, `timescaledb` #1715) each
+  appear once, so annotating one does not currently duplicate. Either choice is defensible;
+  omitting is the lighter one. Check the Dashboard after the first bump.
 
 ## Consumers
 
@@ -1191,12 +1191,20 @@ rule that does not exist.
 the missing `# renovate:` annotation a convention violation; the design pass said adding one
 would be actively harmful. Checked directly: native detection works for app-template nested
 images (`n8n`, nine bump PRs, no annotation), so none is *needed*. But the harm claim does
-not survive either — the documented duplicate (gitea #1540) was a real Helm chart whose
-top-level image values the `helm-values` manager also matched, and the override comment says
-"not app-template" in as many words. **No duplicate has ever been observed on an
-app-template image**, and Derek annotated two of them last week. Verdict: omit for a plain
-semver tag, but it is a preference, not a correctness issue. CLAUDE.md was genuinely
-ambiguous here and has been rewritten to distinguish the three cases.
+not survive either — the documented duplicate (gitea, three times) is a HelmRelease
+*top-level* image block, and the annotated app-template images each appear once on the
+Dependency Dashboard. Verdict: omit for a plain semver tag, but it is a preference, not a
+correctness issue.
+
+**A third pass then caught that both of us had the mechanism wrong**, via the Claude review
+on PR #1754. The conflicting manager is **`flux`**, not `helm-values` — `helm-values` only
+matches files literally named `values.yaml` and can never match a `helmrelease.yaml`. This
+document had asserted `helm-values`, and had also attributed a phrase to
+`.renovate/overrides.json5` ("not app-template") that does not appear in it. Both errors came
+from reading a **pre-#1751 copy** of that file off a stale branch and never re-reading it
+after branching from `origin/main` — where #1751 had already corrected exactly this
+misdiagnosis, for the third time (#1389, #1540, #1681). The lesson generalises past Renovate:
+*re-read a file after changing base*, and quote it rather than paraphrasing from memory.
 
 **Verified and survived scrutiny:** the pgvector not-trusted finding and the `02-init-vector`
 container; the `$$` envsubst escaping; the probe split (`/health/live` for liveness matters
