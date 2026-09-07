@@ -13,6 +13,13 @@ data:
   # (Distinct from SVC_POSTGRES_ADDR below, which is a static LB IP.)
   # Cut over to postgres18 on 2026-07-07; postgres16 kept (stopped) as rollback.
   POSTGRES_HOST: "postgres18-rw.database.svc.cluster.local"
+  # In-cluster CNPG READ-ONLY endpoint (replicas only; postgres18-ro excludes the
+  # primary). Added for hindsight, the first app here to read from a replica —
+  # its recall path is read-only and is the hot path, so it is pointed at the
+  # replicas while writes and migrations keep using ${POSTGRES_HOST} above.
+  # Same one-line-cutover rationale: a major-version swap changes this line, not
+  # every consumer.
+  POSTGRES_HOST_RO: "postgres18-ro.database.svc.cluster.local"
   SVC_K8S_API_ADDR: 172.16.8.1
   SVC_NGINX_INTERNAL: 172.16.8.2
   SVC_NGINX_EXTERNAL: 172.16.8.3
