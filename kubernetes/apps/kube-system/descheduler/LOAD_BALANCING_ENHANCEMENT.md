@@ -139,7 +139,9 @@ Two things to know before tuning any of this:
 **Deliberately not mitigated (2026-09-06).** A Job's `backoffLimit` bounds this: each
 eviction is one `.status.failed` increment and one replacement pod, so initContainer
 runs are capped at `backoffLimit + 1`. `talos-s3-backup` sets it to 1, and its post-fix
-runs finish in 62-94s — roughly 20x under the descheduler's pass interval. The
+runs finish in 62-94s against a 300s pass (`--descheduling-interval=5m`) — 3-5x under
+it, comfortably clear. (This read "roughly 20x" until 2026-09-06; that never matched a
+300s interval at any duration ever quoted here.) The
 alternative, a `DefaultEvictor.labelSelector` opt-out label, changes evictability for
 every workload in the cluster in order to protect one Job. Revisit if a second
 long-running Job gets bitten, or add `backoffLimit` to any new Job whose first step is

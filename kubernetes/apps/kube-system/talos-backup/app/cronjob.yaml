@@ -104,8 +104,9 @@ spec:
             # The standing hazard is therefore not retries: any run of this Job that
             # outlives one 5-minute descheduler pass can be restarted from scratch,
             # snapshot included. backoffLimit above caps that at one extra snapshot,
-            # and a fast prune (62-73s post-fix) is what actually avoids it. Opting
-            # the Pod out of eviction was considered and declined on 2026-09-06; see
+            # and a fast prune -- 62-94s post-fix against the 300s pass -- is what
+            # actually avoids it. Opting the Pod out of eviction was considered and
+            # declined on 2026-09-06; see
             # ../../descheduler/LOAD_BALANCING_ENHANCEMENT.md.
             # Serial costs nothing: steady state is ONE delete per run (4/day), and
             # the one-time ~855-object backfill that justified -P 8 is already done.
