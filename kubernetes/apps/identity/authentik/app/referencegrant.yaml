@@ -9,6 +9,10 @@ metadata:
   name: envoy-gateway-authentik
 spec:
   from:
+    # AI namespace (hindsight control-plane UI)
+    - group: gateway.envoyproxy.io
+      kind: SecurityPolicy
+      namespace: ai
     # Network namespace (echo-server-*-sso test routes)
     - group: gateway.envoyproxy.io
       kind: SecurityPolicy

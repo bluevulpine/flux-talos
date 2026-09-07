@@ -1,0 +1,340 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app hindsight
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: *app
+  interval: 1h
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    controllers:
+      hindsight:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        # Recreate, not RollingUpdate: the model-cache PVC is RWO, so a rolling
+        # update would deadlock on the new pod waiting for a volume the old pod
+        # still holds. Scaling past one replica additionally requires
+        # HINDSIGHT_API_MCP_STATELESS: "true" — noted so a future scale-up does
+        # not silently break MCP sessions.
+        strategy: Recreate
+        initContainers:
+          # Creates the hindsight role and database as the superuser, then grants
+          # the role ownership. Idempotent; safe on every restart.
+          01-init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom: &envFrom
+              - secretRef:
+                  name: hindsight-secret
+            securityContext: &hardened
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - "ALL"
+          # Hindsight's own migrations TRY to create the extension
+          # (migrations.py:_ensure_pgvector_extension_in_public) but that attempt
+          # fails for the app role: pgvector is NOT a PostgreSQL "trusted"
+          # extension (vector.control at 0.8.1 has no `trusted = true`), so a
+          # non-superuser cannot CREATE EXTENSION vector. It surfaces as
+          # "pgvector extension is required but not installed" and is the single
+          # most likely thing to break a naive first deploy.
+          #
+          # Same image as 01 — it ships psql. Runs as the superuser against the
+          # database 01 just made. Idempotent.
+          02-init-vector:
+            dependsOn: 01-init-db
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom: *envFrom
+            command:
+              - "/bin/sh"
+              - "-c"
+            args:
+              # $$ escapes each ${VAR}: these are runtime shell vars from the
+              # secret, not Flux postBuild substitutions. kustomize-controller
+              # runs envsubst over this whole manifest and since Flux v2.9.0 an
+              # unmapped ${VAR} fails hard. $$ makes Flux emit a literal ${VAR}
+              # for the shell to expand at container runtime.
+              - |
+                PGPASSWORD="$${INIT_POSTGRES_SUPER_PASS}" psql \
+                  -h "$${INIT_POSTGRES_HOST}" -U postgres -d "$${INIT_POSTGRES_DBNAME}" \
+                  -c 'CREATE EXTENSION IF NOT EXISTS vector;'
+            securityContext: *hardened
+        containers:
+          api:
+            image:
+              repository: ghcr.io/vectorize-io/hindsight-api
+              # PRE-1.0. Renovate calls 0.9.x -> 0.10.x a "minor", which reads as
+              # routine; upstream may mean "breaking". Migrations run on startup
+              # (HINDSIGHT_API_RUN_MIGRATIONS_ON_STARTUP defaults true) and are
+              # one-way, and CNPG PITR cannot restore this database alone — it
+              # restores the whole cluster, dragging all ~34 databases with it.
+              # Before merging any bump past the patch digit:
+              #   kubectl -n database exec postgres18-1 -- \
+              #     pg_dump -U postgres -Fc hindsight > hindsight-<ver>.dump
+              #
+              # No `# renovate:` annotation on purpose — app-template nested
+              # images are detected natively (n8n carries none and has nine bump
+              # PRs), and doubling up risks duplicate PRs.
+              #
+              # The FULL image, not -slim: it loads the BGE embedder and the
+              # MiniLM cross-encoder reranker in-process, so embeddings and
+              # reranking need no external service and no API key. -slim forces
+              # both onto remote providers or in-cluster TEI — that is the
+              # scale-out path, not the starting point.
+              tag: 0.9.2
+            envFrom: *envFrom
+            env:
+              TZ: "${TIMEZONE}"
+              HINDSIGHT_API_HOST: 0.0.0.0
+              # Set explicitly on upstream's advice: if enableServiceLinks were
+              # ever true, Kubernetes would inject HINDSIGHT_API_PORT as
+              # "tcp://<ip>:8888" from the hindsight-api Service and the app
+              # would fail to parse its own port. app-template defaults
+              # enableServiceLinks to false, so this is belt-and-braces.
+              HINDSIGHT_API_PORT: &apiPort 8888
+              # At one replica the upstream worker StatefulSet (whose whole point
+              # is deriving a stable worker id from a pod ordinal) buys nothing.
+              # Set the id statically and let the API run its in-process worker.
+              HINDSIGHT_API_WORKER_ID: hindsight
+
+              # --- auth: NOT optional ---
+              # Without this, /v1 and /mcp are unauthenticated and anything on
+              # the LAN can read and write every agent's memory. Note the name
+              # oversells it: this is single-tenant bearer auth. authenticate()
+              # compares one expected key and returns one hardcoded schema for
+              # every request — there is NO per-consumer isolation, so banks are
+              # a naming convention, not a boundary.
+              HINDSIGHT_API_TENANT_EXTENSION: hindsight_api.extensions.builtin.tenant:ApiKeyTenantExtension
+
+              # --- connection pool: cap it ---
+              # postgres18 runs max_connections=400 across ~34 databases, no app
+              # here sets a client pool size, and there is no pgbouncer/Pooler.
+              # Hindsight's default DB_POOL_MAX_SIZE is 100 — a quarter of the
+              # entire cluster budget for one evaluation pod. The exhaustion mode
+              # is self-obscuring: /health acquires a connection, so on pool
+              # exhaustion readiness AND liveness fail and the pod restarts,
+              # reading as an app bug while Authentik and Immich start failing to
+              # connect first and point the investigation elsewhere.
+              HINDSIGHT_API_DB_POOL_MIN_SIZE: "2"
+              HINDSIGHT_API_DB_POOL_MAX_SIZE: "20"
+              HINDSIGHT_API_READ_DB_POOL_MAX_SIZE: "10"
+
+              # --- retention ---
+              # KEEP the raw text: it is the provenance copy, the thing that lets
+              # you judge whether a recalled fact is right — which the
+              # zero-wrong-facts exit criterion depends on. Reversible at the
+              # Phase 1 gate, though flipping it will not retroactively purge
+              # what is already stored.
+              HINDSIGHT_API_STORE_DOCUMENT_TEXT: "true"
+              # But do NOT keep a second, accidental copy. Terminal operation
+              # rows carry the full retain payload and default to being kept
+              # FOREVER (0 = no pruning) — that is the same transcript again, as
+              # a debug artifact, replicated across three CNPG instances and
+              # swept offsite. 14d is enough to debug a failed retain.
+              HINDSIGHT_API_OPERATION_RETENTION_DAYS: "14"
+              # Surface silently-dropped facts instead of marking the retain
+              # completed.
+              HINDSIGHT_API_FAIL_ON_EXTRACTION_ERRORS: "true"
+
+              # --- LLM ---
+              # recall makes NO LLM call — it is pure retrieval, so the hot read
+              # path costs no tokens regardless of what is set here. retain and
+              # reflect do, and auto-consolidation (on by default) fires an extra
+              # call after every retain, delete and update.
+              #
+              # Anthropic, not Gemini, and NOT the `nous` provider despite Nous
+              # being the one vendor already paid for. `nous` cannot take a
+              # static key: nous_llm.py ignores api_key entirely and reads a
+              # ROTATING JWT from ~/.hermes/auth.json, which nous_auth.py writes
+              # back on refresh and which permanently fails if a rotated token is
+              # replayed (`refresh_token_reused`). It is built to share a home
+              # directory with a local Hermes — a same-HOST assumption; our
+              # Hermes is a separate pod in `develop` on its own RWO PVC. That is
+              # the same headless-OAuth objection that rules out the
+              # `claude-code` provider, so it rules out `nous` too.
+              #
+              # claude-haiku-4-5 is upstream's own default for this provider
+              # (config.py PROVIDER_DEFAULT_MODELS), and at $1/$5 per Mtok it is
+              # cheaper than gemini-3.5-flash ($1.50/$9.00) on both axes — which
+              # matters because ~80% of retain cost is OUTPUT tokens.
+              HINDSIGHT_API_LLM_PROVIDER: anthropic
+              HINDSIGHT_API_LLM_MODEL: claude-haiku-4-5
+              # Structured extraction against a schema is the easiest job in the
+              # pipeline; keep a stronger model for reflect, where reasoning
+              # quality actually shows up. reflect is user-initiated and rare, so
+              # this does not touch the per-retain cost above.
+              HINDSIGHT_API_REFLECT_LLM_MODEL: claude-sonnet-5
+              # Default is FALSE, and the default is wrong for us. Off, Hindsight
+              # text-injects the schema and json.loads the reply, which upstream
+              # warns can be violated by prose preambles and markdown fences —
+              # "wedging retain/consolidation on parse retries". On, the Anthropic
+              # provider routes structured output through a forced tool_use tool:
+              # "Native constrained decoding guarantees schema-valid JSON,
+              # eliminating the invalid-JSON retry storm (issue #1002)."
+              HINDSIGHT_API_LLM_STRICT_SCHEMA: "true"
+
+              # --- observability ---
+              # Neither HindsightDown nor HindsightImagePullFailing catches the
+              # failure mode that actually matters: pod 1/1 Running, retains
+              # failing, memory silently frozen. This enables the backlog gauges
+              # the PrometheusRule alerts on.
+              HINDSIGHT_API_METRICS_BACKLOG_ENABLED: "true"
+            probes:
+              # Liveness on /health/live, which performs NO database access.
+              # /health does acquire a connection, so liveness there would
+              # restart-loop the pod on every postgres18 failover. Readiness on
+              # /health is correct: a pod that cannot reach the database should
+              # leave the Service and rejoin when it recovers.
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health/live
+                    port: *apiPort
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: *apiPort
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              # 300s. Cold start on a node without the image is a 1.42 GB pull
+              # across 15 layers (two ~565 MB torch layers), extract, ~220 MB
+              # weight fetch if the cache PVC is empty, torch import, then
+              # Alembic migrations.
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health/live
+                    port: *apiPort
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 30
+            securityContext:
+              allowPrivilegeEscalation: false
+              # false, matching upstream: the process writes to the HuggingFace
+              # cache and to /tmp. Both are mounted volumes below, but the image
+              # is not built for a read-only root and upstream does not claim it.
+              readOnlyRootFilesystem: false
+              capabilities:
+                drop:
+                  - "ALL"
+            resources:
+              requests:
+                cpu: 100m
+                memory: 1Gi
+              limits:
+                # Upstream's stated minimum for the full API is 1.5 GB,
+                # recommended 2 GB. 4Gi is headroom for the reranker's batch
+                # forward passes.
+                memory: 4Gi
+          control-plane:
+            image:
+              repository: ghcr.io/vectorize-io/hindsight-control-plane
+              # See the pre-1.0 warning on the api image above — bump both
+              # together; they are one release.
+              tag: 0.9.2
+            envFrom: *envFrom
+            env:
+              TZ: "${TIMEZONE}"
+              NODE_ENV: production
+              HINDSIGHT_CP_HOSTNAME: 0.0.0.0
+              HINDSIGHT_CP_PORT: &cpPort 3000
+              # Same pod, so container loopback. Note the var is
+              # ..._DATAPLANE_API_URL, not ..._DATAPLANE_URL — verified against
+              # upstream's controlplane-deployment.yaml; the shorter name is
+              # wrong and would leave the UI unable to reach the API.
+              HINDSIGHT_CP_DATAPLANE_API_URL: http://localhost:8888
+            probes:
+              # tcpSocket, matching upstream: the Next.js control plane has no
+              # health endpoint of its own that is safe to probe.
+              liveness: &cpProbe
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: *cpPort
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *cpProbe
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities:
+                drop:
+                  - "ALL"
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+    defaultPodOptions:
+      # The namespace enforces `baseline`, but this pod complies with
+      # `restricted` by construction and should keep doing so — baseline is the
+      # namespace floor, not a licence to skip the pod spec. If Hermes never
+      # moves in, the namespace can be tightened without touching this file.
+      # PSA evaluates INIT containers too, which is why 01-init-db and
+      # 02-init-vector carry the same hardened securityContext.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      # amd64 only. The Pis (jormungandr1..4) are 4 CPU / 7.8 GiB and already at
+      # 39-72% memory; a 1-4 Gi pod does not belong there. A nodeSelector is a
+      # simpler and more durable expression of that than an anti-affinity rule.
+      nodeSelector:
+        kubernetes.io/arch: amd64
+    service:
+      api:
+        controller: hindsight
+        ports:
+          http:
+            port: *apiPort
+      controlplane:
+        controller: hindsight
+        ports:
+          http:
+            port: *cpPort
+    persistence:
+      hf-cache:
+        existingClaim: hindsight-hf-cache
+        globalMounts:
+          - path: /home/hindsight/.cache
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp

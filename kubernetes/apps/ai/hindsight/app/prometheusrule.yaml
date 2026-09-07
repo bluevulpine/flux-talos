@@ -1,0 +1,94 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: hindsight
+spec:
+  groups:
+    - name: hindsight.rules
+      rules:
+        # Gatus also watches this host, but do NOT count that as paging cover:
+        # every annotation-based Gatus endpoint in this repo sets only `group:`,
+        # and only the four hand-written endpoints in
+        # observability/gatus/app/resources/config.yaml declare pushover alerts.
+        # Treat Gatus as a dashboard tile; these rules do the paging.
+        - alert: HindsightDown
+          annotations:
+            summary: >-
+              Hindsight has no ready replicas — agent memory recall and retain
+              are both offline. Check `kubectl logs -n ai deploy/hindsight -c
+              api`. Most likely causes: postgres18 unreachable (readiness probes
+              /health, which acquires a DB connection), the pgvector extension
+              missing (02-init-vector failed), or connection-pool exhaustion.
+          expr: |
+            kube_deployment_status_replicas_ready{namespace="ai", deployment="hindsight"} == 0
+          for: 15m
+          labels:
+            severity: critical
+
+        # A Deployment whose image can't be pulled never becomes ready, so
+        # HindsightDown WILL eventually fire — but ImagePullBackOff does not trip
+        # the pod-failure alert (docs/runbooks/flux-image-automation.md, Gotcha
+        # 3), and this names the cause directly. Not optional for a 1.42 GB image
+        # behind the Nexus pull-through mirror.
+        - alert: HindsightImagePullFailing
+          annotations:
+            summary: >-
+              Hindsight pod {{ $labels.pod }} can't pull its image
+              ({{ $labels.reason }}). Check the image refs in
+              kubernetes/apps/ai/hindsight/app/helmrelease.yaml and the Nexus
+              pull-through mirror.
+          expr: |
+            kube_pod_container_status_waiting_reason{namespace="ai", pod=~"hindsight-.*", reason=~"ImagePullBackOff|ErrImagePull|InvalidImageName"} > 0
+          for: 15m
+          labels:
+            severity: critical
+
+        # The failure mode neither alert above catches: pod 1/1 Running, retains
+        # failing, memory silently frozen. Gated on
+        # HINDSIGHT_API_METRICS_BACKLOG_ENABLED: "true" in the HelmRelease.
+        # Gauge is refreshed every 30s by a background task
+        # (BACKLOG_METRICS_REFRESH_SECONDS), so a 30m window is many samples.
+        #
+        # SERIES NAMES ARE AN INFERENCE UNTIL FIRST SCRAPE. Upstream declares
+        # these as OpenTelemetry instruments with dotted names
+        # (hindsight.async_operations, hindsight.consolidation.failed) in
+        # hindsight_api/metrics.py; the Prometheus exporter maps `.` to `_` and
+        # appends no suffix for a gauge whose unit is a `{...}` annotation. That
+        # mapping has not been observed on a running pod. Confirm on first
+        # deploy, because a wrong name makes these alerts permanently SILENT:
+        #   kubectl -n ai exec deploy/hindsight -c api -- \
+        #     sh -c 'wget -qO- http://localhost:8888/metrics' \
+        #     | grep -E '^hindsight_(async_operations|consolidation)'
+        - alert: HindsightRetainBacklog
+          annotations:
+            summary: >-
+              Hindsight has {{ $value | printf "%.0f" }} operations stuck in
+              pending/processing for 30m — retains are queuing, not completing,
+              and memory is going stale while the pod reads healthy. Check the
+              Gemini API key and quota first (`kubectl logs -n ai
+              deploy/hindsight -c api | grep -i llm`), then the worker.
+          expr: |
+            sum(hindsight_async_operations{namespace="ai", status=~"pending|processing"}) > 50
+          for: 30m
+          labels:
+            severity: warning
+
+        # Consolidation fires after every retain and dedups against the whole
+        # bank. Permanent failures are recoverable via the consolidation recovery
+        # endpoint, but nothing retries them on its own beyond the 300s reconcile
+        # sweep, so a non-zero count that persists is a real backlog.
+        - alert: HindsightConsolidationFailing
+          annotations:
+            summary: >-
+              Hindsight has {{ $value | printf "%.0f" }} memories whose
+              consolidation permanently failed — the observation layer that
+              recall reads is falling behind the raw memories. Recoverable via
+              the consolidation recovery endpoint; check LLM errors at
+              /llm-requests first.
+          expr: |
+            sum(hindsight_consolidation_failed{namespace="ai"}) > 0
+          for: 1h
+          labels:
+            severity: warning

@@ -1,0 +1,25 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/servicemonitor_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hindsight
+spec:
+  # Selects the API service ONLY. GET /metrics is registered unconditionally on
+  # the API's own port 8888 (api/http.py, prometheus_client) with no enabling
+  # env var. The Next.js control plane exposes NO metrics endpoint, so including
+  # hindsight-controlplane here would add a permanently-failing target.
+  #
+  # NOTE the label key: app-template stamps Services with
+  # `app.kubernetes.io/service: <release>-<serviceKey>`. There is no `controller`
+  # or `component` label on the Service — selecting on either matches nothing,
+  # silently. No `release:` label is required either: this cluster's Prometheus
+  # runs serviceMonitorSelector: {}.
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: hindsight
+      app.kubernetes.io/service: hindsight-api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s

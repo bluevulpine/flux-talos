@@ -1,0 +1,54 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  labels:
+    # baseline, NOT restricted — and the choice is load-bearing, not a
+    # concession. Hermes is expected to move here from `develop` (which is
+    # `privileged` only because Nexus needs a root init container), and Hermes
+    # CANNOT run restricted: its s6-overlay entrypoint starts as root to chown
+    # /opt/data before dropping to uid 10000, and it adds CHOWN, DAC_OVERRIDE,
+    # SETGID, SETUID. restricted requires runAsNonRoot and allows no added
+    # capability except NET_BIND_SERVICE. baseline permits all four.
+    #
+    # PSA is namespace-level with no per-pod exemption, so this is a genuine
+    # either/or: `ai` restricted means Hermes stays in `develop` at privileged.
+    # Two workloads at baseline beats one restricted plus one privileged, and it
+    # means the namespace never has to be relabelled later — a change that would
+    # silently start rejecting pods.
+    #
+    # VERIFIED BEFORE this label was written, not predicted. Note that the
+    # obvious command is the WRONG tool here: `kubectl label --dry-run=server ns
+    # ai ...` only reports violations among pods ALREADY IN the namespace, so
+    # against a namespace that does not exist yet it reports nothing and proves
+    # nothing. Instead the rendered Hindsight pod spec was dry-run CREATED into
+    # namespaces already running at each level — PSA evaluates on pod admission,
+    # and --dry-run=server runs admission without persisting:
+    #
+    #   helm template hindsight oci://ghcr.io/bjw-s-labs/helm/app-template \
+    #     --version 5.1.0 -f <(yq '.spec.values' hindsight/app/helmrelease.yaml)
+    #   # reshape .spec.template into a Pod (drop volumes/volumeMounts/envFrom/
+    #   # serviceAccountName — they name objects absent from the test namespace,
+    #   # and the SA lookup errors before PSA even reports), then:
+    #   kubectl create --dry-run=server -f pod.yaml   # namespace: media
+    #   kubectl create --dry-run=server -f pod.yaml   # namespace: kopiur-system
+    #
+    # Both printed `pod/... created (server dry run)` with no PodSecurity
+    # violation. media is baseline (the level enforced here) and kopiur-system
+    # is restricted — so Hindsight complies with restricted BY CONSTRUCTION.
+    #
+    # The check was also shown to be SENSITIVE rather than vacuous: the same pod
+    # with runAsNonRoot removed and SYS_ADMIN added was rejected against
+    # kopiur-system with `violates PodSecurity "restricted:latest": unrestricted
+    # capabilities ... runAsNonRoot != true`. A passing dry-run against an empty
+    # new namespace would have printed success either way, which is exactly the
+    # trap this comment exists to document.
+    #
+    # baseline is the namespace floor, not a licence to skip the pod spec — keep
+    # the hardened securityContext on the HelmRelease. If Hermes never moves in,
+    # this can be tightened without touching that file.
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/enforce-version: latest

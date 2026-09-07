@@ -1,0 +1,101 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# TWO HTTPRoute objects on ONE hostname, split by AUTHENTICATION POSTURE.
+#
+# This is not stylistic. components/common renders a SecurityPolicy into every
+# namespace whose `targetSelectors.matchLabels: {auth: authentik}` selects whole
+# HTTPRoute OBJECTS — labels live on metadata, so a label cannot be scoped to
+# one rule. One three-rule route would therefore either leave the control-plane
+# UI open (no label) or force /v1 and /mcp through an interactive OIDC flow that
+# bearer-token clients cannot complete (label present).
+#
+# media/calibre-web already runs exactly this shape in production on
+# ebooks.${SECRET_DOMAIN}: calibre-web-app (`/`, auth: authentik) plus
+# calibre-web-kobo (`/kobo`, no label) so Kobo devices bypass SSO.
+#
+# Rule ORDER across the two objects is not what makes this work. Gateway API
+# precedence is exact-path first, then longest prefix by character count, then
+# method, header count, query-param count — object and list order are only final
+# tiebreakers. `/v1` (3 chars) beats `/` (1 char) wherever it sits.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hindsight-api
+  # NO `auth: authentik` label, deliberately. The Claude Code plugin
+  # authenticates with a bearer token (Authorization: Bearer <tenant key>) and
+  # cannot complete an interactive OIDC redirect. Adding the label here would
+  # break every consumer. These paths are protected by
+  # HINDSIGHT_API_TENANT_EXTENSION instead — a missing or wrong key returns 401,
+  # and MCP auth is on unless HINDSIGHT_API_TENANT_MCP_AUTH_DISABLED is set,
+  # which it is not.
+spec:
+  hostnames:
+    - hindsight.${SECRET_DOMAIN}
+  # Internal gateway ONLY. Not exposed on `external`: a single bearer-token
+  # holder can WRITE memories that get injected into a kubectl-holding agent's
+  # prompt. If claude.ai web sessions ever need this, that is a separate
+  # decision with its own threat model and should use OAuth via Authentik, not a
+  # shared token. Tailnet clients already reach this route the same way Hermes
+  # does — ts-exit-node advertises 172.16.8.0/24 and the internal gateway is
+  # 172.16.8.2.
+  parentRefs:
+    - name: internal
+      namespace: network
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /v1
+      backendRefs:
+        - name: hindsight-api
+          port: 8888
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /mcp
+      backendRefs:
+        - name: hindsight-api
+          port: 8888
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hindsight-controlplane
+  annotations:
+    gatus.home-operations.com/endpoint: |
+      group: ai
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Hindsight"
+    gethomepage.dev/group: "AI"
+    gethomepage.dev/icon: "mdi-brain"
+    gethomepage.dev/description: "Agent memory"
+  labels:
+    # The API key does NOT protect this UI — the control plane proxies to the
+    # dataplane using that same key, so without this label
+    # `curl https://hindsight.${SECRET_DOMAIN}/` from anywhere on the LAN or the
+    # tailnet returns a fully-authenticated web UI over every memory bank, and
+    # the security gain over running with no auth at all is approximately zero.
+    #
+    # Requires `ai` in kubernetes/apps/identity/authentik/app/referencegrant.yaml
+    # — without the grant the SecurityPolicy cannot reference
+    # ak-outpost-sso-proxy and this label SILENTLY does nothing.
+    #
+    # Chosen over upstream's HINDSIGHT_CP_ACCESS_KEY because it is SSO the
+    # cluster already runs, rather than a second shared secret to rotate.
+    auth: authentik
+spec:
+  hostnames:
+    - hindsight.${SECRET_DOMAIN}
+  parentRefs:
+    - name: internal
+      namespace: network
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: hindsight-controlplane
+          port: 3000

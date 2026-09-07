@@ -1,0 +1,26 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hindsight-hf-cache
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      # ~220 MB of weights (BGE embedder ~130 MB + MiniLM cross-encoder ~90 MB).
+      # Upstream's chart defaults this to 5Gi; 1Gi is ~4x headroom for what the
+      # full image actually fetches.
+      storage: 1Gi
+  # Deliberately NO components/volsync: this is a rebuildable cache, not state.
+  # All durable memory lives in postgres18, already covered by barman-cloud ->
+  # Garage S3 plus the cnpg-offsite job. VolSync is opt-in per app here —
+  # karakeep, tracearr, plex, satisfactory and valheim all carry a standalone
+  # pvc.yaml with no volsync component.
+  #
+  # The PVC exists for AVAILABILITY, not latency: without it, every pod move
+  # puts huggingface.co on the critical startup path of a service the agents
+  # depend on. With strategy: Recreate the old pod dies first, so a node drain
+  # means full 1.42 GB image pull + extract + ~220 MB weight fetch + torch
+  # import + migrations, all inside the 300s startup probe.
+  storageClassName: longhorn-1-replica-local
