@@ -103,7 +103,9 @@ yield six snapshots because the seventh pod was evicted at `18:42:30Z`, the same
 the Job hit `BackoffLimitExceeded`, and logged none.
 
 The objects are still in the `talos` bucket (nothing prunes below 120, ~30 days), so this
-is checkable rather than remembered — re-verified 2026-09-06:
+is checkable rather than remembered — re-verified 2026-09-06. Sizes are included because
+they are part of the evidence: all six are full ~288 MB snapshots, so the missing seventh
+is genuinely absent rather than present-but-truncated by the eviction.
 
 ```
 talos-2026-09-04T18:10:01Z.snap.age   288224168   <- the scheduled 18:10 run
