@@ -236,6 +236,27 @@ spec:
               # (config.py DEFAULT_LLM_TEMPERATURE_REFLECT), so every call would
               # 400 without this.
               HINDSIGHT_API_LLM_TEMPERATURE_REFLECT: none
+              # Latency, not quality tuning. gpt-5-mini is a REASONING model, and
+              # the session-start reflect runs inside a UserPromptSubmit hook
+              # with a 30s budget (settings.json). Measured 2026-09-07 after the
+              # move to Azure: reflect calls ran 14.5s median / 24.0s max on ~4k
+              # input, so the multi-call agentic loop could not finish — the hook
+              # aborted at 25.0s ("This operation was aborted (20)") and the
+              # session got NO memory injection at all.
+              #
+              # 14.5s on 4k input is reasoning tokens, not throughput, so cutting
+              # the reasoning phase is the targeted fix and keeps gpt-5-mini's
+              # pricing. Hindsight passes this value through VERBATIM to the
+              # provider, so it must be one the model accepts — `low` is valid
+              # across the gpt-5 family; `none` is for self-hosted models and
+              # would 400 here. `minimal` is faster still if `low` proves
+              # insufficient.
+              #
+              # If this does not get reflect under ~5s/call, the next step is
+              # moving this slot to gpt-4o: non-reasoning, and it accepts an
+              # explicit temperature, which would let the TEMPERATURE_REFLECT
+              # override above be deleted and reflect's intended 0.9 restored.
+              HINDSIGHT_API_REFLECT_LLM_REASONING_EFFORT: low
               # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
               # floor at all — which is how 232 refreshes ran in ~2h on
               # 2026-09-07: every consolidation batch queued another with nothing
