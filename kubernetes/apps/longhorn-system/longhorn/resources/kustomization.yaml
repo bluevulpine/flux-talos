@@ -9,4 +9,5 @@ resources:
   - ./storageclass-1-replica.yaml
   - ./storageclass-cnpg-local.yaml
   - ./httproute.yaml
+  - ./networkpolicy.yaml
 

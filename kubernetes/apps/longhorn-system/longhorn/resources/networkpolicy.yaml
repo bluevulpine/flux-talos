@@ -1,0 +1,46 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/networking.k8s.io/networkpolicy_v1.json
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-to-longhorn-manager
+  namespace: longhorn-system
+spec:
+  # Chart 1.12.1 re-gated six NetworkPolicy templates off
+  # `networkPolicies.enabled` (false here, and left false) onto a NEW key,
+  # `networkPolicies.restrictInternalTraffic`, which defaults to TRUE. So the
+  # 1.12.0 -> 1.12.1 Renovate bump (#1607) silently created a longhorn-manager
+  # ingress policy whose allow-list is six Longhorn pod labels in this
+  # namespace and nothing else -- no namespaceSelector at all.
+  #
+  # That firewalled Prometheus out of :9500. Every longhorn_* series stopped
+  # dead at the upgrade and TargetDown fired for longhorn-backend. Nothing else
+  # broke: the chart's ui-frontend policy is still gated on `enabled`, and the
+  # webhook policy renders with no `from` (kubeAPIServerSourceCIDRs is empty),
+  # so it is allow-all on 9501/9502 and the apiserver still reaches admission.
+  #
+  # Upstream documents this and expects exactly this additive policy rather
+  # than turning the hardening back off:
+  # https://longhorn.io/docs/1.12.1/monitoring/prometheus-and-grafana-setup/
+  #
+  # Keep `namespaceSelector` and `podSelector` in ONE `from` item -- Kubernetes
+  # ANDs selectors inside an item and ORs across items. Splitting them into two
+  # list entries would open :9500 to every pod in observability AND to any pod
+  # named prometheus cluster-wide. Port 9500 also serves the Longhorn HTTP API,
+  # not just /metrics, so that widening is not harmless.
+  podSelector:
+    matchLabels:
+      app: longhorn-manager
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - port: 9500
+          protocol: TCP
