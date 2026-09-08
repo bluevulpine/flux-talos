@@ -175,35 +175,55 @@ spec:
               HINDSIGHT_API_LLM_PROVIDER: anthropic
               HINDSIGHT_API_LLM_MODEL: claude-haiku-4-5
 
-              # --- retain failover: Anthropic -> Azure on ANY error ---
-              # Retain is the only stage still billed to the Anthropic API, so
-              # it is the only stage an exhausted credit balance can stop — and
-              # it stopped twice on 2026-09-07, each time silently: credit
-              # exhaustion arrives as a 400 (not a 429), and no Hindsight metric
-              # covers retain failures, so HindsightConsolidationFailing did not
-              # fire the second time.
+              # --- retain concurrency: bounded against the account rate limit ---
+              # DEFAULT_LLM_MAX_CONCURRENT is 32 (config.py:1067), i.e. up to 32
+              # simultaneous Haiku calls. That never mattered while gitIngest was
+              # "message", but the Fiction bank moved to "full" on 2026-09-07 —
+              # every commit diff now goes through retain — and 32-way
+              # concurrency immediately saturated the account limit:
+              #   RateLimitError 429 "would exceed your rate limit of 80,000
+              #   output tokens per minute (model: claude-haiku-4-5)"
+              # 79 retain errors on that bank in about an hour.
               #
-              # multi_llm.py `_should_failover` returns True for ANY Exception
-              # except OutputTooLongError, so that 400 does trigger failover.
-              # Members are scanned from _1_ upward and stop at the first unset
-              # _PROVIDER (config.py:2346); key and base URL come from the
-              # ExternalSecret. This makes exhaustion a DEGRADATION rather than
-              # an outage — extraction keeps running on Azure credits.
+              # Retain is async (Stop hook, and the deepen engine's git ingest is
+              # progressive and bounded per run), so trading concurrency for a
+              # clean run costs wall-clock and nothing else. 6 is well under the
+              # limit for Haiku's output sizes while still keeping the worker
+              # busy; raise it only alongside an account limit increase.
               #
-              # gpt-4o, NOT gpt-5-mini, and that is load-bearing: retain runs at
-              # temperature 0.1 (DEFAULT_LLM_TEMPERATURE_RETAIN) and that value
-              # is applied to whichever member serves the call. The gpt-5 family
-              # REJECTS an explicit temperature, so a gpt-5-mini member would
-              # 400 on failover — failing exactly when it is needed. gpt-4o
-              # accepts it, so both paths keep retain's deterministic 0.1.
+              # NOTE this is the RATE limit, not the credit balance — the
+              # credit-exhaustion CronJob (cronjob.yaml) matches on the
+              # "credit balance is too low" message and correctly stays silent
+              # for a 429. Throughput exhaustion is currently unmonitored.
+              HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "6"
+
+              # A retain failover member to Azure was tried here on 2026-09-07
+              # and REMOVED the same evening: it never worked, and it made
+              # failures worse rather than better. Do not re-add it as written.
               #
-              # This is a degraded mode, not a free win: extraction is the stage
-              # deciding what becomes a durable belief, which is why it is on
-              # Claude by default. Keep the credit alert (cronjob.yaml) so a
-              # silent fallback is still noticed.
-              HINDSIGHT_API_RETAIN_LLM_1_PROVIDER: openai
-              HINDSIGHT_API_RETAIN_LLM_1_MODEL: gpt-4o
-              HINDSIGHT_API_RETAIN_LLM_STRATEGY: '{"mode": "failover"}'
+              # Every one of its 73 calls failed with:
+              #   400 Invalid schema for response_format 'response':
+              #   context=('properties','labels'), $ref cannot have keywords
+              #   {'description'}
+              # HINDSIGHT_API_LLM_STRICT_SCHEMA (set true below, deliberately)
+              # sends a strict JSON schema whose $ref carries a sibling
+              # `description`. Anthropic accepts it because its structured
+              # output goes through a forced tool_use tool; Azure OpenAI's
+              # strict `response_format` rejects it outright. So when Haiku
+              # rate-limited, retain failed over and 400'd every time — burning
+              # a second attempt per failure instead of absorbing anything.
+              #
+              # This is a property of retain's SCHEMA plus strict mode, not of
+              # gpt-4o: gpt-5-mini would fail identically, which is why
+              # consolidation and reflect run fine on Azure while retain cannot.
+              # HINDSIGHT_API_LLM_STRUCTURED_OUTPUT_FORCED_TOOL does not rescue
+              # it either — that option only applies to the LiteLLM-backed
+              # providers (litellm, litellmrouter, bedrock), not plain `openai`.
+              #
+              # A real fallback needs one of: strict schema off (regresses
+              # retain/consolidation into parse-retry storms — see the
+              # STRICT_SCHEMA comment below), a litellm-routed member with the
+              # forced-tool option, or an Anthropic-compatible second endpoint.
               # --- reflect -> Azure OpenAI (gpt-5-mini) ---
               # This slot was claude-sonnet-5 on the reasoning that "reflect is
               # user-initiated and rare, so this does not touch the per-retain
