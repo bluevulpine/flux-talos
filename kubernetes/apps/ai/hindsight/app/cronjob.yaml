@@ -1,24 +1,34 @@
 ---
-# Anthropic credit-exhaustion detector.
+# Anthropic provider-failure detector (credit exhaustion + rate limiting).
 #
 # WHY THIS EXISTS AS A CRONJOB rather than a PrometheusRule: there is no metric
 # to alert on. Hindsight's /metrics exposes only hindsight_async_operations,
 # hindsight_consolidation_{backlog,failed}, db-pool and http series — nothing
-# per-stage and nothing about LLM errors. On 2026-09-07 credit exhaustion hit
-# `retain`, consolidation_failed stayed at 0, and the existing
-# HindsightConsolidationFailing alert never fired. The failure is only visible
-# in the API's own /llm-requests rows, so something has to read them.
+# per-stage and nothing about LLM errors. Both incidents on 2026-09-07 hit
+# `retain`, consolidation_failed stayed at 0 throughout, and the existing
+# HindsightConsolidationFailing alert never fired for either. The failures are
+# visible only in the API's own /llm-requests rows, so something has to read
+# them.
 #
-# It also cannot be made proactive. The Anthropic Admin API exposes members,
-# workspaces, invites and keys — there is NO remaining-credit-balance endpoint,
-# and no field on a request carries one. Exhaustion is only ever observable
-# after the fact, as a 400 whose message contains "credit balance is too low"
-# (NOT a 429 — do not match on status code alone).
+# Credit exhaustion cannot be made proactive either. The Anthropic Admin API
+# exposes members, workspaces, invites and keys — there is NO
+# remaining-credit-balance endpoint, and no field on a request carries one. It
+# is only ever observable after the fact.
 #
-# Posts to Alertmanager's v2 API rather than to Pushover directly, so the alert
-# inherits the existing routing, grouping, dedup and silences (Pushover is
+# MATCH ON THE MESSAGE, NOT THE STATUS CODE. Credit exhaustion arrives as a 400
+# (the same status as a malformed request), and rate limiting as a 429 — but
+# keying on status alone would page for every unrelated 400. Each rule below
+# matches a substring of the provider's error body instead.
+#
+# Two SEPARATE alerts, deliberately, because they mean different things and
+# have different remedies: exhausted credits are terminal and need funds; a
+# rate limit is transient, self-clears, and means "slow down". Merging them
+# would produce an alert whose runbook is "it depends".
+#
+# Posts to Alertmanager's v2 API rather than to Pushover directly, so alerts
+# inherit the existing routing, grouping, dedup and silences (Pushover is
 # already the default receiver in alertmanagerconfig.yaml). endsAt is set ahead
-# of the next run, so the alert self-resolves once the condition clears instead
+# of the next run, so an alert self-resolves once its condition clears instead
 # of needing a separate "all clear" path.
 apiVersion: v1
 kind: ConfigMap
@@ -26,7 +36,7 @@ metadata:
   name: hindsight-credit-alert
 data:
   check.py: |
-    """Scan every bank's recent LLM requests for credit-exhaustion errors."""
+    """Scan every bank's recent LLM requests for provider-level failures."""
     import json
     import os
     import sys
@@ -40,10 +50,49 @@ data:
     ALERTMANAGER = os.environ["ALERTMANAGER_URL"].rstrip("/")
     WINDOW_MIN = int(os.environ.get("WINDOW_MINUTES", "20"))
     RESOLVE_MIN = int(os.environ.get("RESOLVE_MINUTES", "30"))
-    # Substring of the provider's 400 body. Matching the MESSAGE, not the status,
-    # is deliberate: a 400 is also how a malformed request presents, and paging
-    # on every 400 would be noise.
-    NEEDLE = "credit balance is too low"
+
+    # Each rule matches a substring of the provider's error body. `threshold` is
+    # the number of matching ROWS in the window required to fire — note rows are
+    # attempts, not logical operations: retain retries up to 4x, so ~4 rows can
+    # be one failing retain.
+    RULES = [
+        {
+            "needle": "credit balance is too low",
+            "alertname": "HindsightAnthropicCreditsExhausted",
+            "severity": "critical",
+            # Terminal and self-inflicted-silence: nothing recovers on its own,
+            # so one occurrence is worth waking up for.
+            "threshold": 1,
+            "what": "Anthropic credits are exhausted",
+            "action": (
+                "Top up at console.anthropic.com. Retain (extraction) is the only "
+                "stage still on the Anthropic API and has NO fallback — the Azure "
+                "failover was removed because retain's strict schema is "
+                "incompatible with Azure's response_format — so extraction STOPS "
+                "until credits are added. Consolidation and reflect keep running "
+                "on Azure, but they have nothing new to work on."
+            ),
+        },
+        {
+            "needle": "rate_limit_error",
+            "alertname": "HindsightAnthropicRateLimited",
+            "severity": "warning",
+            # Transient and self-clearing, so a handful of 429s during a heavy
+            # ingest is normal and must not page. 20 rows in a 20m window is
+            # sustained saturation: the 2026-09-07 incident ran ~79 rows/hour
+            # (~26 per window) for an hour straight, which this catches, while a
+            # brief burst of a few retries does not.
+            "threshold": 20,
+            "what": "Anthropic is rate-limiting Hindsight",
+            "action": (
+                "This is THROUGHPUT, not credits — the balance is fine. Usually "
+                "self-clears. If sustained, lower "
+                "HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT (currently 6) or reduce "
+                "gitIngest depth on the busiest bank; the account limit that bit "
+                "on 2026-09-07 was 80,000 output tokens/minute on Haiku."
+            ),
+        },
+    ]
 
     def get(path):
         req = urllib.request.Request(
@@ -57,9 +106,10 @@ data:
         items = d.get("items") or d.get("banks") or (d if isinstance(d, list) else [])
         return [b.get("id") or b.get("bank_id") for b in items if isinstance(b, dict)]
 
-    def main():
+    def scan():
+        """-> {rule_index: {bank: (row_count, {operations})}} for the window."""
         cutoff = datetime.now(timezone.utc) - timedelta(minutes=WINDOW_MIN)
-        hits = {}
+        hits = {i: {} for i in range(len(RULES))}
         for bank in banks():
             if not bank:
                 continue
@@ -72,8 +122,7 @@ data:
             for r in rows:
                 if r.get("status") == "success":
                     continue
-                if NEEDLE not in str(r.get("error") or r.get("error_message") or ""):
-                    continue
+                body = str(r.get("error") or r.get("error_message") or "")
                 started = str(r.get("started_at") or "")[:19]
                 if not started:
                     continue
@@ -81,38 +130,49 @@ data:
                     when = datetime.fromisoformat(started).replace(tzinfo=timezone.utc)
                 except ValueError:
                     continue
-                if when >= cutoff:
-                    hits.setdefault(bank, set()).add(r.get("operation") or "?")
+                if when < cutoff:
+                    continue
+                for i, rule in enumerate(RULES):
+                    if rule["needle"] in body:
+                        n, ops = hits[i].get(bank, (0, set()))
+                        ops.add(r.get("operation") or "?")
+                        hits[i][bank] = (n + 1, ops)
+        return hits
 
-        if not hits:
-            print(f"ok: no credit errors in the last {WINDOW_MIN}m")
+    def main():
+        hits = scan()
+        payload = []
+        for i, rule in enumerate(RULES):
+            per_bank = hits[i]
+            total = sum(n for n, _ in per_bank.values())
+            if total < rule["threshold"]:
+                continue
+            detail = "; ".join(
+                f"{b}: {n} rows ({','.join(sorted(ops))})"
+                for b, (n, ops) in sorted(per_bank.items())
+            )
+            print(f"{rule['alertname']}: {detail}", file=sys.stderr)
+            now = datetime.now(timezone.utc)
+            payload.append(
+                {
+                    "labels": {
+                        "alertname": rule["alertname"],
+                        "severity": rule["severity"],
+                        "namespace": "ai",
+                        "service": "hindsight",
+                    },
+                    "annotations": {
+                        "summary": f"{rule['what']} — {detail}. {rule['action']}"
+                    },
+                    "startsAt": now.isoformat(),
+                    "endsAt": (now + timedelta(minutes=RESOLVE_MIN)).isoformat(),
+                }
+            )
+
+        if not payload:
+            print(f"ok: no provider failures over threshold in the last {WINDOW_MIN}m")
             return 0
 
-        detail = "; ".join(f"{b}: {','.join(sorted(ops))}" for b, ops in sorted(hits.items()))
-        print(f"CREDIT EXHAUSTION: {detail}", file=sys.stderr)
-        payload = [
-            {
-                "labels": {
-                    "alertname": "HindsightAnthropicCreditsExhausted",
-                    "severity": "critical",
-                    "namespace": "ai",
-                    "service": "hindsight",
-                },
-                "annotations": {
-                    "summary": (
-                        "Anthropic credits are exhausted — Hindsight LLM calls are "
-                        f"returning 400 'credit balance is too low' ({detail}). Retain "
-                        "should be failing over to Azure (gpt-4o), so memory degrades "
-                        "rather than stops, but extraction quality drops until credits "
-                        "are topped up at console.anthropic.com."
-                    ),
-                },
-                "startsAt": datetime.now(timezone.utc).isoformat(),
-                "endsAt": (
-                    datetime.now(timezone.utc) + timedelta(minutes=RESOLVE_MIN)
-                ).isoformat(),
-            }
-        ]
         req = urllib.request.Request(
             f"{ALERTMANAGER}/api/v2/alerts",
             data=json.dumps(payload).encode(),
@@ -121,13 +181,13 @@ data:
         )
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
-                print(f"alert posted: HTTP {r.status}")
+                print(f"posted {len(payload)} alert(s): HTTP {r.status}")
         except (urllib.error.URLError, OSError) as e:
             # Deliberate non-zero: we DETECTED the condition but could not report
             # it, which is the one case that must not pass silently. A clean
             # message plus a failed Job (KubeJobFailed) is the escalation path —
             # an unhandled traceback would do the same thing far less legibly.
-            print(f"FATAL: detected credit exhaustion but Alertmanager POST failed: {e}",
+            print(f"FATAL: detected {len(payload)} condition(s) but Alertmanager POST failed: {e}",
                   file=sys.stderr)
             return 1
         # Exit 0 on a successfully-reported alert: a non-zero exit would ALSO trip
