@@ -33,7 +33,7 @@ spec:
             image:
               repository: docker.io/nousresearch/hermes-agent
               # renovate: datasource=docker depName=docker.io/nousresearch/hermes-agent
-              tag: v2026.8.31
+              tag: v2026.9.7
             args: ["gateway", "run"]
             env:
               TZ: "${TIMEZONE}"
