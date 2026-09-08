@@ -197,6 +197,40 @@ spec:
               # for a 429. Throughput exhaustion is currently unmonitored.
               HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "6"
 
+              # --- retain via the Message Batches API (50% off) ---
+              # Retain is the ONLY stage still billed to the Anthropic API, so
+              # it is the only place a discount is worth chasing. Anthropic's
+              # batch API is half price on both input and output
+              # (anthropic_llm.py:692), and the saving STACKS with prompt
+              # caching: every item in a retain batch shares the fact-extraction
+              # system prompt, so the first item's cache write serves the rest as
+              # reads. Retain is already the best-caching stage here (691k cached
+              # tokens measured 2026-09-07).
+              #
+              # Safe against the two things that break batch here:
+              #  - strict schema: the batch translator turns a strict json_schema
+              #    into a single forced tool_use tool (native constrained
+              #    decoding), the same path the sync Anthropic calls use — this
+              #    is NOT the OpenAI `response_format` that made the Azure retain
+              #    failover 400 on every call.
+              #  - the `metadata` LLM strategy: batch submits a whole retain as
+              #    ONE job to ONE member, so it cannot route per item and refuses
+              #    to start. We do not use that strategy.
+              #
+              # ⚠️ FAILS CLOSED AT STARTUP. validate_retain_batch_support() runs
+              # during initialization (memory_engine.py:4654), so a retain LLM
+              # that cannot serve a batch stops the pod booting rather than
+              # falling back. Re-check this line before changing the retain
+              # provider.
+              #
+              # The cost is LATENCY, and it is deliberate: batch is async with a
+              # 24h SLA (typically minutes) and the engine polls every 60s
+              # (DEFAULT_RETAIN_BATCH_POLL_INTERVAL_SECONDS). Retain already runs
+              # off the Stop hook so nothing blocks, but a session's memory now
+              # lands minutes later instead of seconds. If that ever matters more
+              # than the discount, this is the line to flip.
+              HINDSIGHT_API_RETAIN_BATCH_ENABLED: "true"
+
               # A retain failover member to Azure was tried here on 2026-09-07
               # and REMOVED the same evening: it never worked, and it made
               # failures worse rather than better. Do not re-add it as written.
