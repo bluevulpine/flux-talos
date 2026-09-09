@@ -135,6 +135,27 @@ image as an init container. On every start it idempotently connects as the
 superuser and ensures the app's role **and** database(s) exist (creating them,
 and granting the role ownership/access, if missing). It is safe to re-run.
 
+**It also RESETS the role's password on every start**, which is easy to miss and
+is the single most useful thing about it. `createuser` is gated on the role being
+absent, but the `ALTER USER ... WITH ENCRYPTED PASSWORD` that follows is
+unconditional. So rotating an app's Postgres credential is two steps and no
+ordering puzzle:
+
+```bash
+bao kv patch secret/<app> <App>__PostgresPass=<new>   # patch, not put
+kubectl -n <ns> annotate externalsecret <app>-secret force-sync="$(date +%s)" --overwrite
+```
+
+Reloader rolls the pod, the init container re-syncs the database side itself, and
+OpenBao and Postgres never disagree. Do **not** hand-write an `ALTER ROLE` for
+this — reach for one only when the change must take effect without a restart.
+Verified 2026-09-09 during a mealie rotation:
+
+```
+Update password for user mealie ...
+ALTER ROLE
+```
+
 It is driven entirely by `INIT_POSTGRES_*` env, sourced from the app's secret:
 
 | Env var | Meaning |
