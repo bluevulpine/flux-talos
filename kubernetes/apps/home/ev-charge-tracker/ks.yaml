@@ -46,10 +46,20 @@ spec:
       # home/mosquitto and productivity/homebox.
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       VOLSYNC_COPYMETHOD: Snapshot
-      # A handful of rows a day; twice hourly is ample. Slots picked against
-      # the live cluster (kubectl get replicationsource -A), not a grep of
-      # this tree — :09/:39 are unused by any local source, and 06:37 is the
-      # next open rung of the 8-minute R2 ladder after hermes at 06:29.
-      # Hours 00-05 are full and hour 03 is reserved for kopia-maint-r2.
-      VOLSYNC_LOCAL_SCHEDULE: "9,39 * * * *"
+      # A handful of rows a day, so every 2 hours is ample. Twice hourly was
+      # 48 snapshots/day for no extra recoverable data, and snapshot
+      # write-rate is one of the drivers of the Kopia index-blob floor
+      # currently being tuned; this is 12/day instead.
+      #
+      # Keeping :09 and dropping the :39 firing is the minimal change, and
+      # :09 is collision-free. Checked by expanding every ReplicationSource
+      # and CronJob schedule in the live cluster to its (hour, minute) firing
+      # set and intersecting — not by comparing schedule strings, which hides
+      # cross-shape overlap. The obvious-looking ":29, next to the existing
+      # */2 family at :00-:25" would have fired at 06:29 on top of
+      # develop/hermes-r2.
+      #
+      # R2 stays nightly at 06:37, the open rung of the 8-minute ladder after
+      # hermes at 06:29; hour 03 remains reserved for kopia-maint-r2.
+      VOLSYNC_LOCAL_SCHEDULE: "9 */2 * * *"
       VOLSYNC_R2_SCHEDULE: "37 6 * * *"
