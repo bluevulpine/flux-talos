@@ -2767,7 +2767,7 @@ Copy `gitea-registry-externalsecret.yaml` verbatim from `kubernetes/apps/home/he
 ```yaml
 # kubernetes/apps/flux-system/rackpanel/app/imagerepository.yaml
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/image.toolkit.fluxcd.io/imagerepository_v1beta2.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/imagerepository-image-v1.json
 apiVersion: image.toolkit.fluxcd.io/v1
 kind: ImageRepository
 metadata:
@@ -2782,7 +2782,7 @@ spec:
 ```yaml
 # kubernetes/apps/flux-system/rackpanel/app/imagepolicy.yaml
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/image.toolkit.fluxcd.io/imagepolicy_v1beta2.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/imagepolicy-image-v1.json
 apiVersion: image.toolkit.fluxcd.io/v1
 kind: ImagePolicy
 metadata:
@@ -2801,7 +2801,7 @@ spec:
 ```yaml
 # kubernetes/apps/flux-system/rackpanel/app/imageupdateautomation.yaml
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/image.toolkit.fluxcd.io/imageupdateautomation_v1beta2.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/imageupdateautomation-image-v1.json
 apiVersion: image.toolkit.fluxcd.io/v1
 kind: ImageUpdateAutomation
 metadata:

@@ -2736,7 +2736,7 @@ Create `kubernetes/apps/flux-system/rackpanel/app/imagerepository-agent.yaml`, m
 
 ```yaml
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/image.toolkit.fluxcd.io/imagerepository_v1beta2.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/imagerepository-image-v1.json
 apiVersion: image.toolkit.fluxcd.io/v1
 kind: ImageRepository
 metadata:
@@ -2757,7 +2757,7 @@ Create `kubernetes/apps/flux-system/rackpanel/app/imagepolicy-agent.yaml`:
 
 ```yaml
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/image.toolkit.fluxcd.io/imagepolicy_v1beta2.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/imagepolicy-image-v1.json
 apiVersion: image.toolkit.fluxcd.io/v1
 kind: ImagePolicy
 metadata:
