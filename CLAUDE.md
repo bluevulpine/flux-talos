@@ -128,7 +128,7 @@ Two traps when reading the results:
 
 ## Postgres bootstrap: the `postgres-init` init container
 
-Apps that need a Postgres database on the CloudNativePG `postgres16` cluster do
+Apps that need a Postgres database on the CloudNativePG `postgres18` cluster do
 **not** hand-create the database or role. Instead they run the
 [`ghcr.io/home-operations/postgres-init`](https://github.com/home-operations/containers/tree/main/apps/postgres-init)
 image as an init container. On every start it idempotently connects as the
@@ -160,7 +160,7 @@ It is driven entirely by `INIT_POSTGRES_*` env, sourced from the app's secret:
 
 | Env var | Meaning |
 | --- | --- |
-| `INIT_POSTGRES_HOST` | `postgres16-rw.database.svc.cluster.local` (RW service) |
+| `INIT_POSTGRES_HOST` | `${POSTGRES_HOST}` — `postgres18-rw.database.svc.cluster.local` (RW service) |
 | `INIT_POSTGRES_USER` | app role to create/own the database(s) |
 | `INIT_POSTGRES_PASS` | password for that app role |
 | `INIT_POSTGRES_DBNAME` | database name — **space-separate for multiple** (see below) |
@@ -195,7 +195,7 @@ from the shared `cloudnative-pg` key:
     template:
       engineVersion: v2
       data:
-        INIT_POSTGRES_HOST: &dbHost postgres16-rw.database.svc.cluster.local
+        INIT_POSTGRES_HOST: &dbHost ${POSTGRES_HOST}   # postgres18-rw.database.svc.cluster.local
         INIT_POSTGRES_USER: &dbUser "{{ .App__Postgres__User }}"
         INIT_POSTGRES_PASS: &dbPass "{{ .App__Postgres__Password }}"
         INIT_POSTGRES_DBNAME: app_db
