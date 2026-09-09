@@ -258,7 +258,7 @@ spec:
               # retain/consolidation into parse-retry storms — see the
               # STRICT_SCHEMA comment below), a litellm-routed member with the
               # forced-tool option, or an Anthropic-compatible second endpoint.
-              # --- reflect -> Azure OpenAI (gpt-5-mini) ---
+              # --- reflect -> Azure OpenAI (gpt-4.1-mini) ---
               # This slot was claude-sonnet-5 on the reasoning that "reflect is
               # user-initiated and rare, so this does not touch the per-retain
               # cost". That premise was WRONG and cost real money on 2026-09-07.
@@ -284,33 +284,51 @@ spec:
               # quality degrades, revert this block to claude-sonnet-5 (or try
               # claude-haiku-4-5, still 3x cheaper than sonnet on both axes).
               HINDSIGHT_API_REFLECT_LLM_PROVIDER: openai
-              HINDSIGHT_API_REFLECT_LLM_MODEL: gpt-5-mini
-              # Same hard requirement as consolidation: the gpt-5 family rejects
-              # an explicit temperature and reflect's built-in default is 0.9
-              # (config.py DEFAULT_LLM_TEMPERATURE_REFLECT), so every call would
-              # 400 without this.
-              HINDSIGHT_API_LLM_TEMPERATURE_REFLECT: none
-              # Latency, not quality tuning. gpt-5-mini is a REASONING model, and
-              # the session-start reflect runs inside a UserPromptSubmit hook
-              # with a 30s budget (settings.json). Measured 2026-09-07 after the
-              # move to Azure: reflect calls ran 14.5s median / 24.0s max on ~4k
-              # input, so the multi-call agentic loop could not finish — the hook
-              # aborted at 25.0s ("This operation was aborted (20)") and the
-              # session got NO memory injection at all.
+              # Was gpt-5-mini, and REASONING_EFFORT: low did not save it.
+              # gpt-5-mini is a REASONING model, and the session-start reflect
+              # runs inside a UserPromptSubmit hook that the plugin caps at
+              # 25.0s (HOOK_REFLECT_CAP_MS in claude-hook.js). That cap is a
+              # hard constant applied as min(reflectTimeoutMs, 25_000), so
+              # reflectTimeoutMs in ~/.hindsight/coding-agent.json can only
+              # LOWER it, never raise it — upstream documents it as "hook
+              # harnesses additionally cap it at 25s to fit the host's hook
+              # window". There is no client-side knob for this.
               #
-              # 14.5s on 4k input is reasoning tokens, not throughput, so cutting
-              # the reasoning phase is the targeted fix and keeps gpt-5-mini's
-              # pricing. Hindsight passes this value through VERBATIM to the
-              # provider, so it must be one the model accepts — `low` is valid
-              # across the gpt-5 family; `none` is for self-hosted models and
-              # would 400 here. `minimal` is faster still if `low` proves
-              # insufficient.
+              # Measured 2026-09-09 with `low` ALREADY in place: one 2-iteration
+              # loop ran 31.9s total (agent_1=2.8s, agent_2=29.1s) while the
+              # hook aborted at 25.004s — the server finished 7s later and the
+              # answer was thrown away. Across the diag log's 2-day span that is
+              # 7 aborts to 3 successes, every abort at exactly 25.0s, and the
+              # best success (23.1s) only just cleared. `minimal` was the other
+              # option, but it tunes the same reasoning phase that IS the
+              # problem; gpt-4o removes the phase instead of shrinking it.
               #
-              # If this does not get reflect under ~5s/call, the next step is
-              # moving this slot to gpt-4o: non-reasoning, and it accepts an
-              # explicit temperature, which would let the TEMPERATURE_REFLECT
-              # override above be deleted and reflect's intended 0.9 restored.
-              HINDSIGHT_API_REFLECT_LLM_REASONING_EFFORT: low
+              # gpt-4.1-mini is non-reasoning and accepts an explicit
+              # temperature. That is why LLM_TEMPERATURE_REFLECT and
+              # REFLECT_LLM_REASONING_EFFORT are both GONE from this block
+              # rather than carried over:
+              #   - reasoning_effort is passed through VERBATIM, so leaving it
+              #     set would 400 every call against a non-reasoning model;
+              #   - temperature now falls back to reflect's intended 0.9
+              #     (config.py DEFAULT_LLM_TEMPERATURE_REFLECT), which is what
+              #     the `none` override existed to work around in the first
+              #     place.
+              #
+              # Chosen over gpt-4o (which is also deployed here, and was the
+              # first pick) because it is faster and cheaper on the same axis
+              # that matters, with a 1M context window — reflect front-loads
+              # every mental model into the prompt, so headroom there is free
+              # insurance. Still on Azure credits, so the cost argument above
+              # is unchanged either way.
+              #
+              # NOTE: on Azure this value is the DEPLOYMENT name, not the model
+              # name. It happens to match here because the deployments are
+              # named after their models; a renamed deployment 404s.
+              #
+              # If this still cannot finish inside 25s, gpt-4o is the fallback
+              # (deployed, non-reasoning). If it fits but the synthesis reads
+              # thin, gpt-4.1 or claude-haiku-4-5.
+              HINDSIGHT_API_REFLECT_LLM_MODEL: gpt-4.1-mini
               # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
               # floor at all — which is how 232 refreshes ran in ~2h on
               # 2026-09-07: every consolidation batch queued another with nothing
