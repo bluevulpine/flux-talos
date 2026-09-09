@@ -49,8 +49,23 @@ spec:
               NEXTAUTH_URL_INTERNAL: http://localhost:3000
               # Meilisearch configuration
               MEILI_ADDR: http://localhost:7700
-              # Browser configuration for screenshots
-              BROWSER_WEB_URL: http://localhost:9222
+              # Browser configuration for screenshots.
+              #
+              # 127.0.0.1, NOT localhost. The chrome sidecar binds
+              # --remote-debugging-address=0.0.0.0, which is the IPv4 wildcard
+              # and accepts no IPv6 connections. karakeep pre-resolves this
+              # host itself ("[Crawler] Successfully resolved IP address") and
+              # takes the first answer, so whenever getaddrinfo hands back ::1
+              # first, every crawl fails with:
+              #   [Crawler] Failed to connect to the browser instance ...
+              #   connectOverCDP: connect ECONNREFUSED ::1:9222
+              # retrying every 5s for the life of the pod. Observed 2026-09-09.
+              #
+              # It fails SILENTLY as far as the user is concerned: the pod is
+              # 3/3 Running, /api/health returns 200, and bookmarks simply sit
+              # uncrawled and untagged. Nothing alerts. An IP literal removes
+              # the resolution step and the restart-to-restart coin flip.
+              BROWSER_WEB_URL: http://127.0.0.1:9222
               CRAWLER_VIDEO_DOWNLOAD: "true"
               CRAWLER_VIDEO_DOWNLOAD_MAX_SIZE: 20000
               CRAWLER_VIDEO_DOWNLOAD_TIMEOUT_SEC: 7200
