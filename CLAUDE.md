@@ -16,6 +16,17 @@ Serena is configured for this repo. At session start, activate the project and r
 
 **`crds: CreateReplace`** is injected globally via the `cluster-apps` Flux patch; do not add it to individual HelmRelease manifests.
 
+**Commit authorship for agent-written changes**: commits an agent writes are authored by
+its own bot identity — Fizz commits as
+`fizz-bot-bvn[bot] <324971095+fizz-bot-bvn[bot]@users.noreply.github.com>`, set with
+`git -c user.name=... -c user.email=... commit` — plus the model's `Co-Authored-By:` trailer.
+**Do not infer this from `git log`**: every non-Renovate commit before 2026-09-09 is authored
+`Derek Jacobs` because the bot account did not exist yet, not because human authorship is the
+convention. The point of the bot account is that what an agent commits is clearly separate from
+what Derek commits. Note that `git config user.name` inside a **worktree** writes to the shared
+`.git/config` and silently rewrites the human's repo-local identity — use the per-command `-c`
+flags instead.
+
 **Renovate version tracking**: annotate a version with `# renovate: datasource=...` when
 Renovate cannot detect it natively — a bare version string in `talos/talconfig.yaml`, a URL
 containing a version, a tool pinned in a script. See `talos/talconfig.yaml` for the pattern.
