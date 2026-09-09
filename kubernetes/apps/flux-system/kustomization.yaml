@@ -17,6 +17,7 @@ resources:
   - ./kia-collector/ks.yaml
   - ./kia-trip-archiver/ks.yaml
   - ./chargepoint-collector/ks.yaml
+  - ./ev-charge-tracker/ks.yaml
   - ./rackpanel/ks.yaml
   - ./minnkota-collector/ks.yaml
   # self-repair for the reflector "no tags in database" bug (recurs on reflector restart)

@@ -1,0 +1,131 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app ev-charge-tracker
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: ev-charge-tracker
+  interval: 1h
+  values:
+    controllers:
+      ev-charge-tracker:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        replicas: 1
+        # SQLite on a ReadWriteOnce volume: a second pod could neither mount
+        # the claim nor safely share the database file if it did.
+        strategy: Recreate
+        containers:
+          app:
+            # THIRD-PARTY application, built by Drone from
+            # https://gitea.derekjacobs.dev/bluevulpine/ev-charge-tracker-build
+            # which fetches upstream robeertm/ev-charge-tracker v3.0.112 as a
+            # checksum-pinned tarball. Upstream ships no license file, so this
+            # image is private and must not be redistributed — see
+            # RESEARCH/EV_CHARGE_TRACKER_EVALUATION.md in the Buzz workspace.
+            image:
+              repository: gitea.derekjacobs.dev/bluevulpine/ev-charge-tracker
+              tag: 2-194c0b88 # {"$imagepolicy": "flux-system:ev-charge-tracker:tag"}
+            env:
+              TZ: "${TIMEZONE}"
+              APP_HOST: 0.0.0.0
+              APP_PORT: &port 7654
+            envFrom:
+              - secretRef:
+                  name: ev-charge-tracker-secret
+            probes:
+              # /api/health is exempt from both of the app's before_request
+              # guards (_setup_guard and _auth_guard), so it keeps answering
+              # if the optional web login is ever enabled. "/" does not — it
+              # 302s to the login page.
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health
+                    port: *port
+                  initialDelaySeconds: 0
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probes
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health
+                    port: *port
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+                  timeoutSeconds: 5
+                  failureThreshold: 30
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+    defaultPodOptions:
+      imagePullSecrets:
+        - name: ev-charge-tracker-registry-creds
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        annotations:
+          gatus.home-operations.com/endpoint: |
+            group: home
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "EV Charge Tracker"
+          gethomepage.dev/group: "Home"
+          gethomepage.dev/icon: "mdi-ev-station"
+          gethomepage.dev/description: "Charge session cost ledger"
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - ev-charge-tracker.${SECRET_DOMAIN}
+    persistence:
+      data:
+        existingClaim: *app
+        globalMounts:
+          - path: /app/data
+      # create_app() calls pre_boot_rollback_check() before anything else,
+      # which mkdir's /app/updates. Under readOnlyRootFilesystem that raises,
+      # and the caller logs it at ERROR on every boot — a permanent false
+      # alarm. An emptyDir keeps boot logs clean. The rollback path it makes
+      # reachable cannot fire: the marker file it looks for is only written by
+      # updater.py, which the build harness deletes from the image.
+      updates:
+        type: emptyDir
+        globalMounts:
+          - path: /app/updates
+      # Werkzeug spools request bodies over ~500 KB to a temp file, which the
+      # CSV and database import forms can exceed.
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp

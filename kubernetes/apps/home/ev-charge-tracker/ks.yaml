@@ -1,0 +1,55 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app ev-charge-tracker
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    - name: longhorn
+      namespace: longhorn-system
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+  interval: 1h
+  path: ./kubernetes/apps/home/ev-charge-tracker/app
+  prune: true
+  retryInterval: 1m
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: home
+  timeout: 5m
+  wait: false
+  postBuild:
+    substitute:
+      APP: *app
+      NS: home
+      GATUS_PORT: "7654"
+      GATUS_SERVICE: ev-charge-tracker
+      VOLSYNC_CAPACITY: 2Gi
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      # ReadWriteOnce + Snapshot, not the RWX + Direct default that
+      # identity/vaultwarden uses. RWX on Longhorn is served by a
+      # share-manager NFS export, and this app puts its single SQLite file
+      # into WAL mode. Upstream's own models/database.py warns that "WAL
+      # needs shared memory next to the DB file, which a few exotic mounts
+      # (some network filesystems) don't provide", and that it logs and
+      # carries on when the pragma doesn't take — so RWX risks silently
+      # degrading to the `delete` journal mode. Snapshot also hands the
+      # mover a point-in-time copy instead of the live file. Matches
+      # home/mosquitto and productivity/homebox.
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      VOLSYNC_COPYMETHOD: Snapshot
+      # A handful of rows a day; twice hourly is ample. Slots picked against
+      # the live cluster (kubectl get replicationsource -A), not a grep of
+      # this tree — :09/:39 are unused by any local source, and 06:37 is the
+      # next open rung of the 8-minute R2 ladder after hermes at 06:29.
+      # Hours 00-05 are full and hour 03 is reserved for kopia-maint-r2.
+      VOLSYNC_LOCAL_SCHEDULE: "9,39 * * * *"
+      VOLSYNC_R2_SCHEDULE: "37 6 * * *"
