@@ -1134,7 +1134,7 @@
     {
       "type": "timeseries",
       "title": "Errors by Hostname (4xx / 5xx)",
-      "description": "Non-success responses only. A 502 here with the tunnel panel healthy means the origin (Envoy or the app) refused, not the tunnel.",
+      "description": "Non-success responses only. Check WireGuard Throughput below first: with the tunnel dead (2026-09-11, fosrl/newt#442) this panel showed 504s and 499s (clients giving up), not 502s. Only while the tunnel is carrying traffic does a 502 here mean the origin (Envoy or the app) refused.",
       "id": 17,
       "datasource": {
         "type": "prometheus",

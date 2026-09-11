@@ -256,13 +256,30 @@ spec:
         # a single 502 during an idle hour becomes a 100% error ratio and pages
         # for nothing. Redirect/auth codes (307/302/401) are normal here --
         # authentik fronts several of these services -- so only 5xx counts.
+        #
+        # This is NOT a tunnel-down detector, and its text must not steer the
+        # reader away from the tunnel. During the 2026-09-11 fosrl/newt#442
+        # outage (tunnel dead 10:51-17:51Z) the edge returned no 502s at all:
+        # Immich's router logged ~458x499 and ~150x504, while SSO (~410x499)
+        # and echo-server (~404x499) logged no 5xx, because clients gave up
+        # before Traefik timed out and 499 is not 5xx. This rule fired once,
+        # for Immich, 16:01-16:05Z -- five hours in -- and its old text ("a 502 with
+        # the tunnel healthy means the origin refused") pointed at the backing
+        # service. So the annotation now says to rule the tunnel out first. Do
+        # not lower the rate guard to catch that case; PangolinTunnelNoTraffic
+        # covers it from gerbil's byte counters.
         - alert: PangolinEdgeErrorRate
           annotations:
             summary: >-
               Over 10% of requests through the Pangolin edge are returning 5xx
-              ({{ $labels.router }}). A 502 with the tunnel healthy means the
-              origin (Envoy or the app) refused, not the transport — check the
-              backing service before touching Pangolin.
+              ({{ $labels.router }}). Rule out the tunnel first: if
+              PangolinTunnelNoTraffic is firing, or
+              `sum(rate(gerbil_wg_bytes_received_total[15m]))` reads 0, the
+              transport is dead whatever the status code — a dead tunnel shows
+              up here as 504s, with clients giving up as 499s. Only while the
+              tunnel is carrying traffic does a 502 mean the origin (Envoy or
+              the app) refused; then check the backing service before touching
+              Pangolin.
           expr: |
             (
               sum by (router) (rate(traefik_router_requests_total{code=~"5.."}[15m]))
