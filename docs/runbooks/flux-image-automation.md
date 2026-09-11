@@ -63,6 +63,29 @@ also has `KiaCollectorImagePullFailing`
 (`kube_pod_container_status_waiting_reason{...reason="ImagePullBackOff"}`) and a
 `KiaCollectorStale` catch-all. Copy that pattern for any automated workload.
 
+**An init container on the same image moves the signal.** When an init container
+runs the app's own first-party image (a `migrate` step, say), a bad tag stalls
+the **init** container in `ImagePullBackOff`. The main container does not start
+until every init container has completed, so it waits in `PodInitializing`, and
+that is the reason `kube_pod_container_status_waiting_reason` reports for it,
+never `ImagePullBackOff`. The pull failure appears only under
+`kube_pod_init_container_status_waiting_reason`. OR the two:
+
+```promql
+max by (pod, reason) (
+  kube_pod_container_status_waiting_reason{namespace="<ns>", pod=~"<app>.*", reason=~"ImagePullBackOff|ErrImagePull|InvalidImageName"}
+  or
+  kube_pod_init_container_status_waiting_reason{namespace="<ns>", pod=~"<app>.*", reason=~"ImagePullBackOff|ErrImagePull|InvalidImageName"}
+) > 0
+```
+
+An init container on a *different* image does not need this: it pulls and runs,
+and the app image's pull failure then lands on the main container as usual.
+helium-archiver and kia-trip-archiver, the first-party apps with init containers
+as of 2026-09-11, both run `postgres-init` there. Reference:
+`home/ev-charge-ledger` (#1784). This follows from the documented init-container
+ordering; it has not been observed in this cluster.
+
 ## Gotcha 4 — Grafana/JSON `${...}` vs Flux postBuild envsubst
 
 If a ConfigMap containing `${...}` (e.g. a Grafana dashboard's `${vin}`) lives in
