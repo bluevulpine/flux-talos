@@ -1,0 +1,48 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app ev-charge-ledger
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    - name: longhorn
+      namespace: longhorn-system
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+  interval: 1h
+  path: ./kubernetes/apps/home/ev-charge-ledger/app
+  prune: true
+  retryInterval: 1m
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: home
+  timeout: 5m
+  wait: false
+  postBuild:
+    substitute:
+      APP: *app
+      # One SQLite file of a few hundred KB.
+      VOLSYNC_CAPACITY: 1Gi
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      # ReadWriteOnce + Snapshot for a single SQLite file, for the reasons
+      # spelled out in home/ev-charge-tracker/ks.yaml.
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      VOLSYNC_COPYMETHOD: Snapshot
+      # Both slots were chosen by expanding every live ReplicationSource and
+      # CronJob schedule (110 of them, 2026-09-11) to its (hour, minute) firing
+      # set and intersecting, not by comparing schedule strings. :43 is empty
+      # in all twelve even hours; ev-charge-tracker holds :09 in the same
+      # family. R2 06:53 is the next open rung of the 8-minute ladder after
+      # ev-charge-tracker at 06:37: 06:45 already carries frigate-local,
+      # scrypted-local and image-reflector-healer. Hour 03 stays reserved for
+      # kopia-maint-r2.
+      VOLSYNC_LOCAL_SCHEDULE: "43 */2 * * *"
+      VOLSYNC_R2_SCHEDULE: "53 6 * * *"

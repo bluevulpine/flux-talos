@@ -1,0 +1,14 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/imagerepository-image-v1.json
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageRepository
+metadata:
+  name: &app ev-charge-ledger
+spec:
+  # Under the bvn-homelab org, not the bluevulpine user namespace. The
+  # gitea-registry-creds read token lists this repository's tags (200 on
+  # 2026-09-11; 401 unauthenticated).
+  image: gitea.derekjacobs.dev/bvn-homelab/ev-charge-ledger
+  interval: 5m
+  secretRef:
+    name: gitea-registry-creds

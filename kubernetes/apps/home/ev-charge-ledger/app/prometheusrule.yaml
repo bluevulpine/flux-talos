@@ -1,0 +1,48 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ev-charge-ledger
+spec:
+  groups:
+    - name: ev-charge-ledger.rules
+      rules:
+        # No ready replica: a crash loop, a failed migration in the `migrate`
+        # init container, or a failing probe. Routes to Pushover via the
+        # default Alertmanager receiver.
+        - alert: EvChargeLedgerDown
+          annotations:
+            summary: >-
+              EV charge ledger has no ready replicas. A failed migration shows
+              in `kubectl logs -n home deploy/ev-charge-ledger -c migrate`;
+              otherwise check `-c app`.
+          expr: |
+            kube_deployment_status_replicas_ready{namespace="home", deployment="ev-charge-ledger"} == 0
+          for: 15m
+          labels:
+            severity: critical
+
+        # Names the cause directly (docs/runbooks/flux-image-automation.md,
+        # Gotcha 3). BOTH metrics are needed: the `migrate` init container runs
+        # the same image and starts first, so on a bad tag it is the init
+        # container that waits in ImagePullBackOff while `app` sits in
+        # PodInitializing. kube_pod_container_status_waiting_reason alone
+        # would never fire for this pod.
+        - alert: EvChargeLedgerImagePullFailing
+          annotations:
+            summary: >-
+              EV charge ledger pod {{ $labels.pod }} can't pull its image
+              ({{ $labels.reason }}). Check the tag in
+              kubernetes/apps/home/ev-charge-ledger/app/helmrelease.yaml and
+              the image automation in
+              kubernetes/apps/flux-system/ev-charge-ledger/.
+          expr: |
+            max by (pod, reason) (
+              kube_pod_container_status_waiting_reason{namespace="home", pod=~"ev-charge-ledger.*", reason=~"ImagePullBackOff|ErrImagePull|InvalidImageName"}
+              or
+              kube_pod_init_container_status_waiting_reason{namespace="home", pod=~"ev-charge-ledger.*", reason=~"ImagePullBackOff|ErrImagePull|InvalidImageName"}
+            ) > 0
+          for: 15m
+          labels:
+            severity: critical

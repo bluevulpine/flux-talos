@@ -1,0 +1,26 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/imageupdateautomation-image-v1.json
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageUpdateAutomation
+metadata:
+  name: &app ev-charge-ledger
+spec:
+  interval: 30m
+  sourceRef:
+    kind: GitRepository
+    name: flux-talos-ssh
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        name: Flux
+        email: flux@derekjacobs.dev
+      messageTemplate: |
+        chore(images): update {{ range .Changed.Changes }}{{ println .NewValue }}{{ end }}
+    push:
+      branch: main
+  update:
+    path: ./kubernetes/apps/home/ev-charge-ledger
+    strategy: Setters
