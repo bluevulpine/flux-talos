@@ -164,6 +164,56 @@ spec:
           labels:
             severity: critical
 
+        # The data plane, measured from the far end, because every newt-side
+        # signal above can read healthy while nothing is tunnelled. On
+        # 2026-09-11 newt hit upstream fosrl/newt#442: a cluster DNS blip made
+        # its WireGuard endpoint lookup fail mid-reconnect, AFTER it had closed
+        # every proxy listener, and it never retried. The public hostnames were
+        # dark for ~7h (10:51-17:51Z) while newt_websocket_connected stayed 1,
+        # newt_connection_attempts_total stayed flat (so ReconnectLoop saw
+        # nothing), and PangolinEdgeErrorRate sat under its own rate guard
+        # because the only traffic left was clients giving up with 499s. Only a
+        # restart recovered it; #442's fix (PR #447) was unreleased at the time.
+        #
+        # gerbil counts these bytes on the VPS, so the signal depends neither on
+        # newt telling the truth nor on the newt pod existing. The lowest
+        # healthy 15m rate in the 42h before that outage was 22.6 B/s -- newt
+        # also runs a periodic ping check through the tunnel -- so zero is a
+        # clean threshold. Backtested over all of gerbil's history in Thanos
+        # (2026-08-22 01:35Z onward): true for ~3 minutes at 08-22 02:09Z, which
+        # `for:` absorbs, and for 09-11 11:09-17:51Z, where it would have fired
+        # around 11:10-11:15Z. The 08-30 pangolin OOM restart did not trip it
+        # (the other two OOMs in that window fell in scrape gaps).
+        #
+        # Summed across peers on purpose. The peer label is a WireGuard public
+        # key and peers from earlier sessions linger with flat counters (8 peer
+        # series against gerbil_wg_peers_total 5), so a per-peer rule would
+        # alert on ghosts. The price: a second ACTIVE peer on wg0 -- another
+        # site, or an Olm client -- would mask this site going dark. If one is
+        # ever added, scope this by peer.
+        #
+        # A failed scrape makes the series absent, which `== 0` cannot match;
+        # that case belongs to PangolinVPSExporterDown. If the newt pod itself is
+        # gone this fires ~15 minutes after PangolinControlChannelDown -- the
+        # same outage confirmed from the other end, not a second one.
+        - alert: PangolinTunnelNoTraffic
+          annotations:
+            summary: >-
+              No WireGuard traffic has reached the Pangolin VPS from the cluster
+              for about 20 minutes, so every Pangolin-routed hostname (Immich,
+              Mealie, Karakeep, Jellyseerr, CouchDB, SSO) is dark — even if
+              newt's own metrics say it is connected. Known cause:
+              fosrl/newt#442, where newt fails to resolve its WireGuard endpoint
+              during a reconnect and never retries. Confirm the last line of
+              `kubectl logs -n network deploy/pangolin-newt` is "Failed to
+              resolve endpoint", then run
+              `kubectl -n network rollout restart deploy/pangolin-newt`.
+          expr: |
+            sum(rate(gerbil_wg_bytes_received_total[15m])) == 0
+          for: 5m
+          labels:
+            severity: critical
+
         # VPS exporters going quiet is a visibility loss, not an outage: traffic
         # keeps flowing. Longer window because these are scraped across the
         # tailnet, where a brief blip is unremarkable. Note this fires for a
