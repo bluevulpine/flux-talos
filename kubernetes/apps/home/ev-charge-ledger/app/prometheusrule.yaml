@@ -46,3 +46,35 @@ spec:
           for: 15m
           labels:
             severity: critical
+
+        # The scheduled sync (the `sync` CronJob controller). backoffLimit 0 makes
+        # a failed pod a failed Job, and ttlSecondsAfterFinished (6 h) deletes it:
+        # a one-off failure fires until about the next run, a persistent one
+        # keeps firing. restartPolicy Never keeps the failed pod's log until then.
+        - alert: EvChargeLedgerSyncFailed
+          annotations:
+            summary: >-
+              EV charge ledger sync job {{ $labels.job_name }} failed. Its log
+              names the cause: FAILED (InfluxDB, the token, no home chargers) or
+              REJECTED (a session the ledger could not price).
+          expr: |
+            kube_job_status_failed{namespace="home", job_name=~"ev-charge-ledger-sync.*"} > 0
+          for: 15m
+          labels:
+            severity: critical
+
+        # Catch-all: no successful sync in 13 h is two missed 6-hourly runs plus
+        # a margin, whatever the reason (Pending on the affinity, image pull, a
+        # suspended CronJob). Silent until the first success, because the metric
+        # does not exist before one; SyncFailed covers a job that never succeeds.
+        - alert: EvChargeLedgerSyncStale
+          annotations:
+            summary: >-
+              EV charge ledger sync has not succeeded in over 13 h, so new home
+              sessions are not reaching the ledger. Check `kubectl get
+              cronjob,jobs -n home | grep ev-charge-ledger-sync`.
+          expr: |
+            time() - max(kube_cronjob_status_last_successful_time{namespace="home", cronjob="ev-charge-ledger-sync"}) > 46800
+          for: 15m
+          labels:
+            severity: critical
