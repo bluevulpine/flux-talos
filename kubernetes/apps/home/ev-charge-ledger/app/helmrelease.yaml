@@ -1,3 +1,4 @@
+---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -98,6 +99,73 @@ spec:
                 memory: 128Mi
               limits:
                 memory: 512Mi
+      sync:
+        # The scheduled import: home sessions straight from InfluxDB into the
+        # ledger (ev-charge-ledger docs/superpowers/specs/2026-09-11-automated-import.md).
+        # Needs an image that has the `sync` command; on an older one every run
+        # fails with "invalid choice: 'sync'".
+        type: cronjob
+        cronjob:
+          # Every 6 h (Derek, 2026-09-11). :28 is empty in hours 0, 6, 12 and 18
+          # across all 112 live ReplicationSource and CronJob schedules (census
+          # 2026-09-11), and 15 min clear of this app's own :43 local backup.
+          schedule: "28 */6 * * *"
+          concurrencyPolicy: Forbid
+          successfulJobsHistory: 3
+          failedJobsHistory: 3
+          # No retry: kube_job_status_failed counts failed PODS, so a retry that
+          # succeeded would still leave failed=1 and fire EvChargeLedgerSyncFailed.
+          # The sync is idempotent and the next run is 6 h away.
+          backoffLimit: 0
+          # Delete finished Jobs (and their pods) after one cycle, as the other
+          # collectors do. A one-off failure alerts until about the next run and
+          # then clears; a persistent one keeps leaving fresh failed Jobs and keeps
+          # alerting. The failed pod's log stays readable for those 6 h.
+          ttlSecondsAfterFinished: 21600
+        pod:
+          # Never, so a failed run keeps its pod and `kubectl logs` shows why.
+          restartPolicy: Never
+          # The SQLite volume is ReadWriteOnce: a second pod can mount it only on
+          # the node the ledger pod holds it on. Set on this controller, not in
+          # defaultPodOptions, or the ledger pod would require itself as a
+          # neighbour and never reschedule.
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/controller: ev-charge-ledger
+                      app.kubernetes.io/instance: ev-charge-ledger
+                  topologyKey: kubernetes.io/hostname
+        containers:
+          app:
+            image:
+              repository: gitea.derekjacobs.dev/bvn-homelab/ev-charge-ledger
+              tag: 7-2d931fec # {"$imagepolicy": "flux-system:ev-charge-ledger:tag"}
+            command:
+              - ev-charge-ledger
+              - sync
+              - --apply
+            env:
+              TZ: "${TIMEZONE}"
+              ECL_DATABASE_URL: sqlite+pysqlite:////data/ledger.db
+              # The 2026 EV9's first telemetry; earlier sessions cannot be this car.
+              ECL_SYNC_SINCE: "2026-07-11T22:21:00Z"
+            envFrom:
+              - secretRef:
+                  name: ev-charge-ledger-sync-secret
+            probes:
+              liveness:
+                enabled: false
+              readiness:
+                enabled: false
+            securityContext: *securityContext
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
     defaultPodOptions:
       imagePullSecrets:
         - name: ev-charge-ledger-registry-creds

@@ -5,6 +5,7 @@ kind: Kustomization
 resources:
   - ./ocirepository.yaml
   - ./registry-externalsecret.yaml
+  - ./sync-externalsecret.yaml
   - ./prometheusrule.yaml
   - ./helmrelease.yaml
 components:
