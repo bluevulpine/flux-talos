@@ -18,5 +18,6 @@ resources:
   - ./kia-trip-archiver/ks.yaml
   - ./chargepoint-collector/ks.yaml
   - ./ev-charge-tracker/ks.yaml
+  - ./ev-charge-ledger/ks.yaml
   - ./minnkota-collector/ks.yaml
   - ./wican-bridge/ks.yaml
