@@ -25,7 +25,7 @@ spec:
             # the image's WORKDIR. At head it is a no-op.
             image:
               repository: gitea.derekjacobs.dev/bvn-homelab/ev-charge-ledger
-              tag: 8-84f781e5 # {"$imagepolicy": "flux-system:ev-charge-ledger:tag"}
+              tag: 9-84155b25 # {"$imagepolicy": "flux-system:ev-charge-ledger:tag"}
             command:
               - alembic
               - upgrade
@@ -55,7 +55,7 @@ spec:
             # carries its own marker, and the automation rewrites both.
             image:
               repository: gitea.derekjacobs.dev/bvn-homelab/ev-charge-ledger
-              tag: 8-84f781e5 # {"$imagepolicy": "flux-system:ev-charge-ledger:tag"}
+              tag: 9-84155b25 # {"$imagepolicy": "flux-system:ev-charge-ledger:tag"}
             env: *env
             probes:
               liveness:
@@ -140,7 +140,7 @@ spec:
           app:
             image:
               repository: gitea.derekjacobs.dev/bvn-homelab/ev-charge-ledger
-              tag: 8-84f781e5 # {"$imagepolicy": "flux-system:ev-charge-ledger:tag"}
+              tag: 9-84155b25 # {"$imagepolicy": "flux-system:ev-charge-ledger:tag"}
             command:
               - ev-charge-ledger
               - sync
