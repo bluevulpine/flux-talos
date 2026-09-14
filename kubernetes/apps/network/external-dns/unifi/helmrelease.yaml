@@ -61,10 +61,25 @@ spec:
       - --gateway-namespace=network
       - --gateway-name=internal
     policy: sync
-    sources: ["service", "gateway-httproute"]
+    # v0.22.0 (bundled in this chart bump) drops the external-dns.alpha.kubernetes.io/
+    # fallback and makes the annotation prefix a required, no-default setting — the
+    # release notes warn the change "can delete all your DNS records". The "service"
+    # source here reads that exact annotation off every LoadBalancer Service in the
+    # cluster (e.g. valheim), so pin it explicitly to preserve current behavior.
+    annotationPrefix: "external-dns.alpha.kubernetes.io/"
+    sources:
+      - "service"
+      - "gateway-httproute"
     txtOwnerId: main
     txtPrefix: k8s.
-    domainFilters: ["${SECRET_DOMAIN}", "${SECRET_DOMAIN_BLOG}", "${SECRET_DOMAIN_BLOGCOM}", "${SECRET_DOMAIN_MEDIA}", "${SECRET_DOMAIN_LAKE}", "${SECRET_DOMAIN_YOYO}", "${SECRET_DOMAIN_BON}"]
+    domainFilters:
+      - "${SECRET_DOMAIN}"
+      - "${SECRET_DOMAIN_BLOG}"
+      - "${SECRET_DOMAIN_BLOGCOM}"
+      - "${SECRET_DOMAIN_MEDIA}"
+      - "${SECRET_DOMAIN_LAKE}"
+      - "${SECRET_DOMAIN_YOYO}"
+      - "${SECRET_DOMAIN_BON}"
     serviceMonitor:
       enabled: true
     podAnnotations:
