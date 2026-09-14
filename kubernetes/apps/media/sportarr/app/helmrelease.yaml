@@ -31,7 +31,7 @@ spec:
             # tracked 4.1.6.1116 at time of writing anyway.
             image:
               repository: docker.io/sportarr/sportarr
-              tag: 4.1.6.1116
+              tag: 4.1.7.1117
             env:
               TZ: "${TIMEZONE}"
               # Sportarr__Port is read directly via Environment.GetEnvironmentVariable
