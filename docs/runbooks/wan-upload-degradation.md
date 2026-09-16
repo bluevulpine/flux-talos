@@ -232,10 +232,15 @@ All were ruled out **with evidence**. Four were confident wrong turns.
 
 ### Two traps in the tooling
 
-- **UniFi controller port counters are not trustworthy.** All 25 devices
-  reported exactly zero rx/tx/crc errors on every port, including the port at
-  the far end of the failing link. Read counters from the host with
-  `ip -s link`, live, sampled twice.
+- **Mongo's `device.port_table` is configuration, not statistics.** It has no
+  `rx_errors`/packet fields at all, so `p.rx_errors || 0` silently yields 0 for
+  every port on every device — which reads exactly like a clean network and is
+  how this investigation initially, and wrongly, concluded the far end of the
+  failing link was healthy. The stats live in the live controller API, and
+  **they are accurate**: unpoller polls it and had the correct figure
+  (`unpoller_device_port_receive_errors_total{port_id="Morpheus Port 11"}` =
+  4,803,210) in Prometheus the entire time. Query the metrics, or read the
+  host directly with `ip -s link` sampled twice — never mongo's port_table.
 - **`db.device.find()` output is long.** Piping it through `tail` silently
   drops devices — `Core` was #10 of 25 and vanished from an early dump, which
   led to a wrong conclusion that it was third-party. Also note `port_table`
