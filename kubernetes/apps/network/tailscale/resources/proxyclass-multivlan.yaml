@@ -49,6 +49,22 @@ spec:
                       - brokkr02
                       - brokkr03
       tailscaleContainer:
+        env:
+          # Cilium auto-detects pod MTU as the minimum across its device list
+          # (bond0 9000, bond0.30/50 1500, host tailscale0 1280), so pod eth0
+          # lands at 1280 — the same as tailscaled's default tun MTU. Every
+          # full-size WireGuard packet the pod SENDS is then ~1340 B (1280
+          # inner + 60 B outer IP/UDP/WireGuard) and gets fragmented in two,
+          # and those fragments have to survive the open internet. Measured
+          # 2026-09-15: exit-node -> laptop ran 1.9 Mbit/s while laptop ->
+          # exit-node (which does not fragment) ran 123-200 Mbit/s, and the
+          # lossy reverse path also throttled uploads to 16 Mbit/s via delayed
+          # TCP ACKs. 1280 - 60 = 1220 keeps outbound packets at exactly 1280.
+          # NOTE: below 1280 this would break IPv6 over the tailnet (1280 is
+          # the IPv6 minimum link MTU); 1220 is deliberately the inner MTU, so
+          # the outer packet stays at 1280.
+          - name: TS_DEBUG_MTU
+            value: "1220"
         resources:
           requests:
             cpu: 100m
