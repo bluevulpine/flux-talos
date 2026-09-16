@@ -225,7 +225,7 @@ All were ruled out **with evidence**. Four were confident wrong turns.
 | fq_codel drops | 510 → 510 across a full slow upload, zero ECN marks |
 | **DPI / traffic prioritization** | Rules left the datapath mid-session; vault stayed pinned at 19-21 Mbit/s. Turning DPI off does **not** help |
 | CPU / IPS | All 4 cores 50-58% idle; Intrusion Prevention was already off |
-| Dual-WAN load balancing | vault, pods and router all egress `66.219.1.132` (eth8) |
+| Dual-WAN load balancing | vault, pods and router all egress `<WAN1-IP>` (eth8) |
 | Congestion control | router, vault and k8s nodes are all `cubic` |
 | **`Auto-negotiation: OFF` on the SFP+ link** | Normal for a passive DAC. `ethtool` reporting `Port: Twisted Pair` is the `al_eth` driver misreporting a DAC — not evidence of copper |
 | Bad cable at the NAS | Both vault bond legs showed zero CRC/TX errors; a second host on different cables showed the same loss |
@@ -253,8 +253,8 @@ which share one fibre modem through a dumb switch — show identical latency
 instability one hop out:
 
 ```
-eth8 gw 66.219.0.1    min 1.88  max 146.10  mdev 20.67 ms
-eth7 gw 64.235.64.1   min 2.22  max 157.46  mdev 26.08 ms
+eth8 gw <WAN1-GW>    min 1.88  max 146.10  mdev 20.67 ms
+eth7 gw <WAN2-GW>   min 2.22  max 157.46  mdev 26.08 ms
 ```
 
 0% ICMP loss, so this is queueing/scheduling, not a broken link.
@@ -315,12 +315,12 @@ the same 75-188 Mbit/s swing throughout, and `eth8` shows `rx_err=0` across
 
 While direct, only one WAN reaches the ISP (`eth7` keeps link to the switch
 but has no route out), so that is a diagnostic state, not one to leave
-running. Restored config: both WAN ports up, `66.219.1.132` and
-`64.235.64.92`.
+running. Restored config: both WAN ports up, `<WAN1-IP>` and
+`<WAN2-IP>`.
 
 So the switch, both WAN cables, and both UDM WAN ports are all exonerated.
-What remains upstream is the modem, the fibre, and GVTel's access equipment.
-The complaint to GVTel is: *both public IPs, and a direct modem-to-router
+What remains upstream is the modem, the fibre, and the ISP's access equipment.
+The complaint to the ISP is: *both public IPs, and a direct modem-to-router
 connection bypassing all customer switching and cabling, show the same
 occasional latency excursion — roughly 1 TCP connection in 30 taking ~150 ms
 against a ~11 ms median — with 0% packet loss.* Lead with the TCP figures,

@@ -1,0 +1,116 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+#
+# Physical-layer health for the UniFi fabric.
+#
+# Born from a failing SFP+ cage on the UDM's eth10 ("Morpheus Port 11") that
+# corrupted ~0.15% of received frames for at least 4.6 days while nothing
+# alerted. Every LAN host's internet upload was capped near 20 Mbit/s on a
+# 500/500 line; the router itself, which did not cross that port, ran 200+.
+# Full story: docs/runbooks/wan-upload-degradation.md
+#
+# Two things made it invisible for so long, and both shape these rules:
+#
+#  1. A fixed loss rate costs throughput in proportion to RTT. The same 0.26%
+#     still allowed 1.98 Gbit/s across the LAN at 0.2ms RTT, so every local
+#     throughput test looked perfect. Only the 11ms internet path suffered.
+#     Bitrate is therefore useless as a health signal -- error COUNTERS are the
+#     signal, and they were already being collected the whole time.
+#
+#  2. Nothing alerted on them. The metric existed in Prometheus with 60 days of
+#     history and the correct value. That gap is what this file closes.
+#
+# Deliberately NOT alerted on:
+#
+#  - Absolute error counts. They are cumulative since link-up, so a port that
+#    took a burst months ago would alert forever while an actively-degrading
+#    link that just came up would look clean. Ratio against packet count is
+#    both self-normalising across link speeds and honest about "now".
+#
+#  - Transmit errors. On the failing link tx_errors stayed at 0 while rx_errors
+#    climbed -- corruption shows up at the RECEIVING end. A tx-side rule would
+#    have been silent for the exact fault that motivated this file. Receive is
+#    where the signal is.
+#
+#  - Discards/dropped. Those track buffer pressure and congestion, which is a
+#    capacity question, not a failing-hardware question. Alerting on them here
+#    would blur two very different investigations.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: unpoller-link-health
+spec:
+  groups:
+    - name: unpoller.link-health.rules
+      rules:
+        # 0.01% sustained. Calibrated with ~15x margin below the 0.15% that the
+        # eth10 cage produced, and well above the noise floor of a healthy port
+        # (the replacement cage measured 0.0000 err/s over 365k packets).
+        #
+        # `for: 30m` rather than minutes: unpoller polls on a 2m cadence because
+        # that is as often as the UniFi API refreshes, so a short window is only
+        # a handful of samples. 30m is ~15 scrapes -- enough that a link flap or
+        # a single cable reseat does not page, while a genuine fault (which
+        # produced ~1M errors/day, steadily) trips it comfortably.
+        - alert: UnifiPortReceiveErrors
+          annotations:
+            summary: >-
+              UniFi {{ $labels.name }} {{ $labels.port_id }}
+              ({{ $labels.port_name }}) is corrupting
+              {{ $value | humanizePercentage }} of received frames. This is a
+              physical-layer fault -- suspect the cable, the SFP/DAC, or the
+              port itself, in that order of cheapness. Note LAN throughput
+              tests will still look healthy; confirm with
+              `ip -s link show <iface>` sampled twice on the device, and
+              isolate by moving ONE variable at a time.
+              See docs/runbooks/wan-upload-degradation.md
+          expr: |
+            (
+              sum by (name, port_id, port_name) (rate(unpoller_device_port_receive_errors_total[15m]))
+              /
+              sum by (name, port_id, port_name) (rate(unpoller_device_port_receive_packets_total[15m]) > 0)
+            ) > 0.0001
+          for: 30m
+          labels:
+            severity: warning
+
+        # The WAN ports are not in the port_table series above, so they need
+        # their own rule or they would be the one uninstrumented link in the
+        # path -- and the least convenient one to lose.
+        - alert: UnifiWanReceiveErrors
+          annotations:
+            summary: >-
+              UniFi {{ $labels.name }} WAN {{ $labels.port }} is corrupting
+              {{ $value | humanizePercentage }} of received frames. Check the
+              handoff to the ISP modem before calling the ISP -- a bad cable or
+              port on our side looks exactly like an upstream problem from the
+              router's own counters.
+              See docs/runbooks/wan-upload-degradation.md
+          expr: |
+            (
+              sum by (name, port) (rate(unpoller_device_wan_receive_errors_total[15m]))
+              /
+              sum by (name, port) (rate(unpoller_device_wan_receive_packets_total[15m]) > 0)
+            ) > 0.0001
+          for: 30m
+          labels:
+            severity: warning
+
+        # A port that is errored but barely used will not trip the ratio rules
+        # for a long time, because the rate() denominators are small and noisy.
+        # This catches sustained absolute error growth regardless of traffic
+        # volume -- 1/s is ~86k/day, unambiguous but far below the ~12/s the
+        # failing cage sustained.
+        - alert: UnifiPortErrorsAccumulating
+          annotations:
+            summary: >-
+              UniFi {{ $labels.name }} {{ $labels.port_id }}
+              ({{ $labels.port_name }}) has been accumulating receive errors at
+              {{ $value | printf "%.2f" }}/s for an hour. Low-traffic ports can
+              sit below the error-ratio threshold while still being faulty.
+              See docs/runbooks/wan-upload-degradation.md
+          expr: |
+            sum by (name, port_id, port_name) (rate(unpoller_device_port_receive_errors_total[30m])) > 1
+          for: 1h
+          labels:
+            severity: warning
