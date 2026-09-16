@@ -252,9 +252,41 @@ eth8 gw 66.219.0.1    min 1.88  max 146.10  mdev 20.67 ms
 eth7 gw 64.235.64.1   min 2.22  max 157.46  mdev 26.08 ms
 ```
 
-0% ICMP loss, so this is queueing/scheduling, not a broken link. This is what
-makes the router's own throughput swing 41-240 Mbit/s, and it caps any single
-upload flow.
+0% ICMP loss, so this is queueing/scheduling, not a broken link.
+
+### ICMP badly overstates it — measure the data plane
+
+**This is the correction that matters.** The numbers above are ICMP, and ISP
+routers routinely deprioritise and rate-limit control-plane ICMP. Measuring
+the actual data path tells a far milder story:
+
+| Method | Result |
+| --- | --- |
+| ICMP ping | max 220-328 ms, mdev 20-65 ms — looks like constant chaos |
+| TCP handshake, 30 samples to 1.1.1.1 | median **11.2 ms**, p90 **13.8 ms**, one outlier at 158 ms |
+| TCP socket during a real bulk transfer | `rtt:11.17/0.873` — mdev under **1 ms** |
+
+Real latency is ~11 ms with roughly **1 connection in 30** taking a ~150 ms
+hit. Annoying, worth reporting, but not the crippling instability ICMP
+implies — and never what capped uploads. The cage was.
+
+```bash
+# the right probe: TCP handshake, not ping
+for i in $(seq 30); do curl -4 -o /dev/null -s -w "%{time_connect}\n" https://1.1.1.1/; done
+```
+
+### It is not the 500 Mbit rate limit
+
+A shaper queueing your own traffic would make jitter scale with load. It does
+not — the spikes are fully present at idle:
+
+| Phase | max | mdev |
+| --- | --- | --- |
+| Idle | 267 ms | 34.9 |
+| Upload saturated, 8 streams | 254 ms | 41.1 |
+| Download saturated, 8 streams | 253 ms | 40.8 |
+
+So a higher tier buys headroom for a problem that is not headroom-related.
 
 **Local hardware is ruled out — do not re-test this.** The normal topology is
 fibre modem → dumb gigabit switch → two cables → UDM (two WAN ports, two
@@ -283,7 +315,54 @@ running. Restored config: both WAN ports up, `66.219.1.132` and
 
 So the switch, both WAN cables, and both UDM WAN ports are all exonerated.
 What remains upstream is the modem, the fibre, and GVTel's access equipment.
-The complaint to GVTel is therefore: *both public IPs, and a direct
-modem-to-router connection bypassing all customer switching and cabling, show
-identical 2 ms → 300 ms latency spikes to your own first-hop gateway with 0%
-packet loss.*
+The complaint to GVTel is: *both public IPs, and a direct modem-to-router
+connection bypassing all customer switching and cabling, show the same
+occasional latency excursion — roughly 1 TCP connection in 30 taking ~150 ms
+against a ~11 ms median — with 0% packet loss.* Lead with the TCP figures,
+not the ICMP ones; the ICMP numbers invite being dismissed as ping
+deprioritisation, which is largely what they are.
+
+## Is the WAN tier the constraint? (measured, 2026-09-15)
+
+Peak of a 10-minute average over 30 days: **364 Mbit/s down, 518 Mbit/s up**.
+A peak alone says nothing about need, so here is the distribution — 7 days at
+full 5-minute coverage, 2016 samples:
+
+| Direction | >50 Mbit/s | >100 | >250 | >400 |
+| --- | --- | --- | --- | --- |
+| Upload | 2.33% | 0.60% | 0.10% | **0.00%** |
+| Download | 2.83% | 0.79% | 0.10% | 0.05% |
+
+**Upload never once exceeded 400 Mbit/s in a week, and sits under 50 Mbit/s
+for 97.7% of it.** The 518 Mbit/s figure was a single 10-minute window in 30
+days. On this evidence a 1 Gbit tier would buy capacity used ~0.1% of the
+time, and would not touch the latency excursions above.
+
+Two honest caveats before deciding:
+
+- The upload side of this window is **contaminated by the very bug this
+  runbook documents** — every LAN host was capped near 20 Mbit/s for most of
+  it, so upload demand is suppressed by an unknown amount. Re-measure a week
+  after the cage fix.
+- 5-minute averages cannot see short bursts (see collection limits below).
+
+### Collection: what exists, and its ceiling
+
+WAN throughput **is** collected: `unpoller` → Prometheus → Thanos
+(`unpoller_device_wan_{transmit,receive}_bytes_total{name="Morpheus"}`).
+It does **not** go to InfluxDB — `UP_INFLUXDB_DISABLE: true` in the
+HelmRelease; Influx here carries Home Assistant data, not network telemetry.
+
+Retention and resolution: Prometheus 2d, Thanos raw 14d / 5m 30d / 1h 60d.
+
+The real ceiling is the **2-minute scrape interval**, and it is not a tuning
+mistake — UniFi's own API only refreshes every 2 minutes
+(`kubernetes/apps/observability/unpoller/app/helmrelease.yaml`). So sub-minute
+bursts are invisible no matter how the query is written, and a 1h-resolution
+query beyond 30d smooths peaks away almost entirely.
+
+If finer WAN resolution is ever actually needed, the path is **not** to tune
+unpoller. Enable SNMP on the UDM (currently off) and scrape it with
+`snmp_exporter` at 30s, reading the interface counters directly and bypassing
+the UniFi API. Worth doing only if a decision hinges on burst behaviour — the
+utilisation numbers above are decisive without it.
