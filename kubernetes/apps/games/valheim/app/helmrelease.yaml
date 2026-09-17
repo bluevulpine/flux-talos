@@ -40,7 +40,7 @@ spec:
             image:
               repository: docker.io/mbround18/valheim
               # renovate: datasource=docker depName=docker.io/mbround18/valheim
-              tag: 3.8.3
+              tag: 3.8.5
             probes:
               liveness:
                 enabled: false
