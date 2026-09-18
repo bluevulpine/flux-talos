@@ -1,3 +1,4 @@
+---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -182,6 +183,20 @@ spec:
         ports:
           http:
             port: *port
+    # The app serves /metrics on its main port rather than a dedicated one, so
+    # this targets `http`. Scraped for the odometer-fill coverage gauges: `sync`
+    # degrades and exits 0 when telemetry is unreadable, so a stopped fill is
+    # invisible to every other alert here -- the Job succeeds, the deployment
+    # stays ready, and odometer_m quietly stops being written.
+    serviceMonitor:
+      app:
+        serviceName: *app
+        endpoints:
+          - port: http
+            scheme: http
+            path: /metrics
+            interval: 5m
+            scrapeTimeout: 10s
     route:
       app:
         annotations:
