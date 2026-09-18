@@ -94,3 +94,47 @@ data:
                 (2) Credential — only if DNS resolves: Gitea → this repo → Settings →
                 Mirror Settings → update the upstream credential. Logs: Grafana →
                 Explore → VictoriaLogs: app:gitea "[E]" "SyncMirrors"
+      # A telemetry field that stops being reported, while the collector keeps
+      # succeeding. KiaCollectorJobFailed, KiaCollectorImagePullFailing and
+      # KiaCollectorStale all detect the collector NOT RUNNING; none of them can
+      # see a run that succeeds and writes nothing. aux_battery_pct vanished on
+      # 2026-08-08 and stayed gone for six weeks underneath all three.
+      #
+      # The collector emits "DEATHWATCH:" from exactly one log.warning call when a
+      # field it normally writes comes back None. Matching the bare marker follows
+      # the kia-trip-archiver precedent above: the string is globally unique
+      # (verified — 0 hits across the full 14d retention before this shipped), so
+      # the alert does not depend on fluent-bit's pod-label mapping. Do not add an
+      # app: selector or a second substring; the Gitea rule one group up is a
+      # standing reminder of what over-specific matching costs.
+      - name: kia-collector
+        type: vlogs
+        interval: 15m
+        rules:
+          - alert: KiaCollectorFieldStoppedReporting
+            # _time:1h against a 10-min cadence spans ~6 runs. `failures:>3` rather
+            # than `>0` so a single transient None cannot page: a genuinely stopped
+            # field warns on every run and crosses the threshold within the hour,
+            # while a one-off blip ages out. Auto-resolves ~1h after the field
+            # returns rather than dragging on for a day.
+            expr: >-
+              _time:1h "DEATHWATCH:"
+              | stats count() as failures | filter failures:>3
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Kia collector: a field that normally reports has gone silent'
+              # Deliberately not critical. Nothing is broken or at risk; a metric has
+              # stopped, and the remedy is diagnosis rather than a 3am intervention.
+              description: >-
+                {{ $value }} runs in the last hour wrote nothing for a field they
+                normally write, while the job itself kept succeeding — so no other
+                alert can see this. The log line names the fields. Read it with
+                Grafana → Explore → VictoriaLogs: "DEATHWATCH:"
+                First question is whether the value went away or the meaning did:
+                the library maps out-of-range sentinels (255/0xFF) to None, so a
+                field can "stop" because the car started reporting it as
+                unavailable rather than because collection broke.
+                If the field is known-broken and the cause is understood, add it to
+                KNOWN_DEAD in collector.py with the date and reason — that silences
+                this alert for that field while still reporting it if it recovers.
