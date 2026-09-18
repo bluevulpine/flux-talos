@@ -78,3 +78,45 @@ spec:
           for: 15m
           labels:
             severity: critical
+
+        # The odometer fill stopping while everything else stays green.
+        #
+        # This is NOT covered by SyncStale above: that catches the sync failing
+        # to RUN. This catches it running, succeeding, and filling nothing --
+        # because `sync` deliberately degrades when the telemetry token is
+        # unreadable. It imports the charge rows, says why on stderr, and exits
+        # 0, so the charge data is never held hostage to an accessory. The cost
+        # is that a revoked kia token, a changed bucket, or a tag that stops
+        # matching leaves the Job successful, the deployment ready, the image
+        # pulling fine -- and odometer_m silently unwritten. No exit code can
+        # ever catch that, by design. This is what makes the design safe.
+        #
+        # Measured against the consequence rather than a guessed cause, so it
+        # fires for reasons nobody predicted too.
+        #
+        # Thresholds from the real arrival rate (~1 home session/day): the two
+        # permanent blanks -- 2026-07-12 and 2026-08-11, where telemetry
+        # genuinely does not reach -- are old, so recent coverage sits at 100%.
+        # One legitimately unreadable session drops a 10-row window to 90%, well
+        # clear of 0.7; a stopped fill crosses it within a day or two. `> 0`
+        # guards the empty-ledger divide-by-zero, and the metric's absence
+        # before the first scrape produces no series rather than a false alert.
+        - alert: EvChargeLedgerOdometerFillStopped
+          annotations:
+            summary: >-
+              EV charge ledger odometer coverage has fallen to
+              {{ $value | humanizePercentage }} of recent home sessions. The
+              sync is still succeeding, so this is the fill itself: check
+              `kubectl logs -n home job/$(kubectl get jobs -n home -o name |
+              grep ev-charge-ledger-sync | tail -1 | cut -d/ -f2)` for a FAILED
+              line naming ECL_KIA_INFLUX_TOKEN or the kia-vehicle bucket.
+          expr: |
+            (
+              ev_charge_ledger_recent_home_with_odometer
+              /
+              ev_charge_ledger_recent_home_sessions
+            ) < 0.7
+            and ev_charge_ledger_recent_home_sessions > 0
+          for: 6h
+          labels:
+            severity: warning
