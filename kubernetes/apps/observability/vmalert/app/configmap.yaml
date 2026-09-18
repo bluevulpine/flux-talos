@@ -117,20 +117,37 @@ data:
             # field warns on every run and crosses the threshold within the hour,
             # while a one-off blip ages out. Auto-resolves ~1h after the field
             # returns rather than dragging on for a day.
+            #
+            # Grouped, not a bare count — mirroring the gitea rule above, and for
+            # the same reason. Without grouping every DEATHWATCH line in the window
+            # lands in one bucket, so four SEPARATE runs each blipping on a
+            # DIFFERENT field sum to 4 and page: precisely the false alarm `>3`
+            # exists to prevent, moved from "one field over six runs" to "four
+            # fields over four runs". The threshold only ever meant what the
+            # summary claims if it is counted per field. (Review of #1834.)
+            #
+            # `fields` is a LIST, not one name: the collector emits one line per
+            # run carrying every dead field comma-joined, so a persistent failure
+            # repeats an identical list and groups cleanly. The known limit, stated
+            # rather than glossed: if one field is permanently dead while another
+            # blips, the list alternates between "a" and "a, b" and splits across
+            # two groups, which can undercount. Emitting one line per field would
+            # make this exactly per-field — a collector change, not an alert one.
             expr: >-
               _time:1h "DEATHWATCH:"
-              | stats count() as failures | filter failures:>3
+              | extract "returned nothing this run: <fields>."
+              | stats by (fields) count() as failures | filter failures:>3
             labels:
               severity: warning
             annotations:
-              summary: 'Kia collector: a field that normally reports has gone silent'
+              summary: 'Kia collector: {{ $labels.fields }} stopped reporting'
               # Deliberately not critical. Nothing is broken or at risk; a metric has
               # stopped, and the remedy is diagnosis rather than a 3am intervention.
               description: >-
-                {{ $value }} runs in the last hour wrote nothing for a field they
-                normally write, while the job itself kept succeeding — so no other
-                alert can see this. The log line names the fields. Read it with
-                Grafana → Explore → VictoriaLogs: "DEATHWATCH:"
+                {{ $labels.fields }} — wrote nothing on {{ $value }} of the last
+                hour's runs, while the job itself kept succeeding, so no other alert
+                can see it. Full log line: Grafana → Explore → VictoriaLogs:
+                "DEATHWATCH:"
                 First question is whether the value went away or the meaning did:
                 the library maps out-of-range sentinels (255/0xFF) to None, so a
                 field can "stop" because the car started reporting it as
