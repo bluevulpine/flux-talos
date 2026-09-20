@@ -27,7 +27,14 @@ spec:
             image:
               repository: docker.io/fosrl/newt
               # renovate: datasource=docker depName=docker.io/fosrl/newt
-              tag: 1.17.0
+              # Pinned below latest: 1.17.0 (PR #1816) regressed the ping/hole-punch
+              # path -- "failed to read ICMP packet: i/o timeout" on every attempt,
+              # zero successful pings observed, "Connection to server lost" every
+              # ~3m tearing down in-flight proxy targets, causing 502s from Traefik
+              # on the Pangolin VPS. Matches an open upstream regression touching
+              # the ping function in fosrl/newt#449. Revert until upstream fixes it;
+              # do not bump past 1.16.0 without confirming the ping path first.
+              tag: 1.16.0
             # Newt is the tunnel *client*: it dials out to the Pangolin server
             # (PANGOLIN_ENDPOINT over 443 + Gerbil WireGuard over UDP) and, once
             # registered, forwards traffic to the target configured in the
