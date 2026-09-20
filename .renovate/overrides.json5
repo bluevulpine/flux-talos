@@ -26,6 +26,18 @@
       enabled: false,
     },
     {
+      // 1.17.0 regressed the ping/hole-punch path: every ICMP ping attempt
+      // fails ("failed to read ICMP packet: i/o timeout"), tearing down the
+      // tunnel and its in-flight proxy targets every ~3 minutes and causing
+      // 502s from Traefik on the Pangolin VPS. Matches an open upstream
+      // regression touching the ping function in fosrl/newt#449. Remove this
+      // pin once upstream confirms a fix and it's been verified in staging.
+      description: "Pin fosrl/newt below 1.17.0 (ping/hole-punch regression)",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["docker.io/fosrl/newt"],
+      allowedVersions: "<1.17.0",
+    },
+    {
       // gitea's HelmRelease has a top-level `image.repository`/`image.tag`
       // block, which Renovate's built-in *flux* manager extracts natively
       // (it parses `values:` inside Flux HelmRelease CRs the same way
