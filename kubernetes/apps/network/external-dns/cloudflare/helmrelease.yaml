@@ -34,10 +34,26 @@ spec:
       - --gateway-namespace=network
       - --gateway-name=external
     policy: sync
-    sources: ["crd", "gateway-httproute"]
+    # v0.22.0 (bundled in this chart bump) drops the external-dns.alpha.kubernetes.io/
+    # fallback and makes the annotation prefix a required, no-default setting — the
+    # release notes warn the change "can delete all your DNS records". The `crd`
+    # source here reads that exact key as a literal providerSpecific property name on
+    # every DNSEndpoint (e.g. cloudflare-proxied: false on pangolin, echo-server-pangolin),
+    # so pin it explicitly or every record silently falls back to --cloudflare-proxied=true.
+    annotationPrefix: "external-dns.alpha.kubernetes.io/"
+    sources:
+      - "crd"
+      - "gateway-httproute"
     txtPrefix: k8s.
     txtOwnerId: default
-    domainFilters: ["${SECRET_DOMAIN}", "${SECRET_DOMAIN_BLOG}", "${SECRET_DOMAIN_BLOGCOM}", "${SECRET_DOMAIN_MEDIA}", "${SECRET_DOMAIN_LAKE}", "${SECRET_DOMAIN_YOYO}", "${SECRET_DOMAIN_BON}"]
+    domainFilters:
+      - "${SECRET_DOMAIN}"
+      - "${SECRET_DOMAIN_BLOG}"
+      - "${SECRET_DOMAIN_BLOGCOM}"
+      - "${SECRET_DOMAIN_MEDIA}"
+      - "${SECRET_DOMAIN_LAKE}"
+      - "${SECRET_DOMAIN_YOYO}"
+      - "${SECRET_DOMAIN_BON}"
     serviceMonitor:
       enabled: true
     podAnnotations:
