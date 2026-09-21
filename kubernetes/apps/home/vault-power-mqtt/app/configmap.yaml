@@ -42,7 +42,10 @@ data:
     while true; do
       W=$(wget -qO- "$IPMI_URL" 2>/dev/null | awk '/^ipmi_dcmi_power_consumption_watts /{print $2; exit}')
       if [ -n "${W:-}" ]; then
-        pub -t "$STATE_TOPIC" -m "$W" || echo "state publish failed"
+        # -r: retain, so HA gets the last value immediately on (re)connect rather
+        # than showing "unavailable" for up to 30s. expire_after (150s) still
+        # flips it to unavailable if the publisher dies and the value goes stale.
+        pub -r -t "$STATE_TOPIC" -m "$W" || echo "state publish failed"
       else
         echo "no watts read from exporter"
       fi
