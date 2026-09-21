@@ -38,6 +38,11 @@ spec:
               - "--config.file=/etc/ipmi_exporter/config.yml"
             env:
               TZ: "${TIMEZONE}"
+              # freeipmi (invoked by the exporter) writes an SDR cache under
+              # $HOME/.freeipmi. With readOnlyRootFilesystem it must be pointed
+              # at a writable mount or every collector fails "read-only file
+              # system" before it ever reaches the BMC.
+              HOME: /tmp
             probes:
               liveness: &probe
                 enabled: true
@@ -72,6 +77,11 @@ spec:
             port: 9290
             protocol: TCP
     persistence:
+      # Writable scratch for freeipmi's SDR cache (see HOME above).
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
       # The exporter's own /metrics (port 9290) is scraped for exporter health;
       # the BMC data is fetched per-target via GET /ipmi?target=...&module=...
       config:
