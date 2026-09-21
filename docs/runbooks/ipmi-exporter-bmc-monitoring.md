@@ -125,20 +125,59 @@ poller (the exporter) and no BMC credential in this pod. A retained MQTT
 discovery message creates the HA entity (`device_class: power`,
 `state_class: measurement`, `expire_after: 150`).
 
-**Setup (one step).** It reuses the broker's `basicaccess` user
-(`acl.conf: topic readwrite #`), so no new mosquitto user or ACL entry is
-needed — just a dedicated OpenBao key:
+**Setup — provision a dedicated, ACL-scoped broker user.** This follows the
+repo convention (`minnkota-collector`, `telegraf` each have their own scoped
+user, not the shared `mqtt_publisher`). mosquitto users live as **plaintext
+`user:password` in the OpenBao `mosquitto` key's `passwd.conf` field**; a hasher
+sidecar runs `mosquitto_passwd -U` and SIGHUPs the broker — no restart.
+
+Two gotchas, both bite silently:
+- `passwd.conf` has **no trailing newline** — append with a leading `\n` or you
+  merge into the previous user's line and break their login too.
+- After editing the `mosquitto` key you **must force the mosquitto
+  ExternalSecret to resync** or the hasher never sees the new user.
+
+Run locally (bao authenticated as root), keeping the password out of any
+transcript:
 
 ```bash
+PW=$(openssl rand -base64 18)          # no shell-special chars in the pw
+
+# Rebuild passwd.conf: existing content (command substitution strips ANY
+# trailing newlines) + exactly one newline + the new user. This is robust
+# whether or not `bao ... -field` emits a trailing newline.
+OLD_PASSWD=$(bao kv get -field=passwd.conf secret/mosquitto)
+printf '%s\nvault-power:%s\n' "$OLD_PASSWD" "$PW" > /tmp/passwd.conf
+
+OLD_ACL=$(bao kv get -field=acl.conf secret/mosquitto)
+printf '%s\n\nuser vault-power\ntopic write homeassistant/sensor/vault_power/#\n' \
+  "$OLD_ACL" > /tmp/acl.conf
+
+# VERIFY before writing — the last lines should be the new user, no merged line
+tail -3 /tmp/passwd.conf; echo '---'; tail -4 /tmp/acl.conf
+
+bao kv patch secret/mosquitto passwd.conf=@/tmp/passwd.conf acl.conf=@/tmp/acl.conf
+rm -f /tmp/passwd.conf /tmp/acl.conf
+
+# the app's own key the ExternalSecret reads
 bao kv put secret/vault-power-mqtt \
-  VaultPower__Mqtt__User=basicaccess \
-  VaultPower__Mqtt__Password='<basicaccess broker password>'
+  VaultPower__Mqtt__User=vault-power \
+  VaultPower__Mqtt__Password="$PW"
+
+# force the broker to pick up the new user (hasher rehashes + SIGHUPs, no restart)
+kubectl -n home annotate externalsecret mosquitto-secret \
+  force-sync="$(date +%s)" --overwrite
 ```
 
-Until that key exists the ExternalSecret stays unsynced and the pod has no MQTT
-password (same staged pattern as the exporter). A dedicated, ACL-scoped broker
-user would be tighter than reusing `basicaccess`; that is the future-tightening
-option.
+Sanity-check the broker accepted it (no restart needed):
+
+```bash
+kubectl -n home get secret mosquitto-secret \
+  -o jsonpath='{.data.passwd\.conf}' | base64 -d | cut -d: -f1 | grep -x vault-power
+```
+
+Until `secret/vault-power-mqtt` exists the publisher's ExternalSecret stays
+unsynced and its pod has no MQTT password (same staged pattern as the exporter).
 
 **The one HA-side step (only you can do this).** The Energy dashboard consumes
 **energy** (kWh, `state_class: total_increasing`), but the BMC gives
