@@ -1,0 +1,105 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+#
+# Health alerting for the vault BMC (Supermicro X9DR3-F) scraped by
+# ipmi-exporter. Fills the gap that let a failing SFP+ cage run for 4.6 days
+# unnoticed: a fan stall, an over-temp, or a rail out of tolerance on the NAS
+# should page, and Scrutiny/truenas-exporter cover disks/pools but not the
+# board's environmentals.
+#
+# Design: alert on the BMC's OWN threshold states (0=nominal, 1=warning,
+# 2=critical), not on hardcoded numbers. Supermicro knows the right threshold
+# for each sensor; ipmi_(temperature|fan_speed|voltage|sensor)_state already
+# encodes it. Self-calibrating across sensor types, and quiet at the current
+# all-nominal baseline (every state=0 except the note below).
+#
+# Deliberately NOT alerted on:
+#   - `Chassis Intru` — reads state 2 (critical) permanently: a latched
+#     intrusion flag on a NAS whose case switch is unwired/tripped. It is
+#     excluded so it does not page forever. Clear the latch in the BMC (IPMI
+#     "Chassis Identify"/reset intrusion) if you want it usable.
+#   - ipmi_chassis_{cooling,drive}_fault_state — INVERTED semantics
+#     (1=false/OK, 0=fault) and coarse (chassis-level LED logic). Redundant
+#     with the per-sensor fan/temp states above, which are more informative,
+#     so omitted rather than risk an inverted rule that fires constantly.
+#   - power draw (ipmi_dcmi_power_consumption_watts) — a cost signal, not a
+#     health one.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ipmi-exporter
+spec:
+  groups:
+    - name: ipmi.vault.rules
+      rules:
+        # BMC flags a sensor CRITICAL: over-temp, fan stall, or a voltage rail
+        # well out of tolerance. On a NAS this is act-now — thermal shutdown or
+        # a dying PSU. 5m rides out a transient reading.
+        - alert: IpmiSensorCritical
+          annotations:
+            summary: >-
+              vault BMC sensor {{ $labels.name }} is CRITICAL (the board's own
+              threshold, not a guess). Suspect over-temperature, a stalled fan,
+              or a PSU rail out of tolerance — check the NAS now. Detail:
+              `kubectl -n observability logs deploy/ipmi-exporter` or the IPMI
+              web UI at https://10.0.10.2.
+              See docs/runbooks/ipmi-exporter-bmc-monitoring.md
+          expr: |
+            max by (instance, name) (
+              {__name__=~"ipmi_(temperature|fan_speed|voltage|sensor)_state", name!="Chassis Intru"}
+            ) == 2
+          for: 5m
+          labels:
+            severity: critical
+
+        # BMC flags a sensor WARNING (non-critical threshold crossed). Longer
+        # window — this is "keep an eye on it", not a page.
+        - alert: IpmiSensorWarning
+          annotations:
+            summary: >-
+              vault BMC sensor {{ $labels.name }} is in a WARNING state — a
+              non-critical threshold has been crossed. Trending toward a
+              problem; investigate before it becomes critical.
+              See docs/runbooks/ipmi-exporter-bmc-monitoring.md
+          expr: |
+            max by (instance, name) (
+              {__name__=~"ipmi_(temperature|fan_speed|voltage|sensor)_state", name!="Chassis Intru"}
+            ) == 1
+          for: 30m
+          labels:
+            severity: warning
+
+        # A collector is failing to read the BMC — the class of fault that hid
+        # for hours on first deploy (read-only filesystem breaking freeipmi),
+        # and would also catch a privilege regression or a BMC that stops
+        # answering RMCP. Distinct from the target being down.
+        - alert: IpmiCollectorFailing
+          annotations:
+            summary: >-
+              vault BMC collector "{{ $labels.collector }}" has been failing for
+              15m — the exporter reaches the endpoint but cannot read this data.
+              Likely a freeipmi/permission/BMC-session problem, not a network
+              outage. Check `kubectl -n observability logs deploy/ipmi-exporter`.
+              See docs/runbooks/ipmi-exporter-bmc-monitoring.md
+          expr: |
+            ipmi_up == 0
+          for: 15m
+          labels:
+            severity: warning
+
+        # Prometheus cannot scrape the exporter's /ipmi endpoint for this
+        # target at all — exporter down, or the BMC unreachable over the
+        # network. (A powered-off NAS with a live BMC still scrapes fine, so
+        # this means the BMC/exporter path itself, not a NAS shutdown.)
+        - alert: IpmiTargetDown
+          annotations:
+            summary: >-
+              The ipmi scrape for {{ $labels.instance }} has been down for 15m —
+              the exporter or the BMC network path is unreachable. vault power
+              and environmental telemetry are blind until it recovers.
+              See docs/runbooks/ipmi-exporter-bmc-monitoring.md
+          expr: |
+            up{job="ipmi"} == 0
+          for: 15m
+          labels:
+            severity: warning

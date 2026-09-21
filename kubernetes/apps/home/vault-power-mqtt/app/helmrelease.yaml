@@ -1,0 +1,72 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2beta2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app vault-power-mqtt
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: vault-power-mqtt
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    controllers:
+      vault-power-mqtt:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        type: deployment
+        replicas: 1
+        containers:
+          app:
+            # eclipse-mosquitto is Alpine/BusyBox: ships mosquitto_pub AND the
+            # wget/awk/sh the publish loop needs — no custom image to build.
+            image:
+              repository: docker.io/library/eclipse-mosquitto
+              tag: 2.0.22
+            command:
+              - /bin/sh
+              - /scripts/publish.sh
+            env:
+              TZ: "${TIMEZONE}"
+              MQTT_HOST: mosquitto.home.svc.cluster.local
+              MQTT_PORT: "1883"
+              # The exporter is the single BMC poller; this reads its cached
+              # per-target output cross-namespace. No BMC credential here.
+              IPMI_URL: "http://ipmi-exporter.observability.svc.cluster.local:9290/ipmi?target=10.0.10.2&module=default"
+            envFrom:
+              - secretRef:
+                  name: vault-power-mqtt-secret
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 5m
+                memory: 16Mi
+              limits:
+                memory: 64Mi
+        pod:
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+    persistence:
+      scripts:
+        type: configMap
+        name: vault-power-mqtt-script
+        defaultMode: 0555
+        globalMounts:
+          - path: /scripts/publish.sh
+            subPath: publish.sh
+            readOnly: true

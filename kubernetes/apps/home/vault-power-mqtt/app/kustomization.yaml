@@ -5,6 +5,5 @@ kind: Kustomization
 resources:
   - ./ocirepository.yaml
   - ./externalsecret.yaml
+  - ./configmap.yaml
   - ./helmrelease.yaml
-  - ./scrapeconfig.yaml
-  - ./prometheusrule.yaml
