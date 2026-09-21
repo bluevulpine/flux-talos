@@ -5,7 +5,12 @@ kind: ImageRepository
 metadata:
   name: &app kia-collector
 spec:
-  image: gitea.derekjacobs.dev/bluevulpine/kia-collector
+  # Under the bvn-homelab org, not the bluevulpine user namespace. Gitea cannot
+  # move a package between owners -- the API offers only GET, DELETE and
+  # link/unlink within one owner -- so the repo publishes to the org instead and
+  # the old path is retired. The gitea-registry-creds read token lists this
+  # repository's tags (200 on 17-cb52381e, 2026-09-21).
+  image: gitea.derekjacobs.dev/bvn-homelab/kia-collector
   interval: 5m
   secretRef:
     name: gitea-registry-creds

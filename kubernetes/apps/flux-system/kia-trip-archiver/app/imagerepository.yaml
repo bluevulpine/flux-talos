@@ -5,7 +5,11 @@ kind: ImageRepository
 metadata:
   name: &app kia-trip-archiver
 spec:
-  image: gitea.derekjacobs.dev/bluevulpine/kia-trip-archiver
+  # Under the bvn-homelab org, not the bluevulpine user namespace -- moved with
+  # its sibling kia-collector, since both are built by the same repo and share
+  # one registry credential. The gitea-registry-creds read token lists this
+  # repository's tags (200 on 17-cb52381e, 2026-09-21).
+  image: gitea.derekjacobs.dev/bvn-homelab/kia-trip-archiver
   interval: 5m
   secretRef:
     name: gitea-registry-creds
