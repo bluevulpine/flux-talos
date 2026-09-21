@@ -14,6 +14,7 @@ resources:
   - ./gatus/ks.yaml
   - ./grafana/ks.yaml
   - ./graphite-exporter/ks.yaml
+  - ./ipmi-exporter/ks.yaml
   - ./kromgo/ks.yaml
   - ./kube-prometheus-stack/ks.yaml
   - ./rackpanel/ks.yaml

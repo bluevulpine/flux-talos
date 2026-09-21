@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+#
+# Multi-target exporter pattern (like blackbox/snmp): Prometheus scrapes the
+# exporter's /ipmi endpoint and passes the BMC address as ?target=. The
+# exporter opens an RMCP session to that BMC and returns its sensors. kube-
+# prometheus-stack selects ScrapeConfigs cluster-wide
+# (scrapeConfigSelectorNilUsesHelmValues: false), so this is discovered from
+# the app's own directory.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: &name ipmi
+spec:
+  metricsPath: /ipmi
+  params:
+    module:
+      - default
+  # freeipmi opens a session per collector and each can take up to `timeout`
+  # (5s); four collectors → keep the scrape timeout well above the worst case.
+  scrapeInterval: 60s
+  scrapeTimeout: 30s
+  staticConfigs:
+    - targets:
+        # vault BMC (Supermicro X9DR3-F IPMI 2.0). This is the BMC address,
+        # relabeled below into ?target= — NOT the address Prometheus connects
+        # to (that becomes the exporter service).
+        - 10.0.10.2
+  relabelings:
+    - sourceLabels:
+        - __address__
+      targetLabel: __param_target
+    - action: replace
+      targetLabel: __address__
+      replacement: ipmi-exporter.observability.svc.cluster.local:9290
+    - action: replace
+      targetLabel: instance
+      replacement: vault-ipmi
+    - action: replace
+      targetLabel: job
+      replacement: *name
