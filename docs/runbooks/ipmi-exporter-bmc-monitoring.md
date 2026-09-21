@@ -110,29 +110,54 @@ If power is missing but temps/fans are present, it is the privilege gotcha
 (step 1). If everything is missing, check the exporter log for RMCP auth
 failures (wrong channel, account not enabled, or wrong privilege).
 
-## Home Assistant energy dashboard (secondary goal — NOT YET BUILT)
+## Home Assistant energy dashboard (built)
 
-HA cannot pull Prometheus, so ipmi_exporter alone does not reach HA. The
-conducive path is MQTT, which is this repo's established HA mechanism
-(discovery to `homeassistant/<type>/<id>/config`; see
-`kubernetes/apps/home/helium-archiver/publish-ha-discovery.sh`).
+HA cannot pull Prometheus, so ipmi-exporter alone does not reach HA. A small
+publisher (`kubernetes/apps/home/vault-power-mqtt/`) bridges it over MQTT, the
+repo's established HA path.
 
-The energy dashboard specifically wants an **energy** sensor (kWh,
-`state_class: total_increasing`), but the BMC gives instantaneous **power** (W).
-Two ways to bridge:
+**How it works.** An `eclipse-mosquitto` pod (which ships both `mosquitto_pub`
+and BusyBox `wget`/`awk`) reads the **already-running exporter's** endpoint —
+`http://ipmi-exporter.observability.svc:9290/ipmi?target=10.0.10.2&module=default`
+— every 30s, greps `ipmi_dcmi_power_consumption_watts`, and publishes it to
+`homeassistant/sensor/vault_power/state`. So there is still exactly one BMC
+poller (the exporter) and no BMC credential in this pod. A retained MQTT
+discovery message creates the HA entity (`device_class: power`,
+`state_class: measurement`, `expire_after: 150`).
 
-- **Publish power (W), integrate in HA (recommended).** A small in-cluster
-  publisher reads `dcmi power reading` and publishes W to MQTT with
-  `device_class: power`, `state_class: measurement`. In HA, a Riemann-sum
-  integration helper converts W → kWh for the dashboard. Robust across
-  restarts; HA owns the accumulation. One HA-side helper to create.
-- **Publish energy (kWh) directly.** The publisher maintains a persistent
-  running kWh total and publishes `total_increasing`. No HA-side helper, but
-  the publisher must persist state and handle resets carefully. More fragile.
+**Setup (one step).** It reuses the broker's `basicaccess` user
+(`acl.conf: topic readwrite #`), so no new mosquitto user or ACL entry is
+needed — just a dedicated OpenBao key:
 
-Either needs mosquitto creds in the observability namespace (mosquitto is a
-LoadBalancer in the `home` ns, 172.16.8.8:1883) via an ExternalSecret. This
-half is proposed, not built.
+```bash
+bao kv put secret/vault-power-mqtt \
+  VaultPower__Mqtt__User=basicaccess \
+  VaultPower__Mqtt__Password='<basicaccess broker password>'
+```
+
+Until that key exists the ExternalSecret stays unsynced and the pod has no MQTT
+password (same staged pattern as the exporter). A dedicated, ACL-scoped broker
+user would be tighter than reusing `basicaccess`; that is the future-tightening
+option.
+
+**The one HA-side step (only you can do this).** The Energy dashboard consumes
+**energy** (kWh, `state_class: total_increasing`), but the BMC gives
+instantaneous **power** (W). Convert in HA with a Riemann-sum integration
+helper on the `sensor.vault_power` entity:
+
+  Settings → Devices & Services → Helpers → Create Helper →
+  Integration - Riemann sum integral
+    Input sensor: sensor.vault_power
+    Metric prefix: k (kilo), Time unit: h (hours), Method: Left/Trapezoidal
+
+That yields `sensor.vault_power_integral` in kWh, which the Energy dashboard
+accepts as an "Individual device". HA owns the accumulation, so it survives
+publisher restarts.
+
+**Changing the discovery config later:** publish an empty retained message to
+`homeassistant/sensor/vault_power/config` first (tombstone), wait ~5s, then let
+the pod republish — HA ignores an updated payload for an existing unique_id
+otherwise (drops history for that entity; see the ha-mqtt-discovery note).
 
 ## Scope of what this account can do
 

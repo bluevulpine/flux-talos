@@ -1,0 +1,44 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/_definitions.json#/definitions/io.k8s.api.core.v1.ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-power-mqtt-script
+data:
+  publish.sh: |-
+    #!/bin/sh
+    # Bridges vault's BMC power reading into Home Assistant over MQTT.
+    #
+    # Reads the ALREADY-RUNNING ipmi-exporter's endpoint (not the BMC directly)
+    # so there is exactly one BMC poller and no BMC credential here. Publishes
+    # instantaneous watts; HA turns W -> kWh for the Energy dashboard via a
+    # Riemann-sum integration helper (see the runbook — that helper is the one
+    # HA-side step this cannot do for you).
+    set -eu
+    : "${MQTT_HOST:?}" "${MQTT_PORT:?}" "${MQTT_USER:?}" "${MQTT_PASSWORD:?}" "${IPMI_URL:?}"
+
+    STATE_TOPIC="homeassistant/sensor/vault_power/state"
+    CONFIG_TOPIC="homeassistant/sensor/vault_power/config"
+    # expire_after (150s) makes HA show "unavailable" if this publisher dies,
+    # rather than a stale value that looks live. suggested_display_precision
+    # per the repo's HA discovery convention (HA defaults to 0 dp anyway for W,
+    # but be explicit). To CHANGE this config later, tombstone first (publish an
+    # empty retained message to CONFIG_TOPIC, wait ~5s) or HA ignores the update.
+    DISCOVERY='{"name":"Vault Power","unique_id":"vault_ipmi_power","object_id":"vault_power","state_topic":"homeassistant/sensor/vault_power/state","device_class":"power","state_class":"measurement","unit_of_measurement":"W","suggested_display_precision":0,"expire_after":150,"device":{"identifiers":["vault_ipmi"],"name":"Vault NAS","manufacturer":"Supermicro","model":"X9DR3-F"}}'
+
+    pub() { mosquitto_pub -h "$MQTT_HOST" -p "$MQTT_PORT" -u "$MQTT_USER" -P "$MQTT_PASSWORD" "$@"; }
+
+    # Retained discovery so HA (re)creates the entity on connect. Republished on
+    # every start; an unchanged config is idempotent (HA ignores a duplicate
+    # unique_id).
+    pub -r -t "$CONFIG_TOPIC" -m "$DISCOVERY" || echo "discovery publish failed"
+
+    while true; do
+      W=$(wget -qO- "$IPMI_URL" 2>/dev/null | awk '/^ipmi_dcmi_power_consumption_watts /{print $2; exit}')
+      if [ -n "${W:-}" ]; then
+        pub -t "$STATE_TOPIC" -m "$W" || echo "state publish failed"
+      else
+        echo "no watts read from exporter"
+      fi
+      sleep 30
+    done
