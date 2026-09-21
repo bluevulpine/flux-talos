@@ -141,3 +141,35 @@ endpoints:
       - "[STATUS] == any(200, 302)"
     alerts:
       - type: pushover
+
+  # Inference backend. LiteLLM routes every LLM call in the cluster to Ollama on
+  # the DGX Spark, and there is deliberately NO fallback member configured —
+  # both the Azure and Anthropic credit pools are exhausted, so a fallback would
+  # only 401. That makes this the single point of failure for Hindsight,
+  # homebox-companion, karakeep, mealie, n8n and node-red all at once, which is
+  # why it is worth a probe of its own rather than relying on pod health.
+  #
+  # Probes /v1/models, not / : the root path answers with a static "Ollama is
+  # running" string that proves only that the HTTP listener is up. /v1/models is
+  # the same OpenAI-compatible surface LiteLLM actually calls, so this exercises
+  # the real path rather than a bystander endpoint.
+  #
+  # The len() condition is the load-bearing half. A registry that answers 200
+  # with an EMPTY model list is the failure this is really guarding against —
+  # it happens when the models directory is unreadable or a pull was interrupted,
+  # and every inference request then fails with "model not found" while a plain
+  # status check sits green. Status alone would not catch it.
+  #
+  # No dns-resolver override here, unlike the Pangolin checks above. Those force
+  # a public resolver specifically to avoid split-horizon answering from inside;
+  # this name is internal-only and MUST resolve through the UDM, so pinning it to
+  # 1.1.1.1 would break the check rather than harden it.
+  - name: DGX Spark (Ollama)
+    group: inference
+    url: "http://spark-ab23.${SECRET_DOMAIN}:11434/v1/models"
+    interval: 1m
+    conditions:
+      - "[STATUS] == 200"
+      - "len([BODY].data) > 0"
+    alerts:
+      - type: pushover

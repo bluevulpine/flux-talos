@@ -116,24 +116,26 @@ spec:
                   api_base: http://spark-ab23.${SECRET_DOMAIN}:11434/v1
                   api_key: unused-ollama-accepts-any
 
-              # --- fallback: Azure OpenAI ---
-              # Addressed through the `openai` provider rather than `azure`
-              # because AzureAI__BaseUrl points at the OpenAI-COMPATIBLE v1
-              # surface (.../openai/v1/), which is how Hindsight already talks
-              # to it. Using the azure provider here would re-derive a
-              # different URL shape and 404.
-              - model_name: azure-gpt-5-mini
-                litellm_params:
-                  model: openai/gpt-5-mini
-                  api_base: os.environ/AZURE_API_BASE
-                  api_key: os.environ/AZURE_API_KEY
-
-            router_settings:
-              # The whole reason LiteLLM runs in-cluster rather than on the
-              # Spark: when the Spark is down, rebooting, or saturated, this
-              # router has to still be up to route around it.
-              fallbacks:
-                - spark-gpt-oss-20b: ["azure-gpt-5-mini"]
+            # There is deliberately NO fallback entry here, and no
+            # router_settings.fallbacks block.
+            #
+            # An Azure `gpt-5-mini` member was configured initially, but both
+            # the Azure and Anthropic credit pools are exhausted, so it returned
+            # 401 on every call. A fallback pointing at a dead credential is
+            # worse than no fallback at all: LiteLLM spends a failed round-trip
+            # on it and then buries the real cause inside a nested error
+            # ("Connection error.. Error doing the fallback:
+            # AuthenticationError.."), so an outage of the Spark reads as an
+            # auth problem somewhere else. Failing cleanly against a single
+            # backend is the honest behaviour, and reachability is alerted on
+            # separately by the `DGX Spark (Ollama)` gatus endpoint.
+            #
+            # To restore a fallback, add a second model_list member and a
+            # router_settings.fallbacks block. Any OpenAI-compatible provider
+            # works -- OpenRouter's free tier is the likely candidate -- and it
+            # needs exactly one new OpenBao field wired through the
+            # ExternalSecret. Do not re-add a member without first confirming
+            # its credential actually authenticates.
 
             litellm_settings:
               drop_params: true
