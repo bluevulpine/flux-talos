@@ -1,0 +1,133 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.36.2-standalone-strict/cronjob-batch-v1.json
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: etcd-defrag
+spec:
+  # Sundays 03:30 — clear of talos-s3-backup's every-6h :10 schedule, low-traffic window.
+  schedule: "30 3 * * 0"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          nodeSelector:
+            kubernetes.io/arch: amd64
+          restartPolicy: Never
+          tolerations:
+            - key: node-role.kubernetes.io/control-plane
+              operator: Exists
+              effect: NoSchedule
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          # etcd members are defragmented one at a time, never concurrently — a
+          # defrag blocks reads/writes on that member, so initContainers give us
+          # strict sequencing for free and abort on the first failure instead of
+          # touching the next member. Fixed jormungandr1→2→3 order; this doesn't
+          # avoid defragging the leader first, but at ~360MB/2GiB quota and
+          # ~3.5MB/day growth that tradeoff is fine at this scale. A leader-aware
+          # ordering tool exists (ahrtr/etcd-defrag) if that ever stops being true.
+          initContainers:
+            - name: defrag-jormungandr1
+              # renovate: datasource=docker depName=ghcr.io/siderolabs/talosctl
+              image: ghcr.io/siderolabs/talosctl:v1.13.9
+              args:
+                - "-n"
+                - "10.0.10.31"
+                - "etcd"
+                - "defrag"
+              restartPolicy: Never
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 64Mi
+              volumeMounts:
+                - mountPath: /var/run/secrets/talos.dev
+                  name: talos-secrets
+                  readOnly: true
+            - name: defrag-jormungandr2
+              image: ghcr.io/siderolabs/talosctl:v1.13.9
+              args:
+                - "-n"
+                - "10.0.10.32"
+                - "etcd"
+                - "defrag"
+              restartPolicy: Never
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 64Mi
+              volumeMounts:
+                - mountPath: /var/run/secrets/talos.dev
+                  name: talos-secrets
+                  readOnly: true
+            - name: defrag-jormungandr3
+              image: ghcr.io/siderolabs/talosctl:v1.13.9
+              args:
+                - "-n"
+                - "10.0.10.33"
+                - "etcd"
+                - "defrag"
+              restartPolicy: Never
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 64Mi
+              volumeMounts:
+                - mountPath: /var/run/secrets/talos.dev
+                  name: talos-secrets
+                  readOnly: true
+          containers:
+            # initContainers do the real work; this just gives the Pod a required
+            # main container and a cheap proof the Talos API was reachable at all.
+            - name: done
+              image: ghcr.io/siderolabs/talosctl:v1.13.9
+              args:
+                - "version"
+                - "--client"
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 64Mi
+          volumes:
+            - name: talos-secrets
+              secret:
+                secretName: talos-etcd-defrag
