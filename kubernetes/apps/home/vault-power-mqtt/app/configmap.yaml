@@ -4,6 +4,12 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: vault-power-mqtt-script
+  annotations:
+    # This is a shell script, not templated config. Flux postBuild envsubst
+    # otherwise expands the `${W:-}` (and `${VAR:?}`) shell forms — it turned
+    # `[ -n "${W:-}" ]` into `[ -n "" ]`, so the watts check was always false
+    # and the loop logged "no watts" forever. Opt this resource out entirely.
+    kustomize.toolkit.fluxcd.io/substitute: disabled
 data:
   publish.sh: |-
     #!/bin/sh
