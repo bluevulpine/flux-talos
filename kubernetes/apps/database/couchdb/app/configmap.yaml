@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/v1/configmap.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.36.2-standalone-strict/configmap-v1.json
 # CouchDB configuration for Obsidian LiveSync
 # Ref: https://github.com/vrtmrz/obsidian-livesync/blob/main/docs/setup_own_server.md
 apiVersion: v1
@@ -10,7 +10,7 @@ data:
   # LiveSync-compatible configuration
   # Note: Sensitive values (admin password hash, chttpd_auth secret) are injected
   # via the externalsecret and mounted separately
-  10-livesync.ini: |
+  10-livesync.ini: |-
     [couchdb]
     ; Single node mode - no clustering needed for Obsidian sync
     single_node = true
