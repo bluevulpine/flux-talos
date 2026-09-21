@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/batch/cronjob_v1.json
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/batch/cronjob_v1.json
 # Mirrors the Garage `cnpg` bucket (Postgres base backups + WAL) offsite to Storj.
 #
 # WHY: Garage lives on tardis — a 2-way mirror of refurbished SAS drives that

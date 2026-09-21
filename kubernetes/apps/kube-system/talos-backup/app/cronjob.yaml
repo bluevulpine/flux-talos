@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/batch/cronjob_v1.json
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/batch/cronjob_v1.json
 # Snapshots etcd and uploads it to the Garage `talos` bucket, then prunes.
 #
 # The prune step exists because the retention this job's README has always claimed

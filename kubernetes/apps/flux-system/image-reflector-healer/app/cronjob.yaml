@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/batch/cronjob_v1.json
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/batch/cronjob_v1.json
 # Self-repair for the flux image-reflector-controller "no tags in database" bug.
 #
 # The reflector keeps its scanned-tag database in an ephemeral emptyDir at /data.
@@ -39,7 +39,9 @@ spec:
             - name: healer
               # renovate: datasource=docker depName=alpine/k8s
               image: docker.io/alpine/k8s:1.37.0
-              command: ["/bin/sh", "-c"]
+              command:
+                - "/bin/sh"
+                - "-c"
               args:
                 - |
                   set -eu
@@ -83,7 +85,8 @@ spec:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
                 capabilities:
-                  drop: [ALL]
+                  drop:
+                    - ALL
               resources:
                 requests:
                   cpu: "25m"

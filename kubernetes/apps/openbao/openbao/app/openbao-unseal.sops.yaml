@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/v1/secret.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.36.2-standalone-strict/secret-v1.json
 # Static auto-unseal key for OpenBao.
 #
 # Generate a key:  openssl rand -hex 32

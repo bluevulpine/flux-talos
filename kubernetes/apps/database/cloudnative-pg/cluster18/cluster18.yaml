@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/postgresql.cnpg.io/cluster_v1.json
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/postgresql.cnpg.io/cluster_v1.json
 # NEW pg18 cluster. Stood up ALONGSIDE the live postgres16 and seeded once via a
 # logical monolith import (pg_dump/restore) over postgres16-rw. Fresh Longhorn 50Gi
 # PVCs sidestep the openebs→longhorn resize deadlock, and the logical restore
