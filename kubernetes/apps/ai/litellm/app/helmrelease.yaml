@@ -1,0 +1,154 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app litellm
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: *app
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+      remediateLastFailure: true
+  uninstall:
+    keepHistory: false
+  values:
+    controllers:
+      litellm:
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          01-init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom: &envFrom
+              - secretRef:
+                  name: litellm-secret
+        containers:
+          app:
+            image:
+              repository: ghcr.io/berriai/litellm
+              tag: v1.101.0
+            args:
+              - --config
+              - /app/config/config.yaml
+              - --port
+              - "4000"
+            env:
+              LITELLM_MODE: PRODUCTION
+              # Model routing is declared in the ConfigMap below so it lives in
+              # git and reconciles like everything else. With this true, LiteLLM
+              # would treat its database as the source of truth and edits made
+              # in the UI would silently outlive a redeploy.
+              STORE_MODEL_IN_DB: "false"
+            envFrom: *envFrom
+            probes:
+              # LiteLLM spells the liveness path "liveliness" — not a typo here.
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health/liveliness
+                    port: &port 4000
+                  initialDelaySeconds: 15
+                  periodSeconds: 20
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health/readiness
+                    port: *port
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 2Gi
+            securityContext:
+              runAsUser: 1000
+              runAsGroup: 1000
+              runAsNonRoot: true
+              allowPrivilegeEscalation: false
+              # LiteLLM writes transient files under /tmp at startup.
+              readOnlyRootFilesystem: false
+              capabilities:
+                drop:
+                  - "ALL"
+    configMaps:
+      config:
+        data:
+          config.yaml: |-
+            model_list:
+              # --- primary: DGX Spark (spark-ab23) over the LAN ---
+              # Ollama exposes an OpenAI-compatible surface at /v1 and ignores
+              # the bearer token entirely, so api_key is a placeholder, not a
+              # secret. LiteLLM is the authentication boundary in front of it:
+              # Ollama itself has no auth, and is reachable by anything on
+              # VLAN 10.
+              #
+              # ⚠️ 10.0.10.237 is a DHCP LEASE, not a static address — the
+              # Spark's wired connection is ipv4.method=auto and nothing in
+              # cluster DNS resolves the host by name. If the lease moves, this
+              # backend fails and the fallback below silently absorbs it: every
+              # request quietly starts billing Azure again with no alert. This
+              # address needs a DHCP reservation on the router; until then,
+              # treat it as the weakest link in this chart.
+              - model_name: spark-gpt-oss-20b
+                litellm_params:
+                  model: openai/gpt-oss:20b
+                  api_base: http://10.0.10.237:11434/v1
+                  api_key: unused-ollama-accepts-any
+
+              # --- fallback: Azure OpenAI ---
+              # Addressed through the `openai` provider rather than `azure`
+              # because AzureAI__BaseUrl points at the OpenAI-COMPATIBLE v1
+              # surface (.../openai/v1/), which is how Hindsight already talks
+              # to it. Using the azure provider here would re-derive a
+              # different URL shape and 404.
+              - model_name: azure-gpt-5-mini
+                litellm_params:
+                  model: openai/gpt-5-mini
+                  api_base: os.environ/AZURE_API_BASE
+                  api_key: os.environ/AZURE_API_KEY
+
+            router_settings:
+              # The whole reason LiteLLM runs in-cluster rather than on the
+              # Spark: when the Spark is down, rebooting, or saturated, this
+              # router has to still be up to route around it.
+              fallbacks:
+                - spark-gpt-oss-20b: ["azure-gpt-5-mini"]
+
+            litellm_settings:
+              drop_params: true
+    persistence:
+      config:
+        type: configMap
+        identifier: config
+        globalMounts:
+          - path: /app/config
+    service:
+      app:
+        controller: litellm
+        ports:
+          http:
+            port: *port
