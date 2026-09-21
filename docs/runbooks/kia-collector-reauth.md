@@ -66,7 +66,7 @@ prompt is lost to the attach race and you end up blind-pressing enter at a blank
 screen. `exec -it` attaches before the command starts.
 
 ```bash
-IMG=gitea.derekjacobs.dev/bluevulpine/kia-collector:9-25d82476   # match the deployed tag
+IMG=gitea.derekjacobs.dev/bvn-homelab/kia-collector:17-cb52381e   # match the deployed tag
 
 kubectl run kia-setup -n home --restart=Never --image="$IMG" \
   --overrides="{\"spec\":{\"serviceAccountName\":\"kia-collector\",\"containers\":[{\"name\":\"kia-setup\",\"image\":\"$IMG\",\"command\":[\"sleep\",\"3600\"],\"envFrom\":[{\"configMapRef\":{\"name\":\"kia-collector-config\"}},{\"secretRef\":{\"name\":\"kia-collector-secret\"}}]}]}}"
