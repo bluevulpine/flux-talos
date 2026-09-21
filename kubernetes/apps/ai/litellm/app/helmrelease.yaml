@@ -10,7 +10,6 @@ spec:
     kind: OCIRepository
     name: *app
   install:
-    createNamespace: true
     remediation:
       retries: 3
       remediateLastFailure: true
@@ -106,17 +105,15 @@ spec:
               # Ollama itself has no auth, and is reachable by anything on
               # VLAN 10.
               #
-              # ⚠️ 10.0.10.237 is a DHCP LEASE, not a static address — the
-              # Spark's wired connection is ipv4.method=auto and nothing in
-              # cluster DNS resolves the host by name. If the lease moves, this
-              # backend fails and the fallback below silently absorbs it: every
-              # request quietly starts billing Azure again with no alert. This
-              # address needs a DHCP reservation on the router; until then,
-              # treat it as the weakest link in this chart.
+              # Addressed by name, not by IP: the UDM holds a fixed assignment
+              # plus an A record, so a renumber never touches git. Note the name
+              # must stay fully qualified — a bare `spark-ab23` is swallowed by
+              # the cluster search path (ndots:5) and resolves only with a
+              # trailing dot, which not every HTTP client normalises.
               - model_name: spark-gpt-oss-20b
                 litellm_params:
                   model: openai/gpt-oss:20b
-                  api_base: http://10.0.10.237:11434/v1
+                  api_base: http://spark-ab23.${SECRET_DOMAIN}:11434/v1
                   api_key: unused-ollama-accepts-any
 
               # --- fallback: Azure OpenAI ---
