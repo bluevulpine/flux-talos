@@ -222,52 +222,63 @@ spec:
               #
               # 6 SURVIVES the move to the Spark, but the constraint behind it
               # changed completely: there is no account rate limit any more, only
-              # how many requests Ollama will serve at once. OLLAMA_NUM_PARALLEL
-              # on the Spark was raised 4 -> 8 specifically so this value has
-              # headroom above it. If retain could saturate every slot, a retain
-              # burst would queue reflect behind it, and reflect has a hard 25s
-              # client cap it cannot negotiate — a slow queue there is
-              # indistinguishable from an outage.
+              # how many requests Ollama will serve at once, capped by
+              # OLLAMA_NUM_PARALLEL.
               #
-              # So the two numbers are coupled: raising this above 8 requires
-              # raising OLLAMA_NUM_PARALLEL first, and that config lives on the
-              # Spark in /etc/systemd/system/ollama.service.d/override.conf,
-              # NOT in this repo. That gap is real — nothing here reconciles it.
+              # That makes the three stages share ONE fixed pool, so they have to
+              # be budgeted together — capping retain alone is not enough. Every
+              # unset stage falls back to DEFAULT_LLM_MAX_CONCURRENT, which is 32
+              # (config.py:1126), so consolidation or reflect could each saturate
+              # the whole pool on their own no matter what this line says.
+              # Consolidation is the highest-volume stage by far (~700 of 997
+              # calls on 2026-09-07), which makes that the likely one to do it.
+              #
+              # Budget, against OLLAMA_NUM_PARALLEL=10 on the Spark:
+              #     retain 6 + consolidation 2 + reflect 2 = 10
+              # It sums to exactly the pool on purpose. Reflect is the stage that
+              # must never queue — it has a hard 25s client cap it cannot
+              # negotiate, and a slow queue there is indistinguishable from an
+              # outage — so it gets a reserved share rather than whatever is
+              # left over.
+              #
+              # Raising any of these three requires raising OLLAMA_NUM_PARALLEL
+              # first, and that lives on the Spark in
+              # /etc/systemd/system/ollama.service.d/override.conf, NOT in this
+              # repo. That gap is real — nothing here reconciles it.
               HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "6"
+              HINDSIGHT_API_CONSOLIDATION_LLM_MAX_CONCURRENT: "2"
+              HINDSIGHT_API_REFLECT_LLM_MAX_CONCURRENT: "2"
 
-              # --- retain via the Message Batches API (50% off) ---
-              # Retain is the ONLY stage still billed to the Anthropic API, so
-              # it is the only place a discount is worth chasing. Anthropic's
-              # batch API is half price on both input and output
-              # (anthropic_llm.py:692), and the saving STACKS with prompt
-              # caching: every item in a retain batch shares the fact-extraction
-              # system prompt, so the first item's cache write serves the rest as
-              # reads. Retain is already the best-caching stage here (691k cached
-              # tokens measured 2026-09-07).
+              # --- retain batching: OFF, and it has to be ---
+              # This was "true" to buy Anthropic's Message Batches API discount:
+              # half price on input and output, stacking with prompt caching
+              # because every item in a retain batch shares the fact-extraction
+              # system prompt. That reasoning is now entirely void. Retain runs
+              # on hardware we own, where there is no per-token price to halve,
+              # so batching buys NOTHING and still costs the latency.
               #
-              # Safe against the two things that break batch here:
-              #  - strict schema: the batch translator turns a strict json_schema
-              #    into a single forced tool_use tool (native constrained
-              #    decoding), the same path the sync Anthropic calls use — this
-              #    is NOT the OpenAI `response_format` that made the Azure retain
-              #    failover 400 on every call.
-              #  - the `metadata` LLM strategy: batch submits a whole retain as
-              #    ONE job to ONE member, so it cannot route per item and refuses
-              #    to start. We do not use that strategy.
+              # It would also break the pod outright. The old comment here
+              # carried its own warning — "⚠️ FAILS CLOSED AT STARTUP.
+              # validate_retain_batch_support() runs during initialization
+              # (memory_engine.py:4654), so a retain LLM that cannot serve a
+              # batch stops the pod booting rather than falling back. Re-check
+              # this line before changing the retain provider." This change is
+              # exactly that provider change, and the check comes back negative:
+              # Ollama returns 404 on /v1/batches. LiteLLM answers /v1/batches
+              # and /v1/files with empty lists, so a shallow probe could even
+              # pass while real submission fails — not a risk worth taking when
+              # the failure mode is "pod does not boot".
               #
-              # ⚠️ FAILS CLOSED AT STARTUP. validate_retain_batch_support() runs
-              # during initialization (memory_engine.py:4654), so a retain LLM
-              # that cannot serve a batch stops the pod booting rather than
-              # falling back. Re-check this line before changing the retain
-              # provider.
+              # (LiteLLM did gain batch support in PR #41942, merged 2026-09-19,
+              # but it targets the `hosted_vllm` provider and requires
+              # STORE_MODEL_IN_DB=True, which the LiteLLM chart deliberately sets
+              # false to keep routing declarative in git. So this is not a
+              # near-term flip even after a move to vLLM.)
               #
-              # The cost is LATENCY, and it is deliberate: batch is async with a
-              # 24h SLA (typically minutes) and the engine polls every 60s
-              # (DEFAULT_RETAIN_BATCH_POLL_INTERVAL_SECONDS). Retain already runs
-              # off the Stop hook so nothing blocks, but a session's memory now
-              # lands minutes later instead of seconds. If that ever matters more
-              # than the discount, this is the line to flip.
-              HINDSIGHT_API_RETAIN_BATCH_ENABLED: "true"
+              # Upside of turning it off: retain memories land seconds after a
+              # session instead of minutes, since the engine no longer polls a
+              # batch job every 60s.
+              HINDSIGHT_API_RETAIN_BATCH_ENABLED: "false"
 
               # A retain failover member to Azure was tried here on 2026-09-07
               # and REMOVED the same evening: it never worked, and it made
