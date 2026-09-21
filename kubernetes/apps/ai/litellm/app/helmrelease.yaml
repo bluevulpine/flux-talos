@@ -116,6 +116,28 @@ spec:
                   api_base: http://spark-ab23.${SECRET_DOMAIN}:11434/v1
                   api_key: unused-ollama-accepts-any
 
+              # Non-reasoning alternative, exposed so a stage can be moved off
+              # gpt-oss with a single env-var change instead of a config edit.
+              # It exists for reflect specifically: reflect has a hard 25s client
+              # cap, and gpt-oss is a reasoning model. Measured on this hardware
+              # a reflect-shaped two-iteration tool loop runs 13.9s on gpt-oss
+              # against 15.2s here, so gpt-oss currently wins outright — this is
+              # the escape hatch if that stops being true under real prompts.
+              #
+              # Counter-intuitively it is also the SLOWER model at 26 tok/s
+              # against gpt-oss's 63, despite being smaller: gpt-oss is MoE with
+              # ~3.6B active parameters while this is dense, and dense loses on a
+              # bandwidth-bound device. Smaller is not faster here.
+              - model_name: spark-qwen25-14b
+                litellm_params:
+                  model: openai/qwen2.5:14b-instruct
+                  # Repeated rather than anchored: this block is a YAML document
+                  # embedded in a string, and an alias here would have to survive
+                  # kustomize, helm, the ConfigMap and Flux envsubst before
+                  # LiteLLM ever parses it.
+                  api_base: http://spark-ab23.${SECRET_DOMAIN}:11434/v1
+                  api_key: unused-ollama-accepts-any
+
             # There is deliberately NO fallback entry here, and no
             # router_settings.fallbacks block.
             #
