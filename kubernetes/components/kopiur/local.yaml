@@ -81,15 +81,21 @@ spec:
       fsGroup: ${KOPIUR_FS_GROUP:-0}
       fsGroupChangePolicy: OnRootMismatch
   retention:
-    # 1:1 with components/volsync-backup/local.yaml. All six kopia buckets
-    # exist, so nothing is lost in translation and the recovery window is
-    # unchanged. The local leg stays deep and frequent; R2 stays shallow and
-    # daily — see r2.yaml.
+    # Matches VolSync's EFFECTIVE retention, not just its manifest.
+    # components/volsync-backup/local.yaml sets five buckets; the fork writes
+    # only those to a path-scope kopia policy, so keep-annual falls through to
+    # kopia's global default of 3. Verified live 2026-09-22 (`kopia policy show
+    # jellyseerr@media:/data`: "Annual snapshots: 3 inherited from (global)").
+    # Once each app's path-scope keep-* is cleared at cutover, kopiur's GFS is
+    # the only rule, so the inherited bucket has to be stated here or it is
+    # silently dropped. The local leg stays deep and frequent; R2 stays shallow
+    # and daily — see r2.yaml.
     keepLatest: 48
     keepHourly: 96
     keepDaily: 30
     keepWeekly: 12
     keepMonthly: 12
+    keepAnnual: 3
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/snapshotschedule_v1alpha1.json
 apiVersion: kopiur.home-operations.com/v1alpha1

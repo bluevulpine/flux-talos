@@ -81,9 +81,14 @@ spec:
       fsGroup: ${KOPIUR_FS_GROUP:-0}
       fsGroupChangePolicy: OnRootMismatch
   retention:
-    # 1:1 with components/volsync-backup/r2.yaml — SHALLOWER than the local
-    # leg, and deliberately so. Note there is no keepLatest: the R2 source runs
-    # once a day, so a "last 48 runs" bucket would just duplicate keepHourly.
+    # Matches VolSync's EFFECTIVE retention — SHALLOWER than the local leg,
+    # and deliberately so. components/volsync-backup/r2.yaml sets only four
+    # buckets; the other two fall through the fork's path-scope kopia policy to
+    # kopia's global defaults, keep-latest 10 and keep-annual 3. Verified live
+    # 2026-09-22 against kopia-r2. keepLatest: 10 is therefore NOT redundant:
+    # at one run a day it holds 10 days of dailies against keepDaily's 7.
+    # Once the path-scope keep-* is cleared at cutover, kopiur's GFS is the
+    # only rule, so both inherited buckets are stated here or silently lost.
     #
     # This asymmetry (local 12x/day + deep, R2 1x/day + shallow) is why the
     # layout is 92 single-repository policies rather than 46 fan-out policies:
@@ -92,10 +97,12 @@ spec:
     # across both legs — either paying R2 for 12x/day at 4x depth, or thinning
     # the local 12-hour/4-day fine-grained window. Decision taken 2026-09-22:
     # keep the asymmetry.
+    keepLatest: 10
     keepHourly: 6
     keepDaily: 7
     keepWeekly: 4
     keepMonthly: 3
+    keepAnnual: 3
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/snapshotschedule_v1alpha1.json
 apiVersion: kopiur.home-operations.com/v1alpha1
