@@ -46,6 +46,8 @@ needed manual pause-based recovery (done 2026-09-22; real backups of 1m28s–2m1
 | — | credentials: 18 ESO-minted Secrets (9 ns × 2) from the **same OpenBao keys** as VolSync | movers read creds via namespace-local `envFrom`; keeps "secrets only via ESO"; KOPIA_PASSWORD must match (it is the encryption key) |
 | — | mover runs **root by default** (`moverDefaults`), 8 apps override | preserves today's VolSync behaviour exactly; uid-matching is a later, deliberate improvement |
 | — | **same-identity dual writing** during each app's parallel run (Derek, 2026-09-22) | the only way to verify kopiur on real history before VolSync is removed; blobs are immutable and content-addressed, retention rules identical, one maintenance owner. **Accepted cost:** kopia applies retention per identity across *all* its snapshots, whichever engine wrote them, so while both run, `keepLatest` covers roughly half as much time. The hourly, daily, weekly and monthly buckets keep one snapshot per period, so they lose nothing. **The mechanics are subtler than this, and two consequences are still open.** See "Two deleters on one identity" |
+| — | **`catalog.adoption: Ignore`** on both ClusterRepositories, for the migration (Derek, 2026-09-22) | with the default `Adopt` + `Delete`, W0 would have kopiur deleting VolSync-written kopia data outside its window, and retention prunes bypass `deletionProtection`. `Ignore` means kopiur never deletes history it didn't write. **Rejected: `defaultDeletionPolicy: Retain`**: it covers *every* snapshot a policy owns, so kopiur's GFS would only ever delete CRs, and once the fork's retention is cleared nothing would delete kopia data at all. **Accepted cost:** the VolSync history present at cutover stays in the repository indefinitely (frozen, not growing), and a deleted-then-recreated policy's history is not re-attached to retention. **Revisit at decommission:** flip to `Adopt` so GFS ages out the materialized tail (≤50/identity, ≤120 d). The older tail needs a one-off decision either way |
+| — | **Clear the fork's path-scope retention at each app's cutover** (Derek, 2026-09-22) | the fork's `kopia policy set /data --keep-…` overrides kopiur's identity-scope `i32::MAX` pin, so kopia would otherwise keep expiring snapshots behind kopiur's CRs indefinitely. Clear only the six `keep-*` fields, never the whole path policy (it also holds the fork's compression setting). Must come **after** VolSync stops writing the identity, because the fork re-applies it on every run (`do_retention`) |
 | — | **PVC ownership stays in `components/volsync-claim`** for the whole migration | removing the claim = Flux prunes the PVC; a replacement claim can't drop `dataSourceRef` (SSA-owned by kustomize-controller + immutable on a bound PVC) |
 
 ## BLOCKER: the control plane
@@ -124,6 +126,22 @@ Key properties, all commented in the manifests:
       KOPIUR_CACHE_CAPACITY
 ```
 
+**After the swap has applied and no VolSync mover for the app is running**, clear the
+fork's path-scope retention on the identity, in **both** repositories (a live kopia action,
+so Derek runs it):
+
+```bash
+# against kopia-local, then again against kopia-r2
+kopia policy set '<app>@<ns>:/data' \
+  --keep-latest=inherit --keep-hourly=inherit --keep-daily=inherit \
+  --keep-weekly=inherit --keep-monthly=inherit --keep-annual=inherit
+kopia policy show '<app>@<ns>:/data'   # the keep-* lines must read as inherited from <app>@<ns>
+```
+
+Doing this any earlier gets undone: the fork re-sets it on every VolSync run. The kopia
+syntax (`inherit` on the `--keep-*` flags) and the client pod to run it from are **not yet
+verified**. Settle both before W0.
+
 **Do NOT delete these VolSync vars at cutover** — `components/volsync-claim` still reads
 them: `VOLSYNC_CAPACITY`, `VOLSYNC_STORAGECLASS`, `VOLSYNC_ACCESSMODES`,
 `VOLSYNC_RESTORE_SOURCE`. The rest (`VOLSYNC_*_SCHEDULE`, `…_COPYMETHOD`,
@@ -163,11 +181,8 @@ The dual-write approval above assumed one retention engine. There are two:
   identical rules this should find little that kopia hasn't already expired. "Should" is
   unverified, because the two GFS implementations were never compared bucket-for-bucket.
 
-Levers for the decision, which is Derek's: `catalog.adoption: Ignore` on the
-ClusterRepositories (kopiur never deletes pre-existing history; restore it via
-`spec.source.identity`), or `defaultDeletionPolicy: Retain` (adopts only in-window rows),
-and separately, clearing the fork's path-scope `--keep-*` at each app's cutover so kopiur's
-pin takes effect. Decide before W0; adoption settings belong in the repositories patch.
+**Decided 2026-09-22** (see the Decisions table): `catalog.adoption: Ignore` on both
+ClusterRepositories, and clear the fork's path-scope `--keep-*` at each app's cutover.
 
 ### Gates
 
@@ -308,8 +323,12 @@ only when they are next recreated.
       created; (c) after recovery, trust `lastSyncDuration`, not `lastSyncTime` or the
       cleared alert: 180h/210h are wedge spans, ~1m30s is a real backup
 - [ ] upstream issues: translator reason string; translator per-namespace abort
-- [ ] **Two deleters on one identity** (above): choose the adoption / deletion-policy
-      settings and whether to clear the fork's path-scope retention at cutover. **Blocks W0**
+- [x] **Two deleters on one identity**: decided 2026-09-22 (adoption `Ignore`, clear
+      path-scope retention at cutover). `catalog.adoption: Ignore` is in the parked patch
+- [ ] Verify the path-scope clear procedure (kopia `inherit` syntax, client pod with repo
+      creds) before W0
+- [ ] At decommission: flip `catalog.adoption` to `Adopt`? and decide on the pre-120 d
+      VolSync tail
 - [ ] The cluster runs kopiur **0.10.9** (`kopiur/app/ocirepository.yaml`). The dry-runs and
       the translator results above were against 0.10.8. Re-run the repositories patch's
       server dry-run before landing it
