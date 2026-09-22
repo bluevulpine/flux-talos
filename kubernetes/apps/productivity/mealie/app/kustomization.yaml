@@ -8,5 +8,6 @@ resources:
   - ./helmrelease.yaml
   - ./dnsendpoint.yaml
 components:
-  - ../../../../components/volsync
+  - ../../../../components/volsync-claim
+  - ../../../../components/volsync-backup
 

@@ -9,5 +9,6 @@ resources:
   - ./service-node.yaml
   - ./media-nfs.yaml
 components:
-  - ../../../../components/volsync
+  - ../../../../components/volsync-claim
+  - ../../../../components/volsync-backup
 

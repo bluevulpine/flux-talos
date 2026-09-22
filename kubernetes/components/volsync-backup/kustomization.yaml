@@ -1,0 +1,29 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+# VolSync backup half: the ReplicationSources that write to Kopia, and the
+# ReplicationDestination used to restore.
+# - Local: ReplicationSource (staggered per app) + ReplicationDestination
+# - R2:    ReplicationSource only (daily backup to cloud)
+#
+# The app's PVC is NOT here -- it lives in `../volsync-claim`, which every
+# consumer includes separately. See that component for why.
+#
+# For disaster recovery from R2, also include:
+#   components:
+#     - ../../../../components/volsync-r2-restore
+# Then set VOLSYNC_RESTORE_SOURCE: r2 in postBuild.substitute
+#
+# NOTE the nested `externalsecret-refresh`: 40 of the 46 consuming apps do NOT
+# list it themselves and inherit the 5m refreshInterval patch from here. It is
+# kept nested (rather than pushed out to each app) so that swapping this
+# component for `../kopiur` preserves the patch automatically -- `kopiur` nests
+# it too. Kustomize applies components after the accumulated resources, and in
+# listed order, so a component that patches ExternalSecrets must come after the
+# one that creates them; nesting keeps that ordering correct by construction.
+components:
+  - ../externalsecret-refresh
+resources:
+  - ./r2.yaml
+  - ./local.yaml
