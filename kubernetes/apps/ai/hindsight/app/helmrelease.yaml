@@ -200,7 +200,7 @@ spec:
               HINDSIGHT_API_LLM_MODEL: spark-gpt-oss-20b
 
               # --- retain concurrency: bounded against the account rate limit ---
-              # DEFAULT_LLM_MAX_CONCURRENT is 32 (config.py:1067), i.e. up to 32
+              # DEFAULT_LLM_MAX_CONCURRENT is 32 (config.py:1126), i.e. up to 32
               # simultaneous Haiku calls. That never mattered while gitIngest was
               # "message", but the Fiction bank moved to "full" on 2026-09-07 —
               # every commit diff now goes through retain — and 32-way
@@ -297,8 +297,11 @@ spec:
               # a second attempt per failure instead of absorbing anything.
               #
               # This is a property of retain's SCHEMA plus strict mode, not of
-              # gpt-4o: gpt-5-mini would fail identically, which is why
-              # consolidation and reflect run fine on Azure while retain cannot.
+              # gpt-4o: gpt-5-mini would have failed identically, which is why
+              # consolidation and reflect ran fine on Azure while retain could
+              # not. (Retain's schema now runs fine on the Spark — Ollama enforces
+              # it as a grammar rather than via Azure's response_format — so this
+              # paragraph is history, not a live constraint.)
               # HINDSIGHT_API_LLM_STRUCTURED_OUTPUT_FORCED_TOOL does not rescue
               # it either — that option only applies to the LiteLLM-backed
               # providers (litellm, litellmrouter, bedrock), not plain `openai`.
@@ -391,8 +394,11 @@ spec:
               # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
               # floor at all — which is how 232 refreshes ran in ~2h on
               # 2026-09-07: every consolidation batch queued another with nothing
-              # rate-limiting it. Most of that is redundant work even now that the
-              # stage runs on free Azure credits.
+              # rate-limiting it. Most of that is redundant work, and the floor
+              # matters MORE now that the stage runs on the Spark rather than on
+              # someone else's credits: a refresh storm no longer just wastes an
+              # allowance, it occupies the same 10 Ollama slots retain and reflect
+              # are budgeted against.
               #
               # Safe by construction: a trigger arriving inside the window is
               # PARKED until it expires, not dropped, so no refresh is lost — and
