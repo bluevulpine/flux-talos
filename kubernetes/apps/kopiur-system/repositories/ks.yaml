@@ -1,0 +1,28 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app kopiur-repositories
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    - name: kopiur
+      namespace: kopiur-system
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+  interval: 1h
+  path: ./kubernetes/apps/kopiur-system/repositories/app
+  prune: true
+  retryInterval: 1m
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  # NO targetNamespace: the ClusterRepositories are cluster-scoped and the
+  # ExternalSecrets carry their own metadata.namespace (9 namespaces), so a
+  # targetNamespace would rewrite all of them into one.
+  timeout: 5m
+  wait: false

@@ -1,0 +1,65 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/clusterrepository_v1alpha1.json
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: ClusterRepository
+metadata:
+  name: kopia-r2
+spec:
+  # Adoption, as with kopia-local: no `create` block, same bucket root the
+  # fork has been writing to. See clusterrepository-local.yaml for the full
+  # reasoning on every field that is shared between the two.
+  backend:
+    s3:
+      bucket: kopia
+      # ${SECRET_CLOUDFLARE_ACCOUNT_ID} comes from the cluster-secrets Secret
+      # via the cluster-apps postBuild substituteFrom, exactly as
+      # openbao/snapshot-cronjob.yaml builds the same host. It is substituted
+      # by Flux at reconcile time — NEVER `kustomize build | kubectl apply`
+      # this directory, which skips envsubst and would publish the literal
+      # string as a hostname.
+      endpoint: ${SECRET_CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com
+      region: auto
+      auth:
+        secretRef:
+          name: kopiur-r2-secret
+          namespace: kopiur-system
+  encryption:
+    passwordSecretRef:
+      name: kopiur-r2-secret
+      namespace: kopiur-system
+      key: KOPIA_PASSWORD
+  allowedNamespaces:
+    list:
+      - database
+      - develop
+      - download
+      - games
+      - home
+      - identity
+      - media
+      - productivity
+  # NO spec.parameters.epoch here, and unlike kopia-local this one does not
+  # need it later either. The R2 repository takes ~1.8 writes/hour (46 sources
+  # x 1/day) against the local repository's ~97, and 0 of 44 sampled R2 mover
+  # logs have ever carried the "too many index blobs" warning — a measured
+  # negative, not missing data: all 44 had populated logs.
+  catalog:
+    # Ignore, as on kopia-local; the reasoning is there.
+    adoption: Ignore
+    retain:
+      perIdentity: 50
+      maxAgeDays: 120
+  maintenance:
+    # OFF until VolSync is decommissioned — the fork's kopia-maintenance-r2 in
+    # volsync-system owns this repository's maintenance today (full 0 3 * * *,
+    # the hour this repo reserves).
+    enabled: false
+  moverDefaults:
+    securityContext:
+      runAsUser: 0
+      runAsGroup: 0
+    podSecurityContext:
+      fsGroup: 0
+      fsGroupChangePolicy: OnRootMismatch
+  scheduleDefaults:
+    jitter: 20m
