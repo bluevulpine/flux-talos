@@ -1,0 +1,138 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/clusterrepository_v1alpha1.json
+# Schemas come from k8s-schemas.home-operations.com, not the
+# kubernetes-schemas.pages.dev host the rest of this repo uses: that host does
+# not carry the kopiur.home-operations.com group, and answers 200 with an HTML
+# page rather than 404 — so a status-code-only check passes on a schema that
+# does not exist.
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: ClusterRepository
+metadata:
+  name: kopia-local
+spec:
+  # ADOPTION, NOT CREATION. There is deliberately no `create` block: this points
+  # at the live Garage repository that all 46 apps have been writing to through
+  # VolSync since deploy. With no `create` block a mis-parsed backend cannot
+  # silently initialise an empty repository next to the real one; it fails.
+  #
+  # Cluster-scoped rather than a namespaced Repository because the 46 apps span
+  # 8 namespaces against exactly 2 repositories. A namespaced Repository per
+  # namespace would mean 8 `Maintenance` CRs contending for one repository's
+  # lease — the "two declarers will fight over it" hazard upstream warns about.
+  backend:
+    s3:
+      # Bucket root, no prefix — matches KOPIA_REPOSITORY=s3://kopia on every
+      # app's VolSync secret. Adoption requires this to resolve to the exact
+      # same keyspace the fork has been writing.
+      bucket: kopia
+      # The IP, not ${SECRET_GARAGE_S3_ENDPOINT} (= http://vault.funb.us:30188).
+      # Two reasons: `endpoint` is a bare host:port here — the scheme is carried
+      # by tls.disableTls below, so the var's http:// prefix would have to be
+      # stripped — and this is the literal endpoint VolSync connects to today,
+      # which keeps adoption free of a new DNS dependency on the backup path.
+      endpoint: 10.0.10.11:30188
+      region: us-east-1
+      tls:
+        # Plain HTTP on the LAN; the VolSync secret sets KOPIA_S3_DISABLE_TLS=true.
+        disableTls: true
+      auth:
+        secretRef:
+          name: kopiur-local-secret
+          namespace: kopiur-system
+  encryption:
+    passwordSecretRef:
+      name: kopiur-local-secret
+      namespace: kopiur-system
+      key: KOPIA_PASSWORD
+  allowedNamespaces:
+    list:
+      - database
+      - develop
+      - download
+      - games
+      - home
+      - identity
+      - media
+      - productivity
+  # DELIBERATELY ABSENT: spec.parameters.epoch.
+  #
+  # This repository needs `epoch.minDuration: 1h` — it carries ~4,500 index
+  # blobs against a 1,000 warn threshold and prints "Found too many index blobs"
+  # on every run, at a measured ~97/hr across 46 sources with maintenance
+  # healthy. But declaring it REWRITES THE KOPIA FORMAT BLOB, which invalidates
+  # every other kopia client's cached copy for ~15 minutes — and live VolSync
+  # movers are other clients for the whole parallel run.
+  #
+  # So it ships as its own change, applied into a gap in the backup grid, after
+  # adoption reads Ready. Two things to know when it does:
+  #   - "Removing a value does not restore kopia's default" — set it once,
+  #     deliberately.
+  #   - minDuration must be >= 10m AND >= 3x refreshFrequency (default 20m), so
+  #     1h is exactly at the floor: raising refreshFrequency later rejects it.
+  catalog:
+    # IGNORE, NOT the default Adopt. Adopt re-attaches every discovered row
+    # whose identity matches a live SnapshotPolicy and puts it under GFS, and
+    # with the default defaultDeletionPolicy: Delete those prunes delete real
+    # kopia data, bypassing deletionProtection by design. That would make
+    # kopiur a deleter of history VolSync wrote, from W0 on. Ignore = kopiur
+    # never deletes what it didn't write; old history stays restorable via
+    # Restore.spec.source.identity.
+    #
+    # Not defaultDeletionPolicy: Retain instead: that covers every snapshot a
+    # policy owns, so kopiur's own GFS would never delete kopia data either.
+    #
+    # Revisit at decommission (flip to Adopt so the old tail ages out). See
+    # docs/runbooks/kopiur-migration.md, "Two deleters on one identity".
+    adoption: Ignore
+    retain:
+      # Set BEFORE the first adoption scan, never after. Absent means uncapped
+      # (`per_identity.unwrap_or(entries.len())`), and this repository holds
+      # 5,242 snapshots across 60 identities — every one would materialise as a
+      # Snapshot CR in etcd.
+      #
+      # The cap is an etcd-footprint dial, NOT a recovery dial: Restore
+      # .spec.source.identity names "aged-out catalog" as its use case, so an
+      # expired CR costs visibility, never the snapshot.
+      #
+      # 50 mirrors VolSync's own retain.latest: 48, so the CR set is the window
+      # you would actually pick from in a hurry.
+      perIdentity: 50
+      # 120d clears all 16 dead identities on its own (youngest is 160d), so
+      # there is no prune step to schedule and no kopia data is deleted.
+      #
+      # COST, accepted deliberately: 171 CRs belonging to LIVE identities are
+      # older than 120d — the weekly/monthly tail. They stay restorable via
+      # spec.source.identity + asOf, but only by someone who knows to look.
+      # See docs/runbooks/kopiur-migration.md.
+      maxAgeDays: 120
+  maintenance:
+    # OFF until VolSync is decommissioned. The fork's own KopiaMaintenance
+    # objects in volsync-system currently own maintenance on THIS repository
+    # (kopia-maintenance-local: quick 0 */4 * * *, full 0 2 * * *). Enabling
+    # kopiur's would put two owners on one repository's maintenance lease.
+    # Flip this to true in the same change that retires those objects.
+    enabled: false
+  moverDefaults:
+    # Preserves today's VolSync behaviour EXACTLY: components/volsync-backup
+    # runs movers as root by default (VOLSYNC_RUN_AS_USER:-0), which 38 of the
+    # 46 apps take. The 8 that override it do so per-policy in the component.
+    #
+    # Root is what makes a restore able to recreate root-owned content: a
+    # non-root mover cannot chown to root, so root-owned files come back owned
+    # by the mover uid. Changing this is a deliberate later improvement, not
+    # part of cutover.
+    securityContext:
+      runAsUser: 0
+      runAsGroup: 0
+    podSecurityContext:
+      fsGroup: 0
+      fsGroupChangePolicy: OnRootMismatch
+  scheduleDefaults:
+    # Applied to every consuming cron that does not set its own. Deliberately
+    # no `timezone` — kopiur falls back to UTC, which is the only frame
+    # consistent with the rest of the cluster (all ReplicationSources carry no
+    # timeZone, and 18 of 19 CronJobs likewise). A Chicago-evaluated cron moves
+    # an hour against the UTC grid twice a year, so a slot verified clear in
+    # September silently relocates in November. This exact mistake was caught
+    # on the pilot by reading status.nextSchedule.at after deploy.
+    jitter: 20m
