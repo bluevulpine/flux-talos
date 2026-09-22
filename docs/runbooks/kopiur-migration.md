@@ -329,7 +329,7 @@ only when they are next recreated.
       creds) before W0
 - [ ] At decommission: flip `catalog.adoption` to `Adopt`? and decide on the pre-120 d
       VolSync tail
-- [ ] The cluster runs kopiur **0.10.9** (`kopiur/app/ocirepository.yaml`). The dry-runs and
-      the translator results above were against 0.10.8. Re-run the repositories patch's
-      server dry-run before landing it
+- [x] The cluster runs kopiur **0.10.9**. The repositories patch (2 ClusterRepositories with
+      `adoption: Ignore`, 18 ExternalSecrets) re-passed server dry-run against it on
+      2026-09-22. The translator results above are still from 0.10.8
 - [ ] hermes: app-level patch setting `staging.storageClassName: longhorn-1-replica`
