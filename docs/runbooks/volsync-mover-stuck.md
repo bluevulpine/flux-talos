@@ -187,6 +187,43 @@ Root cause of the clone failure itself is **not established** — the engine war
 downstream of the volume being detached, not the cause. What is established is the
 remediation below clears it and the next sync succeeds in about a minute.
 
+## Sixth fingerprint: Longhorn stale handle (2026-09-15)
+
+Longhorn again, but earlier in the pipeline than the fifth: **no Longhorn volume is ever
+created**, so the fifth fingerprint's `cloneStatus` check returns nothing and looks clean.
+`productivity/n8n-local` and `productivity/node-red-local` both wedged on 2026-09-15 and sat
+**7 days** before recovery.
+
+The VolumeSnapshot claims to be fine while the Longhorn snapshot behind it is gone:
+
+```
+VolumeSnapshot volsync-<app>-local-src   readyToUse: true
+staged PVC     volsync-<app>-local-src   Pending
+  ProvisioningFailed ... snapshot.longhorn.io "snapshot-<uid>" not found
+  ExternalProvisioning x28788 over 5d
+mover pod      Pending (no volume to mount)
+```
+
+```bash
+kubectl -n <ns> get volumesnapshot volsync-<app>-local-src -o jsonpath='{.status.readyToUse}{"\n"}'   # true
+kubectl -n <ns> describe pvc volsync-<app>-local-src | sed -n '/Events:/,$p'                          # not found
+```
+
+The telling part is `readyToUse: true`. The sibling below (VolumeSnapshot stuck
+`readyToUse=false`) is fixed by deleting the snapshot, but this one is not: the object
+looks healthy, so nothing ever retries it. Use the pause recovery below. It removes the
+snapshot along with everything else, and the next sync takes a fresh one.
+
+| fingerprint | VolumeSnapshot | staged PVC | Longhorn volume |
+| --- | --- | --- | --- |
+| fifth | `readyToUse: true` | Bound | exists, `cloneStatus.state: failed` |
+| **sixth** | `readyToUse: true` | **Pending**, `ProvisioningFailed … not found` | **none** |
+| sibling (below) | `readyToUse: false` | not created | none |
+
+On the same morning the kopiur pilots hit the same Longhorn stall. They failed with
+`StagingTimedOut` after 10 minutes and succeeded on their own at the next slot. VolSync
+has no staging timeout, which is why this wedge lasted a week.
+
 ## Recovery — pause the source FIRST
 
 **Driver-agnostic:** this procedure clears every fingerprint above, tns-csi or Longhorn.
@@ -195,11 +232,21 @@ The wedged object is the transient clone PVC (`volsync-<app>-<dest>-src`), never
 live PVC. Deleting it directly will stall in `Terminating`: VolSync immediately respawns a
 mover that re-grabs the PVC and holds the `pvc-protection` finalizer.
 
+**Pausing alone usually does the whole teardown**: mover pod, staged PVC *and*
+VolumeSnapshot. In four recoveries on 2026-09-22 (n8n, node-red and timescaledb on
+Longhorn, readarr-ebooks on tns-csi-nfs) nothing was left to delete by hand after the
+pause, and no orphaned VolumeSnapshotContent remained. So step 2 below is a check. Only
+the deletes are conditional.
+
 ```bash
-# 1. stop the actor, or the next two steps fight it
+# 1. stop the actor, or the next step fights it
 kubectl -n <ns> patch replicationsource <app>-local --type=merge -p '{"spec":{"paused":true}}'
 
-# 2. clear the mover and the wedged clone PVC (reclaimPolicy=Delete removes the dataset)
+# 2. confirm the teardown. Expect "clear" and no content names.
+kubectl -n <ns> get pod,pvc,volumesnapshot | grep 'volsync-.*<app>-local' || echo clear
+kubectl get volumesnapshotcontent -o jsonpath='{range .items[?(@.spec.volumeSnapshotRef.name=="volsync-<app>-local-src")]}{.metadata.name}{"\n"}{end}'
+
+# 2b. ONLY if something is still listed, delete it.
 #
 # NOTE the selector. This step used to read `-l volsync.backube/mover`, which matches
 # NOTHING -- it prints "No resources found" and exits 0, so the step looks like it worked
@@ -230,16 +277,27 @@ kubectl -n <ns> patch replicationsource <app>-local --type=merge \
 `lastSyncTime` advances when the wedged sync is torn down, **with no backup behind it**.
 On 2026-09-05 `develop/hermes-local` showed a fresh `lastSyncTime` and
 `latestMoverStatus.result: None` — and that source had never once synced since deploy.
-Read the mover result, not the timestamp:
+
+**`result` is not proof either.** On 2026-09-22, right after the teardown, n8n and
+node-red read `result=Successful`. That was the stale value from the last good sync, from
+before the wedge. None of the three fields proves a backup on its own. Wait for the next
+scheduled sync, then read them together:
 
 ```bash
-kubectl -n <ns> get replicationsource <app>-local \
-  -o jsonpath='{.status.lastSyncTime}{"  result="}{.status.latestMoverStatus.result}{"\n"}'
-# want: result=Successful   (not None, not Failed)
+kubectl -n <ns> get replicationsource <app>-local -o jsonpath=\
+'{.status.lastSyncTime}{"  dur="}{.status.lastSyncDuration}{"  result="}{.status.latestMoverStatus.result}{"\n"}'
 ```
 
-`lastSyncDuration` is also misleading straight after a wedge — it spans the wedge, so it
-reads in hours. A healthy `-local` mover on a small volume finishes in about a minute.
+| reading | meaning |
+| --- | --- |
+| `dur` in hours (e.g. `180h…`, `210h…`) | the teardown of the wedge. **Not a backup**, whatever `result` says |
+| `result=None` | the sync never ran. Not a backup |
+| `dur` ~1–2 min, `lastSyncTime` after you resumed, `result=Successful` | **a real backup** (2026-09-22: 1m28s–2m12s) |
+
+A cleared `VolSyncVolumeOutOfSync` doesn't prove a backup either: it cleared on these
+teardowns too. Trust `lastSyncDuration`. A healthy `-local` mover on a small volume
+finishes in about a minute. A duration that matches how long the source was wedged is
+the teardown, not a sync.
 
 ## ⚠️ The stagger mitigation is known-insufficient (2026-08-29)
 

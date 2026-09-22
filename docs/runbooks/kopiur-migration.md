@@ -1,14 +1,14 @@
 # Runbook: VolSync → kopiur backup migration
 
-**Status (2026-09-22): foundation in review, fleet cutover not started, BLOCKED on the
-control-plane migration.** This is the single source of truth for the migration; the
+**Status (2026-09-22): foundation merged (#1870), fleet cutover not started, BLOCKED on
+the control-plane migration.** This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
 
 | piece | state |
 | --- | --- |
 | Pilots (`media/recyclarr-kopiur-pilot`, `media/jellyseerr-kopiur-pilot`) | passed 4/4 and 5/5 (see their READMEs); still running `H */6` against `pilot-local` |
-| PR #1870 — component split + `components/kopiur` | open, CI green, **inert** (no app includes `components/kopiur`) |
+| PR #1870 — component split + `components/kopiur` | **merged** 2026-09-22 (eab49e12); verified inert live: all Kustomizations Ready on it, all 93 ReplicationSources intact. No app includes `components/kopiur` yet |
 | Two `ClusterRepository` + 18 `ExternalSecret` | written and server-dry-run-validated, **deliberately held back** — see "Held back" |
 | Fleet cutover (W0–W8) | not started |
 
@@ -45,6 +45,7 @@ needed manual pause-based recovery (done 2026-09-22; real backups of 1m28s–2m1
 | Q5 | `epoch.minDuration: 1h` on `kopia-local` only, **as its own change** | local repo carries ~4,500 index blobs vs 1,000 warn at ~97 writes/h; R2 needs nothing |
 | — | credentials: 18 ESO-minted Secrets (9 ns × 2) from the **same OpenBao keys** as VolSync | movers read creds via namespace-local `envFrom`; keeps "secrets only via ESO"; KOPIA_PASSWORD must match (it is the encryption key) |
 | — | mover runs **root by default** (`moverDefaults`), 8 apps override | preserves today's VolSync behaviour exactly; uid-matching is a later, deliberate improvement |
+| — | **same-identity dual writing** during each app's parallel run (Derek, 2026-09-22) | the only way to verify kopiur on real history before VolSync is removed; blobs are immutable and content-addressed, retention rules identical, one maintenance owner. **Accepted cost:** kopia applies retention per identity across *all* its snapshots, whichever engine wrote them, so while both run, `keepLatest` covers roughly half as much time. The hourly, daily, weekly and monthly buckets keep one snapshot per period, so they lose nothing. **The mechanics are subtler than this, and two consequences are still open.** See "Two deleters on one identity" |
 | — | **PVC ownership stays in `components/volsync-claim`** for the whole migration | removing the claim = Flux prunes the PVC; a replacement claim can't drop `dataSourceRef` (SSA-owned by kustomize-controller + immutable on a bound PVC) |
 
 ## BLOCKER: the control plane
@@ -84,7 +85,7 @@ Key properties, all commented in the manifests:
 ## Sequence
 
 1. **CP migration complete** (blocker above).
-2. **Merge PR #1870.** Inert; the split is proven byte-identical across all 46 apps.
+2. ~~**Merge PR #1870.**~~ Done 2026-09-22.
 3. **Land the repositories** (the held-back patch, as its own PR). Then verify:
    `kubectl get clusterrepository` → both `Ready`; Snapshot CR count ≈ 2,179 and not
    5,242; `status.storageStats.indexBlobCount` populated.
@@ -133,9 +134,40 @@ app has cut over.
 verified" therefore means: **add `components/kopiur` alongside `volsync-backup` first**,
 verify, and only then remove `volsync-backup`. Both write the **same kopia identity**
 concurrently during that window (immutable content-addressed blobs, identical retention
-rules, one maintenance owner). **Derek's explicit OK on same-identity dual writing is still
-pending — get it before W0.** It is the first time anything but VolSync writes those
-identities.
+rules, one maintenance owner). Approved 2026-09-22. See the Decisions table for the
+`keepLatest` cost. It is the first time anything but VolSync writes those identities.
+
+### Two deleters on one identity (found 2026-09-22, read from source, not yet observed live)
+
+The dual-write approval above assumed one retention engine. There are two:
+
+- **The fork's kopia-native retention outlives VolSync.** The fork writes its retention
+  as a **path-scope** kopia policy (`kopia policy set /data --keep-…`,
+  `mover-kopia/entry.sh:2138` at v0.17.11). kopiur pins all six `--keep-*` to `i32::MAX`
+  at the **identity** scope before its first create, to make its own CR-driven GFS the
+  only deleter (`crates/mover/src/workspec/mod.rs:1641` at 0.10.9). But a path-scope value
+  overrides the identity scope, and `kopia snapshot create` applies the source's
+  retention after *every* create. So the fork's rules keep expiring snapshots on
+  kopiur's runs too, during the parallel run **and after VolSync is gone**, and they
+  evaluate over the whole identity (both engines' snapshots). Consequence: kopia can
+  expire a snapshot that a kopiur `Snapshot` CR still points to. The CR shows
+  `Succeeded`, and it fails only at restore. That is the exact failure kopiur's pin exists
+  to prevent. The rules match kopiur's GFS, so no history is lost beyond what VolSync
+  already expires. The problem is dangling CRs.
+- **Adoption turns kopiur into a real deleter of VolSync-written history.**
+  `catalog.adoption` defaults to `Adopt` and `defaultDeletionPolicy` to `Delete`, and
+  neither the parked repositories patch nor `components/kopiur` overrides either one. At
+  W0, each new policy adopts its identity's materialized `discovered` rows (≤50, ≤120 d)
+  and GFS **deletes kopia data** outside `spec.retention` on the next reconcile. Retention
+  prunes bypass `deletionProtection` by design (kopiur `docs/repositories.md`). With
+  identical rules this should find little that kopia hasn't already expired. "Should" is
+  unverified, because the two GFS implementations were never compared bucket-for-bucket.
+
+Levers for the decision, which is Derek's: `catalog.adoption: Ignore` on the
+ClusterRepositories (kopiur never deletes pre-existing history; restore it via
+`spec.source.identity`), or `defaultDeletionPolicy: Retain` (adopts only in-window rows),
+and separately, clearing the fork's path-scope `--keep-*` at each app's cutover so kopiur's
+pin takes effect. Decide before W0; adoption settings belong in the repositories patch.
 
 ### Gates
 
@@ -267,8 +299,8 @@ only when they are next recreated.
 
 ## Open items
 
-- [ ] Derek's OK on same-identity dual writing (before W0)
-- [ ] `docs/runbooks/volsync-mover-stuck.md`: (a) **pause alone performs the whole
+- [x] Derek's OK on same-identity dual writing (2026-09-22; see Decisions)
+- [x] `docs/runbooks/volsync-mover-stuck.md`: (a) **pause alone performs the whole
       teardown** — mover, staged PVC *and* VolumeSnapshot; the manual delete steps are
       unnecessary, and no orphaned VolumeSnapshotContent was left in four recoveries;
       (b) add a **sixth fingerprint**, the Longhorn stale handle (above) — the fifth
@@ -276,4 +308,9 @@ only when they are next recreated.
       created; (c) after recovery, trust `lastSyncDuration`, not `lastSyncTime` or the
       cleared alert: 180h/210h are wedge spans, ~1m30s is a real backup
 - [ ] upstream issues: translator reason string; translator per-namespace abort
+- [ ] **Two deleters on one identity** (above): choose the adoption / deletion-policy
+      settings and whether to clear the fork's path-scope retention at cutover. **Blocks W0**
+- [ ] The cluster runs kopiur **0.10.9** (`kopiur/app/ocirepository.yaml`). The dry-runs and
+      the translator results above were against 0.10.8. Re-run the repositories patch's
+      server dry-run before landing it
 - [ ] hermes: app-level patch setting `staging.storageClassName: longhorn-1-replica`
