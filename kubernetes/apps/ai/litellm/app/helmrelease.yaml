@@ -146,6 +146,20 @@ spec:
               # against gpt-oss's 63, despite being smaller: gpt-oss is MoE with
               # ~3.6B active parameters while this is dense, and dense loses on a
               # bandwidth-bound device. Smaller is not faster here.
+              #
+              # ⚠️ MEMORY HAZARD, learned the hard way. Ollama runs with
+              # OLLAMA_KEEP_ALIVE=-1, so ANY model touched through this proxy
+              # stays resident forever. A single evaluation request against this
+              # entry pinned 73 GiB -- not weights, but KV cache: slots x 32k
+              # context, and a DENSE 14B costs far more per slot than the MoE
+              # gpt-oss's 13 GiB. Together they consumed 103 of 121 GiB, latency
+              # went to minutes, and hindsight operations began timing out into
+              # PERMANENT failures.
+              #
+              # It is survivable at the current OLLAMA_NUM_PARALLEL=4, but before
+              # sending real traffic here check `ollama ps` and be ready to
+              # `curl -d '{"model":"...","keep_alive":0}' /api/generate` to
+              # evict whichever model you are not using.
               - model_name: spark-qwen25-14b
                 litellm_params:
                   model: openai/qwen2.5:14b-instruct
