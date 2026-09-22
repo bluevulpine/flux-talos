@@ -1,0 +1,25 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+# The app's data PVC, split out of `volsync-backup` so that swapping the backup
+# engine never touches the volume.
+#
+# WHY THIS IS SEPARATE: claim.yaml is the ONLY manifest in the repo that creates
+# an app's config PVC (a handful of apps add extra media-NFS claims, but not
+# this one). While it lived in the backup component, removing that component
+# from an app removed the PVC resource, and Flux `prune: true` would then DELETE
+# THE VOLUME. That is a data-loss footgun on the last step of every app's
+# migration, at the moment it looks finished.
+#
+# It cannot be solved by giving the new backup engine its own claim, either.
+# `kustomize-controller` owns `f:dataSourceRef` via server-side apply, so a
+# replacement claim that omits the field makes SSA *remove* it -- and a bound
+# PVC's spec is immutable, so the apiserver rejects the apply and the app's
+# whole Kustomization stops reconciling, not just the PVC.
+#
+# So this component keeps the PVC manifest byte-identical for the life of the
+# migration. Every app includes it alongside whichever backup component it is
+# currently on.
+resources:
+  - ./claim.yaml

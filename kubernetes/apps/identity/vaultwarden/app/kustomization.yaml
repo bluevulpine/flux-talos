@@ -8,5 +8,6 @@ resources:
   - ./helmrelease.yaml
   - ./httproute.yaml
 components:
-  - ../../../../components/volsync
+  - ../../../../components/volsync-claim
+  - ../../../../components/volsync-backup
 

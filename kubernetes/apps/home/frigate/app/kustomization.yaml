@@ -8,5 +8,6 @@ resources:
   - ./helmrelease.yaml
   - ./nfs.yaml
 components:
-  - ../../../../components/volsync
+  - ../../../../components/volsync-claim
+  - ../../../../components/volsync-backup
 

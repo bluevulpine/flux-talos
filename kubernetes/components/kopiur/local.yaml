@@ -1,0 +1,122 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/snapshotpolicy_v1alpha1.json
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: SnapshotPolicy
+metadata:
+  name: "${APP:=temp}-local"
+spec:
+  repository:
+    kind: ClusterRepository
+    name: kopia-local
+  identity:
+    # ADOPTION HINGES ON THESE THREE FIELDS. The fork wrote every snapshot as
+    # `<app>@<namespace>:/data`, verified three ways: the fork's own mover logs,
+    # kopiur's translator at 0.10.8, and `kopia snapshot list --all` against the
+    # live repository. `kubectl kopiur migrate volsync --resolve-secrets`
+    # reproduces it for all 44 translatable sources with zero exceptions.
+    #
+    # Pinned explicitly rather than left to ClusterRepository.identityDefaults
+    # (CEL `usernameExpr`/`hostnameExpr`). Explicit is what the translator
+    # emits, it is visible at the policy where someone debugging a forked
+    # history will look, and it does not rest on an alpha CEL evaluator.
+    username: "${APP:=temp}"
+    hostname: "${NS}"
+  sources:
+    - pvc:
+        name: "${APP:=temp}"
+      # THE FIELD THAT BREAKS ADOPTION IF OMITTED. kopiur's default source path
+      # is `/pvc/<name>`; the fork used `/data`. Drop this and the identity
+      # becomes `<app>@<ns>:/pvc/<app>` — a NEW kopia source. Nothing errors:
+      # you get a parallel history that dedupes poorly against the existing
+      # blobs and whose retention never sees the old series.
+      sourcePathOverride: /data
+      # readOnly is deliberately ABSENT and must stay absent — it defaults to
+      # true. Setting it false is how a mover fsGroup takes effect, and under
+      # copyMethod: Direct that recursively chgrps the LIVE volume (which is
+      # why kopiur demands acknowledgeLiveMutation for that combination).
+  # Mirrors components/volsync-backup/local.yaml's VOLSYNC_COPYMETHOD:-Direct.
+  # kopiur does NOT fix the tns-csi CreateVolume bug — Snapshot takes the same
+  # CSI path into the same driver. What it adds is spec.staging.timeout below.
+  copyMethod: "${KOPIUR_COPYMETHOD:-Direct}"
+  volumeSnapshotClassName: "${KOPIUR_SNAPSHOTCLASS:-tns-csi-nfs-snapshot}"
+  staging:
+    # The other half of why this migration exists. VolSync's staging wait is
+    # UNBOUNDED: docs/runbooks/volsync-mover-stuck.md records kubelet retrying
+    # an identical doomed mount x849 over 28h, and on 2026-09-15 n8n-local and
+    # node-red-local sat Pending for 7 days on a stale VolumeSnapshot handle.
+    # kopiur bounds both staging phases — the VolumeSnapshot `readyToUse` wait
+    # and the staged-PVC bind — and fails terminally with a named reason
+    # (StagingTimedOut / StagedPvcBindTimeout / VolumeSnapshotFailed), so the
+    # next scheduled run retries instead of the source wedging.
+    #
+    # Both pilots hit exactly that on 2026-09-15 during a Longhorn CSI stall,
+    # failed in 10m, and recovered unattended on the next slot.
+    #
+    # 10m is the upstream default, stated rather than inherited. Large volumes
+    # (plex 100Gi, jellyfin 32Gi) may need more — measure, do not assume.
+    timeout: "${KOPIUR_STAGING_TIMEOUT:-10m}"
+    # staging.storageClassName is deliberately NOT templated here: absent means
+    # the staged PVC copies the source PVC's class, which is what 45 of the 46
+    # apps already do. `develop/hermes` is the one exception and carries an
+    # app-level patch — it stages on longhorn-1-replica (dataLocality:
+    # disabled) while its PVC is longhorn-1-replica-local (best-effort), and
+    # inheriting would put replica churn on a throwaway volume every backup.
+  mover:
+    cache:
+      # mode is pinned, not defaulted: the CRD declares it a nullable enum with
+      # no documented default, and storageClassName only means anything for a
+      # PVC-backed cache — so leaving it unset risks a silently inert cache.
+      mode: Persistent
+      capacity: ${KOPIUR_CACHE_CAPACITY:-16Gi}
+      storageClassName: "${KOPIUR_CACHE_CLASS:-longhorn-1-replica}"
+    # Defaults to root, matching components/volsync-backup/local.yaml's
+    # VOLSYNC_RUN_AS_USER:-0, which 38 of the 46 apps take. Root is also what
+    # lets a restore recreate root-owned content: a non-root mover cannot chown
+    # to root, so root-owned files come back owned by the mover's uid.
+    # Moving apps onto uid-matched movers is a deliberate later improvement.
+    securityContext:
+      runAsUser: ${KOPIUR_RUN_AS_USER:-0}
+      runAsGroup: ${KOPIUR_RUN_AS_GROUP:-0}
+    podSecurityContext:
+      fsGroup: ${KOPIUR_FS_GROUP:-0}
+      fsGroupChangePolicy: OnRootMismatch
+  retention:
+    # 1:1 with components/volsync-backup/local.yaml. All six kopia buckets
+    # exist, so nothing is lost in translation and the recovery window is
+    # unchanged. The local leg stays deep and frequent; R2 stays shallow and
+    # daily — see r2.yaml.
+    keepLatest: 48
+    keepHourly: 96
+    keepDaily: 30
+    keepWeekly: 12
+    keepMonthly: 12
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/snapshotschedule_v1alpha1.json
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: SnapshotSchedule
+metadata:
+  name: "${APP:=temp}-local"
+spec:
+  policyRef:
+    name: "${APP:=temp}-local"
+  schedule:
+    # ONE SCHEDULE PER POLICY, NEVER a policySelector fan-out. The live CRD
+    # defines jitter as "derived from (scheduleUID, slot)" — per SCHEDULE, not
+    # per matched policy — and `H` resolves from the same schedule identity. So
+    # a single policySelector schedule over 46 policies fires all 46 movers at
+    # ONE INSTANT: precisely the 00:00 thundering herd that drove the tns-csi
+    # CreateVolume rollback and destroyed ZFS datasets behind Bound PVs.
+    #
+    # With one schedule each, `H` self-distributes the minute from each
+    # schedule's own UID. Proven at N=2 on the pilots: two schedules carrying a
+    # byte-identical "H */6 * * *" landed 23m17s apart, which exceeds the whole
+    # 20m jitter window — so the H minutes themselves differ, not just jitter.
+    #
+    # THIS IS WHAT RETIRES THE GRID. components/volsync-backup/r2.yaml
+    # hand-maintains a 40-slot, 8-minute grid for 46 sources and reserves hour
+    # 03; H makes all of that unnecessary. Cadence is still per-app, because
+    # the */1 vs */2 vs */4 split encodes real criticality tiering.
+    cron: "${KOPIUR_LOCAL_CRON:-H */2 * * *}"
+    # jitter and timezone inherit from ClusterRepository.scheduleDefaults
+    # (20m, UTC). Do not set a timezone here: a Chicago-evaluated cron shifts
+    # an hour against the UTC grid twice a year.

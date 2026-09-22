@@ -1,0 +1,28 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+# kopiur backup half — the drop-in replacement for ../volsync-backup.
+#
+# Per-app cutover is a one-line swap, because the PVC lives in
+# ../volsync-claim and stays put:
+#
+#   components:
+#     - ../../../../components/volsync-claim
+#   -  - ../../../../components/volsync-backup
+#   +  - ../../../../components/kopiur
+#
+# NOTE the nested externalsecret-refresh. It creates no ExternalSecret of its
+# own — kopiur's credentials are 18 namespace-scoped ExternalSecrets under
+# kubernetes/apps/kopiur-system/repositories — but 40 of the 46 apps INHERIT
+# the 5m refreshInterval patch for their OWN ExternalSecrets from
+# ../volsync-backup and do not list it themselves. Nesting it here means the
+# swap above preserves that patch instead of silently reverting those 40 apps
+# to the default refresh interval. Kustomize applies components after the
+# accumulated resources and in listed order, so a patch component must come
+# after whatever creates the resources it targets; nesting keeps that correct.
+components:
+  - ../externalsecret-refresh
+resources:
+  - ./r2.yaml
+  - ./local.yaml

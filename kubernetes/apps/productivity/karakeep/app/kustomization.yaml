@@ -9,5 +9,6 @@ resources:
   - ./pvc.yaml
   - ./dnsendpoint.yaml
 components:
-  - ../../../../components/volsync
+  - ../../../../components/volsync-claim
+  - ../../../../components/volsync-backup
 

@@ -8,5 +8,6 @@ resources:
   - ./ocirepository.yaml
   - ./helmrelease.yaml
 components:
-  - ../../../../components/volsync
+  - ../../../../components/volsync-claim
+  - ../../../../components/volsync-backup
 
