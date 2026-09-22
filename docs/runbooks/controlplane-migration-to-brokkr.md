@@ -1,6 +1,10 @@
 # Plan: move control-plane duty from the jormungandr Pis to the brokkr nodes
 
-**Status: PROPOSED — not executed.** Written 2026-09-18.
+**Status: ALTERNATIVE — superseded as the primary path on 2026-09-22 by
+[`controlplane-migration-to-vault-vm.md`](controlplane-migration-to-vault-vm.md).**
+Written 2026-09-18, not executed. The diagnosis below is still the authoritative one;
+this plan remains the fallback if a VM on vault is rejected, and is the way to grow
+from one control plane back to three later.
 
 ## Why
 
