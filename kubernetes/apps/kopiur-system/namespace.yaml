@@ -6,24 +6,30 @@ metadata:
   annotations:
     kustomize.toolkit.fluxcd.io/prune: disabled
   labels:
-    # restricted, not baseline. Checked against the rendered output of chart
-    # 0.10.7 rather than assumed - both Deployments (kopiur-controller and
-    # kopiur-webhook) already satisfy every restricted requirement as shipped:
-    #   runAsNonRoot: true          (1000 / 65534)
-    #   allowPrivilegeEscalation: false
-    #   capabilities.drop: [ALL]
-    #   seccompProfile.type: RuntimeDefault
-    #   volumes: emptyDir + secret only
-    # and neither uses hostNetwork, hostPID or a hostPath.
+    # ENFORCE baseline, WARN/AUDIT restricted.
     #
-    # This is inspection of the rendered manifests, not a server-side PSA
-    # verdict - the namespace does not exist yet to dry-run against. If a future
-    # chart release adds a component that needs more, PSA will reject the pod
-    # loudly rather than silently, which is the failure direction to want.
+    # This was enforce: restricted, reasoned from kopiur's own Deployments
+    # (controller + webhook, both non-root and fully hardened; still true, and
+    # restricted is still warned/audited so they stay visible if that changes).
+    # The premise that movers "run in the workload's own namespace, not here"
+    # held for the namespaced pilot Repository, but not for ClusterRepository:
+    # its repository-level Jobs (catalog discovery/bootstrap) run HERE, and
+    # they inherit ClusterRepository.moverDefaults, which is root (runAsUser 0)
+    # to match VolSync's movers. kopiur has no per-job override for discovery,
+    # only for maintenance. On 2026-09-22 every kopia-{local,r2}-discovery pod
+    # was rejected at admission ("runAsUser=0 ... violates restricted") until
+    # this changed. Loud, as the old comment predicted; nothing ran.
     #
-    # Note this is STRICTER than volsync-system, which runs privileged and needs
-    # `volsync.backube/privileged-movers: "true"`. kopiur's movers take the
-    # workload's uid/gid and need no such grant - and they run in the workload's
-    # own namespace (media, baseline since #1721), not here.
-    pod-security.kubernetes.io/enforce: restricted
+    # Baseline over the alternative (dropping moverDefaults root): app backups
+    # pin root per SnapshotPolicy anyway, but Restores inherit moverDefaults,
+    # and a non-root restore mover silently re-owns root-owned files. See
+    # docs/runbooks/kopiur-migration.md. The hardened mover baseline (drop
+    # ALL, seccomp RuntimeDefault, no privilege escalation) still applies.
+    #
+    # Still stricter than volsync-system, which runs privileged.
+    pod-security.kubernetes.io/enforce: baseline
     pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
