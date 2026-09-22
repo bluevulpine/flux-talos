@@ -385,6 +385,12 @@ Reverse order: restore the controllers and block workloads, then unsuspend Flux
 and let it restore the rest.
 
 ```bash
+# The API lives on the freyja01 VM, which autostarts once the pools import.
+# Nothing below works until it answers.
+until kc get --raw=/readyz >/dev/null 2>&1; do
+  echo "waiting for the API (freyja01 VM)..."; sleep 10
+done
+
 # Wait for vault to actually serve, not just answer ping.
 until curl -sf -m3 -o /dev/null -w '%{http_code}' http://10.0.10.10:30188/ | grep -q 403; do
   echo "waiting for Garage on vault..."; sleep 10

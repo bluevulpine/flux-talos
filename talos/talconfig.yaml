@@ -56,7 +56,7 @@ nodes:
       - name: tailscale
         environment:
           - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
-    nodeTaints:
+    nodeTaints: &lowpowertaint
       node.kubernetes.io/low-power: "raspberry-pi:NoSchedule"
     patches:
       - &lowpowerpatch |-
@@ -82,8 +82,7 @@ nodes:
         mtu: 1500
     schematic: *pischematic
     extensionServices: *extensionServices
-    nodeTaints:
-      node.kubernetes.io/low-power: "raspberry-pi:NoSchedule"
+    nodeTaints: *lowpowertaint
     patches:
       - *lowpowerpatch
 
@@ -98,8 +97,7 @@ nodes:
         mtu: 1500
     schematic: *pischematic
     extensionServices: *extensionServices
-    nodeTaints:
-      node.kubernetes.io/low-power: "raspberry-pi:NoSchedule"
+    nodeTaints: *lowpowertaint
     patches:
       - *lowpowerpatch
 
@@ -165,8 +163,7 @@ nodes:
             mtu: 1500
     schematic: *pischematic
     extensionServices: *extensionServices
-    nodeTaints:
-      node.kubernetes.io/low-power: "raspberry-pi:NoSchedule"
+    nodeTaints: *lowpowertaint
     patches:
       - *lowpowerpatch
     volumes:

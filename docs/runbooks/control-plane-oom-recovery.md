@@ -95,6 +95,10 @@ everything else; one successful call does not mean it has recovered.
 
 ## Recovery order
 
+> **Applies only to a three-member Pi control plane**, which no longer exists
+> (see the banner at the top). With the single `freyja01` control plane, there is
+> no quorum to preserve: any reboot of it is a full API outage.
+
 Restart **one at a time**, worst first, verifying etcd rejoins before the next.
 
 With three members, one down leaves two — quorum holds. Restarting a second

@@ -298,8 +298,15 @@ talosctl -n 10.0.10.3N reset --graceful=false --reboot \
 kubectl delete node jormungandrN
 talosctl apply-config --insecure -n 10.0.10.3N \
   --file talos/clusterconfig/home-kubernetes-jormungandrN.yaml
-kubectl get node jormungandrN --show-labels   # no control-plane role; low-power taint present
+kubectl get node jormungandrN \
+  -o jsonpath='{.metadata.labels}{"\n"}{.spec.taints}{"\n"}'   # no node-role label; low-power taint
 ```
+
+**Run this with the regenerated talosconfig** (endpoint `10.0.10.35` only). With the
+old one, whose endpoints are the Pis, talosctl may route through a Pi that is already
+a worker. That fails with `PermissionDenied: no request forwarding`, because workers
+don't proxy. This happened on 2026-09-22: j3's reset went through, and j2's was
+refused after its drain had already run.
 
 `kubectl delete node` is not optional. The old Node object carries the
 `node-role.kubernetes.io/control-plane` label and taint, and a kubelet re-registering
@@ -367,7 +374,8 @@ All times UTC.
 | Phase 2 | VM `freyja01`: zvol `apps/freyja01-2yv8uo`, `sync=standard` inherited from the pool (TrueNAS shows no UI option for it), `/dev/vda`, NIC `ens3` |
 | Phase 3 | #1876. `apply-config` at ~22:39; joined etcd as a **learner** at 22:40:41, promoted to voter at 22:41:29, node `Ready` 22:41:38. All 11 pods on it Running with 0 restarts, so **no x86-64-v3 images** among the CP-tolerating DaemonSets |
 | Phase 4 | j3 leave → j2 (leader, forfeited first) leave → j1 (VIP) leave, ~22:43–22:45. Single member at term 232. VIP gap 22:45:27 → 22:46:28 (see Phase 4) |
-| Phase 5 | etcd scrape, defrag job, and `ControlPlaneMemory*` alerts retargeted to 10.0.10.35; vault-maintenance runbook, Serena `core`, Pi conversion |
+| Phase 5 | etcd scrape, defrag job, and `ControlPlaneMemory*` alerts retargeted to 10.0.10.35 (#1877); vault-maintenance runbook, Serena `core`, Pi conversion |
+| Pi → worker | drain, reset, `kubectl delete node`, apply worker config: j3 23:16–23:22, j2 23:23–23:41 (the first reset was refused: see the talosconfig note in Phase 4), j1 23:42–23:48. Each came back `Ready` with only the `low-power` taint, running jormungandr4's DaemonSet set |
 
 Things that went differently from the plan:
 
