@@ -246,7 +246,10 @@ kubectl -n <ns> patch replicationsource <app>-local --type=merge -p '{"spec":{"p
 kubectl -n <ns> get pod,pvc,volumesnapshot | grep 'volsync-.*<app>-local' || echo clear
 kubectl get volumesnapshotcontent -o jsonpath='{range .items[?(@.spec.volumeSnapshotRef.name=="volsync-<app>-local-src")]}{.metadata.name}{"\n"}{end}'
 
-# 2b. ONLY if something is still listed, delete it.
+# 2b. ONLY if something is still listed, delete it. Deleting the staged PVC is safe:
+#     it is the transient clone, never the app's PVC, and its StorageClass has
+#     reclaimPolicy=Delete, so the PV and backing dataset/volume go with it. No manual
+#     storage cleanup is needed.
 #
 # NOTE the selector. This step used to read `-l volsync.backube/mover`, which matches
 # NOTHING -- it prints "No resources found" and exits 0, so the step looks like it worked
@@ -292,6 +295,7 @@ kubectl -n <ns> get replicationsource <app>-local -o jsonpath=\
 | --- | --- |
 | `dur` in hours (e.g. `180h…`, `210h…`) | the teardown of the wedge. **Not a backup**, whatever `result` says |
 | `result=None` | the sync never ran. Not a backup |
+| `result=Failed` (any `dur`) | the mover ran and failed. **Not a backup**. Read the mover pod's logs before the next slot replaces them |
 | `dur` ~1–2 min, `lastSyncTime` after you resumed, `result=Successful` | **a real backup** (2026-09-22: 1m28s–2m12s) |
 
 A cleared `VolSyncVolumeOutOfSync` doesn't prove a backup either: it cleared on these
