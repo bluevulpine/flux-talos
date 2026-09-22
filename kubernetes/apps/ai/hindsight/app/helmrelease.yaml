@@ -307,31 +307,22 @@ spec:
               # retain/consolidation into parse-retry storms — see the
               # STRICT_SCHEMA comment below), a litellm-routed member with the
               # forced-tool option, or an Anthropic-compatible second endpoint.
-              # --- reflect -> Azure OpenAI (gpt-4.1-mini) ---
-              # This slot was claude-sonnet-5 on the reasoning that "reflect is
-              # user-initiated and rare, so this does not touch the per-retain
-              # cost". That premise was WRONG and cost real money on 2026-09-07.
-              #
-              # The slot does not only serve the user-invoked `reflect` tool: it
-              # also serves `refresh_mental_model` and `mental_model_delta_ops`,
-              # which fire AUTOMATICALLY after consolidation. Measured that day
-              # on the flux-talos bank: 232 calls, 1,646,763 input tokens, $9.84
-              # in ~2h — ~85% of all Anthropic spend, against $1.17 for retain.
-              # Actual user-invoked reflect that day: 3 calls, all failed. So the
-              # expensive half of this slot is automatic, not user-initiated, and
-              # it scales with consolidation volume rather than being rare.
-              #
-              # It is also synthesis over units retain has ALREADY extracted —
-              # the same "low judgment, high volume" shape as consolidation — so
-              # it belongs on the free Azure credits for the same reason.
-              # Retain stays on Anthropic; that is still the stage that decides
-              # what becomes a durable belief.
+              # --- reflect -> DGX Spark via LiteLLM ---
+              # This slot is NOT just the user-invoked `reflect` tool. It also
+              # serves `refresh_mental_model` and `mental_model_delta_ops`, which
+              # fire AUTOMATICALLY after consolidation, and that half dominates:
+              # measured 2026-09-07 on the flux-talos bank, 232 calls and
+              # 1,646,763 input tokens in ~2h against 3 user-invoked reflects.
+              # Volume here scales with consolidation, not with how often anyone
+              # asks a question. That is the durable lesson; the dollar figures
+              # it was originally written around are moot now that the stage runs
+              # on hardware we own.
               #
               # WATCH THIS ONE: reflect is an agentic tool-calling loop
               # (stage=llm.*.reflect_tool_call), not consolidation's single
-              # structured call, so it leans harder on the model. If mental-model
-              # quality degrades, revert this block to claude-sonnet-5 (or try
-              # claude-haiku-4-5, still 3x cheaper than sonnet on both axes).
+              # structured call, so it leans harder on the model than its volume
+              # suggests. It is the stage most likely to need a different model
+              # from the other two.
               HINDSIGHT_API_REFLECT_LLM_PROVIDER: openai
               # Was gpt-5-mini, and REASONING_EFFORT: low did not save it.
               # gpt-5-mini is a REASONING model, and the session-start reflect
@@ -352,23 +343,23 @@ spec:
               # option, but it tunes the same reasoning phase that IS the
               # problem; gpt-4o removes the phase instead of shrinking it.
               #
-              # gpt-4.1-mini is non-reasoning and accepts an explicit
-              # temperature. That is why LLM_TEMPERATURE_REFLECT and
-              # REFLECT_LLM_REASONING_EFFORT are both GONE from this block
-              # rather than carried over:
+              # LLM_TEMPERATURE_REFLECT and REFLECT_LLM_REASONING_EFFORT stay
+              # GONE from this block, and that still matters on the Spark:
               #   - reasoning_effort is passed through VERBATIM, so leaving it
-              #     set would 400 every call against a non-reasoning model;
-              #   - temperature now falls back to reflect's intended 0.9
+              #     set would 400 every call against a backend that does not
+              #     accept it;
+              #   - temperature falls back to reflect's intended 0.9
               #     (config.py DEFAULT_LLM_TEMPERATURE_REFLECT), which is what
-              #     the `none` override existed to work around in the first
-              #     place.
+              #     the old `none` override existed to work around.
               #
-              # Chosen over gpt-4o (which is also deployed here, and was the
-              # first pick) because it is faster and cheaper on the same axis
-              # that matters, with a 1M context window — reflect front-loads
-              # every mental model into the prompt, so headroom there is free
-              # insurance. Still on Azure credits, so the cost argument above
-              # is unchanged either way.
+              # One Azure-era consideration that does NOT carry over: gpt-4.1-mini
+              # was picked partly for a 1M context window, on the reasoning that
+              # reflect front-loads every mental model so headroom is free
+              # insurance. It is not free here. Context on the Spark is bounded by
+              # OLLAMA_CONTEXT_LENGTH (32768), and KV cache is allocated PER
+              # PARALLEL SLOT, so raising it multiplies across the pool. If reflect
+              # starts truncating mental models, that is the knob — and it is a
+              # memory decision on the Spark, not a free one.
               #
               # All of the above is why moving reflect to a local model needed
               # measuring rather than assuming. gpt-oss:20b IS a reasoning model,
