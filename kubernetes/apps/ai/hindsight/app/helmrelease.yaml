@@ -326,6 +326,20 @@ spec:
               # successful mental-model refresh exceeded the 1800 cap. Every wall
               # limit here was sized for hosted inference answering in seconds.
               #
+              # The three are NOT enforced the same way, which is why a
+              # consolidation could complete at 8756s under a 7200s "cap":
+              #  - REFLECT self-bounds INSIDE the engine
+              #    (memory_engine.py:14462 passes timeout=wall_timeout), so it is
+              #    a preemptive kill and the deadline is exact — that is why the
+              #    error reads "Reflect operation timed out after 300 seconds"
+              #    and why the failures sit at 1801s, not 1850s.
+              #  - RETAIN and CONSOLIDATION are a poller-side _WallCeiling
+              #    (poller.py:82) checked BETWEEN polls, so an operation that
+              #    finishes before the poller looks again survives past it.
+              # Treat the reflect number as a hard deadline and the other two as
+              # approximate. It also means reflect is the one where being too
+              # tight is guaranteed to destroy work rather than merely likely to.
+              #
               # All three are raised well past the observed maximum rather than
               # trimmed to fit it, because the cost is asymmetric: these are
               # background operations that block nothing, and a wall-timeout
