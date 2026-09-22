@@ -105,15 +105,33 @@ spec:
               # Ollama itself has no auth, and is reachable by anything on
               # VLAN 10.
               #
-              # Addressed by name, not by IP: the UDM holds a fixed assignment
-              # plus an A record, so a renumber never touches git. Note the name
-              # must stay fully qualified — a bare `spark-ab23` is swallowed by
-              # the cluster search path (ndots:5) and resolves only with a
-              # trailing dot, which not every HTTP client normalises.
+              # Addressed by IP, deliberately, after the name stopped resolving.
+              #
+              # This was http://spark-ab23.${SECRET_DOMAIN}:11434/v1 and that
+              # worked when it was set. Hours later the same lookup returned
+              # NODATA from the UDM (NOERROR, no A record) while the BARE
+              # `spark-ab23` still answered 10.0.10.237 — i.e. UniFi's automatic
+              # DHCP-hostname registration survived but the explicit
+              # derekjacobs.dev record did not. Every Hindsight call failed as
+              # `litellm.InternalServerError: Connection error` until this change.
+              #
+              # The bare name is not a usable substitute: with ndots:5 the
+              # cluster search path swallows a single-label name, and it resolves
+              # only as `spark-ab23.` with a trailing dot, which not every HTTP
+              # client normalises.
+              #
+              # Using the IP is SAFE now in a way it was not originally. The
+              # first version of this file used 10.0.10.237 and carried a warning
+              # that it was a DHCP lease which could move silently. It is now a
+              # fixed assignment on the UDM, so that failure mode is gone.
+              #
+              # Switch back to the name once the A record is restored and
+              # verified resolving FROM A POD, not just from the Spark — the
+              # Spark resolves names the cluster cannot.
               - model_name: spark-gpt-oss-20b
                 litellm_params:
                   model: openai/gpt-oss:20b
-                  api_base: http://spark-ab23.${SECRET_DOMAIN}:11434/v1
+                  api_base: http://10.0.10.237:11434/v1
                   api_key: unused-ollama-accepts-any
 
               # Non-reasoning alternative, exposed so a stage can be moved off
@@ -135,7 +153,7 @@ spec:
                   # embedded in a string, and an alias here would have to survive
                   # kustomize, helm, the ConfigMap and Flux envsubst before
                   # LiteLLM ever parses it.
-                  api_base: http://spark-ab23.${SECRET_DOMAIN}:11434/v1
+                  api_base: http://10.0.10.237:11434/v1
                   api_key: unused-ollama-accepts-any
 
             # There is deliberately NO fallback entry here, and no

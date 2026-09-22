@@ -160,13 +160,20 @@ endpoints:
   # and every inference request then fails with "model not found" while a plain
   # status check sits green. Status alone would not catch it.
   #
-  # No dns-resolver override here, unlike the Pangolin checks above. Those force
-  # a public resolver specifically to avoid split-horizon answering from inside;
-  # this name is internal-only and MUST resolve through the UDM, so pinning it to
-  # 1.1.1.1 would break the check rather than harden it.
+  # Addressed by IP rather than by name, matching the api_base LiteLLM actually
+  # calls. That is the point: this probe exists to tell us whether the path
+  # Hindsight uses is alive, so it has to exercise the SAME path. Probing a
+  # hostname that LiteLLM does not use could go green while every real call
+  # fails, or page "Spark down" for what is really a DNS record problem.
+  #
+  # It was briefly http://spark-ab23.${SECRET_DOMAIN}:11434/v1/models, and that
+  # name stopped resolving hours after it was created — the UDM returned NODATA
+  # for it while still answering the bare `spark-ab23`. Restore the name here
+  # only when the LiteLLM api_base goes back to it, and only after verifying it
+  # resolves from inside a pod.
   - name: DGX Spark (Ollama)
     group: inference
-    url: "http://spark-ab23.${SECRET_DOMAIN}:11434/v1/models"
+    url: "http://10.0.10.237:11434/v1/models"
     interval: 1m
     conditions:
       - "[STATUS] == 200"
