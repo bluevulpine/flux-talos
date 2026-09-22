@@ -72,7 +72,6 @@ While most of my infrastructure and workloads are self-hosted I do rely upon the
 | [GitHub](https://github.com/)             | Hosting this repository and CI/CD. Pro subscription.                                   | ~$48/yr         |
 | [Fastmail](https://fastmail.com/)         | Email hosting for 2 users                                                              | ~$100/yr        |
 | [Cloudflare R2](https://www.cloudflare.com/developer-platform/r2/) | Offsite Volsync backups (S3-compatible object storage)            | usage-based      |
-| [Wasabi](https://wasabi.com/)             | TrueNAS dataset cloud sync (managed outside cluster)                                   | ~$7/TB/mo        |
 | [Storj](https://storj.io/)               | TrueNAS dataset cloud sync (managed outside cluster)                                   | usage-based      |
 | [NextDNS](https://nextdns.io/)            | Network-wide DNS filtering (basic plan)                                                | ~$20/yr         |
 | [Pushover](https://pushover.net/)         | Kubernetes Alerts and application notifications                                        | $5 OTP          |
