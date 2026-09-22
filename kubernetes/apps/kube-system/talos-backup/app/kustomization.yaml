@@ -7,4 +7,6 @@ components:
 resources:
   - ./cronjob.yaml
   - ./externalsecret.yaml
+  - ./offsite-cronjob.yaml
+  - ./offsite-externalsecret.yaml
   - ./serviceaccount.yaml
