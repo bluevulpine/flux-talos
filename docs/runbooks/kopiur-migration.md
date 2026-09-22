@@ -38,7 +38,7 @@ needed manual pause-based recovery (done 2026-09-22; real backups of 1m28s–2m1
 | --- | --- | --- |
 | Q1 | **Adopt the existing repositories in place**, no re-seed | fleet is the perfectra1n fork using `spec.kopia`; kopiur adopts fork repos and history continues |
 | Q2 | identity `<app>@<namespace>:/data`, **pinned explicitly** per policy | verified three ways (fork logs, translator, `kopia snapshot list`); `kubectl kopiur migrate volsync --resolve-secrets` reproduced it for all 44 translatable sources |
-| Q3 | **keep the retention asymmetry** → 92 single-repo SnapshotPolicies, no fan-out | `repositories[]` has no per-repo retention; local 12×/day + 48/96/30/12/12, R2 1×/day + 6/7/4/3 |
+| Q3 | **keep the retention asymmetry** → 92 single-repo SnapshotPolicies, no fan-out | `repositories[]` has no per-repo retention. **Effective** retention, verified live 2026-09-22 and matched exactly in `components/kopiur`: local 12×/day, latest/hourly/daily/weekly/monthly/annual = 48/96/30/12/12/**3**; R2 1×/day, 10/6/7/4/3/3. The bold/inherited values are kopia *global defaults* the fork never wrote (see the trap below) |
 | — | **one SnapshotSchedule per policy, never `policySelector`** | live CRD: jitter "derived from (scheduleUID, slot)" — per schedule, so a selector schedule fires every matched policy at one instant (the 00:00 herd that destroyed ZFS datasets) |
 | — | `ClusterRepository` ×2 (`kopia-local`, `kopia-r2`), not namespaced `Repository` | 8 namespaces, 2 repos; per-namespace repos = many Maintenance CRs contending for one lease |
 | — | `catalog.retain`: **`perIdentity: 50`, `maxAgeDays: 120`**, set before first scan | uncapped = 5,242 Snapshot CRs; this gives ~2,179, and the 16 dead identities age out with no kopia data deleted. **Accepted cost:** 171 CRs of *live* identities (weekly/monthly tail) lose their CR — still restorable, see "Restoring an aged-out snapshot" |
@@ -47,7 +47,7 @@ needed manual pause-based recovery (done 2026-09-22; real backups of 1m28s–2m1
 | — | mover runs **root by default** (`moverDefaults`), 8 apps override | preserves today's VolSync behaviour exactly; uid-matching is a later, deliberate improvement |
 | — | **same-identity dual writing** during each app's parallel run (Derek, 2026-09-22) | the only way to verify kopiur on real history before VolSync is removed; blobs are immutable and content-addressed, retention rules identical, one maintenance owner. **Accepted cost:** kopia applies retention per identity across *all* its snapshots, whichever engine wrote them, so while both run, `keepLatest` covers roughly half as much time. The hourly, daily, weekly and monthly buckets keep one snapshot per period, so they lose nothing. **The mechanics are subtler than this, and two consequences are still open.** See "Two deleters on one identity" |
 | — | **`catalog.adoption: Ignore`** on both ClusterRepositories, for the migration (Derek, 2026-09-22) | with the default `Adopt` + `Delete`, W0 would have kopiur deleting VolSync-written kopia data outside its window, and retention prunes bypass `deletionProtection`. `Ignore` means kopiur never deletes history it didn't write. **Rejected: `defaultDeletionPolicy: Retain`**: it covers *every* snapshot a policy owns, so kopiur's GFS would only ever delete CRs, and once the fork's retention is cleared nothing would delete kopia data at all. **Accepted cost:** the VolSync history present at cutover stays in the repository indefinitely (frozen, not growing), and a deleted-then-recreated policy's history is not re-attached to retention. **Revisit at decommission:** flip to `Adopt` so GFS ages out the materialized tail (≤50/identity, ≤120 d). The older tail needs a one-off decision either way |
-| — | **Clear the fork's path-scope retention at each app's cutover** (Derek, 2026-09-22) | the fork's `kopia policy set /data --keep-…` overrides kopiur's identity-scope `i32::MAX` pin, so kopia would otherwise keep expiring snapshots behind kopiur's CRs indefinitely. Clear only the six `keep-*` fields, never the whole path policy (it also holds the fork's compression setting). Must come **after** VolSync stops writing the identity, because the fork re-applies it on every run (`do_retention`) |
+| — | **Clear the fork's path-scope retention at each app's cutover** (Derek, 2026-09-22) | the fork's `kopia policy set /data --keep-…` overrides kopiur's identity-scope `i32::MAX` pin, so kopia would otherwise keep expiring snapshots behind kopiur's CRs indefinitely. Clear only the six `keep-*` fields, not the whole path policy. Live, the path policies hold *only* `keep-*` (compression is disabled globally), so today the two are equivalent. The narrow clear stays correct if a path policy ever carries anything else. Must come **after** VolSync stops writing the identity, because the fork re-applies it on every run (`do_retention`) |
 | — | **PVC ownership stays in `components/volsync-claim`** for the whole migration | removing the claim = Flux prunes the PVC; a replacement claim can't drop `dataSourceRef` (SSA-owned by kustomize-controller + immutable on a bound PVC) |
 
 ## BLOCKER: the control plane
@@ -287,6 +287,13 @@ land past 02:40.
 
 ## Traps found so far (each one produced a plausible wrong answer)
 
+- **VolSync's retention manifest is not its effective retention.** The fork writes only
+  the buckets a ReplicationSource sets to a path-scope kopia policy, and everything else
+  falls through to kopia's **global defaults**. `policy show` on 2026-09-22: local
+  `Annual 3 inherited from (global)`; R2 `Latest 10` and `Annual 3 inherited from
+  (global)`. Translating the manifests 1:1 would have silently dropped all three once the
+  path-scope clear hands retention to kopiur. `components/kopiur` now states them. Compare
+  against `kopia policy show`, never against `retain:`.
 - **Four apps set no `NS`** (`recyclarr`, `cross-seed`, `ev-charge-ledger`, `plex`). VolSync
   never needed it, because the fork takes the hostname from the namespace implicitly.
   `components/kopiur` pins `hostname: "${NS}"`, and unset it becomes `""`. The webhook
@@ -348,9 +355,15 @@ only when they are next recreated.
       path-scope retention at cutover). `catalog.adoption: Ignore` is in the parked patch
 - [x] Path-scope clear: `inherit` syntax and path-over-identity precedence verified locally
       (see per-app cutover)
-- [ ] **Derek:** run `.handoff/verify-kopia-policies.sh` (read-only) to confirm the
-      production repos really hold the fork's retention at the path scope and nothing at
-      the identity scope
+- [x] Live policy check (`.handoff/verify-kopia-policies.sh`, read-only, 2026-09-22, both
+      repos, fork kopia 0.22.3). Path `jellyseerr@media:/data` has `keep-*` "defined for this
+      target", and the identity `jellyseerr@media` defines nothing (everything inherited from
+      global). **Found:** the inherited annual (both legs) and latest (R2) buckets, now added
+      to `components/kopiur`. `policy list` shows exactly one path policy per live app. The
+      extras are dead identities (`atuin@default`, `immich@media`, `karakeep@karakeep`,
+      `mosquitto@infrastructure`, and in R2 `root@volsync-src-couchdb-r2-xhlmx`). Their policies
+      are inert because retention only runs when something snapshots them, so they need no
+      clear
 - [x] W0 prepared as patches in `.handoff/` (git-excluded), each checked to apply cleanly on
       main, individually and stacked: `kopiur-w0-cutover.patch` (jellyseerr + recyclarr get
       `components/kopiur` alongside `volsync-backup`, plus `dependsOn: kopiur-repositories`,
