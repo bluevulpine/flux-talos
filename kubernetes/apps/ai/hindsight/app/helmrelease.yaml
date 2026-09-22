@@ -196,6 +196,23 @@ spec:
               # schema-legal, but `entities` feeds retrieval, so if recall
               # degrades this is the first thing to check — it is a model/prompt
               # weakness, not a transport problem.
+              #
+              # A non-reasoning model was evaluated for this stage and REJECTED
+              # on evidence. qwen2.5:14b-instruct was run against the real
+              # FactExtractionResponse schema alongside gpt-oss and the result
+              # was not close:
+              #   gpt-oss:20b   7 facts, valid, all required fields, 0 reasoning chars
+              #   qwen2.5:14b   4 facts, valid, all required fields, 0 reasoning chars
+              # Neither populated `entities` on a single fact, so swapping the
+              # model does NOT close the gap above — it is the prompt or the
+              # field being schema-optional, not the model's capability.
+              #
+              # The premise for switching was also wrong. gpt-oss is a reasoning
+              # model, but on this constrained-extraction call it emitted ZERO
+              # reasoning tokens; it reasons for open-ended work, not for grammar
+              # -constrained output. The reasoning tax that justifies a
+              # non-reasoning model elsewhere does not exist on this stage.
+              # qwen2.5 remains available as `spark-qwen25-14b` if this changes.
               HINDSIGHT_API_LLM_PROVIDER: openai
               HINDSIGHT_API_LLM_MODEL: spark-gpt-oss-20b
 
@@ -233,8 +250,15 @@ spec:
               # Consolidation is the highest-volume stage by far (~700 of 997
               # calls on 2026-09-07), which makes that the likely one to do it.
               #
-              # Budget, against OLLAMA_NUM_PARALLEL=10 on the Spark:
-              #     retain 6 + consolidation 2 + reflect 2 = 10
+              # Budget, against OLLAMA_NUM_PARALLEL=4 on the Spark:
+              #     retain 2 + consolidation 1 + reflect 1 = 4
+              #
+              # This was 6+2+2=10, sized from a synthetic sweep with a ~6k-token
+              # prompt that showed 10-way concurrency holding per-request latency
+              # under 24s. That measurement did not survive contact with the real
+              # workload: hindsight runs at 32k context, and at 10 slots actual
+              # requests took 2-6 MINUTES, blew their wall timeouts, and became
+              # PERMANENT failures. Fewer slots that finish beat more that do not.
               # It sums to exactly the pool on purpose. Reflect is the stage that
               # must never queue — it has a hard 25s client cap it cannot
               # negotiate, and a slow queue there is indistinguishable from an
@@ -245,9 +269,56 @@ spec:
               # first, and that lives on the Spark in
               # /etc/systemd/system/ollama.service.d/override.conf, NOT in this
               # repo. That gap is real — nothing here reconciles it.
-              HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "6"
-              HINDSIGHT_API_CONSOLIDATION_LLM_MAX_CONCURRENT: "2"
-              HINDSIGHT_API_REFLECT_LLM_MAX_CONCURRENT: "2"
+              # --- timeouts: raised for local inference ---
+              # DEFAULT_LLM_TIMEOUT is 120s (config.py:1130), which was sized
+              # against hosted APIs answering in seconds. It is too short here,
+              # and the failure is not a retry -- it is permanent data loss.
+              # DEFAULT_WORKER_MAX_RETRIES is 3, after which poller.py:890 sets
+              # status='failed' with completed_at, and the poller only ever
+              # claims status='pending' (poller.py:458). Nothing re-queues a
+              # failed operation, ever.
+              #
+              # Measured while the Spark was draining its backlog: a real retain
+              # extraction took 82.7s wall, and a trivial 60-token generation
+              # reached 89s under contention. Against a 120s ceiling that is not
+              # headroom, it is a coin flip -- and 10 refresh_mental_model plus 3
+              # consolidation operations were observed going PERMANENTLY failed
+              # inside one 30-minute window because of it.
+              #
+              # 600s is deliberately generous rather than tuned. Every stage
+              # behind this is asynchronous: retain runs off the Stop hook,
+              # consolidation and refresh_mental_model are background work, and
+              # nothing user-facing blocks on any of them. A request that takes
+              # four minutes costs only wall-clock; one killed at 120s costs the
+              # work already done, two more attempts, and then the memory itself.
+              #
+              # This deliberately covers reflect too. Reflect's interactive path
+              # is capped client-side at 25s regardless, but the SAME slot serves
+              # refresh_mental_model, which is background and uncapped -- and
+              # which accounts for 22,338 of the failed operations in the table.
+              # Timing those out to protect a client cap that does not apply to
+              # them is how that number got so large.
+              HINDSIGHT_API_LLM_TIMEOUT: "600"
+              # Raising LLM_TIMEOUT alone is NOT enough, and leaving this at its
+              # default makes the pair incoherent. REFLECT_WALL_TIMEOUT is a
+              # deadline on the WHOLE reflect operation (DEFAULT 300s,
+              # config.py:1810), separate from the per-request LLM_TIMEOUT above
+              # -- so at 600/300 a single slow call could consume the entire
+              # operation budget and still be killed. Observed directly:
+              # "Reflect operation timed out after 300 seconds" was the actual
+              # error behind the refresh_mental_model failures, not a per-request
+              # timeout at all.
+              #
+              # Retain and consolidation already have generous wall limits
+              # (RETAIN_WALL_TIMEOUT 3600, CONSOLIDATION_WALL_TIMEOUT 7200);
+              # reflect is the uniquely tight one because its default assumes a
+              # waiting caller. refresh_mental_model shares the slot and has no
+              # such caller.
+              HINDSIGHT_API_REFLECT_WALL_TIMEOUT: "1800"
+
+              HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "2"
+              HINDSIGHT_API_CONSOLIDATION_LLM_MAX_CONCURRENT: "1"
+              HINDSIGHT_API_REFLECT_LLM_MAX_CONCURRENT: "1"
 
               # --- retain batching: OFF, and it has to be ---
               # This was "true" to buy Anthropic's Message Batches API discount:
