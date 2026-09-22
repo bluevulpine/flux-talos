@@ -13,8 +13,8 @@
 #
 # Layout in the bucket, each pruned by count:
 #   hourly/  48 most recent  = 2 days. Interim: moves to the pinas once it exists.
-#   daily/   30 most recent  = 30 days. One per UTC day; the long tail that
-#            Garage's 7-day window no longer holds.
+#   daily/   30 most recent  = 30 days. The newest snapshot of each UTC day; the
+#            long tail that Garage's 7-day window no longer holds.
 #
 # While vault is down this job fails, since the source is gone. That is expected:
 # it is the case where the objects already in R2 are the ones you need.
@@ -63,37 +63,63 @@ spec:
                 - /bin/sh
                 - -c
                 - |
-                  set -eu
+                  # pipefail: an rclone listing that fails must fail the Job, not
+                  # read as "nothing to copy/prune". Listings go to files (plain
+                  # commands, so set -e sees them) before anything consumes them.
+                  set -euo pipefail
                   SRC="garage:talos/backups"
                   DST="r2:talos-etcd"
 
-                  # hourly/: anything from the last 25h not already there. The 25h
-                  # window means a missed run is caught up by the next one.
+                  # hourly/: the window equals hourly/'s own retention (48 objects
+                  # = 48h). Anything older would be copied only to be pruned below,
+                  # re-uploading ~358 MB per object on every run. Because the window
+                  # matches retention, a catch-up after an outage of any length
+                  # leaves hourly/ exactly as it would have been without one.
                   rclone copy "$${SRC}" "$${DST}/hourly" \
-                    --include "*.snap.age" --max-age 25h \
+                    --include "*.snap.age" --max-age 48h \
                     --retries 3 --low-level-retries 10 \
                     --stats-one-line --stats-log-level NOTICE
 
-                  # daily/: today's newest snapshot, once per UTC day. Names are
-                  # talos-<RFC3339 UTC>.snap.age, so they sort chronologically.
-                  TODAY=$(date -u +%Y-%m-%d)
-                  if [ -z "$(rclone lsf "$${DST}/daily" --include "talos-$${TODAY}T*")" ]; then
-                    PICK=$(rclone lsf "$${DST}/hourly" --include "talos-$${TODAY}T*" | sort | tail -n 1)
-                    if [ -n "$${PICK}" ]; then
-                      echo "daily: $${PICK}"
-                      rclone copyto "$${DST}/hourly/$${PICK}" "$${DST}/daily/$${PICK}"
+                  # daily/: the NEWEST snapshot of each UTC day, for every day Garage
+                  # still holds (7d). Today's entry is replaced each hour as newer
+                  # snapshots land, so it settles on the day's last one; earlier days
+                  # are a no-op once present. Walking Garage's whole window, not just
+                  # today, backfills the dailies missed during an outage of this job
+                  # of up to 7 days. Names are talos-<RFC3339 UTC>.snap.age, so a
+                  # lexical sort is chronological and characters 7-16 are the day.
+                  rclone lsf "$${SRC}" --include "*.snap.age" --max-age 7d > /tmp/src.txt
+                  rclone lsf "$${DST}/hourly" --include "*.snap.age" > /tmp/hourly.txt
+                  rclone lsf "$${DST}/daily" --include "*.snap.age" > /tmp/daily.txt
+                  for DAY in $(cut -c7-16 /tmp/src.txt | sort -u); do
+                    PICK=$(grep "^talos-$${DAY}T" /tmp/src.txt | sort | tail -n 1)
+                    if ! grep -qxF "$${PICK}" /tmp/daily.txt; then
+                      # Server-side copy within R2 when hourly/ has it (free, no
+                      # upload); otherwise from Garage.
+                      if grep -qxF "$${PICK}" /tmp/hourly.txt; then
+                        FROM="$${DST}/hourly"
+                      else
+                        FROM="$${SRC}"
+                      fi
+                      echo "daily: $${PICK} (from $${FROM})"
+                      rclone copyto "$${FROM}/$${PICK}" "$${DST}/daily/$${PICK}"
                     fi
-                  fi
+                    # Drop that day's superseded entries.
+                    for OLD in $(grep "^talos-$${DAY}T" /tmp/daily.txt | grep -vxF "$${PICK}" || true); do
+                      rclone deletefile "$${DST}/daily/$${OLD}"
+                    done
+                  done
 
                   # Prune by count, newest kept. tail -n +N keeps N-1.
-                  rclone lsf "$${DST}/hourly" --include "*.snap.age" | sort -r | tail -n +49 \
-                    | while read -r f; do rclone deletefile "$${DST}/hourly/$${f}"; done
-                  rclone lsf "$${DST}/daily" --include "*.snap.age" | sort -r | tail -n +31 \
-                    | while read -r f; do rclone deletefile "$${DST}/daily/$${f}"; done
+                  rclone lsf "$${DST}/hourly" --include "*.snap.age" | sort -r > /tmp/hourly.txt
+                  for f in $(tail -n +49 /tmp/hourly.txt); do rclone deletefile "$${DST}/hourly/$${f}"; done
+                  rclone lsf "$${DST}/daily" --include "*.snap.age" | sort -r > /tmp/daily.txt
+                  for f in $(tail -n +31 /tmp/daily.txt); do rclone deletefile "$${DST}/daily/$${f}"; done
 
-                  echo "hourly: $(rclone lsf "$${DST}/hourly" | wc -l) objects," \
-                    "daily: $(rclone lsf "$${DST}/daily" | wc -l) objects," \
-                    "newest: $(rclone lsf "$${DST}/hourly" | sort | tail -n 1)"
+                  rclone lsf "$${DST}/hourly" --include "*.snap.age" | sort > /tmp/hourly.txt
+                  rclone lsf "$${DST}/daily" --include "*.snap.age" | sort > /tmp/daily.txt
+                  echo "hourly: $(wc -l < /tmp/hourly.txt) objects," \
+                    "daily: $(wc -l < /tmp/daily.txt) objects," \
+                    "newest: $(tail -n 1 /tmp/hourly.txt)"
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
