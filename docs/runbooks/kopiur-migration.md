@@ -138,9 +138,20 @@ kopia policy set '<app>@<ns>:/data' \
 kopia policy show '<app>@<ns>:/data'   # the keep-* lines must read as inherited from <app>@<ns>
 ```
 
-Doing this any earlier gets undone: the fork re-sets it on every VolSync run. The kopia
-syntax (`inherit` on the `--keep-*` flags) and the client pod to run it from are **not yet
-verified**. Settle both before W0.
+Doing this any earlier gets undone: the fork re-sets it on every VolSync run.
+
+**Syntax and precedence verified locally** (kopia 0.23.1, filesystem repo, 2026-09-22). With
+kopiur's identity-scope pin and the fork's path-scope values both set, `policy show` on the
+path reads `48 (defined for this target)`, so the path overrides the pin as claimed. After
+the `inherit` command, all six read `2147483647 inherited from <app>@<ns>`, and compression
+stays `zstd (defined for this target)`. The fork's movers run kopia **0.22.3**.
+
+**Client:** a short-lived Pod running the fork's own image (`ghcr.io/perfectra1n/volsync:
+v0.17.11`, `kopia` at `/usr/local/bin`) with `envFrom` the app's
+`<app>-volsync-{local,r2}-secret`, connecting the way the fork's `entry.sh` does. The
+read-only version of that Pod is `.handoff/verify-kopia-policies.sh` (connects `--readonly`;
+a write fails with `storage is read-only`, verified locally). The write version is the
+same Pod without `--readonly` and with the command above.
 
 **Do NOT delete these VolSync vars at cutover** — `components/volsync-claim` still reads
 them: `VOLSYNC_CAPACITY`, `VOLSYNC_STORAGECLASS`, `VOLSYNC_ACCESSMODES`,
@@ -217,10 +228,10 @@ then the `kopiur-pilot` Garage bucket and OpenBao key `kopiur-pilot`.
 | wave | app | VolSync local → kopiur local | VolSync R2 → kopiur R2 | copy | StorageClass | extra vars |
 |---|---|---|---|---|---|---|
 | W0 | media/jellyseerr | `10 */2 * * *` → `H */2 * * *` | `41 1 * * *` → `H 1 * * *` | Snapshot | longhorn-1-replica |  |
-| W0 | media/recyclarr | `0 6 * * *` → `H 6 * * *` | `49 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica |  |
+| W0 | media/recyclarr | `0 6 * * *` → `H 6 * * *` | `49 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica | **`NS: media`** ³ |
 | W1 | download/autobrr | `5 */4 * * *` → `H */4 * * *` | `11 0 * * *` → `H 0 * * *` | Snapshot | longhorn-1-replica |  |
-| W1 | download/cross-seed | `10 */4 * * *` → `H */4 * * *` | `49 0 * * *` → `H 0 * * *` | Snapshot | longhorn-1-replica |  |
-| W1 | home/ev-charge-ledger | `43 */2 * * *` → `H */2 * * *` | `53 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica |  |
+| W1 | download/cross-seed | `10 */4 * * *` → `H */4 * * *` | `49 0 * * *` → `H 0 * * *` | Snapshot | longhorn-1-replica | **`NS: download`** ³ |
+| W1 | home/ev-charge-ledger | `43 */2 * * *` → `H */2 * * *` | `53 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica | **`NS: home`** ³ |
 | W1 | home/ev-charge-tracker | `9 */2 * * *` → `H */2 * * *` | `37 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica |  |
 | W1 | media/calibre-web | `15 */4 * * *` → `H */4 * * *` | `33 0 * * *` → `H 0 * * *` | Snapshot | longhorn-1-replica |  |
 | W1 | media/notifiarr | `35 */4 * * *` → `H */4 * * *` | `49 2 * * *` → `H 2 * * *` ² | Snapshot | longhorn-1-replica |  |
@@ -252,7 +263,7 @@ then the `kopiur-pilot` Garage bucket and OpenBao key `kopiur-pilot`.
 | W4 | database/timescaledb | `22,52 * * * *` → `37,7 * * * *` ¹ | `13 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica | uid/gid/fsGroup 1000 |
 | W4 | identity/vaultwarden | `2,32 * * * *` → `17,47 * * * *` ¹ | `49 5 * * *` → `H 5 * * *` | Direct | longhorn-1-replica |  |
 | W5 | media/jellyfin | `35 * * * *` → `H * * * *` | `33 1 * * *` → `H 1 * * *` | Snapshot | longhorn-1-replica |  |
-| W5 | media/plex | `20,50 * * * *` → `35,5 * * * *` ¹ | `3 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica | cache 30Gi |
+| W5 | media/plex | `20,50 * * * *` → `35,5 * * * *` ¹ | `3 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica | cache 30Gi, **`NS: media`** ³ |
 | W6 | develop/hermes | `23 * * * *` → `H * * * *` | `29 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica-local | **staging.storageClassName: longhorn-1-replica patch** |
 | W6 | home/scrypted | `45 * * * *` → `H * * * *` | `11 5 * * *` → `H 5 * * *` | Snapshot | longhorn-1-replica-local | cache 10Gi |
 | W7 | develop/gitea | `18,48 * * * *` → `33,3 * * * *` ¹ | `3 1 * * *` → `H 1 * * *` | Direct | tns-csi-nfs |  |
@@ -263,17 +274,27 @@ then the `kopiur-pilot` Garage bucket and OpenBao key `kopiur-pilot`.
 | W8 | games/satisfactory | `55 * * * *` → `H * * * *` | `3 5 * * *` → `H 5 * * *` | Direct | tns-csi-nvmeof | uid/gid/fsGroup 1000 |
 | W8 | games/valheim | `58 * * * *` → `H * * * *` | `41 5 * * *` → `H 5 * * *` | Direct | tns-csi-nvmeof | uid/gid/fsGroup 1000 |
 
-¹ **Twice-hourly apps.** Whether kopiur supports a stepped `H` (e.g. `H/30`) is
-unverified, so these keep explicit minutes, shifted +15 from VolSync's so the two engines
+¹ **Twice-hourly apps.** kopiur has no stepped `H`. `substitute_h` (`crates/api/src/jitter.rs`
+at 0.10.9) rewrites only a field that is *exactly* `H`, and `H/30` is passed through to
+croner unexpanded. So these keep explicit minutes, shifted +15 from VolSync's so the two engines
 don't snapshot the same volume in the same minute during the parallel run. Check
 `status.nextSchedule.at` after applying.
 ² **R2 in hour 02.** `jitter: 20m` is a forward window, so an `H` near :59 can spill into
 **hour 03, which stays reserved** while the fork's `kopia-maint-r2` runs at `0 3 * * *`
 against the same repository. Read `status.nextSchedule.at` after applying and move any that
 land past 02:40.
+³ **Add `NS: <namespace>`** to `postBuild.substitute`. See the `NS` trap below.
 
 ## Traps found so far (each one produced a plausible wrong answer)
 
+- **Four apps set no `NS`** (`recyclarr`, `cross-seed`, `ev-charge-ledger`, `plex`). VolSync
+  never needed it, because the fork takes the hostname from the namespace implicitly.
+  `components/kopiur` pins `hostname: "${NS}"`, and unset it becomes `""`. The webhook
+  **admits** that: the empty field drops out and kopiur falls back to its default hostname
+  (the namespace). So the identity comes out right by accident, not through the explicit
+  pin the design relies on. Add `NS` to the `ks.yaml` in the app's own wave (table ³).
+- **Never put a `${…}` token in a `ks.yaml` comment.** `cluster-apps` runs postBuild
+  substitution over the `ks.yaml` files themselves.
 - **`sourcePathOverride: /data` is load-bearing.** kopiur's default is `/pvc/<name>`;
   omitting it silently creates a new identity — no error, a forked history.
 - **`policySelector` does not spread** (per-schedule jitter). One schedule per policy.
@@ -325,8 +346,20 @@ only when they are next recreated.
 - [ ] upstream issues: translator reason string; translator per-namespace abort
 - [x] **Two deleters on one identity**: decided 2026-09-22 (adoption `Ignore`, clear
       path-scope retention at cutover). `catalog.adoption: Ignore` is in the parked patch
-- [ ] Verify the path-scope clear procedure (kopia `inherit` syntax, client pod with repo
-      creds) before W0
+- [x] Path-scope clear: `inherit` syntax and path-over-identity precedence verified locally
+      (see per-app cutover)
+- [ ] **Derek:** run `.handoff/verify-kopia-policies.sh` (read-only) to confirm the
+      production repos really hold the fork's retention at the path scope and nothing at
+      the identity scope
+- [x] W0 prepared as patches in `.handoff/` (git-excluded), each checked to apply cleanly on
+      main, individually and stacked: `kopiur-w0-cutover.patch` (jellyseerr + recyclarr get
+      `components/kopiur` alongside `volsync-backup`, plus `dependsOn: kopiur-repositories`,
+      the `KOPIUR_*` vars, and `NS: media` for recyclarr; the render is byte-identical to main
+      outside the 4 new kopiur objects, and identities render as `<app>@media:/data`) and
+      `kopiur-w0-retire-pilots.patch` (removes both pilots together. All 24 pilot Snapshots
+      carry `onScheduleDelete: Retain` and no `onPolicyDelete`, so the prune deletes only
+      CRs, never kopia data. The pilot bucket and OpenBao key are dropped by hand
+      afterwards). Order: repositories → W0 cutover → gates pass → retire pilots
 - [ ] At decommission: flip `catalog.adoption` to `Adopt`? and decide on the pre-120 d
       VolSync tail
 - [x] The cluster runs kopiur **0.10.9**. The repositories patch (2 ClusterRepositories with
