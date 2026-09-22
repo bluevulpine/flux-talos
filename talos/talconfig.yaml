@@ -84,6 +84,45 @@ nodes:
     schematic: *pischematic
     extensionServices: *extensionServices
 
+  # Control-plane VM on vault (TrueNAS): 4 vCPU host-passthrough, 32 GiB fixed,
+  # 40 GiB virtio zvol on the `apps` pool, virtio NIC on br1 (VLAN 10).
+  # Replaces jormungandr1-3 as the ONLY control plane; see
+  # docs/runbooks/controlplane-migration-to-vault-vm.md. CP-only on purpose
+  # (allowSchedulingOnMasters stays false): isolation from workload memory
+  # pressure is the point. The host is Ivy Bridge (x86-64-v2, no AVX2), so any
+  # DaemonSet that tolerates the CP taint must not ship an x86-64-v3 build.
+  - hostname: "freyja01"
+    ipAddress: "10.0.10.35"
+    installDisk: "/dev/vda"
+    controlPlane: true
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "00:a0:98:67:d0:98"
+        dhcp: true
+        mtu: 1500
+        vip:
+          ip: "10.0.10.30"
+    # Factory schematic 647d4118dd02ecb09b7753856462592033c23e92cf12b14c710e393124ec4066.
+    # No microcode extension: that is the hypervisor's job for a VM.
+    schematic:
+      customization:
+        extraKernelArgs:
+          - -init_on_alloc # Less security, faster puter
+          - -init_on_free # Less security, faster puter
+          - -selinux # Less security, faster puter
+          - apparmor=0 # Less security, faster puter
+          - init_on_alloc=0 # Less security, faster puter
+          - init_on_free=0 # Less security, faster puter
+          - mitigations=off # Less security, faster puter
+          - security=none # Less security, faster puter
+          - talos.auditd.disabled=1 # Less security, faster puter
+        systemExtensions:
+          officialExtensions:
+            - siderolabs/qemu-guest-agent # clean shutdown when vault shuts down
+            - siderolabs/tailscale
+            - siderolabs/util-linux-tools
+    extensionServices: *extensionServices
+
   - hostname: "jormungandr4"
     ipAddress: "10.0.10.34"
     installDisk: "/dev/sda"
