@@ -180,3 +180,26 @@ endpoints:
       - "len([BODY].data) > 0"
     alerts:
       - type: pushover
+
+  # LiteLLM itself, probed DIRECTLY over cluster DNS rather than through its
+  # HTTPRoute. The route carries `auth: authentik`, so an unauthenticated probe
+  # against the hostname is redirected to SSO -- and gatus follows redirects, so
+  # a 200 from the Authentik LOGIN PAGE would read as healthy while LiteLLM was
+  # dead. That check would monitor the SSO layer, not the gateway.
+  #
+  # This matters more than usual here: LiteLLM is the single path every LLM call
+  # in the cluster takes, and the `DGX Spark (Ollama)` probe above tests only the
+  # BACKEND -- it stays green when the proxy in front of it is down.
+  #
+  # /health/readiness is LiteLLM's own readiness endpoint and returns
+  # {"status":"healthy","db":"connected"}, so the db condition also catches a
+  # Postgres-side failure that would break key lookups and spend tracking.
+  - name: LiteLLM
+    group: inference
+    url: "http://litellm.ai.svc.cluster.local:4000/health/readiness"
+    interval: 1m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].db == connected"
+    alerts:
+      - type: pushover

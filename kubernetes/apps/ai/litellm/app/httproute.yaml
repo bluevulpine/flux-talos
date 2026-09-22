@@ -1,0 +1,67 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# ONE HTTPRoute covering `/`, entirely behind Authentik — deliberately NOT the
+# two-object split-posture shape that `hindsight` next door uses.
+#
+# Hindsight needs that split because the Claude Code plugin talks to its /v1 and
+# /mcp paths with a bearer token and cannot complete an interactive OIDC
+# redirect, so those paths must stay unlabelled. LiteLLM has no such consumer:
+# every client of its API (hindsight today; mealie, karakeep, n8n, node-red and
+# homebox-companion when they migrate) is IN-CLUSTER and reaches it over
+# `litellm.ai.svc.cluster.local:4000`, never through this gateway. Nothing
+# outside the cluster has any business calling /v1 here.
+#
+# So the whole hostname goes behind SSO, which is both simpler and strictly
+# safer than carving out an exception nothing needs.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: litellm
+  annotations:
+    # Gatus auto-generates an endpoint from this annotation, which gives the
+    # route itself a check. It is NOT the health check for LiteLLM: this route
+    # is labelled `auth: authentik`, so an unauthenticated probe is redirected
+    # to SSO, and gatus follows redirects — a 200 from the Authentik login page
+    # would read as healthy with LiteLLM completely dead.
+    #
+    # The real check is the `LiteLLM` endpoint in the gatus config, which hits
+    # http://litellm.ai.svc.cluster.local:4000/health/readiness directly over
+    # cluster DNS and asserts db == connected. Keep both: this one catches the
+    # route/gateway/SSO path, that one catches the service.
+    gatus.home-operations.com/endpoint: |
+      group: ai
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "LiteLLM"
+    gethomepage.dev/group: "AI"
+    gethomepage.dev/icon: "mdi-router-network"
+    gethomepage.dev/description: "Inference gateway + spend"
+  labels:
+    # NOT optional. LiteLLM's admin UI authenticates with LITELLM_MASTER_KEY,
+    # which is proxy-admin: it mints and revokes virtual keys and reads all
+    # spend. Without this label the UI is reachable by anything on the LAN or
+    # tailnet that knows the hostname, and the master key is the only thing
+    # between a visitor and full control of every model route.
+    #
+    # Requires `ai` in kubernetes/apps/identity/authentik/app/referencegrant.yaml
+    # — already present for hindsight. Without the grant the SecurityPolicy
+    # cannot reference ak-outpost-sso-proxy and this label SILENTLY does nothing,
+    # which fails open rather than closed.
+    auth: authentik
+spec:
+  hostnames:
+    - litellm.${SECRET_DOMAIN}
+  # Internal gateway only. This proxy is the single point through which every
+  # LLM call in the cluster flows, and its UI can re-route models and read spend
+  # across all of them. There is no case for putting it on `external`.
+  parentRefs:
+    - name: internal
+      namespace: network
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: litellm
+          port: 4000
