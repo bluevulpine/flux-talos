@@ -37,3 +37,6 @@ data:
   SVC_QBITTORRENT_ADDR: 172.16.8.15
   SVC_GITEA_SSH_ADDR: 172.16.8.16
   SVC_GRAPHITE_EXPORTER_ADDR: 172.16.8.17
+  # Tdarr's node port (8266), reached by the external transcode node on the DGX
+  # Spark. Separate from the web UI, which stays cluster-internal.
+  SVC_TDARR_NODE_ADDR: 172.16.8.18

@@ -1,0 +1,63 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/core/service_v1.json
+# NOT kubernetes-schemas.pages.dev, which is this repo's usual host: it does not
+# carry the core group and answers 200 with an HTML PAGE for it, which looks
+# identical to a live schema by status code. Verified this URL returns
+# application/json before using it, per CLAUDE.md.
+# Exposes ONLY Tdarr's node port (8266) on the LAN, so the external transcode
+# node on the DGX Spark can reach the server. The web UI stays on the ClusterIP
+# service behind the gateway.
+#
+# ─── Why a hand-written Service and not a second app-template `service:` key ───
+#
+# app-template names a SINGLE service after the release (`tdarr`), but the moment
+# a second one exists it renames BOTH to `<release>-<key>` — `tdarr-app` and
+# `tdarr-node`. That silently breaks anything addressing `tdarr.media.svc`,
+# starting with Tdarr's own homepage widget annotation
+# (`gethomepage.dev/widget.url: http://tdarr.media.svc.cluster.local:8265`).
+# It also forces an explicit `route.rules` block, because auto Service detection
+# only works while exactly one service exists — without it the chart fails to
+# render with "An explicit rule is required because automatic Service detection
+# is not possible."
+#
+# Both were verified by rendering the chart. A standalone Service avoids the
+# rename entirely, so nothing else has to change.
+#
+# ─── Why LoadBalancer, not TCPRoute or the internal HTTP gateway ───
+#
+# Same shape as mosquitto, gitea-ssh and postgres-lb: a non-web port that needs
+# a LAN address. The internal gateway is Envoy/HTTPRoute for web apps, and a
+# TCPRoute would need a new Gateway listener for no benefit.
+#
+# ─── Why plain LAN and not tailscale ───
+#
+# Media never flows through this port. Nodes read files over NFS straight from
+# vault.funb.us, so this carries control chatter only. Encrypting it while 73 TB
+# of media moves unencrypted over NFS on the same wire buys nothing, and it would
+# put WireGuard CPU on the box whose CPU is wanted for inference, plus a
+# tailscaled dependency in the transcode path.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tdarr-node
+  labels:
+    app.kubernetes.io/name: tdarr
+  annotations:
+    lbipam.cilium.io/ips: "${SVC_TDARR_NODE_ADDR}"
+spec:
+  type: LoadBalancer
+  # Preserves the node's source IP so Tdarr logs which node connected rather
+  # than a masqueraded cluster address.
+  externalTrafficPolicy: Local
+  # Copied from the app-template-generated service; these three labels are what
+  # it puts on the pod. If the controller key in the HelmRelease is ever renamed
+  # from `tdarr`, this selector must follow or the LB silently has no endpoints.
+  selector:
+    app.kubernetes.io/controller: tdarr
+    app.kubernetes.io/instance: tdarr
+    app.kubernetes.io/name: tdarr
+  ports:
+    - name: server
+      port: 8266
+      targetPort: 8266
+      protocol: TCP
