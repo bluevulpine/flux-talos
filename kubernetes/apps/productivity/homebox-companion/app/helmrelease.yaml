@@ -27,8 +27,19 @@ spec:
               HBC_HOMEBOX_URL: http://homebox.productivity.svc.cluster.local:7745
               # Public URL for links in chat responses
               HBC_LINK_BASE_URL: https://homebox.${SECRET_DOMAIN}
-              # LLM model configuration (Azure OpenAI - GPT-5 mini recommended)
-              HBC_LLM_MODEL: gpt-5-mini
+              # Was gpt-5-mini on Azure, which is out of credits and 401s on
+              # every call. Now the in-cluster LiteLLM gateway (see the
+              # externalsecret) routing to the Spark.
+              #
+              # ⚠️ gpt-oss:20b is TEXT-ONLY, and gpt-5-mini was vision-capable.
+              # Chat and link lookups work; AI item detection FROM PHOTOS does
+              # not — the model cannot see the upload. HBC_IMAGE_QUALITY below
+              # is inert until a vision model is served. That capability was
+              # already dead with the Azure key, so this is not a regression,
+              # but it is not restored either. To restore it, serve a vision
+              # model (e.g. qwen2.5vl) on the Spark, add it to LiteLLM's
+              # model_list, and point this there.
+              HBC_LLM_MODEL: spark-gpt-oss-20b
               # Server configuration
               HBC_SERVER_HOST: "0.0.0.0"
               HBC_SERVER_PORT: "8000"
