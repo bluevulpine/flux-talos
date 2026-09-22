@@ -1,5 +1,12 @@
 # Control-plane OOM: recognising it and recovering
 
+> **Historical since 2026-09-22.** The control plane moved off the Pis onto the
+> `freyja01` VM (32 GiB) on vault, which is the structural fix for this failure;
+> see [controlplane-migration-to-vault-vm.md](controlplane-migration-to-vault-vm.md).
+> The recognition steps still apply if a Pi is ever made a control plane again,
+> for example in the "if vault dies" recovery. The rolling-reboot procedure does
+> not: with one control-plane node, a reboot is an API outage.
+
 The jormungandr Pi control-plane nodes leak memory. Far enough along, the leak
 starves etcd and the cluster API becomes unusable. This is how to recognise that
 specific failure and recover it without making it worse.

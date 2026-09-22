@@ -21,17 +21,18 @@ cniConfig:
   name: none
 
 nodes:
+  # jormungandr1-3 were the control plane until 2026-09-22, when it moved to
+  # freyja01 below. They are now low-power workers like jormungandr4: same taint,
+  # same patch, so only workloads that explicitly tolerate a Pi land on them.
   - hostname: "jormungandr1"
     ipAddress: "10.0.10.31"
     installDisk: "/dev/sda"
-    controlPlane: true
+    controlPlane: false
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "e4:5f:01:*"
         dhcp: true
         mtu: 1500
-        vip:
-          ip: "10.0.10.30"
     schematic: &pischematic
       customization:
         extraKernelArgs:
@@ -55,34 +56,52 @@ nodes:
       - name: tailscale
         environment:
           - TS_AUTHKEY=${SECRET_TS_AUTHKEY}
+    nodeTaints:
+      node.kubernetes.io/low-power: "raspberry-pi:NoSchedule"
+    patches:
+      - &lowpowerpatch |-
+        machine:
+          kubelet:
+            extraConfig:
+              registerWithTaints:
+                - key: "node.kubernetes.io/low-power"
+                  value: "raspberry-pi"
+                  effect: "NoSchedule"
+          kernel:
+            modules:
+              - name: nvme_tcp
 
   - hostname: "jormungandr2"
     ipAddress: "10.0.10.32"
     installDisk: "/dev/sda"
-    controlPlane: true
+    controlPlane: false
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "e4:5f:01:*"
         dhcp: true
         mtu: 1500
-        vip:
-          ip: "10.0.10.30"
     schematic: *pischematic
     extensionServices: *extensionServices
+    nodeTaints:
+      node.kubernetes.io/low-power: "raspberry-pi:NoSchedule"
+    patches:
+      - *lowpowerpatch
 
   - hostname: "jormungandr3"
     ipAddress: "10.0.10.33"
     installDisk: "/dev/sda"
-    controlPlane: true
+    controlPlane: false
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "e4:5f:01:*"
         dhcp: true
         mtu: 1500
-        vip:
-          ip: "10.0.10.30"
     schematic: *pischematic
     extensionServices: *extensionServices
+    nodeTaints:
+      node.kubernetes.io/low-power: "raspberry-pi:NoSchedule"
+    patches:
+      - *lowpowerpatch
 
   # Control-plane VM on vault (TrueNAS): 4 vCPU host-passthrough, 32 GiB fixed,
   # 40 GiB virtio zvol on the `apps` pool, virtio NIC on br1 (VLAN 10).
@@ -149,17 +168,7 @@ nodes:
     nodeTaints:
       node.kubernetes.io/low-power: "raspberry-pi:NoSchedule"
     patches:
-      - |-
-        machine:
-          kubelet:
-            extraConfig:
-              registerWithTaints:
-                - key: "node.kubernetes.io/low-power"
-                  value: "raspberry-pi"
-                  effect: "NoSchedule"
-          kernel:
-            modules:
-              - name: nvme_tcp
+      - *lowpowerpatch
     volumes:
       - name: EPHEMERAL
         provisioning:
