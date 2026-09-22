@@ -1,0 +1,117 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/batch/cronjob_v1.json
+# Copies etcd snapshots off vault: Garage `talos/backups` -> R2 `talos-etcd`.
+#
+# WHY: the Garage bucket lives on vault, and the control plane is moving onto a VM
+# on vault (docs/runbooks/controlplane-migration-to-vault-vm.md). A backup that
+# shares a host with the thing it backs up is not a backup. This is the copy you
+# restore from if vault is gone.
+#
+# WHY MIRROR rather than a second talos-backup pointed at R2: that would take a
+# second etcd snapshot every hour, on control-plane nodes already short of memory.
+# The objects are already age-encrypted by talos-backup, so they are copied as-is.
+#
+# Layout in the bucket, each pruned by count:
+#   hourly/  48 most recent  = 2 days. Interim: moves to the pinas once it exists.
+#   daily/   30 most recent  = 30 days. One per UTC day; the long tail that
+#            Garage's 7-day window no longer holds.
+#
+# While vault is down this job fails, since the source is gone. That is expected:
+# it is the case where the objects already in R2 are the ones you need.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: talos-offsite
+spec:
+  # :40, i.e. 30 minutes after talos-s3-backup's :10 run. A snapshot plus prune
+  # takes ~2 minutes, so the newest snapshot is in Garage by then.
+  schedule: "40 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 1800
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 1800
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          nodeSelector:
+            kubernetes.io/arch: amd64
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: rclone
+              image: rclone/rclone:1.75.1
+              env:
+                # rclone writes its cache under $HOME; the root fs is read-only.
+                - name: HOME
+                  value: /tmp
+              envFrom:
+                - secretRef:
+                    name: talos-offsite-secret
+              # Shell variables are written $${VAR}: Flux postBuild substitution
+              # would otherwise expand them (to empty) before the shell sees them.
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  SRC="garage:talos/backups"
+                  DST="r2:talos-etcd"
+
+                  # hourly/: anything from the last 25h not already there. The 25h
+                  # window means a missed run is caught up by the next one.
+                  rclone copy "$${SRC}" "$${DST}/hourly" \
+                    --include "*.snap.age" --max-age 25h \
+                    --retries 3 --low-level-retries 10 \
+                    --stats-one-line --stats-log-level NOTICE
+
+                  # daily/: today's newest snapshot, once per UTC day. Names are
+                  # talos-<RFC3339 UTC>.snap.age, so they sort chronologically.
+                  TODAY=$(date -u +%Y-%m-%d)
+                  if [ -z "$(rclone lsf "$${DST}/daily" --include "talos-$${TODAY}T*")" ]; then
+                    PICK=$(rclone lsf "$${DST}/hourly" --include "talos-$${TODAY}T*" | sort | tail -n 1)
+                    if [ -n "$${PICK}" ]; then
+                      echo "daily: $${PICK}"
+                      rclone copyto "$${DST}/hourly/$${PICK}" "$${DST}/daily/$${PICK}"
+                    fi
+                  fi
+
+                  # Prune by count, newest kept. tail -n +N keeps N-1.
+                  rclone lsf "$${DST}/hourly" --include "*.snap.age" | sort -r | tail -n +49 \
+                    | while read -r f; do rclone deletefile "$${DST}/hourly/$${f}"; done
+                  rclone lsf "$${DST}/daily" --include "*.snap.age" | sort -r | tail -n +31 \
+                    | while read -r f; do rclone deletefile "$${DST}/daily/$${f}"; done
+
+                  echo "hourly: $(rclone lsf "$${DST}/hourly" | wc -l) objects," \
+                    "daily: $(rclone lsf "$${DST}/daily" | wc -l) objects," \
+                    "newest: $(rclone lsf "$${DST}/hourly" | sort | tail -n 1)"
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              # S3-to-S3 streams through the pod in multipart chunks (4 x 5 MiB per
+              # transfer by default), so memory stays small regardless of the
+              # ~358 MB object size. Not Storj: no erasure-coding buffers here.
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  memory: 512Mi
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: {}

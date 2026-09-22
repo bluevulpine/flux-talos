@@ -13,12 +13,19 @@
 # a bucket-side rule is invisible to git, which is precisely how this regressed
 # unnoticed for eight months. Garage exposes no per-bucket object-count metric,
 # so there is nothing to alert on either — a job that fails is the only loud option.
+#
+# This bucket lives on vault. The off-vault copy (R2) is made by the sibling
+# talos-offsite CronJob in offsite-cronjob.yaml, which mirrors these objects rather
+# than taking a second snapshot of its own.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: talos-s3-backup
 spec:
-  schedule: "10 0/6 * * *"
+  # Hourly (was every 6h) ahead of moving the control plane to a single VM on
+  # vault: with one CP member, the snapshot IS the redundancy, and the loss window
+  # on a restore is one interval. See docs/runbooks/controlplane-migration-to-vault-vm.md.
+  schedule: "10 * * * *"
   jobTemplate:
     spec:
       # Give up after one retry instead of the default 6. restartPolicy below is
@@ -34,7 +41,7 @@ spec:
       # replacement Pod, and each replacement Pod re-runs the initContainer, so the
       # limit caps snapshots at backoffLimit + 1 -- it does bound initContainer
       # executions. At 1, a repeat of that day costs one extra snapshot, not five.
-      # Runs are 6h apart against 30d of retention, so losing one attempt costs
+      # Runs are 1h apart against 7d of retention, so losing one attempt costs
       # nothing and a fast, loud failure is worth more. See the prune comment below.
       backoffLimit: 1
       template:
@@ -70,15 +77,17 @@ spec:
                 - mountPath: /var/run/secrets/talos.dev
                   name: talos-secrets
           containers:
-            # Keep the 120 most recent snapshots = 30 days at the 4/day schedule
-            # above. 30d rather than the 7d the README used to claim: a snapshot is
-            # ~260 MB and Garage dedupes near-identical ones hard, so the wider
-            # window costs ~24 GB over a 7d one and matches the 30d retention now
-            # used for Postgres (see cluster18/objectstore.yaml).
+            # Keep the 168 most recent snapshots = 7 days at the hourly schedule
+            # above. This was 120 = 30 days at 4/day; moving to hourly without
+            # changing the count would have silently shrunk the window to 5 days.
+            # 7d rather than 30d because hourly x 30d would be ~258 GB: a snapshot
+            # is ~358 MB (2026-09-22) and is age-encrypted, so every object is
+            # effectively random bytes and nothing dedupes. The long tail lives
+            # off-vault instead, as 30 dailies in R2 (talos-offsite).
             # Count-based rather than date-based (same approach as openbao-snapshot):
             # the schedule is fixed, so a count needs no date arithmetic and cannot
             # misfire on a timezone or a GNU-vs-BSD `date` difference.
-            # NOTE: if the schedule changes, change 121 (= keep + 1) to match.
+            # NOTE: if the schedule changes, change 169 (= keep + 1) to match.
             # Deletes run SERIALLY, deliberately. `xargs -P 8` here OOMKilled this
             # job on 2026-09-04 (exit 137): aws-cli v2 is a bundled Python
             # interpreter, and while one process peaks at ~69 MB (measured in-pod),
@@ -108,7 +117,7 @@ spec:
             # actually avoids it. Opting the Pod out of eviction was considered and
             # declined on 2026-09-06; see
             # ../../descheduler/LOAD_BALANCING_ENHANCEMENT.md.
-            # Serial costs nothing: steady state is ONE delete per run (4/day), and
+            # Serial costs nothing: steady state is ONE delete per run (24/day), and
             # the one-time ~855-object backfill that justified -P 8 is already done.
             # If a future backfill needs speed, batch with `aws s3api delete-objects`
             # (1000 keys per call, still ONE process) -- never with more processes.
@@ -129,9 +138,9 @@ spec:
                   set -eu
                   BASE="s3://$${BUCKET}/$${S3_PREFIX}/"
                   TOTAL=$(aws s3 ls "$${BASE}" --endpoint-url "$${CUSTOM_S3_ENDPOINT}" | wc -l)
-                  echo "$${TOTAL} snapshots present; keeping 120 most recent."
+                  echo "$${TOTAL} snapshots present; keeping 168 most recent."
                   aws s3 ls "$${BASE}" --endpoint-url "$${CUSTOM_S3_ENDPOINT}" \
-                    | awk '{print $4}' | sort -r | tail -n +121 \
+                    | awk '{print $4}' | sort -r | tail -n +169 \
                     | xargs -r -I{} aws s3 rm "$${BASE}{}" \
                         --endpoint-url "$${CUSTOM_S3_ENDPOINT}"
                   REMAIN=$(aws s3 ls "$${BASE}" --endpoint-url "$${CUSTOM_S3_ENDPOINT}" | wc -l)
