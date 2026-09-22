@@ -171,6 +171,16 @@ endpoints:
   # for it while still answering the bare `spark-ab23`. Restore the name here
   # only when the LiteLLM api_base goes back to it, and only after verifying it
   # resolves from inside a pod.
+  - name: DGX Spark (Ollama)
+    group: inference
+    url: "http://10.0.10.237:11434/v1/models"
+    interval: 1m
+    conditions:
+      - "[STATUS] == 200"
+      - "len([BODY].data) > 0"
+    alerts:
+      - type: pushover
+
   # LiteLLM itself, probed DIRECTLY over cluster DNS rather than through its
   # HTTPRoute. The route carries `auth: authentik`, so an unauthenticated probe
   # against the hostname is redirected to SSO -- and gatus follows redirects, so
@@ -178,7 +188,7 @@ endpoints:
   # dead. That check would monitor the SSO layer, not the gateway.
   #
   # This matters more than usual here: LiteLLM is the single path every LLM call
-  # in the cluster takes, and the `DGX Spark (Ollama)` probe below tests only the
+  # in the cluster takes, and the `DGX Spark (Ollama)` probe above tests only the
   # BACKEND -- it stays green when the proxy in front of it is down.
   #
   # /health/readiness is LiteLLM's own readiness endpoint and returns
@@ -191,15 +201,5 @@ endpoints:
     conditions:
       - "[STATUS] == 200"
       - "[BODY].db == connected"
-    alerts:
-      - type: pushover
-
-  - name: DGX Spark (Ollama)
-    group: inference
-    url: "http://10.0.10.237:11434/v1/models"
-    interval: 1m
-    conditions:
-      - "[STATUS] == 200"
-      - "len([BODY].data) > 0"
     alerts:
       - type: pushover
