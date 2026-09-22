@@ -9,7 +9,7 @@ metadata:
   name: envoy-gateway-authentik
 spec:
   from:
-    # AI namespace (hindsight control-plane UI)
+    # AI namespace (hindsight control-plane UI, litellm admin UI)
     - group: gateway.envoyproxy.io
       kind: SecurityPolicy
       namespace: ai
