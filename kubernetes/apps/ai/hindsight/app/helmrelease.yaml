@@ -168,15 +168,39 @@ spec:
               # the same headless-OAuth objection that rules out the
               # `claude-code` provider, so it rules out `nous` too.
               #
-              # claude-haiku-4-5 is upstream's own default for this provider
-              # (config.py PROVIDER_DEFAULT_MODELS), and at $1/$5 per Mtok it is
-              # cheaper than gemini-3.5-flash ($1.50/$9.00) on both axes — which
-              # matters because ~80% of retain cost is OUTPUT tokens.
-              HINDSIGHT_API_LLM_PROVIDER: anthropic
-              HINDSIGHT_API_LLM_MODEL: claude-haiku-4-5
+              # Was `anthropic` / claude-haiku-4-5, chosen on price when the
+              # argument was $1/$5 per Mtok. That argument is void: the Anthropic
+              # credit balance is spent, so every retain call was failing. The
+              # Azure credits funding reflect and consolidation below are spent
+              # too, which means EVERY Hindsight stage was down, not just this
+              # one — there is no working baseline this change can regress.
+              #
+              # Now points at the in-cluster LiteLLM gateway, which routes to
+              # Ollama on the DGX Spark. Provider is `openai` because that is
+              # the OpenAI-compatible surface LiteLLM exposes; `spark-gpt-oss-20b`
+              # is a LiteLLM model_name, not an Ollama tag, so the backend can be
+              # swapped (Ollama -> vLLM) without touching this file.
+              #
+              # Retain is the stage that decides what becomes a durable belief,
+              # so its schema conformance was verified before this move rather
+              # than assumed: FactExtractionResponse — nested $defs/$ref, an
+              # array of objects, an enum and four nullable anyOf fields — was
+              # sent through this exact path and came back valid, with all six
+              # required ExtractedFact fields present and the fact_type enum
+              # respected. That is the same schema that 400'd on ALL 73 calls
+              # when an Azure retain member was tried; Ollama enforces it with
+              # llama.cpp grammar constraints rather than Azure's response_format.
+              #
+              # Known quality gap to watch: the model omits every OPTIONAL field
+              # (entities, fact_kind, causal_relations, occurred_start). That is
+              # schema-legal, but `entities` feeds retrieval, so if recall
+              # degrades this is the first thing to check — it is a model/prompt
+              # weakness, not a transport problem.
+              HINDSIGHT_API_LLM_PROVIDER: openai
+              HINDSIGHT_API_LLM_MODEL: spark-gpt-oss-20b
 
               # --- retain concurrency: bounded against the account rate limit ---
-              # DEFAULT_LLM_MAX_CONCURRENT is 32 (config.py:1067), i.e. up to 32
+              # DEFAULT_LLM_MAX_CONCURRENT is 32 (config.py:1126), i.e. up to 32
               # simultaneous Haiku calls. That never mattered while gitIngest was
               # "message", but the Fiction bank moved to "full" on 2026-09-07 —
               # every commit diff now goes through retain — and 32-way
@@ -195,41 +219,66 @@ spec:
               # credit-exhaustion CronJob (cronjob.yaml) matches on the
               # "credit balance is too low" message and correctly stays silent
               # for a 429. Throughput exhaustion is currently unmonitored.
+              #
+              # 6 SURVIVES the move to the Spark, but the constraint behind it
+              # changed completely: there is no account rate limit any more, only
+              # how many requests Ollama will serve at once, capped by
+              # OLLAMA_NUM_PARALLEL.
+              #
+              # That makes the three stages share ONE fixed pool, so they have to
+              # be budgeted together — capping retain alone is not enough. Every
+              # unset stage falls back to DEFAULT_LLM_MAX_CONCURRENT, which is 32
+              # (config.py:1126), so consolidation or reflect could each saturate
+              # the whole pool on their own no matter what this line says.
+              # Consolidation is the highest-volume stage by far (~700 of 997
+              # calls on 2026-09-07), which makes that the likely one to do it.
+              #
+              # Budget, against OLLAMA_NUM_PARALLEL=10 on the Spark:
+              #     retain 6 + consolidation 2 + reflect 2 = 10
+              # It sums to exactly the pool on purpose. Reflect is the stage that
+              # must never queue — it has a hard 25s client cap it cannot
+              # negotiate, and a slow queue there is indistinguishable from an
+              # outage — so it gets a reserved share rather than whatever is
+              # left over.
+              #
+              # Raising any of these three requires raising OLLAMA_NUM_PARALLEL
+              # first, and that lives on the Spark in
+              # /etc/systemd/system/ollama.service.d/override.conf, NOT in this
+              # repo. That gap is real — nothing here reconciles it.
               HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "6"
+              HINDSIGHT_API_CONSOLIDATION_LLM_MAX_CONCURRENT: "2"
+              HINDSIGHT_API_REFLECT_LLM_MAX_CONCURRENT: "2"
 
-              # --- retain via the Message Batches API (50% off) ---
-              # Retain is the ONLY stage still billed to the Anthropic API, so
-              # it is the only place a discount is worth chasing. Anthropic's
-              # batch API is half price on both input and output
-              # (anthropic_llm.py:692), and the saving STACKS with prompt
-              # caching: every item in a retain batch shares the fact-extraction
-              # system prompt, so the first item's cache write serves the rest as
-              # reads. Retain is already the best-caching stage here (691k cached
-              # tokens measured 2026-09-07).
+              # --- retain batching: OFF, and it has to be ---
+              # This was "true" to buy Anthropic's Message Batches API discount:
+              # half price on input and output, stacking with prompt caching
+              # because every item in a retain batch shares the fact-extraction
+              # system prompt. That reasoning is now entirely void. Retain runs
+              # on hardware we own, where there is no per-token price to halve,
+              # so batching buys NOTHING and still costs the latency.
               #
-              # Safe against the two things that break batch here:
-              #  - strict schema: the batch translator turns a strict json_schema
-              #    into a single forced tool_use tool (native constrained
-              #    decoding), the same path the sync Anthropic calls use — this
-              #    is NOT the OpenAI `response_format` that made the Azure retain
-              #    failover 400 on every call.
-              #  - the `metadata` LLM strategy: batch submits a whole retain as
-              #    ONE job to ONE member, so it cannot route per item and refuses
-              #    to start. We do not use that strategy.
+              # It would also break the pod outright. The old comment here
+              # carried its own warning — "⚠️ FAILS CLOSED AT STARTUP.
+              # validate_retain_batch_support() runs during initialization
+              # (memory_engine.py:4654), so a retain LLM that cannot serve a
+              # batch stops the pod booting rather than falling back. Re-check
+              # this line before changing the retain provider." This change is
+              # exactly that provider change, and the check comes back negative:
+              # Ollama returns 404 on /v1/batches. LiteLLM answers /v1/batches
+              # and /v1/files with empty lists, so a shallow probe could even
+              # pass while real submission fails — not a risk worth taking when
+              # the failure mode is "pod does not boot".
               #
-              # ⚠️ FAILS CLOSED AT STARTUP. validate_retain_batch_support() runs
-              # during initialization (memory_engine.py:4654), so a retain LLM
-              # that cannot serve a batch stops the pod booting rather than
-              # falling back. Re-check this line before changing the retain
-              # provider.
+              # (LiteLLM did gain batch support in PR #41942, merged 2026-09-19,
+              # but it targets the `hosted_vllm` provider and requires
+              # STORE_MODEL_IN_DB=True, which the LiteLLM chart deliberately sets
+              # false to keep routing declarative in git. So this is not a
+              # near-term flip even after a move to vLLM.)
               #
-              # The cost is LATENCY, and it is deliberate: batch is async with a
-              # 24h SLA (typically minutes) and the engine polls every 60s
-              # (DEFAULT_RETAIN_BATCH_POLL_INTERVAL_SECONDS). Retain already runs
-              # off the Stop hook so nothing blocks, but a session's memory now
-              # lands minutes later instead of seconds. If that ever matters more
-              # than the discount, this is the line to flip.
-              HINDSIGHT_API_RETAIN_BATCH_ENABLED: "true"
+              # Upside of turning it off: retain memories land seconds after a
+              # session instead of minutes, since the engine no longer polls a
+              # batch job every 60s.
+              HINDSIGHT_API_RETAIN_BATCH_ENABLED: "false"
 
               # A retain failover member to Azure was tried here on 2026-09-07
               # and REMOVED the same evening: it never worked, and it made
@@ -248,8 +297,11 @@ spec:
               # a second attempt per failure instead of absorbing anything.
               #
               # This is a property of retain's SCHEMA plus strict mode, not of
-              # gpt-4o: gpt-5-mini would fail identically, which is why
-              # consolidation and reflect run fine on Azure while retain cannot.
+              # gpt-4o: gpt-5-mini would have failed identically, which is why
+              # consolidation and reflect ran fine on Azure while retain could
+              # not. (Retain's schema now runs fine on the Spark — Ollama enforces
+              # it as a grammar rather than via Azure's response_format — so this
+              # paragraph is history, not a live constraint.)
               # HINDSIGHT_API_LLM_STRUCTURED_OUTPUT_FORCED_TOOL does not rescue
               # it either — that option only applies to the LiteLLM-backed
               # providers (litellm, litellmrouter, bedrock), not plain `openai`.
@@ -258,31 +310,22 @@ spec:
               # retain/consolidation into parse-retry storms — see the
               # STRICT_SCHEMA comment below), a litellm-routed member with the
               # forced-tool option, or an Anthropic-compatible second endpoint.
-              # --- reflect -> Azure OpenAI (gpt-4.1-mini) ---
-              # This slot was claude-sonnet-5 on the reasoning that "reflect is
-              # user-initiated and rare, so this does not touch the per-retain
-              # cost". That premise was WRONG and cost real money on 2026-09-07.
-              #
-              # The slot does not only serve the user-invoked `reflect` tool: it
-              # also serves `refresh_mental_model` and `mental_model_delta_ops`,
-              # which fire AUTOMATICALLY after consolidation. Measured that day
-              # on the flux-talos bank: 232 calls, 1,646,763 input tokens, $9.84
-              # in ~2h — ~85% of all Anthropic spend, against $1.17 for retain.
-              # Actual user-invoked reflect that day: 3 calls, all failed. So the
-              # expensive half of this slot is automatic, not user-initiated, and
-              # it scales with consolidation volume rather than being rare.
-              #
-              # It is also synthesis over units retain has ALREADY extracted —
-              # the same "low judgment, high volume" shape as consolidation — so
-              # it belongs on the free Azure credits for the same reason.
-              # Retain stays on Anthropic; that is still the stage that decides
-              # what becomes a durable belief.
+              # --- reflect -> DGX Spark via LiteLLM ---
+              # This slot is NOT just the user-invoked `reflect` tool. It also
+              # serves `refresh_mental_model` and `mental_model_delta_ops`, which
+              # fire AUTOMATICALLY after consolidation, and that half dominates:
+              # measured 2026-09-07 on the flux-talos bank, 232 calls and
+              # 1,646,763 input tokens in ~2h against 3 user-invoked reflects.
+              # Volume here scales with consolidation, not with how often anyone
+              # asks a question. That is the durable lesson; the dollar figures
+              # it was originally written around are moot now that the stage runs
+              # on hardware we own.
               #
               # WATCH THIS ONE: reflect is an agentic tool-calling loop
               # (stage=llm.*.reflect_tool_call), not consolidation's single
-              # structured call, so it leans harder on the model. If mental-model
-              # quality degrades, revert this block to claude-sonnet-5 (or try
-              # claude-haiku-4-5, still 3x cheaper than sonnet on both axes).
+              # structured call, so it leans harder on the model than its volume
+              # suggests. It is the stage most likely to need a different model
+              # from the other two.
               HINDSIGHT_API_REFLECT_LLM_PROVIDER: openai
               # Was gpt-5-mini, and REASONING_EFFORT: low did not save it.
               # gpt-5-mini is a REASONING model, and the session-start reflect
@@ -303,37 +346,59 @@ spec:
               # option, but it tunes the same reasoning phase that IS the
               # problem; gpt-4o removes the phase instead of shrinking it.
               #
-              # gpt-4.1-mini is non-reasoning and accepts an explicit
-              # temperature. That is why LLM_TEMPERATURE_REFLECT and
-              # REFLECT_LLM_REASONING_EFFORT are both GONE from this block
-              # rather than carried over:
+              # LLM_TEMPERATURE_REFLECT and REFLECT_LLM_REASONING_EFFORT stay
+              # GONE from this block, and that still matters on the Spark:
               #   - reasoning_effort is passed through VERBATIM, so leaving it
-              #     set would 400 every call against a non-reasoning model;
-              #   - temperature now falls back to reflect's intended 0.9
+              #     set would 400 every call against a backend that does not
+              #     accept it;
+              #   - temperature falls back to reflect's intended 0.9
               #     (config.py DEFAULT_LLM_TEMPERATURE_REFLECT), which is what
-              #     the `none` override existed to work around in the first
-              #     place.
+              #     the old `none` override existed to work around.
               #
-              # Chosen over gpt-4o (which is also deployed here, and was the
-              # first pick) because it is faster and cheaper on the same axis
-              # that matters, with a 1M context window — reflect front-loads
-              # every mental model into the prompt, so headroom there is free
-              # insurance. Still on Azure credits, so the cost argument above
-              # is unchanged either way.
+              # One Azure-era consideration that does NOT carry over: gpt-4.1-mini
+              # was picked partly for a 1M context window, on the reasoning that
+              # reflect front-loads every mental model so headroom is free
+              # insurance. It is not free here. Context on the Spark is bounded by
+              # OLLAMA_CONTEXT_LENGTH (32768), and KV cache is allocated PER
+              # PARALLEL SLOT, so raising it multiplies across the pool. If reflect
+              # starts truncating mental models, that is the knob — and it is a
+              # memory decision on the Spark, not a free one.
               #
-              # NOTE: on Azure this value is the DEPLOYMENT name, not the model
-              # name. It happens to match here because the deployments are
-              # named after their models; a renamed deployment 404s.
+              # All of the above is why moving reflect to a local model needed
+              # measuring rather than assuming. gpt-oss:20b IS a reasoning model,
+              # which is exactly what got gpt-5-mini removed — but the 25s cap is
+              # about WALL CLOCK, not about reasoning in principle, so it was
+              # timed instead of ruled out.
               #
-              # If this still cannot finish inside 25s, gpt-4o is the fallback
-              # (deployed, non-reasoning). If it fits but the synthesis reads
-              # thin, gpt-4.1 or claude-haiku-4-5.
-              HINDSIGHT_API_REFLECT_LLM_MODEL: gpt-4.1-mini
+              # Measured on the Spark, two-iteration tool-calling loop shaped
+              # like reflect's (tool call, then synthesis over the result):
+              #   gpt-oss:20b          iter1 1.0s  iter2 12.9s  TOTAL 13.9s
+              #   qwen2.5:14b-instruct iter1 1.2s  iter2 14.0s  TOTAL 15.2s
+              # Both clear 25s; gpt-oss wins with ~11s of margin AND produced the
+              # longer synthesis (2514 vs 2015 chars).
+              #
+              # The counter-intuitive part: gpt-oss:20b decodes at 63 tok/s while
+              # the SMALLER qwen2.5:14b manages only 26. gpt-oss is MoE with ~3.6B
+              # active parameters; the dense 14B loses badly on a bandwidth-bound
+              # device. Do not assume a smaller model is faster here.
+              #
+              # It also emitted ZERO reasoning tokens on the synthesis turn —
+              # it reasons for constrained extraction (retain) but not for
+              # open-ended synthesis, so the reasoning tax that killed gpt-5-mini
+              # does not apply to this stage in practice.
+              #
+              # If it does start missing the cap: qwen2.5:14b-instruct is already
+              # pulled on the Spark and exposed as `spark-qwen25-14b`, is
+              # confirmed non-reasoning, and is a one-value swap here.
+              HINDSIGHT_API_REFLECT_LLM_MODEL: spark-gpt-oss-20b
               # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
               # floor at all — which is how 232 refreshes ran in ~2h on
               # 2026-09-07: every consolidation batch queued another with nothing
-              # rate-limiting it. Most of that is redundant work even now that the
-              # stage runs on free Azure credits.
+              # rate-limiting it. Most of that is redundant work, and the floor
+              # matters MORE now that the stage runs on the Spark rather than on
+              # someone else's credits: a refresh storm no longer just wastes an
+              # allowance, it occupies the same 10 Ollama slots retain and reflect
+              # are budgeted against.
               #
               # Safe by construction: a trigger arriving inside the window is
               # PARKED until it expires, not dropped, so no refresh is lost — and
@@ -345,43 +410,46 @@ spec:
               # Default is FALSE, and the default is wrong for us. Off, Hindsight
               # text-injects the schema and json.loads the reply, which upstream
               # warns can be violated by prose preambles and markdown fences —
-              # "wedging retain/consolidation on parse retries". On, the Anthropic
-              # provider routes structured output through a forced tool_use tool:
-              # "Native constrained decoding guarantees schema-valid JSON,
-              # eliminating the invalid-JSON retry storm (issue #1002)."
+              # "wedging retain/consolidation on parse retries". On, structured
+              # output goes through native constrained decoding, which "guarantees
+              # schema-valid JSON, eliminating the invalid-JSON retry storm
+              # (issue #1002)."
+              #
+              # This stays true across the move off Anthropic. What changes is the
+              # mechanism behind it: it used to mean a forced Anthropic tool_use
+              # tool, and now means `response_format: json_schema` with
+              # strict:true, which Ollama enforces as a llama.cpp grammar. That
+              # was verified on the real FactExtractionResponse schema before
+              # this migration, not assumed — see the retain block above.
               HINDSIGHT_API_LLM_STRICT_SCHEMA: "true"
 
-              # --- consolidation -> Azure OpenAI (gpt-5-mini) ---
-              # Consolidation is the bulk of the volume and the cheapest stage to
-              # move: on 2026-09-07 it was 700 of 997 LLM calls (~70%), against
-              # 266 for retain. It is also the LOWEST-judgment stage — it merges
-              # and dedupes units that retain has already extracted — whereas
-              # retain decides what becomes a durable belief injected into every
-              # future session. So retain stays on claude-haiku-4-5 above and
-              # only this moves.
+              # --- consolidation -> DGX Spark via LiteLLM ---
+              # Consolidation is the bulk of the volume: on 2026-09-07 it was 700
+              # of 997 LLM calls (~70%), against 266 for retain. It is also the
+              # LOWEST-judgment stage — it merges and dedupes units retain has
+              # already extracted — which is why it was the first stage moved off
+              # Anthropic onto Azure credits.
               #
-              # The point is the $50/month of Visual Studio Enterprise Azure
-              # credits that otherwise expire unused. Note they can NOT buy
-              # Claude: Foundry Marketplace offers are excluded from VS
-              # subscription credits, so this is deliberately a GPT model.
+              # Those credits are now exhausted and the endpoint 401s, so the
+              # cost argument that put it on Azure is moot; it follows retain and
+              # reflect onto the Spark. Being the highest-volume and least
+              # latency-sensitive stage, it is also the one that benefits most
+              # from batching if vLLM replaces Ollama later.
               #
-              # Provider is plain `openai`, not `azure` — `azure` is not in
-              # Hindsight's supported-provider list, and the endpoint above is
-              # Azure's OpenAI-compatible /openai/v1 surface, which the stock
-              # OpenAI client speaks. Key and base URL come from the
-              # ExternalSecret (shared `azure-ai` OpenBao key).
+              # Provider stays plain `openai` — `azure` is not in Hindsight's
+              # supported-provider list, and LiteLLM speaks the OpenAI surface
+              # natively. Only the model name and the base URL in the
+              # ExternalSecret change.
               HINDSIGHT_API_CONSOLIDATION_LLM_PROVIDER: openai
-              HINDSIGHT_API_CONSOLIDATION_LLM_MODEL: gpt-5-mini
-              # REQUIRED, not tuning. The gpt-5 family REJECTS an explicit
-              # temperature and consolidation's built-in default is 0.0
-              # (config.py DEFAULT_LLM_TEMPERATURE_CONSOLIDATION), so without
-              # this every consolidation call 400s. `none` omits the parameter
-              # entirely; upstream documents this exact case ("required for
-              # models that reject explicit temperatures, e.g. Azure gpt-5.5").
-              # Scoped to consolidation, so retain keeps its 0.1 on Anthropic.
-              # If gpt-5-mini misbehaves, gpt-4o is deployed and accepts an
-              # explicit temperature — swap the model and drop this line.
-              HINDSIGHT_API_LLM_TEMPERATURE_CONSOLIDATION: none
+              HINDSIGHT_API_CONSOLIDATION_LLM_MODEL: spark-gpt-oss-20b
+              # HINDSIGHT_API_LLM_TEMPERATURE_CONSOLIDATION: none was here, and
+              # removing it is REQUIRED, not cleanup. It existed solely because
+              # the gpt-5 family rejects an explicit temperature and would 400 on
+              # consolidation's built-in default of 0.0. gpt-oss served through
+              # Ollama accepts an explicit temperature (verified on this path),
+              # so leaving the override would silently discard that 0.0 and let
+              # consolidation run at whatever the provider defaults to — the
+              # opposite of what the setting was protecting.
 
               # --- observability ---
               # Neither HindsightDown nor HindsightImagePullFailing catches the
