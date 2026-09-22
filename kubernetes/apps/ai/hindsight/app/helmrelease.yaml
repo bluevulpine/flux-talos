@@ -314,7 +314,45 @@ spec:
               # reflect is the uniquely tight one because its default assumes a
               # waiting caller. refresh_mental_model shares the slot and has no
               # such caller.
-              HINDSIGHT_API_REFLECT_WALL_TIMEOUT: "1800"
+              # 1800 was still too low -- measured, not guessed. Over 8h of
+              # local operation:
+              #   refresh_mental_model  73 completed, avg 1884s, max 4346s
+              #                          3 FAILED at exactly 1801-1802s
+              #   consolidation          5 completed, avg 6545s, max 8756s
+              #                            (default cap is 7200 -- already exceeded)
+              #   retain                 1 completed 1127s, 1 FAILED at exactly 3600s
+              #                            (i.e. exactly its default cap)
+              # The failures land on the caps to the second, and the AVERAGE
+              # successful mental-model refresh exceeded the 1800 cap. Every wall
+              # limit here was sized for hosted inference answering in seconds.
+              #
+              # The three are NOT enforced the same way, which is why a
+              # consolidation could complete at 8756s under a 7200s "cap":
+              #  - REFLECT self-bounds INSIDE the engine
+              #    (memory_engine.py:14462 passes timeout=wall_timeout), so it is
+              #    a preemptive kill and the deadline is exact — that is why the
+              #    error reads "Reflect operation timed out after 300 seconds"
+              #    and why the failures sit at 1801s, not 1850s.
+              #  - RETAIN and CONSOLIDATION are a poller-side _WallCeiling
+              #    (poller.py:82) checked BETWEEN polls, so an operation that
+              #    finishes before the poller looks again survives past it.
+              # Treat the reflect number as a hard deadline and the other two as
+              # approximate. It also means reflect is the one where being too
+              # tight is guaranteed to destroy work rather than merely likely to.
+              #
+              # All three are raised well past the observed maximum rather than
+              # trimmed to fit it, because the cost is asymmetric: these are
+              # background operations that block nothing, and a wall-timeout
+              # failure is PERMANENT (poller.py:890 sets status='failed', and only
+              # status='pending' is ever claimed). Slow costs wall-clock; a cap
+              # costs the memory.
+              #
+              # Durations should fall as the backlog drains -- they are inflated
+              # by a saturated box at concurrency 4. Revisit if they stay high
+              # once the queue is empty.
+              HINDSIGHT_API_REFLECT_WALL_TIMEOUT: "10800"
+              HINDSIGHT_API_RETAIN_WALL_TIMEOUT: "10800"
+              HINDSIGHT_API_CONSOLIDATION_WALL_TIMEOUT: "21600"
 
               HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "2"
               HINDSIGHT_API_CONSOLIDATION_LLM_MAX_CONCURRENT: "1"
