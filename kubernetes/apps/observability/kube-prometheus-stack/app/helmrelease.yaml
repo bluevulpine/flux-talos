@@ -107,12 +107,17 @@ spec:
     # jitter to etcd?" a measurable question. It came up deciding the CPU limit
     # for the rackpanel panel-agent, which runs on three control plane nodes,
     # and could not be answered.
+    #
+    # 2026-09-22: etcd now runs on ONE member, the freyja01 VM on vault
+    # (docs/runbooks/controlplane-migration-to-vault-vm.md). Its disk is a zvol on
+    # vault's `apps` pool, so etcd_disk_wal_fsync_duration_seconds is the signal
+    # that tells us whether that disk is keeping up (p99 should stay < 10 ms).
+    # If the control plane moves again, this list must move with it; a stale
+    # endpoint fails silently as a down target, not as an error anywhere.
     kubeEtcd:
       enabled: true
       endpoints:
-        - 10.0.10.31
-        - 10.0.10.32
-        - 10.0.10.33
+        - 10.0.10.35
       service:
         enabled: true
         port: 2381

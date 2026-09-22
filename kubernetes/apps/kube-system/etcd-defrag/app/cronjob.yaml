@@ -5,7 +5,7 @@ kind: CronJob
 metadata:
   name: etcd-defrag
 spec:
-  # Sundays 03:30 — clear of talos-s3-backup's every-6h :10 schedule, low-traffic window.
+  # Sundays 03:30 — clear of talos-s3-backup's hourly :10 and talos-offsite's :40, low-traffic window.
   schedule: "30 3 * * 0"
   concurrencyPolicy: Forbid
   jobTemplate:
@@ -26,68 +26,23 @@ spec:
             runAsNonRoot: true
             seccompProfile:
               type: RuntimeDefault
-          # etcd members are defragmented one at a time, never concurrently — a
-          # defrag blocks reads/writes on that member, so initContainers give us
-          # strict sequencing for free and abort on the first failure instead of
-          # touching the next member. Fixed jormungandr1→2→3 order; this doesn't
-          # avoid defragging the leader first, but at ~360MB/2GiB quota and
-          # ~3.5MB/day growth that tradeoff is fine at this scale. A leader-aware
-          # ordering tool exists (ahrtr/etcd-defrag) if that ever stops being true.
+          # One etcd member since 2026-09-22: the freyja01 control-plane VM on
+          # vault (docs/runbooks/controlplane-migration-to-vault-vm.md). A defrag
+          # blocks reads and writes on the member it runs against, and with one
+          # member that is the whole cluster API. At ~360 MB it takes seconds, and
+          # Sunday 03:30 is the quietest window. It stays an initContainer so a
+          # failure fails the Job before the `done` container runs.
+          #
+          # If more control-plane members are ever added, give each its own
+          # initContainer again: they must be defragmented one at a time, never
+          # concurrently, and initContainers give that sequencing for free.
           initContainers:
-            - name: defrag-jormungandr1
+            - name: defrag-freyja01
               # renovate: datasource=docker depName=ghcr.io/siderolabs/talosctl
               image: ghcr.io/siderolabs/talosctl:v1.13.9
               args:
                 - "-n"
-                - "10.0.10.31"
-                - "etcd"
-                - "defrag"
-              restartPolicy: Never
-              securityContext:
-                allowPrivilegeEscalation: false
-                readOnlyRootFilesystem: true
-                capabilities:
-                  drop:
-                    - ALL
-              resources:
-                requests:
-                  cpu: 10m
-                  memory: 32Mi
-                limits:
-                  memory: 64Mi
-              volumeMounts:
-                - mountPath: /var/run/secrets/talos.dev
-                  name: talos-secrets
-                  readOnly: true
-            - name: defrag-jormungandr2
-              image: ghcr.io/siderolabs/talosctl:v1.13.9
-              args:
-                - "-n"
-                - "10.0.10.32"
-                - "etcd"
-                - "defrag"
-              restartPolicy: Never
-              securityContext:
-                allowPrivilegeEscalation: false
-                readOnlyRootFilesystem: true
-                capabilities:
-                  drop:
-                    - ALL
-              resources:
-                requests:
-                  cpu: 10m
-                  memory: 32Mi
-                limits:
-                  memory: 64Mi
-              volumeMounts:
-                - mountPath: /var/run/secrets/talos.dev
-                  name: talos-secrets
-                  readOnly: true
-            - name: defrag-jormungandr3
-              image: ghcr.io/siderolabs/talosctl:v1.13.9
-              args:
-                - "-n"
-                - "10.0.10.33"
+                - "10.0.10.35"
                 - "etcd"
                 - "defrag"
               restartPolicy: Never

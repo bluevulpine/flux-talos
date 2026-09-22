@@ -234,6 +234,13 @@ spec:
         # 60 GB and do not exhibit this; a cluster-wide rule would either be noisy
         # there or need a threshold too low to be useful here.
         #
+        # 2026-09-22: the control plane moved off the Pis onto ONE VM, freyja01
+        # (10.0.10.35, 32 GiB), so the selector follows it. The thresholds below
+        # were derived on the Pis but are absolute floors for etcd and the Talos
+        # API, so they still hold on a larger node. They will simply fire much
+        # later, which is the point of the move. The Pis are workers now and are
+        # no longer covered by this rule.
+        #
         # Thresholds come from measured behaviour, not round numbers: etcd starts
         # flapping its health check around 500 MB, and the node stops being able
         # to reboot itself (Talos API cannot complete a TLS handshake) well before
@@ -244,14 +251,14 @@ spec:
           annotations:
             summary: >-
               {{ $labels.instance }} has {{ $value | humanize1024 }}B MemAvailable —
-              the Pi control-plane leak is approaching the level where etcd stalls.
+              the control plane is approaching the level where etcd stalls.
             description: >-
-              Schedule a rolling reboot. One node at a time, worst first, confirming
-              etcd reports HEALTH OK on the other two before each.
-              Note graceful `talosctl reboot` silently no-ops on a starved node —
-              use `--mode powercycle` and allow ~90s for it to drop.
+              Find what is using memory (`talosctl -n <ip> processes`, sorted by
+              RSS; kube-apiserver is the usual suspect) before rebooting. There is
+              only one control-plane node, so a reboot is a full API outage: plan
+              it for a quiet window.
               Runbook: docs/runbooks/control-plane-oom-recovery.md
-          expr: min by (instance) (node_memory_MemAvailable_bytes{instance=~"10\\.0\\.10\\.3[123].*"}) < 1.5e9
+          expr: min by (instance) (node_memory_MemAvailable_bytes{instance=~"10\\.0\\.10\\.35:.*"}) < 1.5e9
           for: 30m
           labels:
             severity: warning
@@ -268,7 +275,7 @@ spec:
               "Health check failed: context deadline exceeded" / "successful",
               and `kubectl get --raw=/healthz` for "[-]etcd failed".
               Runbook: docs/runbooks/control-plane-oom-recovery.md
-          expr: min by (instance) (node_memory_MemAvailable_bytes{instance=~"10\\.0\\.10\\.3[123].*"}) < 8e8
+          expr: min by (instance) (node_memory_MemAvailable_bytes{instance=~"10\\.0\\.10\\.35:.*"}) < 8e8
           for: 10m
           labels:
             severity: critical
