@@ -18,11 +18,16 @@ kind: HTTPRoute
 metadata:
   name: litellm
   annotations:
-    # Closes a real monitoring gap. The `DGX Spark (Ollama)` probe in gatus
-    # checks the BACKEND, so LiteLLM itself — the gateway every LLM call in the
-    # cluster passes through — was unmonitored: if it died, nothing alerted and
-    # the Spark probe stayed green. Gatus auto-generates an endpoint from this
-    # annotation.
+    # Gatus auto-generates an endpoint from this annotation, which gives the
+    # route itself a check. It is NOT the health check for LiteLLM: this route
+    # is labelled `auth: authentik`, so an unauthenticated probe is redirected
+    # to SSO, and gatus follows redirects — a 200 from the Authentik login page
+    # would read as healthy with LiteLLM completely dead.
+    #
+    # The real check is the `LiteLLM` endpoint in the gatus config, which hits
+    # http://litellm.ai.svc.cluster.local:4000/health/readiness directly over
+    # cluster DNS and asserts db == connected. Keep both: this one catches the
+    # route/gateway/SSO path, that one catches the service.
     gatus.home-operations.com/endpoint: |
       group: ai
     gethomepage.dev/enabled: "true"
