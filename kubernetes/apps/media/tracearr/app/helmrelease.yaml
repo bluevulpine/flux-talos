@@ -35,7 +35,7 @@ spec:
               # question at zero cost.
               repository: ghcr.io/connorgallopo/tracearr
               # renovate: datasource=docker depName=ghcr.io/connorgallopo/tracearr
-              tag: 2.2.3
+              tag: 2.4.1
             env:
               TZ: "${TIMEZONE}"
               NODE_ENV: production
