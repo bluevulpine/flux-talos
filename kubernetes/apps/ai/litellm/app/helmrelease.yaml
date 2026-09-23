@@ -258,6 +258,44 @@ spec:
 
             litellm_settings:
               drop_params: true
+              # Response cache in the shared dragonfly, OPT-IN ONLY (default_off).
+              # A request is cached only when the caller sends
+              # `cache: {"use-cache": true}`; everything else, including all of
+              # hindsight's retain/consolidation/reflect traffic, is never cached.
+              # That is deliberate: those prompts are generated from evolving memory
+              # with sampling on, so a blanket cache would return a stale or
+              # identical "creative" answer. Turning it on per request is safe;
+              # turning it on globally would be a behaviour change nobody asked for.
+              #
+              # `namespace` prefixes every key so this tenant is separable inside a
+              # dragonfly shared with authentik, nextcloud, grafana and others. It
+              # runs --cluster_mode=emulated, where SELECT-based db isolation is not
+              # reliable, so a key prefix is the isolation mechanism (same as
+              # tracearr's REDIS_PREFIX).
+              cache: true
+              cache_params:
+                type: redis
+                host: dragonfly.database.svc.cluster.local
+                port: 6379
+                namespace: litellm.cache
+                mode: default_off
+
+            # Shared state that must NOT be per-process: tpm/rpm limits, each virtual
+            # key's max_parallel_requests, spend counters. Without this every worker
+            # enforces its own copy, so a key capped at 2 parallel requests can
+            # actually run 2 per worker, defeating the Spark slot budget the caps
+            # exist to enforce, and spend can overshoot. This is what the UI's
+            # "No Redis configured" banner is about; it clears once it is set.
+            general_settings:
+              coordination_redis:
+                host: dragonfly.database.svc.cluster.local
+                port: 6379
+
+            # The router's own Redis: cooldowns and usage-based routing state. Kept
+            # as a separate setting because LiteLLM treats it as a separate client.
+            router_settings:
+              redis_host: dragonfly.database.svc.cluster.local
+              redis_port: 6379
     persistence:
       config:
         type: configMap
