@@ -362,7 +362,7 @@ spec:
               # single pod before that change.
               #
               # A short window keeps the table small enough that collisions are
-              # rare (roughly 35 rows/hour here, so a few percent). The interval
+              # rare (roughly 40 rows/hour here, so a few percent). The interval
               # defaults to "1d", which would let a day of rows build up between
               # cleanups and defeat the point, so it is set explicitly. Daily spend
               # aggregates and key/team totals live in other tables and are
