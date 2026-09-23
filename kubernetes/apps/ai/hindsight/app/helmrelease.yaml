@@ -96,7 +96,7 @@ spec:
               # reranking need no external service and no API key. -slim forces
               # both onto remote providers or in-cluster TEI — that is the
               # scale-out path, not the starting point.
-              tag: 0.10.0
+              tag: 0.10.1
             envFrom: *envFrom
             env:
               TZ: "${TIMEZONE}"
