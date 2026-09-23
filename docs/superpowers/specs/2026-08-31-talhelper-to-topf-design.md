@@ -151,14 +151,21 @@ hand, not structurally, and the mechanism that caused it is still in place:
 - So merging #1849 and letting tuppr roll leaves `talosVersion` behind the running
   nodes, and the next config apply would write a stale `machine.install.image`.
 
-**Sequencing decision (2026-09-23): merge #1849 first and let tuppr finish rolling
-before Phase 5.** Do the topf migration on one Talos version and never straddle the
-bump. Reasons to go first rather than hold: Phases 0-4 touch no cluster, so there is
-nothing to conflict with; a held PR would sit through weeks of Phases 0-4 work; and
-tuppr's roll is the existing, tested path. tuppr rolling freyja01 is itself a brief API
-outage, so it gets the vault-maintenance-style care in Phase 5. `talconfig.yaml`'s
-`talosVersion` is bumped by hand to match, since Renovate does not touch it (the
-regenerated Phase 0 baseline must be taken at the version that is actually running). See [Phase 6](#phase-6--keep-the-versions-from-drifting-again).
+**Sequencing decision (2026-09-23, revised): hold #1849 until Phase 5 is signed off.**
+An earlier draft of this note said to merge it first. Reading the PR changed that: it
+also bumps the `etcd-defrag` cronjob's `talosctl` image from v1.13.9 to **v1.14.1**, a
+minor ahead of every node, and merging starts a tuppr roll that reboots freyja01 — the
+only control plane — as a second API outage. Holding is safe: the cluster is on v1.13.9,
+v1.13.10 (2026-09-03) is a patch release whose visible changes are hardening and
+bugfixes with nothing flagged as a CVE, and no auto-merge is queued. So the migration
+happens on v1.13.9 and never straddles a bump.
+
+Guard rails while it is held: do not merge #1849 from a `renovate-sweep` pass; if
+Renovate rebases or replaces it, re-read the diff before merging; and after Phase 5,
+decide whether the `talosctl` 1.14.1 image belongs in the same PR as the installer bump
+or should be split. Bump `talosVersion` in the topf config by hand to match whenever
+it does merge, since Renovate does not touch it (and see D1).
+See [Phase 6](#phase-6--keep-the-versions-from-drifting-again).
 
 ## Target layout
 
