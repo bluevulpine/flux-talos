@@ -3,97 +3,93 @@
 Decide whether vLLM replaces or supplements Ollama as the inference backend
 behind LiteLLM. **Run this alongside the working Ollama, never in place of it.**
 
-Status: **BLOCKED upstream, 2026-09-22.** Test 0 passed on both engines (20/20).
-Tests 1 and 2 cannot be run on the production model, and the reason is not
-fixable from here.
+Status: **EXECUTED 2026-09-22. Verdict: stay on Ollama.** Test 0 passed on both
+engines. Tests 1 and 2 ran head-to-head. vLLM is not viable for gpt-oss here,
+and the reason is reliability, not speed.
 
-## ⚠️ vLLM cannot serve gpt-oss: the harmony vocab 404s
+## The verdict, and two wrong turns taken to reach it
 
-`vllm/vllm-openai:cu130-nightly --model openai/gpt-oss-20b` dies ~8 minutes into
-startup with:
+### ⚠️ The startup blocker was real but MISDIAGNOSED — and it has a fix
+
+`--model openai/gpt-oss-20b` dies ~8 min into startup with
+`HarmonyError: error downloading or loading vocab file`.
+
+The first diagnosis recorded here was that
+`openaipublic.blob.core.windows.net/encodings/o200k_harmony.tiktoken` returns
+404. It does — **but nothing ever requests it.** That filename was assumed, not
+observed. `strings` on the shipped `openai_harmony` extension finds
+`o200k_base.tiktoken` and **zero** occurrences of `o200k_harmony.tiktoken`:
+harmony reuses the o200k_base vocab and layers its special tokens on at load.
+Confirming the absence of a file nothing asks for proved nothing.
+
+The real failure is the `o200k_base.tiktoken` fetch failing inside harmony's
+Rust HTTP client even though `curl` to the same URL from the same container
+succeeds — a long-standing, still-open packaging gap
+([vllm#22525](https://github.com/vllm-project/vllm/issues/22525),
+[harmony#46](https://github.com/openai/harmony/issues/46),
+[harmony#101](https://github.com/openai/harmony/issues/101), and
+[NVIDIA/dgx-spark-playbooks#17](https://github.com/NVIDIA/dgx-spark-playbooks/issues/17)
+for this exact box).
+
+**Fix, verified working here** — pre-download the vocab and bypass the fetch:
+
+```bash
+sudo mkdir -p /opt/tiktoken_encodings
+sudo curl -sSL -o /opt/tiktoken_encodings/o200k_base.tiktoken \
+  https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken
+# then, on the container:
+#   -v /opt/tiktoken_encodings:/tiktoken_encodings:ro
+#   -e TIKTOKEN_ENCODINGS_BASE=/tiktoken_encodings
+```
+
+With that set, gpt-oss-20b started in ~240s and served completions. Note the
+file must be named `o200k_base.tiktoken`, and setting the var **disables the
+download fallback**, so a wrong path fails the same opaque way.
+
+### vLLM itself is fine on this hardware
+
+`--model Qwen/Qwen2.5-1.5B-Instruct` started in ~195s and served a completion,
+with zero harmony mentions in the log — harmony loads only for gpt-oss. Nobody
+should read this runbook as "vLLM does not work on the Spark". It does.
+
+### ⛔ The real disqualifier: gpt-oss on vLLM is UNRELIABLE under concurrency
+
+Once serving, concurrent requests fail with HTTP 500:
 
 ```
-openai_harmony.HarmonyError: error downloading or loading vocab file
+openai_harmony.HarmonyError: channel marker present but no channel value found in header
 ```
 
-It reads like a network or proxy problem and is neither. Measured from both the
-Spark and inside the container:
+A harmony *parsing* failure, unrelated to the vocab one. Measured at ~23k-token
+prompts on an idle box, four independent runs:
 
-| file | result |
+| concurrency | failures |
 | --- | --- |
-| `o200k_base.tiktoken` | 200, 3,613,922 bytes |
-| `cl100k_base.tiktoken` | 200, 1,681,126 bytes |
-| **`o200k_harmony.tiktoken`** | **404** |
+| c=1 | 0 |
+| c=4 | 1/4, then 3/4, then 4/4 |
+| c=8 | 4/8, then 3/8, then 3/8 |
 
-Container egress is fine (`github.com` → 200, and the CDN itself serves the
-other two files to the same container). The one file harmony actually needs is
-simply not published. It is not mirrored anywhere reachable either — checked
-`openai/gpt-oss-20b` on HF (404), the `openai/harmony` HF dataset (401) and
-`raw.githubusercontent.com/openai/harmony` (404) — and the Python layer exposes
-no env var to point the loader at a local copy.
+**37-100% of requests fail under concurrency.** Ollama ran the identical
+payloads at c=1, 4 and 8 with **zero** failures.
 
-**Do not re-debug this as a proxy, DNS or CUDA problem.** Re-test by curling
-`https://openaipublic.blob.core.windows.net/encodings/o200k_harmony.tiktoken`
-and looking for a 200. Until that returns one, vLLM cannot serve this model.
+That ends the evaluation. Throughput is irrelevant when half the batch 500s,
+and batch throughput was the entire case for vLLM. For reference the aggregate
+numbers were close anyway (Ollama 65.6 tok/s at c=8 against vLLM's 102.2, and
+vLLM's figure is inflated because it is computed over only the requests that
+survived).
 
-### vLLM itself is FINE on this hardware — the blocker is gpt-oss alone
+### What vLLM did demonstrably win
 
-Proven, not inferred. The same image, same box, same day:
+Its KV pool is bounded: raising `--max-num-seqs` from 4 to 32 cost **zero**
+additional memory (98 GiB used either way), where Ollama preallocates per slot.
+That advantage is real and unchanged — it is simply not purchasable while the
+harmony parser drops requests.
 
-```
---model Qwen/Qwen2.5-1.5B-Instruct  ->  started in ~195s, served a completion
-```
+### Revisit when
 
-and a clean boot logs **zero** mentions of harmony. `openai_harmony` is loaded
-only for gpt-oss, because the harmony response format is that model family's
-own; every other architecture skips the code path entirely.
-
-So this is NOT evidence against vLLM on GB10/aarch64/CUDA 13 — it runs. Anyone
-reading this later should not conclude "vLLM does not work on the Spark". It
-does. What does not work is **vLLM + gpt-oss**, for as long as that one file is
-unpublished.
-
-The practical consequence is unchanged, because gpt-oss is what production
-runs: serving anything else on vLLM means changing the production model, which
-is a quality decision rather than a benchmark, and would invalidate the
-per-stage tuning built around gpt-oss's behaviour.
-
-### Why that makes Tests 1 and 2 moot rather than merely delayed
-
-They exist to decide whether retain and consolidation move to vLLM. Running them
-against a substitute model would not answer that: vLLM would be serving
-something we do not run, at a different quantization (Ollama serves Q4; a plain
-HF checkpoint is fp16, roughly 4x the bytes per token on a bandwidth-bound
-device), so any throughput comparison would measure the quantization, not the
-engine.
-
-The honest options are therefore (a) wait for the vocab to be published, or
-(b) decide independently to move production off gpt-oss to a model vLLM can
-serve — which is a model-quality decision, not a benchmark, and would invalidate
-the per-stage tuning that is currently built around gpt-oss's behaviour.
-
-### The pressure behind this has also dropped
-
-The problem that motivated a second engine was queue wait: with
-`OLLAMA_NUM_PARALLEL=4` (sized exactly to hindsight's per-stage caps) the newly
-migrated apps had zero slots and a trivial request took 194s. Raising it to 8
-took that to 1.9s. See `spark-setup` `group_vars/all.yml` for the measured
-trade. vLLM is no longer needed to fix an outage; it is an optimisation, which
-is a much weaker reason to accept a model change.
-
-## The verdict this plan is testing
-
-Research (2026-09-22) landed on **trial alongside, do not switch**, and the
-reason is specific: Hindsight puts a hard 25s latency SLA (reflect) and batch
-work (retain, consolidation) on one engine. vLLM's entire advantage is aggregate
-throughput **purchased with per-request latency** — the exact trade that broke
-this cluster at Ollama concurrency 10.
-
-So the interesting outcome is not "which engine wins". It is whether a **split
-backend** beats either alone: Ollama serving reflect (latency), vLLM serving
-retain and consolidation (throughput). LiteLLM already routes per `model_name`
-and Hindsight already selects a model per stage, so this is configuration, not
-architecture.
+The channel-marker parse failures are fixed upstream. Re-test by running c=4
+and c=8 against a served gpt-oss and counting 500s — not by benchmarking
+throughput, which will look fine right up until you check the failure count.
 
 ## Test 0 — the decisive one. Run it first; stop if it fails
 
