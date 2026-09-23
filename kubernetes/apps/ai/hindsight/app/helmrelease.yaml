@@ -500,27 +500,23 @@ spec:
               # pulled on the Spark and exposed as `spark-qwen25-14b`, is
               # confirmed non-reasoning, and is a one-value swap here.
               HINDSIGHT_API_REFLECT_LLM_MODEL: spark-gpt-oss-20b
-              # Cap on the context a reflect accumulates before it is forced to
-              # answer. The default is 100,000 tokens, three times what the Spark
-              # can hold: OLLAMA_CONTEXT_LENGTH is 32768, and a prompt past that
-              # is silently cut by Ollama, with no error and no log line.
+              # HINDSIGHT_API_REFLECT_MAX_CONTEXT_TOKENS is deliberately left at its
+              # default (100,000). Do NOT lower it to fit the Spark's 32768 window.
               #
-              # Measured 2026-09-23 on the flux-talos bank: reflect prompts of
-              # 206k-229k characters (~55-65k tokens) arrived at the model as
-              # exactly 16,386 tokens on every call, and the one answer checked
-              # was wrong (it attributed Tailscale's 1280 MTU to the whole
-              # cluster). Mental models are NOT pre-loaded, so the size is
-              # accumulated retrieval results, which this setting bounds.
+              # Reflect prompts do get cut by Ollama: measured 2026-09-23 on
+              # flux-talos, 206k-229k characters (~55-65k tokens) arrive as exactly
+              # 16,386 tokens. But a low cap makes it worse. A cap of 22000 was
+              # tried and reverted the same day: `search_mental_models` returns
+              # whole knowledge pages (5 by default, ~43-48k tokens in one result),
+              # and reflect only splits oversized results that use the keys
+              # observations/memories/results. Past the budget (cap x 0.8) the
+              # pages are dropped, the final synthesis runs on a ~1.2k-token
+              # prompt, and reflect answers "no recorded decision" with full
+              # confidence, in ~26s, for questions direct recall can answer.
               #
-              # 22000 = the 32768 window, less ~8k for the model's own output
-              # (a reflect synthesis has run to 4.2k tokens, reasoning included,
-              # and output shares the window), less ~10% because Hindsight counts
-              # tokens with its own encoding, not the model's. Past it, reflect
-              # forces its final answer instead of retrieving more, so expect
-              # shorter, faster reflects that retrieve less. If answers get too
-              # thin, the way to buy back depth is a larger window on the Spark,
-              # not a bigger number here: anything above the window is truncated.
-              HINDSIGHT_API_REFLECT_MAX_CONTEXT_TOKENS: "22000"
+              # The real fix is a bigger window: a cap of ~60000 would keep that
+              # result whole, which needs OLLAMA_CONTEXT_LENGTH of ~70000+ on the
+              # Spark (a KV-cache memory decision there), or smaller pages.
               # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
               # floor at all — which is how 232 refreshes ran in ~2h on
               # 2026-09-07: every consolidation batch queued another with nothing
