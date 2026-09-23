@@ -1,0 +1,995 @@
+# Migrating Talos machine config from talhelper to topf
+
+**Date:** 2026-08-31, **revised 2026-09-23** (see [Revision history](#revision-history))
+**Status:** Design — topf chosen over OpenTofu on 2026-09-23. Nothing implemented.
+**Goal:** Replace the archived `talhelper` with `topf` as the generator for this
+cluster's Talos machine configuration, reproducing today's output exactly and
+without re-keying the cluster.
+
+## Revision history
+
+**2026-09-23 revision.** The original was written against a 7-node cluster with
+three Pi control planes and topf `21831714`. Both have changed. What moved:
+
+| area | 2026-08-31 | 2026-09-23 |
+|---|---|---|
+| nodes | 7; jormungandr1/2/3 are control planes | **8**; `freyja01` (10.0.10.35, a Talos VM on vault) is the **only** control plane; jormungandr1-3 are low-power workers |
+| schematics | 2 (`pi`, `amd`) | **3** — freyja01 has its own (`647d4118…4066`) |
+| topf | pin main commit `21831714`; v0.5.0 hangs on EOF | **v0.6.0 is tagged and postdates the pin**; the hang fix is in it. v0.6.1-rc.1 is out. See [Version selection](#version-selection-pin-a-release-not-a-commit) |
+| topf maintainers | "bus factor ~4" | 13 contributors, two do ~90% of commits (113 and 44), PostFinance-backed |
+| Talos | cluster on v1.13.9, `talconfig.yaml` on v1.13.6 (drift) | drift already fixed: `talconfig.yaml` is `v1.13.9`. Talos v1.14.1 is released; topf supports 1.14 documents |
+| `${SECRET_*}` | "at least two" | **three names, 16 occurrences** — `SECRET_DOMAIN` (8, the Nexus mirrors) was missed |
+| apply blast radius | roll workers, then CPs; quorum survives | **applying to freyja01 is an API outage** if it needs a reboot |
+
+Decision record: OpenTofu + `siderolabs/talos` was re-evaluated on 2026-09-23 and topf
+kept. See [Deferred](#deferred-deliberately) for the reasoning.
+
+## Why now
+
+`budimanjojo/talhelper` was archived on 2026-08-26 (`"archived": true` via the
+GitHub API; 694 stars, 36 forks). Its README now reads:
+
+> This project is now archived and abandoned. I suggest people who depend on this
+> tool to migrate to other similar tools like topf or talstomize
+
+There is no community continuation to fall back on: all 36 forks have **0 stars**
+(checked, sorted by stars descending). Staying put means depending on an abandoned
+binary.
+
+Nothing is on fire. talhelper 3.1.17 still generates this cluster's config cleanly
+— verified 2026-08-31 against the current `talconfig.yaml`. The risk being managed
+is future Talos config document kinds that talhelper will never learn, not a broken
+tool today. That buys time to do this carefully.
+
+## Why topf is a safe bet despite being pre-1.0
+
+topf is pre-1.0 (v0.6.0 as of 2026-09-23), with a self-declared unstable CLI and a
+thin maintainer base: 13 contributors, but two account for ~90% of commits (113 and
+44). It is PostFinance-backed and shipped three releases in the past three weeks, which
+is a better position than at 2026-08-31 but not a guarantee. Replacing
+one community tool with another looks like trading the same risk for a newer version
+of it. It isn't, and here is why: **the artifacts this migration produces are not
+topf-specific.**
+
+talhelper already emits **Talos-native multi-document config**, not a flattened
+`machine.network`. A generated brokkr node is 11 documents:
+
+```
+doc 0     v1alpha1 (main machine config)
+doc 1     HostnameConfig
+doc 2     ExtensionServiceConfig
+doc 3-4   VolumeConfig      (EPHEMERAL, IMAGECACHE)
+doc 5-6   UserVolumeConfig  (data-1, data-2 — LUKS2)
+doc 7     BondConfig        (bond0, 802.3ad)
+doc 8     DHCPv4Config
+doc 9-11  VLANConfig        (bond0.10 / .30 / .50)
+```
+
+talhelper's typed schema is a thin sugar layer over documents Talos accepts
+directly. Migration is therefore **extraction, not translation**, and the extracted
+documents are equally valid input for topf, for `talosctl machineconfig patch`, or
+for the `siderolabs/talos` Terraform provider's `config_patches`.
+
+If topf is archived in turn, the patch tree moves to its replacement with no rework:
+the expensive part of this migration survives the tool. That is the case for
+accepting a pre-1.0 dependency, and the claim to attack first if you disagree.
+
+## Constraints
+
+1. **No secrets land bare in source control.** Explicit requirement from Derek.
+   [Secrets design](#secrets-design) is the load-bearing part of this spec.
+2. **The cluster PKI must survive.** No re-PKI, no node wipe, no re-bootstrap.
+3. **Output must reproduce the talhelper baseline** before anything touches a node.
+4. **tuppr remains the Talos upgrade driver.** Its VolSync/Longhorn CEL health
+   gates are tuned and working; topf is for generation and apply only.
+
+## Current state, measured
+
+`talos/talconfig.yaml` is 670 lines (main `0006b873`, 2026-09-23):
+
+| section | lines | disposition |
+|---|---:|---|
+| header (cluster, versions, CIDRs, certSANs) | 16 | → `topf.sops.yaml` |
+| `nodes:` block | 436 | → patch tree (the actual work) |
+| global `patches:` | 174 | → `patches/all/`, essentially unedited |
+| `controlPlane.patches:` | 44 | → `patches/control-plane/`, unedited |
+
+Node variance is small, which is what makes the patch tree cheap:
+
+| group | differing lines | what differs |
+|---|---:|---|
+| jormungandr1/2/3 | **1** | hostname |
+| brokkr01/02/03 | **4** | hostname, 2 bond member MACs, `data-2` disk model |
+| jormungandr4 | — | differs from j1-3 only by VLANs on `end0` and an `EPHEMERAL` VolumeConfig |
+| freyja01 | — | the only control plane: own schematic, `/dev/vda`, VIP `10.0.10.30`, no bond or VLANs |
+
+jormungandr1-3 and jormungandr4 share the `&lowpowerpatch` / `&lowpowertaint` /
+`&extensionServices` / `&pischematic` anchors in `talconfig.yaml`. That is one `worker`
+patch set plus a small `node/jormungandr4/` overlay, not two full node definitions.
+
+Generated per-node document volume was measured on 2026-08-31 and is stale (106 lines
+per brokkr, 31 per jormungandr control plane, 50 for jormungandr4; freyja01 is 10.5 KB
+of rendered YAML on disk). **Phase 4 regenerates the baseline first.**
+
+### The golden baseline
+
+**The 2026-08-31 baseline is obsolete** — it predates freyja01 and the Pi conversion,
+and it was generated at `v1.13.6`. Regenerate it from current `main` with
+`talhelper genconfig` (3.1.17 is still installed) before extracting anything; that is
+Phase 0. Whatever exists when Phase 7 uninstalls talhelper is the last one obtainable.
+
+Three schematics, which the migration must reproduce byte-for-byte. The first two
+were measured on 2026-08-31 and must be re-confirmed against the regenerated baseline;
+the third is recorded in `talconfig.yaml` and was **not** in the original spec:
+
+```
+a6c707bf3d7244f037fb47e0953213f688655da5e494c8bac75d6ba75fd4b184   pi       jormungandr1-4
+b915cd2395b3c0580b8883e6732162033e58ced480be4c041a0d7b06b751056a   amd      brokkr01-03
+647d4118dd02ecb09b7753856462592033c23e92cf12b14c710e393124ec4066   freyja   freyja01
+```
+
+`freyja` differs from `pi` in extensions (qemu-guest-agent, tailscale, util-linux-tools
+only) and has no IOMMU args, no microcode. Its schematic is inline in freyja01's node
+entry, not an anchor, so a transcriber can miss it.
+
+Installer image, per group:
+`factory.talos.dev/metal-installer/<schematic>:v1.13.9`
+
+topf constructs `<factory>/<platform>-installer[-secureboot]/<id>:v<version>` with
+defaults `factory.talos.dev` / `metal` / secureboot off — the same string.
+
+### Version drift: resolved by hand, but it will recur
+
+On 2026-08-31 three places disagreed (`talconfig.yaml` v1.13.6, tuppr CR v1.13.5,
+running v1.13.9). **As of 2026-09-23 all three read `v1.13.9`.** The drift was fixed by
+hand, not structurally, and the mechanism that caused it is still in place:
+
+- Renovate's Talos bump PR (**#1849**, v1.13.9 → v1.13.10, open since 2026-09-21)
+  touches `talosupgrade.yaml` and the `etcd-defrag` cronjob **but not
+  `talconfig.yaml`**. The `talos` group in `.renovate/groups.json5` matches only
+  `/installer/` and `/talosctl/` images.
+- So merging #1849 and letting tuppr roll leaves `talosVersion` behind the running
+  nodes, and the next config apply would write a stale `machine.install.image`.
+
+**Sequencing decision (2026-09-23): merge #1849 first and let tuppr finish rolling
+before Phase 5.** Do the topf migration on one Talos version and never straddle the
+bump. Reasons to go first rather than hold: Phases 0-4 touch no cluster, so there is
+nothing to conflict with; a held PR would sit through weeks of Phases 0-4 work; and
+tuppr's roll is the existing, tested path. tuppr rolling freyja01 is itself a brief API
+outage, so it gets the vault-maintenance-style care in Phase 5. `talconfig.yaml`'s
+`talosVersion` is bumped by hand to match, since Renovate does not touch it (the
+regenerated Phase 0 baseline must be taken at the version that is actually running). See [Phase 6](#phase-6--keep-the-versions-from-drifting-again).
+
+## Target layout
+
+```
+talos/
+├── topf.sops.yaml                 # cluster + nodes + data: (whole-file SOPS)
+├── secrets.sops.yaml              # ← talsecret.sops.yaml, content unchanged
+├── talosconfig                    # ← client config, was clusterconfig/talosconfig
+├── schematics/
+│   ├── pi.yaml                    # → a6c707bf…  (jormungandr1-4)
+│   ├── amd.yaml                   # → b915cd23…  (brokkr01-03)
+│   └── freyja.yaml                # → 647d4118…  (freyja01)
+└── patches/
+    ├── all/                       # global patches, split by concern
+    ├── control-plane/             # applies to freyja01 only
+    ├── worker/                    # shared by the 3 brokkr and 4 jormungandr workers
+    └── node/
+        ├── freyja01/              # vip 10.0.10.30, /dev/vda
+        └── jormungandr4/          # VLANs on end0, EPHEMERAL VolumeConfig
+```
+
+`topf.sops.yaml` carries cluster identity plus a flat node list (`host`, `ip`, `role`,
+per-node `data:`). No typed fields for disks, NICs, volumes or taints — those are
+patch files. That is the abstraction level Derek has explicitly accepted.
+
+`worker/` is shared by both the amd (brokkr) and Pi (jormungandr) workers, so anything
+that only one group needs — the bond, the `data-1`/`data-2` LUKS volumes, the hugepages
+sysctl, `vfio_pci` — must be gated on `.Node.Data` or moved to a group-specific
+directory. The `nvme_tcp` module is on every worker; jormungandr's `&lowpowerpatch`
+adds it alongside the kubelet taint, and brokkr's inline patch adds it alongside
+`vfio_pci`/`uio_pci_generic`.
+
+Per-node `data:` absorbs the measured variance, so brokkr01/02/03 share one
+templated patch set rather than three copies:
+
+```yaml
+nodes:
+  - host: brokkr01
+    ip: 10.0.10.38
+    role: worker
+    data:
+      bondLinks: [enx844709336c1f, enx844709336c20]
+      dataDisk2Model: "WD_BLACK SN770 2TB"
+```
+
+## Secrets design
+
+### The invariants
+
+Four statements that must not become false. Everything below exists to hold them up.
+
+1. No file tracked in git contains an unencrypted secret — **including files named
+   `*.sops.yaml`.**
+2. The PKI bundle is only ever decrypted into a pipe or a gitignored path, never
+   into a tracked one.
+3. Secrets reach patch files through topf's `data:` mechanism, never as literals in
+   a `.tpl` file — `.tpl` files bypass the SOPS pipeline.
+4. Every `*.sops.yaml` file actually contains a `sops:` metadata block. **This is
+   not enforced today** — see [the gitleaks exclusion
+   hole](#the-gitleaks-exclusion-hole-present-today).
+
+### Where each secret lives
+
+| item | today | after |
+|---|---|---|
+| Talos PKI bundle | `talos/talsecret.sops.yaml` (SOPS) | `talos/secrets.sops.yaml` (SOPS, content identical) |
+| `SECRET_TS_AUTHKEY` | `talos/talenv.sops.yaml` (SOPS) | `talos/topf.sops.yaml` `data:` (whole-file SOPS) |
+| `SECRET_VOLUME_KEY` | same | same |
+| `SECRET_DOMAIN` | same | same |
+| rendered machine configs | `talos/clusterconfig/*.yaml` (plaintext, gitignored) | not written at all on the `apply` path; `render` only for the Phase 4 diff |
+
+### Filenames: bend topf to `.sops.yaml`, not the reverse
+
+The repo's existing creation rule requires a literal `.sops.` infix:
+
+```yaml
+  - # IMPORTANT: This rule MUST be above the others
+    path_regex: talos/.*\.sops\.yaml
+    age: "age1ww3u7me5lwxtgqcd8djkv485q30wu7k40hs9e2acg8qvdw4e8spq9t5dem"
+```
+
+Note there is **no `encrypted_regex` on the `talos/` rule** — anything matching it
+gets whole-file encryption. (`encrypted_regex: ^(data|stringData)$` belongs to the
+`kubernetes/` rule and is not the convention here.)
+
+topf's *defaults* — `topf.yaml`, `secrets.yaml` — match no creation rule, so `sops
+-e` would refuse them. Both names are configurable, so both bend to the repo:
+
+- **`talos/secrets.sops.yaml`** — the PKI bundle. `secretsPath` is a free path,
+  resolved relative to the config file's directory.
+- **`talos/topf.sops.yaml`** — the cluster config. The `--topfconfig` flag takes an
+  arbitrary path (`TOPFCONFIG` env var also works); `topf.yaml` is only its default.
+
+Both then match the existing rule and get whole-file encryption. **No new
+`.sops.yaml` rule is needed and no partial-encryption scheme is required** — an
+earlier draft of this spec built one, on the mistaken belief that the config
+filename was fixed and that the `talos/` convention was partial.
+
+**Decision D1 (2026-09-23, Derek): partial encryption.** The problem it solves: whole-file SOPS hides the versions from Renovate.
+`talosVersion` and `kubernetesVersion` live in `topf.sops.yaml`, and Renovate cannot
+read inside a SOPS-encrypted file — the `# renovate:` annotations at
+`talos/talconfig.yaml:2-5` would be encrypted away. Today those two lines are how
+Renovate learns of Talos and Kubernetes bumps. Whole-file SOPS silently ends that.
+Partial encryption (`encrypted_regex: ^data$`, own creation rule above the general one)
+keeps versions and the node list in the clear and only `data:` encrypted, which also
+restores diffability. That trades the whole-file simplicity below for a regex that must
+stay right. **Recommendation: partial**, because losing Renovate visibility on the two
+versions this cluster most depends on is a worse silent failure than a regex to
+maintain. **Decided: partial.** Phase 1 therefore adds a creation rule
+for `talos/topf.sops.yaml` with `encrypted_regex: ^data$`, placed **above** the general
+`talos/.*\.sops\.yaml` rule (which stays whole-file, for `secrets.sops.yaml`), and the
+phase-1 check that every `*.sops.yaml` carries a `sops:` block still applies. The
+whole-file paragraphs below describe the rejected alternative and are kept for the
+reasoning.
+
+The tradeoff of whole-file: the node inventory is no longer readable or diffable in
+git. Partial encryption (`encrypted_regex: ^data$`) *does* work through topf's
+decrypt path if that is wanted — verified — but it needs its own creation rule
+placed above the general one, and it makes correctness depend on a regex staying
+right forever. Whole-file is the simpler default and is what this spec assumes.
+
+### Rendered configs: keep plaintext off the disk
+
+talhelper writes fully-decrypted configs to `talos/clusterconfig/` and relies on a
+generated `.gitignore`. That is the status quo and it is not good.
+
+**topf improves on it, though not the way an earlier draft assumed.** `topf render`
+cannot write to stdout — `--output` is a directory and the path is joined per node,
+so there is no pipe to build around. But the production path never renders at all:
+
+- **`topf apply`** encodes the config in memory and sends it over gRPC. It performs
+  a server-side dry-run first and prints the node's own diff. **Nothing decrypted
+  touches local disk.** Strictly better than talhelper.
+- **`topf apply --dry-run`** — same diff, still no local plaintext. This is the
+  per-node review gate in Phase 5.
+- **`topf render`** is the *only* command that writes plaintext machine configs,
+  and it exists here solely to produce the Phase 4 byte-diff against the talhelper
+  baseline.
+
+So plaintext on disk is a one-time comparison artifact rather than a standing
+condition — provided Phase 1 adds the `output/` ignore rule first, which nothing in
+the repo has today. Render to a pinned `-o talos/output`, and shred the directory
+once Phase 4 is signed off.
+
+There are exactly three writes in the tool: the render directory, the rendered
+files, and the secrets bundle.
+
+### Two silent-failure hazards in topf's SOPS handling
+
+Both verified in source. Neither is hypothetical and both bear directly on the
+no-bare-secrets constraint.
+
+**1. A missing `sops` binary degrades silently.** topf shells out to the `sops`
+binary rather than using a Go library, and detects encryption by content (`sops
+filestatus`) rather than filename. If `sops` is not on `PATH`, the check returns
+"not encrypted" with **no error** — deliberate "graceful degradation" — and topf
+then parses the ciphertext as literal YAML. The failure mode is a silently wrong
+config, not a crash.
+
+**2. `topf secrets` writes plaintext if encryption fails.** The filesystem secrets
+provider attempts `sops encrypt` and **ignores the error**, writing the bundle
+either way at `0600` and reporting success. If sops is missing, no creation rule
+matches, or the age key is unavailable, that writes an **unencrypted Talos PKI
+bundle to disk while claiming to have succeeded** — precisely the constraint failing
+without saying so.
+
+This only fires on first-run secret *generation*. This migration imports an existing
+bundle and never calls it, so the path is not on our route — but it must be named,
+because "generate new secrets" is an obvious thing to reach for later.
+
+**Mitigation for both:** confirm `sops --version` and `age` availability as a Phase 1
+precondition, and after any secrets operation verify with `sops filestatus`
+rather than trusting the exit code.
+
+**Related:** `topf secrets` prints the full PKI bundle to stdout with a plain
+`Println`, bypassing the redacting writer that `--redact` controls. Deliberate — it
+is the "give me the secrets" command — but it must never be run into a log, a `tee`,
+or a recorded terminal session.
+
+### `.gitignore` additions
+
+```
+output/
+talos/*.decrypted*
+```
+
+**`output/` is bare and un-anchored deliberately**, so it matches at any depth.
+`topf render`'s default is `./output` — relative to the *current working directory*,
+not to `talos/` (`cmd/topf/render.go:29`, `Value: "./output"`). Run from the repo
+root, which is where `direnv` and `just` put you, and it writes to `./output/`. A
+rule written as `talos/output/` would not match that, and eight plaintext machine
+configs carrying the full PKI would sit unignored.
+
+Neither path is ignored today — verified with `git check-ignore`:
+
+```
+output/            NOT IGNORED
+talos/output/      NOT IGNORED
+```
+
+**This edit belongs to Phase 1, not to reading this section.** It is listed here as
+design; it is executed there. See also Phase 4, which pins `-o` rather than
+inheriting the cwd-relative default.
+
+The existing `.decrypted~*.yaml` and `**/talosconfig` entries already cover the
+sops-in-place and client-config cases.
+
+## The gitleaks exclusion hole (present today)
+
+A finding about the repo as it stands, not about topf. In scope because invariant 4
+depends on it.
+
+`.lefthook.toml` runs gitleaks on pre-commit but excludes `*.sops.yaml`:
+
+```toml
+[pre-commit.commands.gitleaks]
+run = "gitleaks protect --staged --verbose --redact"
+glob = ["*"]
+exclude = ["*.sops.yaml"]
+```
+
+The exclusion is by **filename**, not by verified encryption. Reproduced 2026-08-31
+in a scratch repo, staging a plaintext Talos bundle named `secrets.sops.yaml`:
+
+```
+│  gitleaks (skip) no matching staged files
+```
+
+A plaintext file named `*.sops.yaml` commits with **zero secret scanning** — exactly
+the failure mode found in `~/Repositories/home-ops-main`, where two files named
+`talsecret.sops.yaml` contain unencrypted Talos CA private keys.
+
+gitleaks itself is not fooled, also verified — against a bare bundle it reports 10
+findings, base64-decoding first:
+
+```
+RuleID:   private-key
+Entropy:  5.555781
+Tags:     [decoded:base64 decode-depth:1]
+```
+
+Detection works; only the exclusion defeats it. The hole is narrow — `gitleaks
+protect --staged` scans the whole staged diff, so it fires only when the
+`*.sops.yaml` file is the *sole* staged file — but it is real.
+
+**Fix:** a pre-commit check that every `*.sops.yaml` file contains a `sops:`
+metadata block, failing the commit otherwise. Cheap, precise, and it closes the hole
+for the whole repo rather than just this migration.
+
+## Version selection: pin a release, not a commit
+
+**Revised 2026-09-23.** The original section pinned main commit `21831714` because
+v0.5.0 hung on any non-interactive run and because every behaviour in this spec had
+been verified against that commit rather than the tag. Both reasons have moved:
+
+- **v0.6.0 (2026-09-03) postdates `21831714`**, so it contains the EOF-hang fix. The
+  tag is now the reproducible, self-identifying choice. v0.6.1-rc.1 (2026-09-23) also
+  exists; prefer the tag unless a Phase 0 finding needs something only in the rc.
+- **A confirmation-prompt fix landed later still** (2026-09-21, "prevent concurrent
+  prompts and improve nonTTY usecase", plus 2026-09-23 "send interactive prompts to
+  stdErr"). That is in the rc, not in v0.6.0. Still pass `--confirm=false`.
+
+**What is *not* yet re-verified.** Every claim in this spec about topf's SOPS handling,
+merge order and schematic replacement was checked at `21831714`. Twenty-eight commits
+followed, including one on **secrets redaction** (multi-line PEM handling, and a change
+so that public key material is no longer redacted) and one on secrets docs. The
+whole-file-SOPS design does not depend on redaction, but "does not depend on" is a
+judgement, not a measurement. **Phase 0 re-runs the load-bearing checks against the
+chosen release** before anything is built on them.
+
+Install into the repo-local `.bin/`, which `.envrc` already puts on PATH and
+`.gitignore` already excludes:
+
+```bash
+GOBIN="$PWD/.bin" go install github.com/postfinance/topf/cmd/topf@v0.6.0
+```
+
+A `go install` from a tag is stamped by module metadata, but `main.version` is only
+set by release ldflags, so `topf --version` may still print `dev`. Verify with:
+
+```bash
+go version -m .bin/topf | grep '^\s*mod'   # expect ...topf  v0.6.0
+```
+
+topf **is** packaged now: `brew install postfinance/tap/topf` (README, 2026-09-23).
+The spec originally said there was no Homebrew route. Prefer `go install` into `.bin/`
+anyway — it pins the version per checkout and needs no global state — but the brew
+route exists (issue #146 notes its cask uses deprecated `postflight` syntax).
+
+**Regardless of version, pass `--confirm=false` (or `TOPF_CONFIRM=false`) on every
+non-interactive invocation.**
+
+**Talos 1.14 posture.** v0.6.0 bundles Talos machinery 1.14.x. While `talosVersion` is
+`v1.13.x` topf generates 1.13-shaped config. **Do not bump `talosVersion` to 1.14 as
+part of this migration.** The 1.14 defaults (`workloadIsolation: true`, an
+auto-generated `KubeFlannelCNIConfig`) would arrive on the first `apply` and break
+Cilium and any host-namespace workload. Treat that as a separate change.
+
+## Migration phases
+
+### Phase 0 — re-verify, and regenerate the baseline
+
+No repo changes beyond `.bin/`. Gate for everything after it.
+
+- Install topf per [Version selection](#version-selection-pin-a-release-not-a-commit)
+  and confirm with `go version -m`.
+- Re-run, against that build, the checks this design leans on: content-based SOPS
+  detection with a missing `sops` on `PATH` (must degrade the way the spec says, so we
+  know what to guard); `--topfconfig` at an arbitrary path; `secretsPath` relative
+  resolution; merge order `all/` → `<role>/` → `node/<host>/`; `$patch: delete` versus
+  `null`; schematic replacement. Record pass/fail and the version here.
+- Regenerate the talhelper baseline from current `main`
+  (`talhelper genconfig -o <scratch>`, **not** `talos/clusterconfig/` — that directory
+  holds the configs the running nodes were applied from and is the rollback reference).
+  Record talhelper version, machinery version and date next to it.
+- Confirm all three schematic IDs from the baseline's installer images.
+
+### Phase 1 — scaffold the config and move the secrets
+
+- **Preconditions:** `sops --version` and `age` resolve on PATH — a missing `sops`
+  makes topf read ciphertext as literal YAML with no error. Install topf pinned to a
+  release (see [Version selection](#version-selection-pin-a-release-not-a-commit)).
+- `git mv talos/talsecret.sops.yaml talos/secrets.sops.yaml` (content untouched —
+  topf's migration guide states the talhelper bundle is format-compatible, and
+  `talosctl gen secrets` produces the identical structure).
+- Write `topf.sops.yaml`: cluster identity, 8 nodes (7 workers + `freyja01`), per-node `data:`.
+- **`clusterName` must be `home-kubernetes` verbatim.** topf names the talosconfig
+  *context* after it, and the current context is `home-kubernetes`. Change the
+  string and the regenerated client config gets a different context name, breaking
+  anything doing `talosctl --context home-kubernetes` in a way that looks like a
+  talosctl fault rather than a rename. It is the first field written and the
+  easiest to get casually wrong.
+- Move the three secrets (`SECRET_TS_AUTHKEY`, `SECRET_VOLUME_KEY`, `SECRET_DOMAIN`)
+  from `talenv.sops.yaml` into encrypted `data:`.
+- Add the `*.sops.yaml`-is-actually-encrypted pre-commit check.
+- **Add `output/` to `.gitignore`** (bare, un-anchored — see
+  [.gitignore additions](#gitignore-additions)). Nothing is ignored there today, and
+  Phase 4 is the first phase that writes plaintext configs to disk.
+- Verify by decrypt round-trip, not by reading the file.
+
+### Phase 2 — transcribe the schematics
+
+`schematics/pi.yaml`, `schematics/amd.yaml` and `schematics/freyja.yaml`, from the
+`&pischematic` and `&schematic` anchors and from freyja01's **inline** schematic — the
+`customization:` block verbatim, comments dropped. Reference them as
+`schematicId: "@schematics/pi.yaml"`.
+
+Gate: topf's computed IDs must equal `a6c707bf…`, `b915cd23…` and `647d4118…`.
+
+**This phase was de-risked for two of the three.** Both IDs were reproduced offline from those
+transcribed blocks using the same library call topf makes
+(`image-factory/pkg/schematic`, `Unmarshal` → `ID()`), byte-identical on the first
+attempt. `freyja` has not been run through it yet. The transcription is mechanical and no network call is involved — topf
+resolves IDs locally and only contacts the factory under `--submit-to-factory`,
+which defaults off.
+
+### Phase 3 — extract the patch tree
+
+Split the 160 global and 44 control-plane patch lines into files under `all/` and
+`control-plane/`, one concern per file, numbered for lexicographic ordering.
+Extract the per-node documents (`BondConfig`, `VLANConfig`, `VolumeConfig`,
+`UserVolumeConfig`, `ExtensionServiceConfig`, `HostnameConfig`) from the golden
+baseline into `worker/` templates driven by `.Node.Data`, plus
+`node/jormungandr4/`.
+
+Four things established by running topf, not by reading it:
+
+**Merge order is `all/` → `<role>/` → `node/<host>/`, last wins, lexical within
+each directory.** Numbering files is load-bearing, not cosmetic.
+
+**The role directory is `control-plane`, not `controlplane`.** So is the `role:`
+value in `topf.sops.yaml`. Wrong spelling is a hard failure — `invalid node role
+"controlplane": must be either "worker" or "control-plane"` — loud rather than
+silent, but it will cost time on first run.
+
+**Strip every `${SECRET_*}` during transcription.** topf has no `${...}`
+substitution. A literal `${SECRET_TS_AUTHKEY}` copied out of `talconfig.yaml`
+renders **verbatim into the machine config with no error at all** — talhelper
+substitutes it, topf ships it. Counted against `main` on 2026-09-23: **three names,
+sixteen occurrences.**
+
+| name | count | where |
+|---|---:|---|
+| `SECRET_TS_AUTHKEY` | 1 | `extensionServices` (the `&extensionServices` anchor, shared by all 7 workers **and** freyja01) |
+| `SECRET_VOLUME_KEY` | 7 | `passphrase:` in the brokkr `data-1`/`data-2` LUKS blocks (6) plus one in j4's commented-out block — do not carry the comment over |
+| `SECRET_DOMAIN` | 8 | the eight Nexus registry mirrors in the global `patches:`. **The original spec missed this one**, and it is in the `all/` patch every node receives |
+
+All become `{{ .Data.x }}` in a `.tpl`. This is the single most likely silent error in the
+whole migration, and the Phase 4 diff exists partly to catch it.
+
+**`$patch: delete` is the only way to remove something inherited from `all/`.**
+Setting a key to `null` looks like deletion and is not — the parent value survives.
+Verified both ways.
+
+**This bites here once already.** The `controlPlane.patches` block contains
+`cluster.apiServer.admissionControl: null` ("Disable default API server admission
+plugins"). talhelper honours that. In topf's strategic merge a `null` may leave the
+default admission plugins in place — **on the only control plane**. Phase 0 must test
+what `null` does to `admissionControl` specifically, and Phase 4 must show the rendered
+`admissionControl` for freyja01 matches the baseline. If it does not, express it as
+`$patch: delete`.
+
+### Phase 4 — prove the output matches
+
+```bash
+topf render -o talos/output      # pin the path; the default ./output is cwd-relative
+diff -r talos/output <golden-baseline>
+```
+
+**Pass `-o` explicitly.** `topf render`'s default is `./output`, so where the
+plaintext lands depends on which directory you happen to be standing in. Determined
+beats defaulted when the output is eight machine configs containing the PKI.
+
+**Precondition:** the `output/` rule from Phase 1 must already be in `.gitignore`.
+This is the first phase that writes plaintext to disk.
+
+**The diff will not be empty, and requiring that would be a trap.** The two tools
+encode through different bundled Talos machinery:
+
+```
+talhelper 3.1.17    machinery v1.14.0-alpha.2   image-factory v1.4.0
+topf @21831714      machinery v1.13.8           image-factory v1.3.2   (2026-08-31)
+topf v0.6.0+        machinery v1.14.x           image-factory newer    (2026-09-23)
+cluster running     Talos v1.13.9
+```
+
+**This comparison flipped on 2026-09-23.** The original reasoned that topf encoded with
+1.13.8 and was therefore the closer match to the nodes. Current topf (main is on
+machinery `v1.14.1`) is a *minor ahead* of the cluster, like talhelper. Neither
+generator matches what the nodes run, so the baseline is not ground truth and neither
+is topf. The talhelper column above was measured 2026-08-31 and must be re-read in
+Phase 0. Pinning `talosVersion: v1.13.x` should make topf emit 1.13-shaped documents,
+but that is a claim for Phase 0 to test, not to assume.
+
+Expect residue from the encoder gap: fields that gained defaults, `omitempty`
+changes, key ordering, schema keys present in one version and not the other.
+Demanding an empty diff would either stall the migration on noise, or — worse —
+bury a genuine transcription error inside a screenful of benign version churn. That
+is the exact failure the gate exists to prevent.
+
+**So the gate is classification, not emptiness:**
+
+1. Enumerate the version-shaped differences once, deliberately, and write them down.
+2. Every remaining line must fall in that set.
+3. **A line that is not on the list is the bug.** That is a far easier thing to spot
+   than a needle in a screenful.
+
+Pay closest attention to anything matching `${`, per the Phase 3 hazard — a
+surviving `${SECRET_*}` renders verbatim and looks like ordinary config.
+
+**Baseline provenance, since "which talhelper made this" must not be a guess:**
+generated 2026-08-31 with talhelper **3.1.17**, from `talconfig.yaml` unchanged
+since 2026-07-21. The `clusterconfig/` files dated 2026-08-29 are newer than every
+input, so they are not stale — but their generator is unrecorded, which is why the
+attributable one is the reference.
+
+**Regenerate the baseline before Phase 7, not after.** Phase 7 uninstalls talhelper;
+whatever baseline exists at that moment is the last one obtainable.
+
+### The authoritative check is Phase 5, not this one
+
+This phase compares topf against *another generator*. `topf apply --dry-run`
+compares it against **what the node is actually running**, server-side, which is the
+question that matters and the one no offline diff can answer. Phase 4 is the cheap
+filter that catches gross errors before touching hardware; Phase 5's per-node
+dry-run is the real gate.
+
+> **Phases 1–4 never contact the cluster.** Everything above is files on disk and is
+> reversible by deleting a branch. Nothing is applied to hardware until this gate
+> passes.
+
+### Phase 5 — apply, node by node
+
+Workers before control planes, `--dry-run` first (which diffs against what is
+actually *running* — strictly better than diffing against a previously generated
+file). Verify node health between each.
+
+Order: **jormungandr4, then jormungandr1/2/3, then brokkr01/02/03, then freyja01
+last.** All seven are workers and any of them can be rolled without an API outage.
+freyja01 is last because it is the only node where a mistake is a cluster-wide
+outage, not a node-local one. jormungandr4
+is a worker (`controlPlane: false`, verified in `talconfig.yaml`) and goes first
+because it is the least critical node and exercises the most unusual patch path —
+it is the only node with VLANs on a plain `end0` rather than a bond, the only one
+with an `EPHEMERAL` VolumeConfig among the Pis, and the only worker with its own
+`node/` directory. If the patch
+tree is wrong anywhere, it is most likely wrong there, and that is the cheapest
+place to find out. jormungandr1-3 then share its low-power patch set with one fewer
+moving part (no VLANs, no EPHEMERAL VolumeConfig), so they are the cheapest confirmation
+that `worker/` is right for the Pi group before it meets brokkr's bond and LUKS volumes.
+
+**freyja01 is the only control plane; applying to it is an API outage if the change
+needs a reboot.** Treat it like the vault maintenance window
+(`docs/runbooks/vault-nas-maintenance.md`), because freyja01 is a VM on vault and the
+two share a failure domain. Concretely:
+
+- `topf apply --dry-run` first; read the node's own diff. If it shows a change that
+  needs a reboot, stop and schedule it rather than proceeding.
+- Prefer no-reboot apply modes. Confirm which mode topf uses by default and whether it
+  can be forced (`--dry-run` output, and topf's `apply` flags) **in Phase 0**.
+- Never apply to freyja01 in the same window as a change to the workers.
+- With no second control plane there is no quorum to lose *and* none to fail over to. A
+  bad config that stops `apiserver` coming back is recoverable only through the Talos
+  API on that node, so confirm the talosconfig can reach freyja01 directly first.
+
+### Phase 6 — keep the versions from drifting again
+
+The 2026-08-31 drift is already fixed (all three at `v1.13.9`). What remains is the
+structural cause: nothing ties `talosVersion` to the tuppr CR, and Renovate's Talos
+bump PR (**#1849**, open since 2026-09-21) does not touch `talconfig.yaml`.
+
+- Decide #1849's timing before Phase 5 (see
+  [Version drift](#version-drift-resolved-by-hand-but-it-will-recur)).
+- After Phase 1, the version lives in `topf.sops.yaml`. With whole-file SOPS Renovate
+  cannot see it at all (decision D1). With partial encryption it can carry the same
+  `# renovate: datasource=github-releases depName=siderolabs/talos` annotation as today.
+- Add a Renovate group so `talosVersion`, the tuppr CR and the `etcd-defrag` image bump
+  in one PR. tuppr keeps ownership of upgrades; topf never runs `topf upgrade`.
+
+### Phase 7 — retire talhelper
+
+Remove `talconfig.yaml`, `talenv.sops.yaml`, the talhelper `just` recipes, and
+`brew uninstall talhelper`. The recipes are in `talos/mod.just`: `gen-config` and
+`gen-secrets` call talhelper directly, and the **upgrade-node recipe reads
+`talos/clusterconfig/home-kubernetes-<node>.yaml`** — it will fail once that directory
+is gone. `talos/update-node.sh` is a second consumer to check. Files that mention the
+old toolchain and need a pass (grep at 2026-09-23): `.envrc`, `.mise.toml`,
+`.gitignore`, `CLAUDE.md`, `.serena/memories/{core,tech_stack,suggested_commands}.md`,
+`.claude/commands/renovate-sweep.md`, `.claude/renovate-sweep/triage-and-safety.md`,
+`bootstrap/helmfile.d/01-apps.yaml`, `docs/runbooks/{controlplane-migration-to-vault-vm,
+controlplane-migration-to-brokkr,brokkr03-airdisk-reprovision,cluster-ipv6-dual-stack}.md`,
+and code comments in `etcd-defrag`, `tns-csi` and `prometheusrule`. Comments that say
+"in talconfig.yaml" become wrong the day it is deleted.
+
+**`.envrc` needs updating and it will break silently if missed:**
+
+```bash
+.envrc:16   export TALOSCONFIG="$(expand_path ./talos/clusterconfig/talosconfig)"
+```
+
+That path is talhelper's output directory. Once `clusterconfig/` is gone,
+`TALOSCONFIG` points at nothing and every bare `talosctl` invocation in the repo
+loses its context — no error, just no endpoints.
+
+**Regenerating it needs a redirect, not the obvious command.** `topf talosconfig`
+describes itself as "generate and **save** talosconfig from secrets bundle" and does
+no such thing — it is a bare `fmt.Println` to stdout:
+
+```bash
+topf talosconfig > talos/talosconfig
+```
+
+Two consequences. That `Println` bypasses the redacting writer `--redact` controls,
+and the payload is the **admin client certificate and key** — so never into a log, a
+`tee`, or a recorded terminal, exactly as with `topf secrets`. And it calls
+`t.Secrets()` first, so against a missing secrets file it reaches the generate-new-PKI
+prompt, which on v0.5.0 is the infinite loop. One more reason for the pin.
+
+**Put it at `talos/talosconfig`** — one level up from the generated directory, still
+grouped with the Talos configuration, out of anything topf regenerates.
+
+Three files need cleaning up in the same commit so exactly one talosconfig exists:
+
+```
+talosconfig                  25 B  stub  context: "" / contexts: {}   → delete
+clusterconfig/talosconfig    25 B  stub  (root-level dir, April, stale) → delete
+talos/clusterconfig/         the real one, plus 7 node configs         → delete
+```
+
+**Delete `.mise.toml` too.** It declares `TALOSCONFIG = "{{config_root}}/talosconfig"`
+— the repo root, pointing at one of those empty stubs — and disagrees with `.envrc`,
+which points into the generated directory. Derek has confirmed he has never run
+`mise`; the file arrived by copy-paste from another homelab repo and has never been
+active. It is inert today only because mise isn't installed, and it would silently
+break `talosctl` the day it is. `direnv` + `.envrc` is the real env driver.
+
+(An earlier draft chose the repo root specifically to make `.mise.toml` correct
+without editing it. With that file deleted the constraint disappears, and
+`talos/talosconfig` is the tidier resting place — the minimal move from where the
+file lives today.)
+
+Keep the filename `talosconfig`: `.gitignore:33` is `**/talosconfig`, which covers
+any location but stops covering it under a different name. Confirmed with
+`git check-ignore` rather than by reading the glob — writing an admin client cert
+anywhere is only safe if that exact path is genuinely ignored, and the destination
+is:
+
+```
+talos/talosconfig                 .gitignore:33:**/talosconfig   ← the destination
+talosconfig                       .gitignore:33:**/talosconfig
+clusterconfig/talosconfig         .gitignore:33:**/talosconfig
+talos/clusterconfig/talosconfig   talos/clusterconfig/.gitignore:2
+```
+
+None is tracked.
+
+**Order matters: generate, verify, then delete.** The only working talosconfig lives
+in the directory this phase removes. Delete first and you are one failed command —
+missing secrets, wrong `--topfconfig`, a v0.5.0 prompt hang — away from a repo
+containing three talosconfigs, two of them empty stubs and none of them usable,
+mid-migration against live hardware. It recovers from `secrets.sops.yaml`, but the
+five minutes of "why can't I reach the cluster" are avoidable:
+
+```bash
+topf talosconfig > talos/talosconfig
+talosctl --talosconfig ./talos/talosconfig config info   # expect context home-kubernetes, 1 endpoint (10.0.10.35), 8 nodes
+# only after that check passes:
+rm -rf talos/clusterconfig clusterconfig talosconfig .mise.toml
+```
+
+**Where the 25-byte stubs come from — mechanism reproduced.** They are talosctl's
+own empty config, byte-for-byte:
+
+```
+context: ""
+contexts: {}
+```
+
+Reproduced in a sandboxed `HOME`: with no default config present and `TALOSCONFIG`
+pointing at a path that does not exist yet, an ordinary `talosctl config` command
+creates exactly that file at that path. No broken pipe or partial write required —
+a successful command produces it.
+
+**And `TALOSCONFIG` does not reliably control where config writes land.** With a
+default `~/.talos/config` already present, the same command *ignores* `TALOSCONFIG`
+and writes the default instead, reporting the named path as missing. Worth knowing
+whenever a talosctl config write seems to have done nothing: check `~/.talos/config`
+before concluding it failed.
+
+Practical consequence for this phase: after the real client config lives at
+`talos/talosconfig`, a stray `talosctl config` command with `TALOSCONFIG` set and the
+file absent would recreate it as an empty stub. The `config info` check above is
+worth keeping as a periodic smoke test, not only a migration step.
+
+### Populate the global config while you are here
+
+`~/.talos/config` is currently the empty stub, so any `talosctl` run *without*
+`TALOSCONFIG` — outside the repo, or in a shell where direnv has not loaded — has no
+cluster context. That is not theoretical: during the 2026-08-29 tuppr upgrade
+failure on brokkr01, the Talos layer was the only remaining source of the error
+(tuppr had already deleted the job) and it was unreachable for exactly this reason.
+
+```bash
+talosctl config merge ./talos/talosconfig
+```
+
+**Do not pass `--talosconfig` here.** The merge *target* is the default config and
+the argument is the *source*; naming the same file as both merges it into itself,
+which collides on context name and **renames the active context to
+`home-kubernetes-1` in the source file** — inflicting the precise breakage Phase 1
+exists to prevent, on the file generated minutes earlier. Verified in a sandbox: the
+correct form leaves the source byte-identical and populates `~/.talos/config` with
+context `home-kubernetes` and both endpoints.
+
+**Tradeoff, and it is a judgement call.** A populated `~/.talos/config` puts admin
+credentials within reach of any shell on the machine, not just the repo with direnv
+loaded. Against that, tuppr has now failed two upgrades where the Talos layer was
+the only diagnostic left. Reachability is the better trade here, but it is Derek's
+to make.
+
+**Content parity was confirmed 2026-08-31 and must be re-confirmed** — the cluster has
+changed under it. topf sets `endpoints` to the control-plane nodes and `nodes` to all
+nodes. Today that means endpoints `10.0.10.35` only, nodes all eight (`.31-.35`,
+`.38-.40`); the live file agrees. **The endpoint must not list a Pi**: workers do not
+proxy Talos API requests, so a talosconfig that still names one fails with
+`no request forwarding`.
+
+### Update the agent-facing docs, or the deleted files come back
+
+This is not tidiness. Three documents currently tell any agent reading them that the
+toolchain is mise-managed:
+
+```
+.serena/memories/tech_stack.md:33         ## Toolchain (managed via mise)
+.serena/memories/tech_stack.md:48         - `.mise.toml` — tool versions + env vars
+.serena/memories/suggested_commands.md:3  ...or `.mise.toml` env is active
+.claude/renovate-sweep/repo-runbook.md:34 Dev tooling lives under mise/Homebrew
+```
+
+**That is the propagation mechanism for a false belief.** An agent reads
+`tech_stack.md`, concludes the toolchain is mise-managed, and writes the next change
+on that footing — which is plausibly how `.mise.toml` arrived and certainly how it
+would return. Delete the file without correcting these and the claim outlives it.
+
+Update in the same commit, stating what is actually true: `direnv` + `.envrc` for
+env, Homebrew for tools, and topf pinned in `.bin/`.
+
+Also: `CLAUDE.md` states the source of truth is `talos/talconfig.yaml`, and
+`docs/runbooks/cluster-ipv6-dual-stack.md` references `just talos gen-config`.
+
+**Not a concern, checked:** `dev-shell` installs and activates mise, but nothing
+under `kubernetes/apps/develop/dev-shell/` clones this repo — no `git clone`, no
+reference to it at all. Its home PVC is persistent, so a checkout placed there by
+hand would make `.mise.toml` live in that pod. One deliberate action away, not
+happening now.
+
+## Acceptance criteria
+
+- [ ] `topf render` output is byte-identical to the talhelper golden baseline, or
+      every difference is explained and accepted.
+- [ ] Both schematic IDs reproduce exactly.
+- [ ] **`grep -rn '\${' talos/patches/ talos/schematics/` returns nothing.** Any
+      surviving `${SECRET_*}` would render verbatim into a live machine config
+      without raising an error.
+- [ ] `sops -d talos/secrets.sops.yaml` round-trips; cluster PKI unchanged.
+- [ ] No file in the repo contains an unencrypted secret — verified by running
+      gitleaks across the working tree *without* the `*.sops.yaml` exclusion.
+- [ ] The new pre-commit check rejects a plaintext file named `*.sops.yaml`.
+- [ ] All 8 nodes healthy after apply; `talosctl health` clean.
+- [ ] Talos version is consistent across the topf config, the tuppr CR, and the
+      running cluster, and Renovate still sees the version (D1).
+- [ ] `admissionControl` on freyja01 renders identically to the baseline.
+- [ ] `topf apply --dry-run` shows an empty diff, or only expected differences, on every
+      node — freyja01 last.
+
+## Rollback
+
+Through Phase 4, rollback is deleting a branch — nothing has touched the cluster.
+
+After Phase 5, `talconfig.yaml` is still in git history and talhelper 3.1.17 still
+runs, so regenerating and re-applying the previous config is a working escape hatch.
+Keep the golden baseline until Phase 7 is signed off. **Do not delete
+`talconfig.yaml` until the cluster has been healthy on topf-generated config through
+at least one tuppr upgrade cycle** — the first event that would expose a latent
+difference.
+
+## Risks
+
+| risk | mitigation |
+|---|---|
+| topf is pre-1.0 with a self-declared unstable CLI | The patch tree is raw Talos documents — see [Why topf is a safe bet](#why-topf-is-a-safe-bet-despite-being-pre-10) |
+| topf lags new Talos document kinds | Resolved for 1.14: v0.6.0 supports the 1.14 documents. Still watch 1.15 (`v1.15.0-alpha.0` exists); tuppr controls upgrade timing so we are not forced |
+| `.tpl` files bypass the SOPS pipeline entirely — an `ENC[...]` literal would pass through verbatim into the machine config | Invariant 3: secrets route through `data:`, never as a literal in a `.tpl` |
+| **`${SECRET_*}` is inert in topf and fails silently** — talhelper substituted it, topf renders it verbatim into a live config with no error | Strip during Phase 3; `grep -rn '\${'` in the acceptance criteria; Phase 4 diff catches it |
+| **freyja01 is the only control plane on the same host as vault** — an apply needing a reboot is an API outage, and a config that stops `kube-apiserver` is recoverable only via the Talos API | Apply last, `--dry-run` first, no-reboot modes, vault-maintenance-window discipline; see Phase 5 |
+| **Whole-file SOPS hides `talosVersion`/`kubernetesVersion` from Renovate** | Decision D1: partial encryption (decided 2026-09-23) |
+| **`admissionControl: null` may not delete in topf** — on the only control plane | Phase 0 test; Phase 4 acceptance criterion; fall back to `$patch: delete` |
+| **Renovate #1849 rolls Talos while topf is being introduced** | Sequence it: never straddle the bump (see Version drift) |
+| **`{{ }}` inside a YAML comment in a `.tpl` still expands** — commenting out a template line does not disable it | Fails loudly via `missingkey=error` rather than silently, but delete template lines rather than commenting them |
+| Per-node `installer.schematic` **replaces** the cluster-wide one rather than merging | Three schematics exist and all are written out in full, so this costs nothing here. `{{ .SchematicID }}` in a `.tpl` resolves per node |
+| **A missing `sops` binary degrades silently** — ciphertext parsed as literal YAML, no error | Verify `sops --version` as a Phase 1 precondition; check with `sops filestatus`, not exit codes |
+| **`topf secrets` writes a plaintext PKI bundle if encryption fails**, and reports success | Not on our route — we import an existing bundle rather than generating one. Never run `topf secrets` on this cluster |
+| `topf secrets` prints the bundle to stdout unredacted | Never into a log, `tee`, or recorded terminal |
+| **v0.5.0 spun forever on EOF at any confirm prompt** — discarded read error, unbounded loop | Fixed before v0.6.0. Pin the v0.6.0 tag; pass `--confirm=false` on every non-interactive invocation regardless |
+| Behaviour in this spec was verified at `21831714`, 28 commits before the current rc, including a secrets-redaction change | Phase 0 re-verifies the load-bearing checks against the chosen release |
+| `mise` is not installed on this machine despite `.mise.toml` existing (`direnv` + `.envrc` is the actual env driver) | Delete `.mise.toml` in Phase 7; `brew install postfinance/tap/topf` exists but `go install` into `.bin/` pins per checkout |
+
+## Open questions
+
+Verified by Pollen against topf's source at `main` (`21831714`, 2026-08-27), which
+is ahead of v0.5.0 and includes a rewrite of `internal/decryption`.
+
+**Answered:**
+
+1. **Partial SOPS encryption works** — decrypts correctly through
+   `decryption.ReadFileWithSecrets` and still identifies plaintext secrets for
+   redaction. Moot in practice; see 7.
+2. **`topf render` cannot write to stdout** — REFUTED. `--output` is a directory.
+   But `topf apply` never writes to disk at all, so the property is achieved by a
+   better route. Design updated.
+3. **`secretsPath` accepts any path; SOPS is detected by content, not filename** —
+   topf shells out to the `sops` binary and parses `sops filestatus`.
+4. **Both schematic IDs reproduced exactly**, offline, first attempt, from the
+   `customization:` blocks transcribed out of `talconfig.yaml`. Phase 2 is
+   de-risked.
+7. **`--topfconfig` takes an arbitrary path** (`TOPFCONFIG` env var too);
+   `topf.yaml` is only a default. This removes the need for partial encryption
+   entirely.
+
+5. **Merge order confirmed by execution** — `all/` → `<role>/` → `node/<host>/`,
+   last wins, lexical within each directory. `$patch: delete` removes an inherited
+   subtree; `key: null` does not.
+8. **Per-node `installer.schematic` replaces, does not merge** — proven by hash:
+   an overridden node's installer image carried the standalone hash of its own
+   schematic file, which a merged schematic could not produce.
+
+**All seven closed** (against `21831714`; re-verified against the chosen release in Phase 0). Nothing on this list was unverified at that commit. The only things left
+untested are those that need real hardware — `apply`'s live dry-run output,
+`--online`, and health checks — which belong to Phase 5.
+
+**Revised rather than withdrawn:** an earlier draft flagged "env substitution runs
+over comments," carried over from talhelper. That was wrong in one direction and
+right in another, and the correction matters:
+
+- **`${...}` does not expand at all in topf** — so a leftover `${SECRET_*}` is
+  inert and lands verbatim in a live config, silently. Now in Risks and the
+  acceptance criteria.
+- **`{{ }}` in a `.tpl` comment does expand**, because Go templates are text-level.
+  Commenting out a template line does not disable it. This fails loudly thanks to
+  `missingkey=error`, but the hazard is real.
+
+### One comfort worth recording
+
+Patches are **strictly schema-validated at load time** — `configpatcher.LoadPatch`
+rejects unknown keys against the target Talos version before anything is generated.
+A typo or a field that moved between Talos releases fails at `topf render`, before
+Phase 4 and long before hardware. For a 386-line extraction that is a meaningful
+safety net.
+
+Worth one clarification, since a test fixture briefly made this look like a
+problem: **`machine.install.diskSelector` is valid and Derek's usage is correct.**
+Two different `diskSelector` schemas exist and they are not interchangeable —
+`machine.install.diskSelector` takes `model:`/`serial:`/`wwid:`, while
+`VolumeConfig`'s takes a CEL `match:` expression. Derek's config uses each in its
+right place, and `talosctl validate -m metal` accepts the golden baseline. A
+fixture that put `match:` under `machine.install.diskSelector` was correctly
+rejected — the validator working, not a topf limitation.
+
+## Deferred, deliberately
+
+- **`installDisk: /dev/sda` on the four Pis.** The disk reports `TRANSPORT usb`, so
+  a device-path pin is fragile in principle — but its WWID is `naa.5000000000000001`
+  and model `2115`, both generic USB-SATA bridge values that may not discriminate
+  between identical adapters. Worth revisiting; not part of a migration whose gate
+  is byte-identical output.
+- **Talos 1.14.** Explicitly out of scope; see Version selection.
+- **OpenTofu + `siderolabs/talos`.** Re-evaluated 2026-09-23 with Derek and **not
+  chosen**. The provider is healthy (v0.12.0 on 2026-09-21, first-party, Talos SDK
+  1.14.0) and `tofu import` of the existing PKI was verified viable on 2026-08-31. The
+  reasons it lost, each checkable:
+  - **State.** It needs a state backend, and the obvious one (Garage S3 on vault)
+    shares fate with freyja01, the only control plane, which is also on vault. State
+    would hold the PKI. R2 avoids the shared fate but adds a dependency. topf is
+    stateless.
+  - **v0.12.0 is a redesign.** It adds `talos_machine` and `talos_cluster` resources
+    (reboot recovery, upgrade handling), which overlap with tuppr, the deliberate
+    upgrade driver (constraint 4). Adopting it means choosing which owns upgrades.
+  - **A first apply against all 8 nodes**, one of them the only control plane.
+  - **Not verified, so not counted against it:** whether a `talos_version` contract
+    cleanly pins 1.13-shaped output on an SDK 1.14 provider; Raspberry Pi overlay support
+    in the current schematic resource.
+
+  The patch tree this migration produces is exactly what the provider's
+  `config_patches` would consume, so this stays reversible.
