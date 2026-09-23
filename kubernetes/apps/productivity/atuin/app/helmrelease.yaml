@@ -61,6 +61,24 @@ spec:
               limits:
                 memory: 256Mi
     defaultPodOptions:
+      # Prefers the Raspberry Pi workers (the only arm64 nodes), falling back to
+      # brokkr. Small, stateless or NFS-only, with a multi-arch image; moved
+      # 2026-09-22 when jormungandr1-3 stopped being control-plane nodes.
+      tolerations:
+        - key: "node.kubernetes.io/low-power"
+          operator: "Equal"
+          value: "raspberry-pi"
+          effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: "kubernetes.io/arch"
+                    operator: "In"
+                    values:
+                      - "arm64"
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000

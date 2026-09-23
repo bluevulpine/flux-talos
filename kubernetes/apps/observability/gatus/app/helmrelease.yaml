@@ -19,6 +19,24 @@ spec:
       retries: 3
   values:
     defaultPodOptions:
+      # Prefers the Raspberry Pi workers (the only arm64 nodes), falling back to
+      # brokkr. Small, stateless or NFS-only, with a multi-arch image; moved
+      # 2026-09-22 when jormungandr1-3 stopped being control-plane nodes.
+      tolerations:
+        - key: "node.kubernetes.io/low-power"
+          operator: "Equal"
+          value: "raspberry-pi"
+          effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: "kubernetes.io/arch"
+                    operator: "In"
+                    values:
+                      - "arm64"
       automountServiceAccountToken: true
     controllers:
       gatus:
@@ -50,7 +68,7 @@ spec:
             securityContext: &securityContext
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: {drop: ["ALL"]}
             resources:
               requests:
                 cpu: 10m
@@ -89,7 +107,7 @@ spec:
         pod:
           dnsConfig:
             options:
-              - { name: ndots, value: "1" }
+              - {name: ndots, value: "1"}
           securityContext:
             runAsUser: 568
             runAsGroup: 568
@@ -118,7 +136,6 @@ spec:
     serviceAccount:
       gatus:
         enabled: true
-
 
     persistence:
       config:
