@@ -3,21 +3,146 @@
 Decide whether vLLM replaces or supplements Ollama as the inference backend
 behind LiteLLM. **Run this alongside the working Ollama, never in place of it.**
 
-Status: planned, not yet executed.
+Status: **ROOT-CAUSED 2026-09-23.** Test 0 passed on both engines. Tests 1 and 2 ran
+head-to-head and vLLM produced garbage; a systematic RCA localised that to one Marlin
+kernel configuration and produced a two-line fix. Tests 1 and 2 then re-ran on the
+fixed build against an idle box: **no material throughput win at Hindsight's context
+length. Stay on Ollama.**
 
-## The verdict this plan is testing
+## What was actually wrong: Marlin's 256-thread fp4 MoE tile config on sm_121
 
-Research (2026-09-22) landed on **trial alongside, do not switch**, and the
-reason is specific: Hindsight puts a hard 25s latency SLA (reflect) and batch
-work (retain, consolidation) on one engine. vLLM's entire advantage is aggregate
-throughput **purchased with per-request latency** — the exact trade that broke
-this cluster at Ollama concurrency 10.
+`gpt-oss` on upstream vLLM (`cu130-nightly` 0.19.2rc1 **and** the v0.20.0 release) emits
+**garbage on GB10 whenever more than one sequence is decoding**, and for short prompts
+even at one sequence. HTTP 200 meant nothing: content-validated, **100% of c=8 responses
+were garbage**; the `HarmonyError: channel marker present but no channel value found in
+header` 500s were just the ~25% of garbage that happened to break the harmony parser.
+Raw output (`/v1/completions`, `skip_special_tokens=False`) showed multilingual token
+salad and `!!!!!` runs from the first generated token, **nondeterministic under greedy
+decoding** — the signature of a kernel reading memory it should not.
 
-So the interesting outcome is not "which engine wins". It is whether a **split
-backend** beats either alone: Ollama serving reflect (latency), vLLM serving
-retain and consolidation (throughput). LiteLLM already routes per `model_name`
-and Hindsight already selects a model per stage, so this is configuration, not
-architecture.
+The fault is in the **MXFP4 expert path**: `ops.moe_wna16_marlin_gemm` auto-selects a
+**256-thread tile configuration** for gpt-oss's fp4 MoE GEMMs, and that configuration
+miscomputes on sm_121. Forcing the **128-thread config** at the two call sites is a
+complete fix:
+
+```python
+# vllm/model_executor/layers/fused_moe/fused_marlin_moe.py — both moe_wna16_marlin_gemm calls
+use_fp32_reduce=True, thread_k=64, thread_n=128,
+```
+
+Result on the otherwise-untouched broken nightly: 24/24 header-clean across the rig
+(81 and 16822 tokens, c=1 and c=8), content-validated chat **8 good / 0 garbage / 0
+errors** — then **verified three more times**: 66/66 rig, 8/8 content, 0/16 HTTP, 0/16
+streaming, the same bar NVIDIA's container was held to. The same two call sites
+patched with `use_atomic_add=True` or `use_fp32_reduce=False` instead stay fully broken,
+so the reduction path is not the mechanism; only the tile config is.
+
+This matches the community finding for SM121 ("Marlin 256-thread race … forces 128
+threads", ai-muninn / namake-taro fork), which is **not merged upstream**: vLLM
+[#38126](https://github.com/vllm-project/vllm/pull/38126) fixes arch guards for 12.1 but
+does not touch Marlin thread configs, and
+[#52525](https://github.com/vllm-project/vllm/issues/52525) is ULP-scale reduction
+nondeterminism, not this.
+
+### Why NVIDIA's container is clean
+
+`nvcr.io/nvidia/vllm:26.05-py3` (vLLM 0.20.1+nv, CUDA 13.2, NVIDIA torch 2.12, a
+newer Triton snapshot) serves the same MXFP4 weights **clean: 66/66 rig, 8/8 content,
+0/16 HTTP failures, streaming 0/16** — with the *same* `TRITON_ATTN` backend, the same
+`Using 'MARLIN' Mxfp4 MoE backend` log line, and a `fused_marlin_moe.py` that is
+**byte-identical** to stock v0.20.0. So NVIDIA did not fix it in Python; the difference
+is in the compiled `_moe_C` (nvcc 13.2 vs 13.0.x and/or a source patch).
+_(Which of those: pending — a run of NVIDIA's build forced onto the 256-thread config
+will say whether their kernel is correct at 256 threads or merely avoids it.)_
+
+### How the wrong turns were closed — every one by a single-variable test
+
+| hypothesis | test | result |
+| --- | --- | --- |
+| harmony vocab `o200k_harmony.tiktoken` 404s | `strings` on the shipped extension | file never requested; real fetch is `o200k_base`; `TIKTOKEN_ENCODINGS_BASE` fixes startup |
+| stale Triton cache (#41871) | inspect image + runtime cache | none present in a fresh container |
+| request format / our payload | c=1 works; raw completions bypassing harmony | output corrupt before any parser |
+| prompt length / sampling / server poisoning | 2×2 at c=1, length sweep, re-run of earlier-clean case | server not poisoned; temp irrelevant; short prompts fail even at c=1 |
+| native `sm_121` SASS from nvcc 13.0 | `cuobjdump` on `_C`/`_moe_C` of 3 images | v0.20.0 ships **no** sm_121 SASS and is still broken; no build ships `sm_12xa` |
+| vLLM code fix 0.19.2→0.20.0 | upstream v0.20.0 aarch64-cu130 image | still broken (0/8 content) |
+| ptxas version (12.8 → 13.0 → NVIDIA's 13.2) | `TRITON_PTXAS_PATH` + `..._BLACKWELL_PATH` | still broken; NVIDIA's ptxas 12.8-swap refuses `sm_121a` (needs PTX ≥ 8.8) |
+| Triton PTX ISA cap 86→90 (NVIDIA's diff) | one-line patch, proof via emitted `.ptx` (`.version 9.2`, `.target sm_121a`) | still broken |
+| Triton codegen / LLVM | stock Triton 3.8.0 (LLVM 23) installed into the nightly | still broken |
+| cuBLAS, RMSNorm, SDPA | batch-1 vs batch-8 identical-row kernel tests, both images | numerically identical between builds |
+| int4 Marlin MoE | same kernel test, all tile/reduce variants | correct and **deterministic** — the fault is fp4-specific |
+| Marlin reduction path | `use_atomic_add=True` / `use_fp32_reduce=False` on the real model | both still broken |
+| **Marlin tile config** | **`thread_k=64, thread_n=128` on the real model** | **clean** |
+
+Two of my own conclusions were wrong along the way and are corrected above: the
+`o200k_harmony` 404 (a filename I assumed, never observed) and "ptxas exonerated" from a
+test that had set the wrong knob. A "bf16 checkpoint" test was discarded as invalid — the
+`unsloth/gpt-oss-20b-BF16` conversion is garbage on NVIDIA's clean build too.
+
+### What to run
+
+- **Vendor path (no patch):** `nvcr.io/nvidia/vllm:26.05-py3` with
+  `TIKTOKEN_ENCODINGS_BASE` (harmony vocab) — clean out of the box.
+- **Upstream path:** any `vllm/vllm-openai` cu130 image **plus** the two-line
+  `thread_k=64, thread_n=128` patch bind-mounted over `fused_marlin_moe.py`, plus
+  `TIKTOKEN_ENCODINGS_BASE`. Re-test on every image bump: count **content-validated
+  garbage at c=8**, not HTTP 500s and not tok/s — both looked fine while output was noise.
+- **Not fixes:** `VLLM_MXFP4_USE_MARLIN=0` (ignored: no `triton_kernels`, Marlin is the
+  only fp4 backend), `VLLM_MARLIN_USE_ATOMIC_ADD` (dense path only; MoE call sites
+  hardcode it), `CUDA_FORCE_PTX_JIT=1` (breaks SASS-only libs), a bf16 checkpoint.
+
+### Tests 1 and 2 on the FIXED build, idle box, content-validated
+
+Two runs, because the first one was wrong in a way worth recording.
+
+**Identical prompts** (the naive benchmark): vLLM appeared to win 3.4× at c=8
+(238 vs 69 tok/s, p50 2.7s vs 8.9s). The tell: vLLM's c=4 p50 (2.2s) was *lower than
+c=1* (5.5s) — impossible unless the 23k-token prefill is being served from prefix cache
+once and shared. It was. Hindsight's prompts differ per document; this number is void.
+
+**Distinct ~23k-token prompts per request, greedy, 400 max tokens, every answer
+content-checked:**
+
+| c | Ollama p50 / aggregate | vLLM-fixed p50 / aggregate |
+| --- | --- | --- |
+| 1 | 6.7s / 20.4 tok/s | 6.5s / 17.0 tok/s |
+| 4 | 22.1s / 15.0 tok/s | 18.4s / 17.9 tok/s |
+| 8 | 39.1s / 17.5 tok/s | 34.9s / 19.2 tok/s |
+| 16 | 79.9s / 17.0 tok/s | 68.4s / 18.5 tok/s |
+
+Aggregate is flat in concurrency on **both** engines and latency scales linearly: at this
+context length the workload is **prefill-bound** (~4.6k vs ~5.3k prompt tok/s), and
+continuous batching is a *decode*-phase advantage. vLLM-fixed is ~10–15% faster on
+latency. That is not worth a second engine, a bind-mounted kernel patch on every image
+bump, or (the alternative) changing the production model to one vLLM serves unpatched.
+
+**Verdict: stay on Ollama for gpt-oss.** Revisit only if the workload becomes
+decode-heavy at short context (many concurrent short prompts), which is the regime where
+vLLM's batching would actually pay. The queue-wait problem that started this was fixed
+by `OLLAMA_NUM_PARALLEL` 4→8 (194s → 1.9s) and is unrelated to engine choice.
+
+### Why 256 threads is wrong on GB10 — what is known and what is inferred
+
+Forcing NVIDIA's build onto the 256-thread 128×128 config is **not possible**: the
+kernel's own validity check rejects it during `profile_run` —
+
+```
+Invalid thread config: thread_m_blocks=4, thread_k=128, thread_n=128, num_threads=256
+for MKN=[2048, 3072, 5888] … group_size=32 … max_shared_mem=101376
+```
+
+Two facts from that line. gpt-oss's real Marlin shapes are **K=3072, N=5888** (hidden
+2880→3072, intermediate 2880→2944 after `mxfp4_round_up_…`). And GB10 exposes only
+**101,376 bytes of shared memory per block**, against ~227 KB on datacenter Blackwell.
+
+So on this chip the 256-thread configs sit right at the shared-memory validity edge, and
+the auto-selector on the broken build picks one that passes the check yet computes wrong.
+**Inference, not proven:** the fp4 template at group size 32 carries e8m0 scales per 32
+elements — a larger shared-memory footprint than int4 — and if the C++ estimate
+under-counts it, the kernel reads/writes shared memory out of bounds: nondeterministic
+garbage, fp4-only, GB10-only. The 128-thread config has the headroom. NVIDIA's compiled
+`_moe_C` (CUDA 13.2, possibly patched tables) is clean under auto-selection; whether it
+picks 128 threads or has a correct 256-thread kernel could not be determined without the
+source. It does not change the fix or the verdict.
 
 ## Test 0 — the decisive one. Run it first; stop if it fails
 
