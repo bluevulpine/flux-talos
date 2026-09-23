@@ -279,3 +279,67 @@ spec:
           for: 10m
           labels:
             severity: critical
+    - name: etcd-vm-disk
+      rules:
+        # etcd runs on ONE member since 2026-09-22: the freyja01 VM on vault, with its
+        # disk a zvol on the `apps` pool. The kube-prometheus-stack defaults
+        # (etcdHighFsyncDurations p99 > 500 ms, etcdHighCommitDurations p99 > 250 ms)
+        # are sized for a broken cluster and sit 10-20x above this one's normal, so
+        # they would say nothing until the damage was done.
+        #
+        # Measured baseline (2026-09-23), which the thresholds below are set from:
+        #   etcd steady state, 8h:  WAL fsync p50 ~6.2 ms, p99 26-31 ms (one 53 ms
+        #                           window); backend commit p99 32-70 ms; ~17 fsync/s
+        #   fio inside freyja01:    fdatasync p50 7.0 ms, p99 19.5 ms (bs 2300)
+        #   fio on vault directly:  p50 2.77 ms, p99 6.0 ms
+        # The ~4 ms the VM adds per fsync is the virtualization layering (one guest
+        # fdatasync = several ZIL commits on vault), NOT the zvol's 16K volblocksize:
+        # aligned 16K writes were no faster. Accepted for now.
+        #
+        # If these fire, the known fix is a small mirrored PLP SLOG on `apps`, carved
+        # from the Intel D3-S4510 slack; it is the one change that can be undone live
+        # (`zpool remove`). Re-run the etcd fio benchmark before and after.
+        # See docs/runbooks/controlplane-migration-to-vault-vm.md.
+        - alert: EtcdVmWalFsyncSlow
+          annotations:
+            summary: >-
+              etcd WAL fsync p99 on {{ $labels.instance }} is {{ $value | humanizeDuration }}
+              (baseline ~28 ms).
+            description: >-
+              Sustained for 30m at ~3x the measured baseline. Check what else is writing
+              to vault's `apps` pool (`zpool iostat -l apps 10`), and vault's health. If
+              it is the new normal, this is the trigger for the SLOG described in the
+              rule comments. Runbook: docs/runbooks/controlplane-migration-to-vault-vm.md
+          expr: histogram_quantile(0.99, sum by (instance, le) (rate(etcd_disk_wal_fsync_duration_seconds_bucket{instance="10.0.10.35:2381"}[10m]))) > 0.1
+          for: 30m
+          labels:
+            severity: warning
+        - alert: EtcdVmBackendCommitSlow
+          annotations:
+            summary: >-
+              etcd backend commit p99 on {{ $labels.instance }} is {{ $value | humanizeDuration }}
+              (baseline 32-70 ms).
+            description: >-
+              Sustained for 30m at ~3x the measured baseline. Usually moves together with
+              EtcdVmWalFsyncSlow; if it fires alone, look at etcd DB size and defrag
+              (etcd-defrag runs Sundays 03:30) before the disk.
+              Runbook: docs/runbooks/controlplane-migration-to-vault-vm.md
+          expr: histogram_quantile(0.99, sum by (instance, le) (rate(etcd_disk_backend_commit_duration_seconds_bucket{instance="10.0.10.35:2381"}[10m]))) > 0.2
+          for: 30m
+          labels:
+            severity: warning
+        # Slow drift rather than an incident: a whole day whose p99 sits at ~2x the
+        # baseline. Nothing is broken when this fires; it is the signal that the
+        # accepted performance has degraded and the SLOG is now worth doing.
+        - alert: EtcdVmWalFsyncDrift
+          annotations:
+            summary: >-
+              etcd WAL fsync p99 on {{ $labels.instance }} has averaged
+              {{ $value | humanizeDuration }} over 24h (baseline ~28 ms).
+            description: >-
+              Not urgent. The performance accepted on 2026-09-23 has degraded; plan the
+              `apps` SLOG. Runbook: docs/runbooks/controlplane-migration-to-vault-vm.md
+          expr: histogram_quantile(0.99, sum by (instance, le) (rate(etcd_disk_wal_fsync_duration_seconds_bucket{instance="10.0.10.35:2381"}[1d]))) > 0.06
+          for: 1h
+          labels:
+            severity: warning
