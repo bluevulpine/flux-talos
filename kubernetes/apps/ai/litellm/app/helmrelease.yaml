@@ -52,6 +52,33 @@ spec:
               # would treat its database as the source of truth and edits made
               # in the UI would silently outlive a redeploy.
               STORE_MODEL_IN_DB: "false"
+
+              # --- SSO via Authentik (generic OIDC), configured entirely here ---
+              # The client id/secret come from litellm-secret. Everything below is
+              # public configuration.
+              #
+              # PROXY_BASE_URL is REQUIRED, not cosmetic: TLS terminates at the
+              # gateway, so LiteLLM sees http:// and would send Authentik a
+              # redirect_uri of http://litellm.../sso/callback, which never matches
+              # what is registered. The callback registered in Authentik must be
+              # exactly ${PROXY_BASE_URL}/sso/callback.
+              PROXY_BASE_URL: https://litellm.${SECRET_DOMAIN}
+              GENERIC_AUTHORIZATION_ENDPOINT: https://sso.${SECRET_DOMAIN}/application/o/authorize/
+              GENERIC_TOKEN_ENDPOINT: https://sso.${SECRET_DOMAIN}/application/o/token/
+              GENERIC_USERINFO_ENDPOINT: https://sso.${SECRET_DOMAIN}/application/o/userinfo/
+              # ⚠️ LiteLLM's default scope is "openid email profile". Authentik only
+              # emits the `litellm_role` claim when that scope is REQUESTED, so
+              # leaving this at the default silently gives every user the default
+              # role and nobody is ever an admin. `litellm_role` is a custom scope
+              # mapping on the provider: proxy_admin for the Authentik group
+              # `admins` (exact name; `authentik Admins` is a different group),
+              # internal_user for everyone else.
+              GENERIC_SCOPE: openid email profile litellm_role
+              GENERIC_USER_ROLE_ATTRIBUTE: litellm_role
+              # Readable ids in the UI. `sub` is Authentik's hashed_user_id.
+              GENERIC_USER_ID_ATTRIBUTE: preferred_username
+              GENERIC_USER_EMAIL_ATTRIBUTE: email
+              GENERIC_USER_DISPLAY_NAME_ATTRIBUTE: name
             envFrom: *envFrom
             probes:
               # LiteLLM spells the liveness path "liveliness" — not a typo here.
