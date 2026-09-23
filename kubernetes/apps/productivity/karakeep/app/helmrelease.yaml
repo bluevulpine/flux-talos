@@ -127,7 +127,7 @@ spec:
             image:
               repository: docker.io/getmeili/meilisearch
               # renovate: datasource=docker depName=docker.io/getmeili/meilisearch
-              tag: v1.53.2
+              tag: v1.54.0
             command:
               - /bin/meilisearch
             args:
