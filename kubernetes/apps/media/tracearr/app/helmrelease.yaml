@@ -167,8 +167,11 @@ spec:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: "Tracearr"
           gethomepage.dev/group: "Video"
-          gethomepage.dev/icon: "tautulli.png"
+          gethomepage.dev/icon: "tracearr.png"
           gethomepage.dev/description: "Watch History"
+          gethomepage.dev/widget.type: "tracearr"
+          gethomepage.dev/widget.url: "http://tracearr.media.svc.cluster.local:3000"
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_TRACEARR_TOKEN}}`}}"
         hostnames:
           - "tracearr.${SECRET_DOMAIN}"
         parentRefs:
