@@ -74,17 +74,11 @@ spec:
             port: *port
     route:
       app:
-        annotations:
-          gatus.home-operations.com/endpoint: |
-            group: media
-          gethomepage.dev/enabled: "true"
-          gethomepage.dev/name: "Tautulli"
-          gethomepage.dev/group: "Video"
-          gethomepage.dev/icon: "tautulli.png"
-          gethomepage.dev/description: "Plex Monitoring"
-          gethomepage.dev/widget.type: "tautulli"
-          gethomepage.dev/widget.url: "http://tautulli.media.svc.cluster.local:80"
-          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_TAUTULLI_TOKEN}}`}}"
+        # Disabled while scaled to zero: the route only published a dead Homepage
+        # card and a permanently-DOWN Gatus endpoint. The Tracearr card replaces the
+        # Homepage widget. To use the retained data, scale to 1 and set this true;
+        # reach it via `kubectl port-forward` if the Homepage/Gatus entries aren't wanted.
+        enabled: false
         hostnames:
           - "tautulli.${SECRET_DOMAIN_MEDIA}"
           - "tautulli.${SECRET_DOMAIN}"
