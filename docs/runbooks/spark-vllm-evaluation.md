@@ -3,7 +3,61 @@
 Decide whether vLLM replaces or supplements Ollama as the inference backend
 behind LiteLLM. **Run this alongside the working Ollama, never in place of it.**
 
-Status: planned, not yet executed.
+Status: **BLOCKED upstream, 2026-09-22.** Test 0 passed on both engines (20/20).
+Tests 1 and 2 cannot be run on the production model, and the reason is not
+fixable from here.
+
+## ⚠️ vLLM cannot serve gpt-oss: the harmony vocab 404s
+
+`vllm/vllm-openai:cu130-nightly --model openai/gpt-oss-20b` dies ~8 minutes into
+startup with:
+
+```
+openai_harmony.HarmonyError: error downloading or loading vocab file
+```
+
+It reads like a network or proxy problem and is neither. Measured from both the
+Spark and inside the container:
+
+| file | result |
+| --- | --- |
+| `o200k_base.tiktoken` | 200, 3,613,922 bytes |
+| `cl100k_base.tiktoken` | 200, 1,681,126 bytes |
+| **`o200k_harmony.tiktoken`** | **404** |
+
+Container egress is fine (`github.com` → 200, and the CDN itself serves the
+other two files to the same container). The one file harmony actually needs is
+simply not published. It is not mirrored anywhere reachable either — checked
+`openai/gpt-oss-20b` on HF (404), the `openai/harmony` HF dataset (401) and
+`raw.githubusercontent.com/openai/harmony` (404) — and the Python layer exposes
+no env var to point the loader at a local copy.
+
+**Do not re-debug this as a proxy, DNS or CUDA problem.** Re-test by curling
+`https://openaipublic.blob.core.windows.net/encodings/o200k_harmony.tiktoken`
+and looking for a 200. Until that returns one, vLLM cannot serve this model.
+
+### Why that makes Tests 1 and 2 moot rather than merely delayed
+
+They exist to decide whether retain and consolidation move to vLLM. Running them
+against a substitute model would not answer that: vLLM would be serving
+something we do not run, at a different quantization (Ollama serves Q4; a plain
+HF checkpoint is fp16, roughly 4x the bytes per token on a bandwidth-bound
+device), so any throughput comparison would measure the quantization, not the
+engine.
+
+The honest options are therefore (a) wait for the vocab to be published, or
+(b) decide independently to move production off gpt-oss to a model vLLM can
+serve — which is a model-quality decision, not a benchmark, and would invalidate
+the per-stage tuning that is currently built around gpt-oss's behaviour.
+
+### The pressure behind this has also dropped
+
+The problem that motivated a second engine was queue wait: with
+`OLLAMA_NUM_PARALLEL=4` (sized exactly to hindsight's per-stage caps) the newly
+migrated apps had zero slots and a trivial request took 194s. Raising it to 8
+took that to 1.9s. See `spark-setup` `group_vars/all.yml` for the measured
+trade. vLLM is no longer needed to fix an outage; it is an optimisation, which
+is a much weaker reason to accept a model change.
 
 ## The verdict this plan is testing
 
