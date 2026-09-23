@@ -221,8 +221,10 @@ spec:
               # went to minutes, and hindsight operations began timing out into
               # PERMANENT failures.
               #
-              # It is survivable at the current OLLAMA_NUM_PARALLEL=4, but before
-              # sending real traffic here check `ollama ps` and be ready to
+              # OLLAMA_NUM_PARALLEL is now 8, not the 4 this warning was written
+              # against, so the per-slot KV cost of a dense model here is DOUBLE
+              # what produced that 73 GiB. Before sending real traffic to this
+              # entry check `ollama ps` and be ready to
               # `curl -d '{"model":"...","keep_alive":0}' /api/generate` to
               # evict whichever model you are not using.
               - model_name: spark-qwen25-14b
@@ -232,6 +234,33 @@ spec:
                   # embedded in a string, and an alias here would have to survive
                   # kustomize, helm, the ConfigMap and Flux envsubst before
                   # LiteLLM ever parses it.
+                  api_base: http://10.0.10.237:11434/v1
+                  api_key: unused-ollama-accepts-any
+
+              # --- vision ---
+              # The ONLY model here that can see an image. Both entries above are
+              # text-only, which is why karakeep's image slot and
+              # homebox-companion's photo item-detection were dead after the
+              # Azure migration -- gpt-4.1-mini and gpt-5-mini were both
+              # vision-capable and nothing on the Spark replaced that.
+              #
+              # Measured on this box at OLLAMA_NUM_PARALLEL=8, not estimated:
+              # 20 GiB resident alongside gpt-oss's 13 GiB (54 of 121 GiB used,
+              # 67 free), 17.6s cold including model load, then 1.3-2.7s warm.
+              # It read two lines of rendered text exactly, including a currency
+              # amount, and identified two shapes and their colours.
+              #
+              # It is DENSE, unlike gpt-oss -- see the memory hazard above. At 7B
+              # that is affordable; it would not be at 14B+.
+              #
+              # ⚠️ Images must be sent as a base64 `data:` URI. Ollama does NOT
+              # fetch remote http(s) image URLs -- its own docs list "Image URL"
+              # as unsupported -- so a consumer that passes a link instead of
+              # bytes gets a failure that looks like a model problem. Verified
+              # working here through this exact OpenAI-compatible shape.
+              - model_name: spark-qwen25-vl-7b
+                litellm_params:
+                  model: openai/qwen2.5vl:7b
                   api_base: http://10.0.10.237:11434/v1
                   api_key: unused-ollama-accepts-any
 
