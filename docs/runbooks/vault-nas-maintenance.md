@@ -30,7 +30,7 @@ vault under three different spellings — `vault.funb.us`, `10.0.10.10`, and
 `10.0.10.11` — and it is easy to conclude that a `10.0.10.11` endpoint is "some
 other box". It is not. Anything pointed at either address is in the blast radius.
 
-Vault serves the cluster through four independent paths:
+Vault serves the cluster through five independent paths:
 
 | Path | Mechanism | Failure behaviour on restart |
 | --- | --- | --- |
@@ -38,11 +38,36 @@ Vault serves the cluster through four independent paths:
 | **iSCSI** | `tns-csi-iscsi` SC | Block device vanishes → XFS I/O errors → read-only remount. **Not data-safe.** |
 | **NVMe-oF** | `tns-csi-nvmeof` SC (TCP :4420) | Same as iSCSI. **Not data-safe.** |
 | **Garage S3** | external service, `:30188` on both IPs | Backup/metrics jobs error out. Data-safe, but jobs fail loudly. |
+| **Control plane** | the `freyja01` VM (10.0.10.35, holds the VIP 10.0.10.30) | **The whole Kubernetes API goes down.** Running pods keep running; nothing can be scheduled, rolled or reconciled until the VM is back. |
 
 The Garage path is the one most often missed: Garage runs *outside* the cluster,
 on vault, and is the backend for **Thanos**, **CloudNativePG barman backups**,
 **talos-s3-backup**, and **every VolSync `*-local` ReplicationSource** — including
 those for apps that have no vault-backed PVC at all.
+
+### Since 2026-09-22 a vault restart is an API outage
+
+The cluster's only control-plane node, `freyja01`, is a VM on vault, with its
+disk on the `apps` pool (see
+[controlplane-migration-to-vault-vm.md](controlplane-migration-to-vault-vm.md)).
+While vault is down there is no API: `kubectl` fails, Flux stops, ESO stops
+refreshing, VolSync and kopiur cannot launch movers, and nothing reschedules.
+What is already running keeps running, and Cilium keeps forwarding. The bad case
+is a worker failing during the window, because nothing can replace its pods.
+
+That changes the order of the procedure below:
+
+- **Do everything that needs the API first.** Quiescing (§4.2–4.5) is all
+  `kubectl`/`flux`; it has to be finished before the VM goes down.
+- **Shut the VM down cleanly before rebooting vault.** It runs the
+  `qemu-guest-agent` extension, so TrueNAS can stop it gracefully (Virtualization
+  → freyja01 → Stop). Don't power it off: etcd is on that disk.
+- **On the way back up, the VM autostarts once the pools import**, and the API
+  returns about a minute after it boots. §4.6 cannot start until
+  `kubectl get nodes` answers.
+- **Take a fresh etcd snapshot before the window** if the last hourly one is
+  stale: `talos-offsite` keeps copies in R2 (`talos-etcd/hourly`), so there is
+  an off-vault restore point if vault does not come back.
 
 ---
 
@@ -351,7 +376,8 @@ Pods with no vault volume may legitimately still be running and are fine to
 leave — e.g. `network/ts-satisfactory-*`, a Tailscale proxy whose only volumes
 are a config Secret and the SA token.
 
-Only once that section is empty, do the TrueNAS update and reboot.
+Only once that section is empty, shut down the `freyja01` VM from the TrueNAS
+UI (§1: this ends API access), then do the TrueNAS update and reboot.
 
 ### 4.6 Bring back up
 
@@ -359,6 +385,12 @@ Reverse order: restore the controllers and block workloads, then unsuspend Flux
 and let it restore the rest.
 
 ```bash
+# The API lives on the freyja01 VM, which autostarts once the pools import.
+# Nothing below works until it answers.
+until kc get --raw=/readyz >/dev/null 2>&1; do
+  echo "waiting for the API (freyja01 VM)..."; sleep 10
+done
+
 # Wait for vault to actually serve, not just answer ping.
 until curl -sf -m3 -o /dev/null -w '%{http_code}' http://10.0.10.10:30188/ | grep -q 403; do
   echo "waiting for Garage on vault..."; sleep 10
@@ -566,6 +598,9 @@ temporarily removing the widget.
 
 ## 7. Change log
 
+- **2026-09-22** — The control plane moved onto the `freyja01` VM on vault, so a
+  vault restart is now a full API outage. Added the fifth path in §1 and the
+  VM shutdown step in §4.5.
 - **2026-09-03** — Written, then exercised live. Corrections folded in from the
   real run: suspend at the HelmRelease layer (§4.2), Tier 2 needing a manual
   scale-up on restore (§4.6a), the need to stagger the VolSync resume

@@ -23,11 +23,16 @@ scripts/        # helper shell scripts
 
 | Hostname       | IP           | Role          |
 |----------------|--------------|---------------|
-| jormungandr1–3 | 10.0.10.31–33 | control-plane |
-| jormungandr4   | 10.0.10.34   | worker        |
+| freyja01       | 10.0.10.35   | control-plane (the ONLY one; VM on vault) |
+| jormungandr1–4 | 10.0.10.31–34 | worker (Pi, `low-power` taint) |
 | brokkr01–03    | 10.0.10.38–40 | worker        |
 
-VIP: `10.0.10.30` (Cilium LB on control-plane NIC)
+VIP: `10.0.10.30`: a Talos shared IP (etcd election + gratuitous ARP), held by
+freyja01. Not Cilium.
+
+Single etcd member since 2026-09-22, so a vault restart or a CP reboot is an API
+outage. Snapshots are hourly to Garage, with off-vault copies in R2
+(`talos-etcd`). See docs/runbooks/controlplane-migration-to-vault-vm.md.
 
 ## Key CIDRs
 

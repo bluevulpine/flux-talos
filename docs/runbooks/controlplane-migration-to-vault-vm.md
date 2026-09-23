@@ -1,6 +1,8 @@
 # Plan: move the control plane onto a single VM on vault
 
-**Status: PROPOSED — the leading option, not executed.** Written 2026-09-22.
+**Status: EXECUTED 2026-09-22.** freyja01 (10.0.10.35) has been the only control plane
+since 22:45Z. See [Execution log](#execution-log-2026-09-22) at the end for what happened
+at each step and what differed from the plan.
 Supersedes [`controlplane-migration-to-brokkr.md`](controlplane-migration-to-brokkr.md)
 as the primary path. That document's diagnosis still stands and is not repeated here;
 its brokkr and x86 mini-PC options remain the alternatives if this one is rejected.
@@ -258,18 +260,59 @@ last. Move leadership explicitly rather than letting a removal force an election
 # for each Pi in turn:
 talosctl -n <pi-ip> etcd forfeit-leadership      # if it is the leader
 talosctl -n <pi-ip> etcd leave                   # graceful self-removal
-talosctl -n <cp-ip> etcd status                  # confirm membership shrank, indices in sync
+talosctl -n <cp-ip> etcd members                 # confirm membership shrank
+talosctl -n <cp-ip>,<remaining-pis> etcd status  # indices in sync
 ```
+
+`etcd status` reports only the nodes you pass with `-n`. It is not a member count;
+`etcd members` is.
 
 **The fragile moment is two members** — between the second and third removal. Quorum on
 two needs both, so either failing breaks the cluster. Do the last two removals back to back,
 with both nodes verified healthy immediately before. With one member left, the VIP
 necessarily lives on the VM.
 
-Then, for each Pi: set `controlPlane: false` in `talconfig.yaml`, give it the same
-`node.kubernetes.io/low-power` taint and patches as jormungandr4, regenerate, and
-`talosctl reset` + `apply-config` it as a **worker**. It holds no data, so the reset is
-cheap. The Pis keep driving the rack LCD via `rackpanel-agent`.
+**Expect a ~60 s VIP gap on the last removal.** The VIP holder drops the address when
+it leaves etcd, but by then it can no longer revoke its election lease
+(`failed revoking etcd session lease: context deadline exceeded`), so the VM can only
+claim the VIP once that lease expires. Measured 2026-09-22: 61 s during which
+`10.0.10.30:6443` did not answer. Clients using KubePrism or `10.0.10.35` directly
+were unaffected. It is not worth avoiding; just don't mistake it for a failure.
+
+### Convert the Pis to workers
+
+After `etcd leave`, a Pi still has a control-plane config with etcd stopped. **Do not
+reboot it until it is converted**: on boot it would try to join etcd again.
+
+`talconfig.yaml` sets j1–j3 to `controlPlane: false`, with jormungandr4's
+`node.kubernetes.io/low-power` taint and patch (`&lowpowerpatch`). Regenerate, then
+for each Pi, one at a time:
+
+```bash
+cd ~/Repositories/flux-talos && just talos gen-config   # after the talconfig PR merges
+
+kubectl drain jormungandrN --ignore-daemonsets --delete-emptydir-data
+talosctl -n 10.0.10.3N reset --graceful=false --reboot \
+  --system-labels-to-wipe STATE --system-labels-to-wipe EPHEMERAL
+#   comes back in maintenance mode (no config)
+kubectl delete node jormungandrN
+talosctl apply-config --insecure -n 10.0.10.3N \
+  --file talos/clusterconfig/home-kubernetes-jormungandrN.yaml
+kubectl get node jormungandrN \
+  -o jsonpath='{.metadata.labels}{"\n"}{.spec.taints}{"\n"}'   # no node-role label; low-power taint
+```
+
+**Run this with the regenerated talosconfig** (endpoint `10.0.10.35` only). With the
+old one, whose endpoints are the Pis, talosctl may route through a Pi that is already
+a worker. That fails with `PermissionDenied: no request forwarding`, because workers
+don't proxy. This happened on 2026-09-22: j3's reset went through, and j2's was
+refused after its drain had already run.
+
+`kubectl delete node` is not optional. The old Node object carries the
+`node-role.kubernetes.io/control-plane` label and taint, and a kubelet re-registering
+under the same name does not remove labels or taints it didn't set. The node would
+come back as a "control-plane" that isn't one. The Pis hold no data, so the reset is
+cheap. They keep driving the rack LCD via `rackpanel-agent`.
 
 ## Phase 5 — follow-through (easy to miss)
 
@@ -319,3 +362,29 @@ No hardware. About an afternoon: a VM, one config regeneration, four etcd member
 changes, and three Pi resets that hold no data. The risk is concentrated in two places:
 the two-member window in Phase 4, and discovering a v3-only DaemonSet in Phase 3 —
 which is why Phase 3 gates on it before anything is removed.
+
+## Execution log (2026-09-22)
+
+All times UTC.
+
+| step | what happened |
+| --- | --- |
+| Phase 0 | #1874: talos-backup hourly (keep 168), `talos-offsite` → R2 `talos-etcd` (48 hourly + 30 daily). The first run backfilled 7 dailies. Restore was proven in a throwaway pod: decrypt, then `etcdutl snapshot status` gave rev 1016235873, 12823 keys, 358 MB |
+| Phase 1 | Pis power-cycled one at a time, verified by boot ID: j1 22:31, j2 22:34, j3 22:37 (leadership forfeited first). j1 was back down to 3.0 GB available 6 minutes after its reboot, so the healthy window is short |
+| Phase 2 | VM `freyja01`: zvol `apps/freyja01-2yv8uo`, `sync=standard` inherited from the pool (TrueNAS shows no UI option for it), `/dev/vda`, NIC `ens3` |
+| Phase 3 | #1876. `apply-config` at ~22:39; joined etcd as a **learner** at 22:40:41, promoted to voter at 22:41:29, node `Ready` 22:41:38. All 11 pods on it Running with 0 restarts, so **no x86-64-v3 images** among the CP-tolerating DaemonSets |
+| Phase 4 | j3 leave → j2 (leader, forfeited first) leave → j1 (VIP) leave, ~22:43–22:45. Single member at term 232. VIP gap 22:45:27 → 22:46:28 (see Phase 4) |
+| Phase 5 | etcd scrape, defrag job, and `ControlPlaneMemory*` alerts retargeted to 10.0.10.35 (#1877); vault-maintenance runbook, Serena `core`, Pi conversion |
+| Pi → worker | drain, reset, `kubectl delete node`, apply worker config: j3 23:16–23:22, j2 23:23–23:41 (the first reset was refused: see the talosconfig note in Phase 4), j1 23:42–23:48. Each came back `Ready` with only the `low-power` taint, running jormungandr4's DaemonSet set |
+
+Things that went differently from the plan:
+
+- **The first `apply-config` ran early.** The pasted block ran in a shell where direnv
+  was not yet allowed. Without `TALOSCONFIG`, the snapshot and VIP commands failed, but
+  `apply-config --insecure` needs no talosconfig and went through. Harmless, because
+  the Phase 1 snapshot taken seconds later still predated the membership change. Paste
+  blocks one step at a time.
+- **A plaintext `*.snap` is not gitignored in the worktree.** The manual snapshot showed
+  up as untracked. Write it outside the repo (`~/etcd-pre-freyja01.snap`, mode 600).
+- **Hold Renovate's Talos group (#1849) until this is done.** Its tuppr bump would have
+  rolled every node, the CP included, mid-migration.
