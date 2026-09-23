@@ -183,9 +183,11 @@ sonarr:
   plex_path:
   upgrade_existing: false
 
-tautulli:
-  url: http://tautulli.media.svc.cluster.local:80
-  apikey: <<TAUTULLI_API_KEY>>
+# Tautulli was scaled to zero in #1719 (Tracearr owns watch history now); Kometa 2.5.0
+# ships a Tracearr connector with equivalent popular/watched builders.
+tracearr:
+  url: http://tracearr.media.svc.cluster.local:3000
+  apikey: <<TRACEARR_API_KEY>>
 
 tmdb:
   apikey: <<TMDB_API_KEY>>
