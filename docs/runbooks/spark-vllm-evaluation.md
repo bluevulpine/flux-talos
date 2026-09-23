@@ -36,6 +36,28 @@ no env var to point the loader at a local copy.
 `https://openaipublic.blob.core.windows.net/encodings/o200k_harmony.tiktoken`
 and looking for a 200. Until that returns one, vLLM cannot serve this model.
 
+### vLLM itself is FINE on this hardware — the blocker is gpt-oss alone
+
+Proven, not inferred. The same image, same box, same day:
+
+```
+--model Qwen/Qwen2.5-1.5B-Instruct  ->  started in ~195s, served a completion
+```
+
+and a clean boot logs **zero** mentions of harmony. `openai_harmony` is loaded
+only for gpt-oss, because the harmony response format is that model family's
+own; every other architecture skips the code path entirely.
+
+So this is NOT evidence against vLLM on GB10/aarch64/CUDA 13 — it runs. Anyone
+reading this later should not conclude "vLLM does not work on the Spark". It
+does. What does not work is **vLLM + gpt-oss**, for as long as that one file is
+unpublished.
+
+The practical consequence is unchanged, because gpt-oss is what production
+runs: serving anything else on vLLM means changing the production model, which
+is a quality decision rather than a benchmark, and would invalidate the
+per-stage tuning built around gpt-oss's behaviour.
+
 ### Why that makes Tests 1 and 2 moot rather than merely delayed
 
 They exist to decide whether retain and consolidation move to vLLM. Running them
