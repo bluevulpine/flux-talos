@@ -347,6 +347,35 @@ spec:
                 host: dragonfly.database.svc.cluster.local
                 port: 6379
 
+              # Keep only the last hour of spend-log rows. This is a workaround for
+              # a collision, not a storage decision.
+              #
+              # LiteLLM keys each SpendLogs row on the provider's response id and
+              # silently drops a row whose id already exists (its own code notes
+              # "SpendLogs does not allow duplicate request_id"). Ollama makes ids
+              # like `chatcmpl-335` from a range of about 1,000, so once the table
+              # holds ~1,000 rows almost every new call collides and is not logged.
+              # Measured 2026-09-23: 1,645 rows with ids spanning 0-998, and 7 of 8
+              # probe calls returned an id already in the table and produced no row,
+              # so store_prompts_in_spend_logs was capturing ~1% of traffic. It was
+              # NOT caused by running two replicas: the same loss showed on the
+              # single pod before that change.
+              #
+              # A short window keeps the table small enough that collisions are
+              # rare (roughly 35 rows/hour here, so a few percent). The interval
+              # defaults to "1d", which would let a day of rows build up between
+              # cleanups and defeat the point, so it is set explicitly. Daily spend
+              # aggregates and key/team totals live in other tables and are
+              # unaffected. It also stops stored prompts, mental models included,
+              # from accumulating in Postgres indefinitely, which the unset default
+              # would do.
+              #
+              # Not a fix: prompt history is only ever the last hour, and a burst
+              # can still collide. Hindsight's own /llm-requests log has unique ids
+              # and is the reliable record for its calls.
+              maximum_spend_logs_retention_period: "1h"
+              maximum_spend_logs_retention_interval: "30m"
+
             # The router's own Redis: cooldowns and usage-based routing state. Kept
             # as a separate setting because LiteLLM treats it as a separate client.
             router_settings:
