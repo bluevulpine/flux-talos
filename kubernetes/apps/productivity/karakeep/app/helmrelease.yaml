@@ -106,18 +106,16 @@ spec:
               # whole scraped articles in, so a very long page will now lose its
               # tail at 32k rather than at 128k. Watch for truncated summaries.
               INFERENCE_TEXT_MODEL: spark-gpt-oss-20b
-              # ⚠️ DELIBERATELY still a name LiteLLM does not serve. Both Spark
-              # models are TEXT-ONLY, so there is no vision slot to point this
-              # at, and aiming it at spark-gpt-oss-20b would send images to a
-              # model that cannot see them -- failing confusingly, or worse,
-              # confabulating tags from the filename alone.
+              # The one model on the Spark that can actually see an image; the
+              # two text models would confabulate tags for pictures they cannot
+              # read. Verified on the box reading rendered text exactly
+              # (including a currency amount) and naming shapes and colours.
               #
-              # Left as-is so image tagging fails LOUDLY with an unknown-model
-              # error from LiteLLM instead of silently producing garbage. It was
-              # already broken by the dead Azure key; this does not regress it.
-              # Fix by serving a vision model (e.g. qwen2.5vl) on the Spark and
-              # adding it to LiteLLM's model_list, then pointing this there.
-              INFERENCE_IMAGE_MODEL: gpt-4.1-mini
+              # ⚠️ karakeep must send images as base64 `data:` URIs. Ollama does
+              # not fetch remote http(s) image URLs, so if tagging fails on
+              # images while working on text, check what karakeep is putting in
+              # `image_url` before suspecting the model.
+              INFERENCE_IMAGE_MODEL: spark-qwen25-vl-7b
               INFERENCE_ENABLE_AUTO_SUMMARIZATION: "true"
             envFrom: *envFrom
             probes:
