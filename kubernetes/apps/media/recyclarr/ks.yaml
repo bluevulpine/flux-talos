@@ -11,6 +11,10 @@ spec:
   dependsOn:
     - name: external-secrets-openbao-store
       namespace: external-secrets
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
     - name: sonarr
       namespace: media
     - name: radarr
@@ -27,6 +31,11 @@ spec:
   postBuild:
     substitute:
       APP: *app
+      # components/kopiur pins the kopia identity hostname to the NS var. VolSync
+      # never needed it (the fork takes the namespace implicitly); unset, Flux
+      # substitutes an empty string and kopiur silently falls back to its
+      # default instead of the explicit pin.
+      NS: media
       VOLSYNC_CAPACITY: 1Gi
       # Low criticality: config only, git-managed - backup once daily at 6 AM
       VOLSYNC_LOCAL_SCHEDULE: "0 6 * * *"
@@ -36,3 +45,9 @@ spec:
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       VOLSYNC_COPYMETHOD: Snapshot
+      # kopiur (components/kopiur). H picks a minute per schedule; hours match
+      # the VolSync schedules above. Copy method + snapshot class mirror VolSync.
+      KOPIUR_LOCAL_CRON: "H 6 * * *"
+      KOPIUR_R2_CRON: "H 4 * * *"
+      KOPIUR_COPYMETHOD: Snapshot
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
