@@ -219,7 +219,212 @@ collections:
     imdb_list: https://www.imdb.com/list/ls082336543/ # Rotten Tomatoes 200 best horror movies (2020 edition)
   Rotten Tomatoes - Best LGBT:
     template: {name: Best Of - Rotten Tomatoes - Genres}
-    icheckmovies_list: https://www.icheckmovies.com/lists/rotten+tomatoes+200+best+lgbt+movies+of+all+time/moviedearest/ # RT 200 best LGBT; fetched via cloudscraper
+    # Static snapshot of RT's 200 Best LGBT Movies (2019 ranking, rank order) taken from
+    # icheckmovies.com/lists/rotten+tomatoes+200+best+lgbt+movies+of+all+time/moviedearest/.
+    # Kometa 2.5.0's icheckmovies_list builder fails with "failed to parse" on that page
+    # (Cloudflare), and no complete IMDb/MDBList mirror exists. The ranking is frozen, so
+    # a snapshot loses nothing. All 200 IDs were resolved against IMDb on 2026-09-23.
+    imdb_id:
+      - tt4975722
+      - tt4595882
+      - tt5726616
+      - tt5083738
+      - tt2402927
+      - tt1489887
+      - tt6510332
+      - tt6135348
+      - tt0055597
+      - tt4016934
+      - tt1013753
+      - tt5639354
+      - tt0790636
+      - tt0185125
+      - tt0064068
+      - tt0100332
+      - tt5635086
+      - tt3824458
+      - tt0077288
+      - tt0022183
+      - tt2084970
+      - tt0089015
+      - tt2639344
+      - tt0093412
+      - tt0401085
+      - tt5164432
+      - tt7875464
+      - tt0842926
+      - tt0091578
+      - tt0068327
+      - tt0072890
+      - tt0104036
+      - tt4622512
+      - tt1847731
+      - tt0084865
+      - tt0120684
+      - tt1233334
+      - tt0107156
+      - tt3077108
+      - tt0109045
+      - tt4270516
+      - tt2570858
+      - tt1714210
+      - tt0112651
+      - tt5233558
+      - tt3169706
+      - tt0248845
+      - tt1845804
+      - tt6411590
+      - tt2852458
+      - tt2278871
+      - tt4331970
+      - tt0065488
+      - tt8286894
+      - tt1753813
+      - tt0388795
+      - tt0110005
+      - tt6053440
+      - tt0100049
+      - tt1138002
+      - tt6257174
+      - tt0125128
+      - tt4481066
+      - tt2066051
+      - tt7681824
+      - tt0067805
+      - tt6133130
+      - tt5654600
+      - tt1702014
+      - tt5176580
+      - tt4080768
+      - tt2174896
+      - tt0382189
+      - tt6108178
+      - tt0275491
+      - tt0119590
+      - tt0115640
+      - tt0063678
+      - tt7008872
+      - tt6333070
+      - tt0150662
+      - tt0093512
+      - tt2773246
+      - tt0130444
+      - tt0171804
+      - tt1315981
+      - tt2011953
+      - tt1368491
+      - tt0115736
+      - tt6522668
+      - tt3100636
+      - tt1532503
+      - tt4262174
+      - tt0166924
+      - tt0116308
+      - tt6303866
+      - tt0106332
+      - tt0384504
+      - tt0068278
+      - tt0107756
+      - tt0370986
+      - tt0093239
+      - tt1684628
+      - tt0855824
+      - tt4158876
+      - tt0200530
+      - tt0088939
+      - tt0334754
+      - tt0089424
+      - tt0468526
+      - tt0340855
+      - tt0118586
+      - tt6426028
+      - tt8254556
+      - tt1650048
+      - tt0274558
+      - tt0102494
+      - tt0995829
+      - tt2560102
+      - tt0073629
+      - tt0401248
+      - tt5688996
+      - tt5016946
+      - tt0107818
+      - tt5328952
+      - tt0109913
+      - tt4305148
+      - tt7534054
+      - tt0106966
+      - tt0209933
+      - tt0115685
+      - tt0407265
+      - tt5278598
+      - tt1625150
+      - tt4721400
+      - tt2429074
+      - tt0162973
+      - tt0118845
+      - tt3671542
+      - tt0085267
+      - tt3638396
+      - tt4872078
+      - tt0869977
+      - tt0381668
+      - tt0111019
+      - tt0162710
+      - tt7977310
+      - tt0306597
+      - tt0227277
+      - tt0114937
+      - tt2929690
+      - tt2404639
+      - tt0247196
+      - tt0810819
+      - tt2296697
+      - tt0137386
+      - tt1045772
+      - tt0071690
+      - tt0139362
+      - tt0119360
+      - tt0075177
+      - tt0084489
+      - tt1017451
+      - tt0118698
+      - tt5518756
+      - tt1600524
+      - tt0120514
+      - tt0118125
+      - tt0096289
+      - tt0063185
+      - tt1424797
+      - tt0476991
+      - tt0110889
+      - tt0367027
+      - tt0112379
+      - tt0433350
+      - tt0113464
+      - tt0324158
+      - tt0107447
+      - tt0119578
+      - tt0077729
+      - tt0111309
+      - tt0342167
+      - tt2870808
+      - tt0091725
+      - tt0212815
+      - tt0117603
+      - tt2217458
+      - tt0085370
+      - tt1049402
+      - tt0222850
+      - tt4462372
+      - tt3385334
+      - tt1003113
+      - tt0138487
+      - tt1525838
+      - tt0996605
+      - tt0213682
+      - tt0148103
+      - tt0138414
   Rotten Tomatoes - Best Rom Com:
     template: {name: Best Of - Rotten Tomatoes - Genres}
     imdb_list: https://www.imdb.com/list/ls093636248/ # Rotten Tomatoes 150 best romantic comedies
@@ -591,11 +796,9 @@ collections:
   Marvel Cinematic Universe (Chronological):
     template: {name: Studios}
     imdb_list: https://www.imdb.com/list/ls058123986/ # MCU timeline, in-universe order; its TV entries don't match a movie library
+    # custom order only works with a single builder, so the fan-edit plex_search that the
+    # plain "Marvel Cinematic Universe" collection above carries is left out here.
     collection_order: custom
-    plex_search:
-      any:
-        title:
-          - "Marvel's Infinity Saga: The Sacred Timeline"               # Fan edit
     file_poster: /config/assets/Marvel Cinematic Universe.png
   Pixar:
     template: {name: Studios}
