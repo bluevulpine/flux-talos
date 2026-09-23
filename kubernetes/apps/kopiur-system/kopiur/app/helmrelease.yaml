@@ -35,3 +35,14 @@ spec:
         memory: 128Mi
       limits:
         memory: 1Gi
+    # Controller metrics + the chart's alerts, from W0 on (backup success,
+    # staleness, repository phase, breaker). Prometheus selects every
+    # ServiceMonitor/PrometheusRule here (*SelectorNilUsesHelmValues: false),
+    # so no extra labels. NOT covered by any of the 122 metrics: the
+    # index-blob count behind the epoch decision; it lives only in
+    # ClusterRepository.status.storageStats.indexBlobCount (see the runbook).
+    monitoring:
+      serviceMonitor:
+        enabled: true
+      prometheusRule:
+        enabled: true
