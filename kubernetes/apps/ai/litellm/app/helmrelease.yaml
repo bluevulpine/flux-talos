@@ -161,6 +161,44 @@ spec:
                   api_base: http://10.0.10.237:11434/v1
                   api_key: unused-ollama-accepts-any
 
+              # --- audio (spark-setup `audio` role) ---
+              # Two plain Docker containers on the Spark, NOT Ollama, so they use
+              # their own ports and the `mode` below tells LiteLLM which OpenAI
+              # audio route each one serves. Like Ollama they have no auth of their
+              # own; LiteLLM is the boundary. Round trip verified on the box: TTS ->
+              # WAV -> STT returned the synthesised sentence.
+              #
+              # Speech-to-text: parakeet.cpp (NVIDIA Parakeet TDT 0.6B v3,
+              # multilingual). An 11 s clip transcribed word-for-word in ~0.3 s warm.
+              # This is the model Mealie's "audio" provider slot should point at.
+              # The `openai/` prefix + api_base makes LiteLLM speak the OpenAI wire
+              # format to it; the part after `openai/` is only what LiteLLM sends as
+              # `model`, which parakeet accepts and ignores.
+              - model_name: spark-stt
+                litellm_params:
+                  model: openai/tdt-0.6b-v3
+                  api_base: http://10.0.10.237:8081/v1
+                  api_key: unused-no-auth
+                model_info:
+                  mode: audio_transcription
+
+              # Text-to-speech: Qwen3-TTS 1.7B voice-clone. The `voice` field selects
+              # an entry in voices.json on the Spark (a reference clip + its exact
+              # transcript), which is how character voices are added -- see the
+              # spark-setup README. ~7 s warm for a ~5 s sentence, so this is fine
+              # for notifications and read-aloud, not for real-time conversation.
+              #
+              # ⚠️ Streams the WAV, so the header's length field is bogus (a 4.8 s
+              # clip reports ~89,000 s). Players cope; strict parsers may not. Ask for
+              # response_format=mp3 (encoded after generation, so the header is right).
+              - model_name: spark-tts
+                litellm_params:
+                  model: openai/tts-1
+                  api_base: http://10.0.10.237:8082/v1
+                  api_key: unused-no-auth
+                model_info:
+                  mode: audio_speech
+
               # Non-reasoning alternative, exposed so a stage can be moved off
               # gpt-oss with a single env-var change instead of a config edit.
               # It exists for reflect specifically: reflect has a hard 25s client
