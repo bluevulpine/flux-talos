@@ -4,9 +4,10 @@
 (first user: `develop/hermes` → `ai/hermes`). **Scope:** VolSync engine, Longhorn-backed PVC. kopiur and tns-csi/NFS apps are
 called out where they differ but are not covered.
 
-**Status: reviewed AND rehearsed.** The procedure was run end to end under Flux on a throwaway app (`moveprobe`, `rehearsal-old` → `rehearsal-new`) on 2026-09-23 — see **Rehearsal** and
-`docs/rehearsal/results.md`. This revision matches what was **observed**; statements the rehearsal confirmed carry **CONFIRMED [Rh-n]**, and **Known untested** now lists only what is still open
-(notably: a restore at hermes' real size, the HTTPRoute hand-over, the `git revert` rollback and the un-run rollback rows, approach A end to end, and the literal hermes-form gate on the real branch).
+**Status: reviewed, rehearsed AND EXECUTED.** The procedure was run end to end under Flux on a throwaway app (`moveprobe`, `rehearsal-old` → `rehearsal-new`) on 2026-09-23 — see **Rehearsal** and
+`docs/rehearsal/results.md` — and then **for real on `develop/hermes` → `ai/hermes` on 2026-09-24** (approach B; ~17.5 min of downtime, no data loss, content byte-identical) — see **Real-move results** and `docs/rehearsal/hermes-move/results.md`.
+Statements the rehearsal confirmed carry **CONFIRMED [Rh-n]**; statements the real move confirmed or added carry **[Hm-n]**. **Known untested** lists only what is still open
+(the un-run rollback rows, the `git revert` rollback, approach A end to end on a real series, kopiur cut-over, the long-term claim shape, B10/soak).
 
 **Evidence base.**
 
@@ -14,6 +15,7 @@ called out where they differ but are not covered.
 - `docs/investigations/hermes-ns-move-smoke.md` — throwaway `smoke-src`/`smoke-dst` namespaces, same day. Tags **[S-x]**.
 - `docs/investigations/hermes-ns-move-review.md` — adversarial review, verified against `kustomize` v5.8.1 / `flux build` 2.9.5 output,
   kustomize-controller v1.9.1 and helm-controller v1.6.1 source, and live objects. Tags **[R-n]** point at its numbered findings.
+- `docs/rehearsal/hermes-move/` — the **real move**: `results.md` (the execution record, tags **[Hm-n]**), `execution-plan.md` (the plan as executed), `plan-review-1.md` / `plan-review-2.md` (the two pre-flight reviews), `hermes-move-guards.sh`, `hm`, `guards-test/` (reference copies; they hard-code hermes — see `docs/rehearsal/README.md`).
 - `docs/rehearsal/plan.md` + `docs/rehearsal/results.md` — the Flux-level rehearsal on a throwaway app (Longhorn manager v1.12.1, kustomize-controller v1.9.1, the deployed `perfectra1n` VolSync fork). Tags **[Rh-n]** point at its results.
 
 | Tag | Result |
@@ -50,6 +52,16 @@ called out where they differ but are not covered.
 | **[Rh-B2]** | a helper that caches the app PV goes stale after the claim is re-provisioned — **OBSERVED**; the guards now re-read on every call |
 | **[Rh-P]** | unannotated-namespace restore returns `0:0` mode 664 (originals `10000:10000` 644) — **CONFIRMED** (S1 B5b) |
 | **[Rh-X]** | Longhorn v1.12.1 online PVC expansion 1Gi→2Gi with the pod running: ~28 s, no restart, nothing recreated — **CONFIRMED** (S4) |
+| **[Hm-1]** | real move, approach B: **~17.5 min** hermes downtime (quiesce 16:29:26 → pod Ready ~16:47 UTC), ~5 min of it operator/tool latency between steps; PV `Released` ≤ 9 s after the PR 1 merge, re-point → `Bound` in seconds, 0 `VolSyncPopulator` events — **CONFIRMED** at real size |
+| **[Hm-2]** | content gate at real size: baseline (develop) vs after (ai) **identical incl. `state.db*`**, 29 238 entries; the real state is SQLite (`state.db`) — `memories/` is **empty** and `sessions/` has 2 files — **CONFIRMED** |
+| **[Hm-3]** | the literal hermes-form three-part gate incl. the `cluster-apps` parent build ran on both commits and passed (159 children, exactly one `ai hermes` child) — **CONFIRMED**, closes the old "STILL OPEN" |
+| **[Hm-4]** | stacked two-PR mechanics with `--merge`: PR 2 merged clean and changed only the 4 `replicas` lines; **but GitHub's PR 2 record went STALE after PR 1 merged** (`gh pr diff` still listed all 10 files, `base.sha` old); `mergeable=UNKNOWN` on the first poll is normal — **CONFIRMED**, see trap 17 |
+| **[Hm-5]** | restore drill at real size (the RD's `restore-once` at creation): completed within ~2 min, the Longhorn snapshot behind `latestImage` **existed** (`readyToUse=true`; trap 14a did **not** bite, 1 of 1); 4 084 of 29 238 files, the missing 25 154 all under `home/.cache/uv` (a regenerable package cache; kopia skips cache dirs — **inferred** CACHEDIR.TAG, not verified); every other file **identical by hash** incl. `.env auth.json config.yaml SOUL.md state.db state.db-wal` — **CONFIRMED** (`hermes@develop` is restorable and complete except that cache) |
+| **[Hm-6]** | new series: both new `ai` RS ran a **creation-time first sync** (local 16:41:31, r2 16:42:29) that wrote `hermes@ai:/data` with SUCCESS while the pod was still at 0 — **CONFIRMED** [Rh-12] at real size |
+| **[Hm-7]** | uid-0 + `DAC_OVERRIDE` read-only reader read all 29 229 files with no error in ~12 s (needed for the mode-600 `.env`/`auth.json`/`state.db`) — **CONFIRMED** |
+| **[Hm-8]** | drafts run `Flux Local`, `Image Pull` **and** the Claude review; `gh pr ready` re-fires the review only; `--match-head-commit` works with `--merge` — **CONFIRMED** |
+| **[Hm-9]** | HelmRelease shows **2 revisions** (install at replicas 0, upgrade on PR 2); `spec.timeout: 15m` never needed (image cached on the node the pod landed on) — **CONFIRMED** |
+| **[Hm-10]** | a reviewer's nested `zsh -c` put the real `kubectl` ahead of a fake and created 3 helper Jobs on the live cluster (deleted, no lasting effect); fixed by interlocks (`HM_FAKE`, `HM_WINDOW`, `B10_OK`) — **OBSERVED**, see trap 20 |
 | **[Rh-F]** | command defects found while running (`--field-selector=status.phase`, `--show-managed-fields`, `get -w` on an absent object, stale same-name events) — fixed in the steps |
 
 Anything **not** exercised by smoke, review **or the rehearsal** is marked **UNVERIFIED** or **UNTESTED** and collected in **Known untested**.
@@ -127,6 +139,12 @@ The snapshots live outside the cluster (Garage S3 + R2). Deleting Kubernetes obj
 15. **Restored ownership depends on the namespace annotation [S-priv, Rh-P].** Without `volsync.backube/privileged-movers: "true"` a restore returns files as **`0:0` and mode 664** (observed in an unannotated namespace: originals `10000:10000` mode 644, `lost+found` `0:0`); with the annotation, uid 10000 is preserved (smoke: `10000:root`). Backup reads work either way and PSA `baseline` admits the unannotated root mover.
     Under approach B the filesystem is the original, so this only matters for approach A or a later restore [R-14]. A checksum drill on a restored tree should run as **uid 0** (`runAsUser: 0`); here mode 664 was still world-readable — whether an unannotated restore of **owner-only (600)** files is unreadable to uid 10000 was **not** tested.
 
+16. **A content guard written from a *guess* of the layout can abort the window with the app already down [Hm-2].** The first `data_baseline_ok` hard-required `memories/` > 0 (and `sessions/` > 0). The real volume has **`memories/` empty and `sessions/` at 2 files**: the state is in SQLite (`state.db`, `-wal`, `-shm`, plus `kanban.db`, `projects.db`, …). Caught by a **read-only look at the live volume before the window**. Derive baseline expectations from the live layout (named files present **and non-empty**, `home/` and `skills/` > 0), report all counts, require nothing else.
+17. **GitHub's PR record can be STALE right after the first PR of a stacked pair merges [Hm-4].** After PR 1 merged, `gh pr diff --name-only` for PR 2 still listed all 10 move files and its `base.sha` still pointed at the old base, although git showed PR 1's merge commit had commit 1 as its second parent and `merge-base(main, C2) = C1`. A plan check "diff must be only `helmrelease.yaml`" **failed on the stale cache**. Use **`git merge-tree --write-tree origin/main <C2>`** and diff that tree against `main` (only the 4 `replicas` lines, 0 conflicts); treat `gh pr diff` as advisory. `mergeable=UNKNOWN` on the first poll is normal (GitHub recomputes asynchronously) — poll, do not abort.
+18. **A `develop`-path Renovate bump landing between "PRs opened" and "PR 1 merged" CONFLICTS both PRs [Hm-4].** Renovate opened a hermes image-bump PR touching `develop/hermes` mid-prep; it had to be **held** (not merged, including by `renovate-sweep`) until after the move; afterwards Renovate re-targets the `ai` path. More generally: **keep the move commit minimal.** The first version carried comment-only edits in files other people edit constantly (`ai/hindsight` helmrelease) and collided as `main` moved four times in ~2 h from unrelated work; rebuilt to only the `develop/hermes` → `ai/hermes` rename plus the two kustomization lists, with the comment-only updates **deferred to a cleanup PR**, and the drift guard narrowed to *render inputs*, further unrelated churn stopped mattering. Updating the draft PR heads used `git push --force-with-lease` pinned to the old SHAs.
+19. **The app can rewrite its own files at start-up — compare content BEFORE the pod starts, never after [Hm-2].** Hermes rewrites `.env` at start (mtime changed, same size). The B7 content gate therefore runs with the pod at 0 and compares **everything, `state.db*` included** (nothing writes between B2 and B7: pod at 0, movers read a snapshot clone). An "ignore SQLite" switch exists only for a comparison across a pod start and is never used.
+20. **Test harnesses that fake `kubectl` must never run under a shell that resets `PATH` [Hm-10].** A reviewer exercised the guards through nested `zsh -c`; a non-interactive zsh re-reads `~/.zshenv`, which put the **real** `kubectl` ahead of the fake, so three helper Jobs were created on the **live** cluster (one read-only listing of the real volume, two `Pending` on claims that do not exist) and deleted. No lasting effect (PV unlabelled, pod untouched, no alerts). Guards now carry interlocks: `HM_FAKE=1` ⇒ refuse unless `kubectl`/`gh` resolve to the harness fakes; `data_check` needs `HM_WINDOW=yes`, requires the PVC `Bound`, is bounded and traps its own cleanup; `pv_reclaim … Delete` needs `B10_OK=yes` once the move has started. **Run harnesses under `/bin/bash` only.** A helper Job that can be orphaned (a killed tool call, a `Pending` consumer of a claim) is trap 3 with the app down.
+
 ## 3. Procedure — generic
 
 Variables (hermes values):
@@ -201,8 +219,8 @@ spec:
       volumes: [{name: d, persistentVolumeClaim: {claimName: hermes, readOnly: true}}]
 ```
 
-Save the output to the scratchpad (file names + hashes, no contents). **Assert the named files exist in the baseline** — at minimum whichever of `.env`, `SOUL.md`, `config.yaml`, `auth.json` are present, plus non-zero counts for `sessions/` and `memories/`.
-If any of those is absent *now*, understand why before continuing; B7 must not be the first time you notice. Compare only **static** files later; do not byte-compare live SQLite (`state.db`) across a start.
+Save the output to the scratchpad (file names + hashes, no contents). **Assert the named files exist in the baseline and are non-empty** — for hermes `.env`, `auth.json`, `config.yaml`, `SOUL.md`, `state.db`, plus `home/` and `skills/` > 0; **report** the `sessions/`/`memories/` counts but do **not** require them (real layout: `memories/` 0, `sessions/` 2 — the state is SQLite; trap 16). The uid-0 reader needs `DAC_OVERRIDE` for the mode-600 files (verified [Hm-7]).
+If any of those is absent *now*, understand why before continuing; B7 must not be the first time you notice. Between B2 and B7 nothing writes to the volume, so compare **everything including `state.db*`** at B7 (trap 19); do not byte-compare live SQLite only *across a pod start*.
 **Delete the Job before B5** (trap 3): `kubectl -n $OLD delete job baseline`.
 
 **B3. Forced final backup under the OLD identity, gated against in-flight syncs [R-3, R-4].**
@@ -234,7 +252,7 @@ If a mover wedges, `volsync-mover-stuck.md` applies; do not proceed on a wedged 
 
 *Rollback:* none needed; a backup is additive.
 
-**B4. Make the PV survive: `Retain`.**
+**B4. Make the PV survive: `Retain`.** *(Done early in the real move [Hm-1]: set at T-1, before any branch was pushed, with an independent read-back — harmless to a Bound app, and it turns an accidental early merge from data loss into a `Released` PV. Then B4 is a read-back.)*
 
 ```bash
 kubectl patch pv "$PV" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
@@ -306,7 +324,7 @@ flux build ks cluster-apps -n flux-system --path ./kubernetes/apps \
 
 If any assertion fails, **do not merge**. (Reviewer's run showed `222: volumeName:…` and `383: sourceNamespace: develop`; the first-draft patch showed 0 matches; the rehearsal's `move_gate` implements all of the above and was tested against stale-`targetNamespace`, stale-`path` and unlisted-`ks.yaml` commits — each fails — and **PASSED on every real rehearsal move, with the same three assertions using rehearsal paths** [Rh-13].)
 Local `kustomize` 5.8.1 / flux 2.9.5 were used. **CONFIRMED [Rh-13]:** kustomize-controller 1.9.1's embedded kustomize behaves the same (live `requestedIdentity` and `.spec.volumeName` matched the local build).
-**STILL OPEN (literal hermes-form gate):** the rehearsal ran the equivalent `move_gate`; assertion **3** above (the `cluster-apps` parent build with `--kustomization-file ./kubernetes/flux/cluster/ks.yaml`) was **not run literally on the real branch**. It was checked only on the current `main` tree (159 child Kustomizations, prints `develop hermes ./kubernetes/apps/develop/hermes/app develop`). **Run all three literally once on the real branch before merging.**
+**CLOSED [Hm-3]:** the literal hermes-form gate — all three assertions, including the `cluster-apps` parent build with `--kustomization-file ./kubernetes/flux/cluster/ks.yaml` — ran on both real commits and passed (159 children, exactly one line `ai hermes ./kubernetes/apps/ai/hermes/app ai`). PRs are opened as **drafts** (they still run Flux Local, Image Pull and the Claude review [Hm-8]) and merged with `gh pr ready` + `gh pr merge <N> --merge --match-head-commit <FULL_SHA>` — never a bare `gh pr merge`.
 
 Merging to `main` auto-reconciles (repo `CLAUDE.md`); do **not** `flux reconcile`. Commit as the bot identity per `CLAUDE.md`. Flux prunes the old inventory and creates the new one in parallel.
 
@@ -321,7 +339,7 @@ kubectl -n $NEW get pvc $APP -o jsonpath='{.spec.volumeName}{"\n"}'             
 
 `requestedIdentity: hermes@develop` is the direct proof `sourceNamespace` reached the object — **CONFIRMED [Rh-13]** live in the rehearsal (`moveprobe@rehearsal-old`, `.spec.volumeName == $PV`). Then wait for the RD's `latestMoverStatus.result: Successful`.
 
-**Free restore drill [R-7, Rh-9] — trust it only after verifying the Longhorn snapshot [Rh-B1, trap 14a].** That restore is the end-to-end proof of `hermes@develop` (~570 MB, the first restore of the real series since 2026-09-05). Before reading anything into `Successful`:
+**Free restore drill [R-7, Rh-9, Hm-5] — trust it only after verifying the Longhorn snapshot [Rh-B1, trap 14a].** *(In the real move the drill was run **after** the pod was back — it is backup evidence, not a precondition for the app volume: B6's re-point protects the PV while the RD dest claim provisions, rehearsal S8 step 4 — and it took ~2 min, 1 of 1 clean.)* That restore is the end-to-end proof of `hermes@develop` (~570 MB, the first restore of the real series since 2026-09-05). Before reading anything into `Successful`:
 
 ```bash
 # the VolumeSnapshot the RD published, and the Longhorn snapshot BEHIND it (readyToUse on the VolumeSnapshot is not proof)
@@ -357,7 +375,7 @@ The other order — the NEW claim created while the PV is still `Bound` to the o
 If `ai/hermes` stays `Pending` after the re-point: `kubectl -n $NEW describe pvc $APP` first. Deleting it and letting Flux recreate it is safe **because the B5 gate proved the `volumeName` patch**; without that proof it would recreate an unpinned claim (not needed in the rehearsal).
 **Watchers:** `kubectl get pvc <name> -w` on a claim that does not exist yet exits immediately (`NotFound`) — watch the whole namespace (`kubectl -n $NEW get pvc -w`) or poll timestamps [Rh-F]. Kill background watchers after B6.
 
-**B7. Verify by content, pod still at 0 [S-e, S-c, R-10].** A read-only checksum Job in `$NEW` (same manifest as B2 with `namespace: ai`) on the PVC; diff its output against the B2 file.
+**B7. Verify by content, pod still at 0 [S-e, S-c, R-10, Hm-2].** *(Real move: "content identical (state.db* included)", 29 238 entries.)* A read-only checksum Job in `$NEW` (same manifest as B2 with `namespace: ai`) on the PVC; diff its output against the B2 file.
 Assert the B2 named files exist and match, and the `sessions/`/`memories/` counts equal. **Delete the Job.** Do not trust `kubectl get pvc`, RD status, or an app that comes up "healthy" — a fresh agent also comes up healthy [S-b].
 
 **B8. Start the pod.** Second commit: remove `replicas: 0`. Verify: dashboard login (Authentik OIDC is host-based, unaffected), sessions/memory present, `kubectl -n $NEW exec deploy/$APP -- ls -la /opt/data`, and exactly one route [R-11]:
@@ -494,6 +512,14 @@ When to flip back to `Delete`: only per B10. Until then a deleted PVC in `$NEW` 
 - [ ] `ai` namespace already carries `volsync.backube/privileged-movers: "true"` **live** (merged before this move, §6.5 — read it back with kubectl, not the manifest); `kubectl get snapshotpolicy -A | grep hermes` re-checked (§6.4); no Renovate PR touching hermes; hermes pod Running and both RS healthy at the start.
 - [ ] Alerting: the orphaned/manual old RS can trip `VolSyncVolumeOutOfSync` — silence `obj_namespace=develop, obj_name=~hermes-.*` for the window if you want a quiet pager (the rehearsal silenced its scratch namespaces the same way).
 
+**Refreshed after the real move [Hm-n] — also true before any such move:**
+
+- [ ] **PV `Retain` set (and read back) before any branch is pushed / any PR exists**; both PRs opened as **drafts**; merged only with `gh pr ready` + `gh pr merge <N> --merge --match-head-commit <FULL_SHA>` (trap 18, [Hm-8]).
+- [ ] **The move commit is minimal** (rename + the two kustomization lists; comment-only edits deferred) and the drift guard watches only render inputs; a Renovate bump touching the app's old path is **held** until after the move (trap 18).
+- [ ] **Baseline expectations come from the live layout** (trap 16) — verified by a read-only look at the volume *before* the window; **B7 compares everything incl. `state.db*` with the pod at 0** (trap 19).
+- [ ] **PR 2's diff is checked with `git merge-tree --write-tree origin/main <C2>`, not `gh pr diff`** (trap 17); `mergeable=UNKNOWN` is polled.
+- [ ] Test harnesses run under `/bin/bash` only, with the `HM_FAKE`/`HM_WINDOW`/`B10_OK` interlocks (trap 20); silences (if any) are removed right after the pod is verified.
+
 ### 6.1 Current state (2026-09-23; re-check before starting)
 
 - Engine: **VolSync**. `ReplicationSource/hermes-local` (`23 * * * *`), `hermes-r2` (`29 6 * * *`), `ReplicationDestination/hermes-dst-local`. **No kopiur `SnapshotPolicy` exists for hermes**
@@ -591,16 +617,18 @@ It matters for restores (approach A, the `ai` RD's own restore drill in B5b, a l
 
 ## Known untested
 
-The smoke test, the review **and the rehearsal** have now covered the rest (see the **[Rh-n]** tags). Only these are still open — treat each as a place to slow down:
+After the smoke test, the review, the rehearsal **and the real move (2026-09-24)**, only these are still open — treat each as a place to slow down. Items the real move settled are marked **CLOSED [Hm-n]** and kept for the record.
 
-1. **A restore of the real ~570 MB `hermes@develop` series** — none since 2026-09-05. The rehearsal proved the mechanics on 1 MiB (byte-identical drill listing [Rh-9]); duration, the ~44Gi budget and Longhorn replica-rebuild time at real size are unmeasured. The populator/clone wedge (trap 14) makes this the item most likely to bite.
-2. **HTTPRoute hand-over** (trap 13): whether Envoy blips or Gatus flaps; oldest-wins conflict resolution is Gateway API behaviour, not observed here (the fixture has no route; outside the blast radius by design). Verify by hand: `kubectl get httproute -A | grep hermes` → exactly one, in `ai`.
-3. **The `git revert` rollback (R-6)** and **every rollback row except B8–B9**: B1–B4b, "B5 merged, before B6", "B6–B7" (incl. approach A back into the old namespace) and "after B10". The rehearsal's optional 3b (`git revert`) was skipped, so R-6 remains a source-reading claim.
-4. **Approach A end to end on a real series.** The populator path was exercised only on an empty first-deploy series (and it wedged, trap 14); a restore of `hermes@develop` into a fresh `ai` claim with the app started was never run. The §3A recovery recipe is what worked once.
-5. **The literal hermes-form pre-merge gate** — the `cluster-apps` parent-build assertion on the real branch (the equivalent `move_gate` passed on every rehearsal move).
-6. **Why some RD runs publish a snapshot that does not exist on Longhorn** (trap 14a) — root cause **not established** (2 of 5 rehearsal RD runs; nothing the fixture did differently from hermes).
-7. **Decisions, not tests:** kopiur (§6.4 — `allowedNamespaces`, per-namespace ExternalSecrets, identity decoupling from `NS`). The `ai` `privileged-movers` annotation is **decided** (§6.5: add it, merged first). Still untested: whether hermes' entrypoint really re-chowns a restored volume, and whether an unannotated restore of **owner-only** files is unreadable to a uid-10000 reader — now moot for `ai`, but relevant if the annotation is ever removed.
-8. **Real-size timing of B3/B9 syncs** (the rehearsal's were seconds; hermes' are ~1½ min hourly / longer on R2) — relevant to the no-sync-in-flight window and to the creation-time first-sync overlap in B9.
+1. ~~A restore of the real ~570 MB `hermes@develop` series~~ — **CLOSED [Hm-5]:** the RD restored it at creation within ~2 min, the Longhorn snapshot behind the image existed, and every file except a regenerable cache was identical by hash. **Still unmeasured:** Longhorn replica-rebuild time at real size and an *app-claim* populator restore at real size (approach A). The populator/clone wedge (trap 14) did not bite (1 of 1) — it remains the risk for approach A.
+2. ~~**HTTPRoute hand-over** (trap 13)~~ — **CLOSED [Hm-1]:** exactly one hermes route (in `ai`) at the post-merge check, old `develop` ks gone. No overlap or blip was observable because the app was down; oldest-wins conflict resolution is still Gateway API behaviour, not observed.
+3. **The `git revert` rollback (R-6)** and **every rollback row except B8–B9**: B1–B4b, "B5 merged, before B6", "B6–B7" (incl. approach A back into the old namespace) and "after B10". The rollback branch (`hermes-move-rollback`, the mirror image of the move with the `volumeName` patch kept and no RD patch) was prepared and gated locally and **never used**; R-6 remains a source-reading claim. **STILL OPEN.**
+4. **Approach A end to end on a real series.** A restore of `hermes@develop` into a fresh `ai` claim with the app started was never run (the RD's own restore in [Hm-5] is not the app claim). The §3A recovery recipe is what worked once (rehearsal). **STILL OPEN.**
+5. ~~The literal hermes-form pre-merge gate~~ — **CLOSED [Hm-3].**
+6. **Why some RD runs publish a snapshot that does not exist on Longhorn** (trap 14a) — root cause **not established** (2 of 5 rehearsal RD runs; **0 of 1** in the real move). **STILL OPEN.**
+7. **Decisions, not tests:** kopiur (§6.4 — `allowedNamespaces`, per-namespace ExternalSecrets, identity decoupling from `NS`; the cut-over forks the series again). The `ai` `privileged-movers` annotation is decided (§6.5, in place). Whether hermes' entrypoint really re-chowns a restored volume, and whether an unannotated restore of owner-only files is unreadable to uid 10000, remain untested. **The long-term claim shape** (`ssa: IfNotPresent` on the claim + dropping the `volumeName` and RD `sourceNamespace` patches, optionally `prune: disabled`) is **UNTESTED, needs a scratch rehearsal and a human decision** — the permanent `volumeName` pin means a rebuilt cluster would leave `ai/hermes` `Pending`, and the RD `sourceNamespace: develop` patch would make a DR restore read the frozen old series.
+8. ~~Real-size timing of B3/B9 syncs~~ — **CLOSED [Hm-1, Hm-6]:** the two final backups took ~2 min each (~1½ min local, ~1 min R2 plus trigger latency), the creation-time first syncs wrote `hermes@ai` with the pod at 0.
+9. **B10 and the soak:** the PV is still `Retain`; flipping to `Delete` (needs `B10_OK=yes`) after ≥ 1 nightly R2 run (suggest 3 days), then B11 cleanup of `develop`, then aging out `hermes@develop` (~2026-11-01, and only after a `hermes@ai` restore drill). **PENDING.**
+10. **Recovery by restore replays `auth.json`**: a rotated Nous refresh token fails permanently (`refresh_token_reused`, see `hindsight/helmrelease.yaml`); after any restore-based path re-authenticate and never run a restored copy beside the live agent. **UNTESTED** (reasoning from the hindsight notes).
 
 ## Confirmed by the rehearsal (formerly "Known untested" 1–13)
 
@@ -619,6 +647,11 @@ The smoke test, the review **and the rehearsal** have now covered the rest (see 
 | 11 | `Delete` on a bound PV; deleting the RD's dest PVC | **CONFIRMED** [Rh-11] | S1 B10, teardown, B5b |
 | 12 | fork's manual/tag semantics | **CONFIRMED** [Rh-12] | S10a, S1 B9 |
 | 13 | in-cluster kustomize-controller vs local build | **CONFIRMED** [Rh-13] | S7, S2, S1 B5b |
+
+## Real-move results (2026-09-24)
+
+`develop/hermes` → `ai/hermes`, approach B (the Longhorn volume retained, released and re-claimed). **Full record: `docs/rehearsal/hermes-move/results.md`.** Summary (UTC): quiesce 16:29:26 → PR 1 merged 16:38:56 → PV re-pointed 16:40:10 → content verified identical → PR 2 merged 16:46:01 → pod Ready ~16:47; **~17.5 min downtime**, ~5 min of it operator latency. Both `hermes-local` and `hermes-r2` wrote a final `hermes@develop` snapshot first; the new series `hermes@ai` was written by both new sources. Gatus `ai_hermes` was 200 immediately, no hermes alert fired, the human confirmed the dashboard login and the old sessions.
+Deviations and new traps are 16–20 above ([Hm-2], [Hm-4], [Hm-7]); what stayed open is **Known untested** 3, 4, 6, 7, 9, 10. Follow-ups still pending: B10, the cleanup PR (drop the RD `sourceNamespace` patch, the deferred comment-only updates, `spec.timeout: 15m`, decide the volume pin), the `develop` orphans after B10, and re-targeting of the held Renovate bump.
 
 ## Rehearsal (done)
 
@@ -660,7 +693,7 @@ Guards fixes made afterwards: `app_pv` now re-reads the PVC on every call (never
 Answered since the first draft: **suspended-Kustomization deletion** (trap 6, [R-2], confirmed live [Rh-O]); **helm-controller uninstall of a suspended HR** (trap 7, [R-12], [Rh-O]); **schedule→manual precedence and RS revert** (B3, [Rh-7], [Rh-12] — confirmed on the fork); **kind-targeted patches in-cluster** ([Rh-13]).
 
 1. Everything under **Known untested**.
-2. Old `hermes@develop` series: never written again, so never expired (inferred). Decide a date to age it out by hand; it is the rollback for the first weeks.
+2. Old `hermes@develop` series: never written again, so never expired (inferred). Decide a date to age it out by hand (proposed ~2026-11-01, and only after a `hermes@ai` restore drill); it is the rollback for the first weeks. The real-move restore drill [Hm-5] proved it restorable except for the regenerable `home/.cache/uv` cache.
 3. Should the empty-source case (trap 4) get an alert (`OPERATION_RESULT: FAILURE` alongside `result: Successful`)? Reproduced live [Rh-B1]; still invisible.
 4. Residue: kopia series `smoketest@smoke-src`, `smoketest@smoke-dst`, `smoketest-perm@smoke-dst` **and** `moveprobe@rehearsal-old`, `moveprobe@rehearsal-new` remain in the shared repositories (small, distinct identities); deleting them needs a kopia client.
 5. ~~Annotation decision for `ai` (§6.5)~~ — **decided 2026-09-24: add it, merged before the move.**
