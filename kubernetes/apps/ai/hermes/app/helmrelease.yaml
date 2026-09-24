@@ -25,10 +25,6 @@ spec:
   values:
     controllers:
       hermes:
-        # TEMPORARY (namespace move): nothing may write to the volume until its
-        # contents are verified against the pre-move baseline. Removed by the
-        # follow-up commit that starts the pod.
-        replicas: 0
         type: deployment
         annotations:
           reloader.stakater.com/auto: "true"
