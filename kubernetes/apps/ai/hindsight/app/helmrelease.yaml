@@ -499,24 +499,52 @@ spec:
               # If it does start missing the cap: qwen2.5:14b-instruct is already
               # pulled on the Spark and exposed as `spark-qwen25-14b`, is
               # confirmed non-reasoning, and is a one-value swap here.
-              HINDSIGHT_API_REFLECT_LLM_MODEL: spark-gpt-oss-20b
-              # HINDSIGHT_API_REFLECT_MAX_CONTEXT_TOKENS is deliberately left at its
-              # default (100,000). Do NOT lower it to fit the Spark's 32768 window.
+              # Reflect runs on the DEDICATED long-context ollama (:11435, one slot,
+              # 98,304-token window; spark-setup roles/inference/tasks/reflect.yml),
+              # not the main 8-slot instance. Reflect prompts on the flux-talos
+              # bank are 55-65k tokens -- `search_mental_models` returns whole
+              # knowledge pages, ~43-48k tokens in a single result -- and the main
+              # instance's 32k window silently keeps only the tail: they arrived as
+              # exactly 16,386 tokens and reflect answered from a fraction of the
+              # evidence, with fabricated detail (it invented a slot count and a
+              # file path).
               #
-              # Reflect prompts do get cut by Ollama: measured 2026-09-23 on
-              # flux-talos, 206k-229k characters (~55-65k tokens) arrive as exactly
-              # 16,386 tokens. But a low cap makes it worse. A cap of 22000 was
-              # tried and reverted the same day: `search_mental_models` returns
-              # whole knowledge pages (5 by default, ~43-48k tokens in one result),
-              # and reflect only splits oversized results that use the keys
-              # observations/memories/results. Past the budget (cap x 0.8) the
-              # pages are dropped, the final synthesis runs on a ~1.2k-token
-              # prompt, and reflect answers "no recorded decision" with full
-              # confidence, in ~26s, for questions direct recall can answer.
+              # The virtual key must allow this model_name before this deploys; see
+              # the note above HINDSIGHT_API_LLM_API_KEY in the ExternalSecret.
+              HINDSIGHT_API_REFLECT_LLM_MODEL: spark-gpt-oss-20b-long
+              # Sized to the 98,304 window, NOT to the default of 100,000, which is
+              # past it. The cap bounds the context reflect accumulates before it is
+              # forced to answer, and the final prompt's budget is cap x 0.8, so it
+              # must clear the biggest single result: a pages result of ~45k tokens
+              # is dropped WHOLE if it exceeds that budget (it is not one of the
+              # keys reflect splits), and reflect then answers "no recorded
+              # decision" from a ~1.2k-token prompt. That is exactly what a cap of
+              # 22000 did on 2026-09-23, and why it was reverted.
               #
-              # The real fix is a bigger window: a cap of ~60000 would keep that
-              # result whole, which needs OLLAMA_CONTEXT_LENGTH of ~70000+ on the
-              # Spark (a KV-cache memory decision there), or smaller pages.
+              # 76000 -> a 60.8k final-prompt budget, which leaves headroom over
+              # today's ~45k for the pages to grow. Window arithmetic: 76,000 + ~8k
+              # of the model's own output (a synthesis has reached 4.2k tokens and
+              # output shares the window) + ~10% because Hindsight counts tokens
+              # with its own encoding, not the model's = ~92k, under 98,304.
+              #
+              # ⚠️ Page size is the thing to watch. The pages are in delta mode, so
+              # they only grow ("Key decisions and rationale" is ~31k tokens against a
+              # configured 4,096). If a top-5 pages result outgrows the 60.8k budget,
+              # reflect silently falls back to the failure above. Full mode does not
+              # fix it with this model: a dry-run regenerated a 12k-token page as a
+              # 243-token stub.
+              HINDSIGHT_API_REFLECT_MAX_CONTEXT_TOKENS: "76000"
+              # Keep automatic mental-model refreshes on the MAIN instance. Unset,
+              # the refresh chain inherits reflect's config (memory_engine, #4463),
+              # which would put them on the new one-slot instance: a daily refresh of
+              # 7 pages at ~10 minutes each would then hold the slot and queue every
+              # interactive reflect behind it. Their prompts have measured 3-25k
+              # tokens, which fits the 32k window. Concurrency 1 keeps the main
+              # instance's budget as it was (retain 2 + consolidation 1 + refresh 1),
+              # since an unset value falls back to the default of 32.
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_PROVIDER: openai
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL: spark-gpt-oss-20b
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "1"
               # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
               # floor at all — which is how 232 refreshes ran in ~2h on
               # 2026-09-07: every consolidation batch queued another with nothing
