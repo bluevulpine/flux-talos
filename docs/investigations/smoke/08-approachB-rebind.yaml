@@ -1,0 +1,14 @@
+---
+# (e) Approach B: PVC in smoke-dst pre-bound to the retained PV via volumeName, WITH the dataSourceRef the
+# volsync-claim component always sets. Points at smoke-dst-local, whose latestImage is an EMPTY snapshot (see (b)),
+# so any populator action would visibly destroy the marker files.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: smokedata-e, namespace: smoke-dst, labels: {smoke-test: hermes-ns-move}}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  dataSourceRef: {kind: ReplicationDestination, apiGroup: volsync.backube, name: smoke-dst-local}
+  resources: {requests: {storage: 1Gi}}
+  storageClassName: longhorn-1-replica-local
+  volumeName: pvc-129735b6-7b59-4158-9d62-b3318f38dbc3

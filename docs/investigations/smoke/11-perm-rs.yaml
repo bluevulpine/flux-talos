@@ -1,0 +1,23 @@
+---
+# perm test: unannotated ns, uid-10000 owner-only files. Distinct username so the smoketest series is untouched.
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata: {name: smoke-local, namespace: smoke-dst, labels: {smoke-test: hermes-ns-move}}
+spec:
+  sourcePVC: smokedata-f
+  trigger: {manual: run-1}
+  kopia:
+    copyMethod: Snapshot
+    repository: smoke-volsync-local-secret
+    username: smoketest-perm
+    volumeSnapshotClassName: longhorn-snapclass
+    cacheCapacity: 2Gi
+    cacheStorageClassName: longhorn-1-replica
+    cacheAccessModes:
+      - ReadWriteOnce
+    storageClassName: longhorn-1-replica
+    accessModes:
+      - ReadWriteOnce
+    capacity: 1Gi
+    moverSecurityContext: {runAsUser: 0, runAsGroup: 0, fsGroup: 0, fsGroupChangePolicy: OnRootMismatch}
+    retain: {latest: 2}

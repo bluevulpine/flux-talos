@@ -1,0 +1,19 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata: {name: reader-h, namespace: smoke-dst, labels: {smoke-test: hermes-ns-move}}
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: r
+          image: busybox:1.37
+          command:
+            - sh
+            - -c
+            - "ls -laR /data | grep -v lost | head -12; cat /data/secretdir/.env /data/auth.json"
+          volumeMounts:
+            - {name: d, mountPath: /data}
+      volumes:
+        - {name: d, persistentVolumeClaim: {claimName: volsync-smoke-dst-local-h-dest}}
