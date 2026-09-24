@@ -19,7 +19,8 @@ collections:
     summary: Shows Popular on Plex
   Popular:
     template: { name: Chart, num: 3 }
-    anidb_popular: 30
+    # anidb_popular was removed from Kometa (AniDB now only has id/relation/tag builders);
+    # it failed the whole collection with "'anidb_popular' attribute is invalid".
     anilist_popular: 30
     summary: Popular Anime across the internet
   Top Rated:
@@ -27,7 +28,10 @@ collections:
     anilist_top_rated: 50
     summary: Top Rated Anime across the internet
   Current Anime Season:
-    anilist_season:
+    # anilist_season is legacy: Kometa rewrites it to anilist_search without a season,
+    # which fails validation ("must have at least one valid search option").
+    anilist_search:
+      season: current
       sort_by: popular
       limit: 100
     sync_mode: sync
