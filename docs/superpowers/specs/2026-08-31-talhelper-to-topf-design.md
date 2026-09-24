@@ -100,7 +100,7 @@ Node variance is small, which is what makes the patch tree cheap:
 |---|---:|---|
 | jormungandr1/2/3 | **1** | hostname |
 | brokkr01/02/03 | **4** | hostname, 2 bond member MACs, `data-2` disk model |
-| jormungandr4 | — | differs from j1-3 only by VLANs on `end0` and an `EPHEMERAL` VolumeConfig |
+| jormungandr4 | — | differs from j1-3 in three ways: VLANs 10/30/50 on `end0`, an `EPHEMERAL` VolumeConfig, and NIC selection (`interface: end0` rather than the `deviceSelector` hardware-address alias j1-3 and freyja01 use, so it renders no `LinkAliasConfig`) |
 | freyja01 | — | the only control plane: own schematic, `/dev/vda`, VIP `10.0.10.30`, no bond or VLANs |
 
 jormungandr1-3 and jormungandr4 share the `&lowpowerpatch` / `&lowpowertaint` /
@@ -342,12 +342,17 @@ files, and the secrets bundle.
 Both verified in source. Neither is hypothetical and both bear directly on the
 no-bare-secrets constraint.
 
-**1. A missing `sops` binary degrades silently.** topf shells out to the `sops`
+**1. A missing `sops` binary degrades silently — in principle.** *(Phase 0 finding,
+2026-09-24: in this repo's setup it fails loudly instead; see
+[Phase 0 results](#phase-0-results-2026-09-24).)* topf shells out to the `sops`
 binary rather than using a Go library, and detects encryption by content (`sops
 filestatus`) rather than filename. If `sops` is not on `PATH`, the check returns
 "not encrypted" with **no error** — deliberate "graceful degradation" — and topf
 then parses the ciphertext as literal YAML. The failure mode is a silently wrong
-config, not a crash.
+config, not a crash — **when nothing else in the run is encrypted**. Here the secrets
+bundle always is, and parsing its ciphertext fails with `illegal base64 data`, so the
+run aborts before any config is written. The bundle is an accidental canary. Do not
+rely on it: keep the `sops --version` precondition.
 
 **2. `topf secrets` writes plaintext if encryption fails.** The filesystem secrets
 provider attempts `sops encrypt` and **ignores the error**, writing the bundle
@@ -450,7 +455,7 @@ been verified against that commit rather than the tag. Both reasons have moved:
   exists; prefer the tag unless a Phase 0 finding needs something only in the rc.
 - **A confirmation-prompt fix landed later still** (2026-09-21, "prevent concurrent
   prompts and improve nonTTY usecase", plus 2026-09-23 "send interactive prompts to
-  stdErr"). That is in the rc, not in v0.6.0. Still pass `--confirm=false`.
+  stdErr"). That is in the rc, not in v0.6.0. **Do not blanket-pass `--confirm=false`** — see below.
 
 **What is *not* yet re-verified.** Every claim in this spec about topf's SOPS handling,
 merge order and schematic replacement was checked at `21831714`. Twenty-eight commits
@@ -479,8 +484,22 @@ The spec originally said there was no Homebrew route. Prefer `go install` into `
 anyway — it pins the version per checkout and needs no global state — but the brew
 route exists (issue #146 notes its cask uses deprecated `postflight` syntax).
 
-**Regardless of version, pass `--confirm=false` (or `TOPF_CONFIRM=false`) on every
-non-interactive invocation.**
+**Do NOT pass `--confirm=false` (or `TOPF_CONFIRM=false`) as a blanket habit.** An earlier
+draft said to. Phase 0 (2026-09-24, v0.6.0) showed why that is wrong. With a wrong or
+missing `secretsPath`:
+
+- default `--confirm`, stdin closed: prints `No secrets.yaml found … Generate a new one?
+  [y/n]` a few times, then **exits 1 in under a second**. No hang, nothing written.
+  The v0.5.0 infinite loop is fixed.
+- `--confirm=false`: **silently generates a brand-new PKI, writes it to the path you gave
+  as a PLAINTEXT file** (`sops filestatus` → `encrypted:false`, 8.8 KB of key material),
+  and carries on rendering. A typo'd path becomes an unencrypted CA on disk with a
+  success exit code.
+
+So the safe default is the opposite of the old advice: leave `--confirm` **on** for
+`render`, and use `--confirm=false` only for `apply`, only after a reviewed `--dry-run`,
+and only after `topf clusterinfo` or `sops filestatus` has confirmed the secrets path.
+
 
 **Talos 1.14 posture.** v0.6.0 bundles Talos machinery 1.14.x. While `talosVersion` is
 `v1.13.x` topf generates 1.13-shaped config. **Do not bump `talosVersion` to 1.14 as
@@ -496,7 +515,7 @@ No repo changes beyond `.bin/`. Gate for everything after it.
 
 - Install topf per [Version selection](#version-selection-pin-a-release-not-a-commit)
   and confirm with `go version -m`.
-- Re-run, against that build, the checks this design leans on: content-based SOPS
+- **Done 2026-09-24 — see [Phase 0 results](#phase-0-results-2026-09-24).** Re-run, against that build, the checks this design leans on: content-based SOPS
   detection with a missing `sops` on `PATH` (must degrade the way the spec says, so we
   know what to guard); `--topfconfig` at an arbitrary path; `secretsPath` relative
   resolution; merge order `all/` → `<role>/` → `node/<host>/`; `$patch: delete` versus
@@ -506,6 +525,45 @@ No repo changes beyond `.bin/`. Gate for everything after it.
   holds the configs the running nodes were applied from and is the rollback reference).
   Record talhelper version, machinery version and date next to it.
 - Confirm all three schematic IDs from the baseline's installer images.
+
+#### Phase 0 results (2026-09-24)
+
+Run on topf **v0.6.0** (module `h1:nmnkOFXY…`, bundles Talos machinery **v1.14.0**) against
+a synthetic fixture with a throwaway age key. No real secret was decrypted for the topf
+checks. Baseline regeneration used the real bundle, into a mode-700 scratch directory.
+
+| check | result |
+|---|---|
+| Regenerate talhelper baseline from `main` (3.1.17) | **Byte-identical to the live-applied `talos/clusterconfig/`** for all 8 nodes (0 differing lines each). Generation is deterministic, PKI included, so that directory is a valid rollback reference. |
+| Schematic IDs | `a6c707bf…` (pi), `b915cd23…` (amd), **`647d4118…` (freyja) — all three reproduced offline** from transcribed `customization:` blocks. Installer images are `…:v1.13.9` on every node. |
+| `${` left in the baseline | 0 |
+| Merge order | `all/` → `<role>/` → `node/<host>/`, last wins. Confirmed. |
+| `$patch: delete` | Removes a map key and a sysctl. Confirmed. |
+| `key: null` | **Overwrites with an explicit `null`**; not a delete, and not "parent survives" as the spec said. |
+| `${SECRET_DOMAIN}` in a `.tpl` and via `data:` | Renders **verbatim**. The hazard is real. |
+| `admissionControl: null` on freyja01 | No-op under both tools; default `PodSecurity` present in both. Parity expected. |
+| `talosVersion: v1.13.9` pin | topf emits 1.13-shaped config (`machine.install.image`, no `KubeFlannelCNIConfig`) despite bundling 1.14 machinery. |
+| Partial SOPS (`encrypted_regex: ^data$`) at `conf/topf.sops.yaml` | **Works.** `talosVersion`/`kubernetesVersion` stay in the clear, `data:` decrypts and renders, and relative `patchesDir`, `secretsPath` and `@../schematics/…` resolve against the config's own directory, from any cwd. Decision D1 is sound. |
+| Missing `sops` on `PATH` | **Fails loudly** (`illegal base64 data` reading the secrets bundle), exit 1, nothing written. Weaker than the spec's "silent" claim; see hazard 1. |
+| sops present, age key missing | Clear `Failed to get the data key` error, exit 1. |
+| Non-TTY, secrets file missing, default `--confirm` | Re-prompts a few times, exits 1 in <1s. **No hang.** |
+| Non-TTY, secrets file missing, `--confirm=false` | **Generates a new PKI and writes it as a plaintext file.** See Version selection. |
+| Multi-document patches | `VolumeConfig`, `UserVolumeConfig`, `LinkConfig` in one file render correctly at 1.13. A same-named document overlaid in a later layer **drops fields** (see Phase 3). |
+| `topf talosconfig` | Prints to **stdout** (13 lines), writes no file, empty stderr. `endpoints` = the control plane only (`10.0.10.35` in the fixture); `nodes` = all. |
+| Apply modes | `--mode reboot\|auto\|no-reboot\|staged\|try` (default `auto`), `--max-parallel` (default 1; control planes always one at a time), `--dry-run`, `--stabilization-duration` (default 30s). |
+| Rendered `HostnameConfig` | topf emits its own (`auto: stable`); the baseline has one from talhelper. Phase 4 compares them. |
+
+**Not yet done in Phase 0** (needs the cluster, so it belongs to Phase 5): what
+`apply --dry-run` prints against a live node, and whether `--mode no-reboot` / `try` is
+enough for the changes we expect on freyja01.
+
+**Implications carried forward:**
+
+- Phase 4's diff will not be a plain `diff -r`: topf writes 4-space YAML with different
+  key order and document order (the baseline is 2-space). Compare **normalised** — parse
+  each document, sort keys, key documents by kind+name — and classify what remains.
+- The rollback baseline is `~/Repositories/flux-talos/talos/clusterconfig/` and must
+  survive until Phase 7 is signed off.
 
 ### Phase 1 — scaffold the config and move the secrets
 
@@ -581,16 +639,29 @@ All become `{{ .Data.x }}` in a `.tpl`. This is the single most likely silent er
 whole migration, and the Phase 4 diff exists partly to catch it.
 
 **`$patch: delete` is the only way to remove something inherited from `all/`.**
-Setting a key to `null` looks like deletion and is not — the parent value survives.
-Verified both ways.
+Setting a key to `null` looks like deletion and is not. *(Corrected 2026-09-24.)* The
+original said "the parent value survives"; v0.6.0 actually **overwrites the key with an
+explicit `null`** (the parent value is lost and the key stays, rendered `nulled: null`).
+Either way it is not a delete. Verified on a fixture, not on real config.
 
-**This bites here once already.** The `controlPlane.patches` block contains
-`cluster.apiServer.admissionControl: null` ("Disable default API server admission
-plugins"). talhelper honours that. In topf's strategic merge a `null` may leave the
-default admission plugins in place — **on the only control plane**. Phase 0 must test
-what `null` does to `admissionControl` specifically, and Phase 4 must show the rendered
-`admissionControl` for freyja01 matches the baseline. If it does not, express it as
-`$patch: delete`.
+**This bites here once, but not the way first feared.** The `controlPlane.patches` block
+contains `cluster.apiServer.admissionControl: null` ("Disable default API server
+admission plugins"). **Measured 2026-09-24: it does nothing under either tool.** The
+regenerated talhelper baseline for freyja01 still contains the default `PodSecurity`
+admission plugin, and topf's render of the same patch does too. So the patch has never
+done what its comment says, and parity is expected. Do **not** "fix" it during the
+migration — that would change the rendered config on the only control plane. Phase 4
+confirms the full `admissionControl` block matches; genuinely removing it, if wanted, is
+a separate change.
+
+**A same-named document in two layers loses fields.** Multi-document patches
+(`VolumeConfig`, `UserVolumeConfig`, `LinkConfig`, …) merge by kind+name across layers,
+but in the Phase 0 fixture a `node/` overlay of `VolumeConfig EPHEMERAL` that set only
+`maxSize` **dropped the `diskSelector`** from the `worker/` document while keeping
+`grow`. Do not layer a partial overlay onto a same-named document. Either restate the
+whole `provisioning` block in the overlay, or (preferred) do not define the document in
+two layers and drive the difference with `.Node.Data`. This is the mechanism that would
+have bitten jormungandr4's `EPHEMERAL` volume.
 
 ### Phase 4 — prove the output matches
 
@@ -888,7 +959,7 @@ happening now.
 
 ## Acceptance criteria
 
-- [ ] `topf render` output is byte-identical to the talhelper golden baseline, or
+- [ ] `topf render` output is equivalent to the talhelper golden baseline after normalisation (parsed, key-sorted, keyed by kind+name), or
       every difference is explained and accepted.
 - [ ] Both schematic IDs reproduce exactly.
 - [ ] **`grep -rn '\${' talos/patches/ talos/schematics/` returns nothing.** Any
@@ -926,14 +997,16 @@ difference.
 | **`${SECRET_*}` is inert in topf and fails silently** — talhelper substituted it, topf renders it verbatim into a live config with no error | Strip during Phase 3; `grep -rn '\${'` in the acceptance criteria; Phase 4 diff catches it |
 | **freyja01 is the only control plane on the same host as vault** — an apply needing a reboot is an API outage, and a config that stops `kube-apiserver` is recoverable only via the Talos API | Apply last, `--dry-run` first, no-reboot modes, vault-maintenance-window discipline; see Phase 5 |
 | **Whole-file SOPS hides `talosVersion`/`kubernetesVersion` from Renovate** | Decision D1: partial encryption (decided 2026-09-23) |
-| **`admissionControl: null` may not delete in topf** — on the only control plane | Phase 0 test; Phase 4 acceptance criterion; fall back to `$patch: delete` |
+| **`admissionControl: null` is a no-op** (both tools keep the default `PodSecurity` plugin) — the patch never did what its comment claims | Measured parity; do not change it in this migration; Phase 4 confirms |
+| **`--confirm=false` with a wrong secrets path mints a new plaintext PKI** | Do not blanket-pass it; keep `--confirm` on for `render`; verify the secrets path before any `--confirm=false` apply |
+| **A partial `node/` overlay of a same-named document drops fields** (`diskSelector` lost) | Do not layer same-named documents; drive differences with `.Node.Data` |
 | **Renovate #1849 rolls Talos while topf is being introduced** | Sequence it: never straddle the bump (see Version drift) |
 | **`{{ }}` inside a YAML comment in a `.tpl` still expands** — commenting out a template line does not disable it | Fails loudly via `missingkey=error` rather than silently, but delete template lines rather than commenting them |
 | Per-node `installer.schematic` **replaces** the cluster-wide one rather than merging | Three schematics exist and all are written out in full, so this costs nothing here. `{{ .SchematicID }}` in a `.tpl` resolves per node |
-| **A missing `sops` binary degrades silently** — ciphertext parsed as literal YAML, no error | Verify `sops --version` as a Phase 1 precondition; check with `sops filestatus`, not exit codes |
+| **A missing `sops` binary can degrade silently** — measured 2026-09-24: loud in this setup only because the secrets bundle is encrypted | Verify `sops --version` as a Phase 1 precondition; check with `sops filestatus`, not exit codes |
 | **`topf secrets` writes a plaintext PKI bundle if encryption fails**, and reports success | Not on our route — we import an existing bundle rather than generating one. Never run `topf secrets` on this cluster |
 | `topf secrets` prints the bundle to stdout unredacted | Never into a log, `tee`, or recorded terminal |
-| **v0.5.0 spun forever on EOF at any confirm prompt** — discarded read error, unbounded loop | Fixed before v0.6.0. Pin the v0.6.0 tag; pass `--confirm=false` on every non-interactive invocation regardless |
+| **v0.5.0 spun forever on EOF at any confirm prompt** — discarded read error, unbounded loop | Fixed before v0.6.0 (measured: exits 1 in <1s instead of hanging). Pin the v0.6.0 tag. Do **not** use `--confirm=false` as a blanket habit — see Version selection |
 | Behaviour in this spec was verified at `21831714`, 28 commits before the current rc, including a secrets-redaction change | Phase 0 re-verifies the load-bearing checks against the chosen release |
 | `mise` is not installed on this machine despite `.mise.toml` existing (`direnv` + `.envrc` is the actual env driver) | Delete `.mise.toml` in Phase 7; `brew install postfinance/tap/topf` exists but `go install` into `.bin/` pins per checkout |
 
@@ -1006,6 +1079,18 @@ rejected — the validator working, not a topf limitation.
   between identical adapters. Worth revisiting; not part of a migration whose gate
   is byte-identical output.
 - **Talos 1.14.** Explicitly out of scope; see Version selection.
+- **Converge jormungandr1-4 (follow-up, after Phase 5).** All four are the same Pi model
+  and all are workers, so they should render identically. Today jormungandr4 differs
+  (VLANs 10/30/50, an `EPHEMERAL` `VolumeConfig`, `interface: end0` instead of the
+  `deviceSelector` alias). Kept out of the migration on purpose so Phases 4-5 reproduce
+  today's config exactly. Inspected live 2026-09-24: the `sda` disks are the same USB
+  bridge (`2115`, `naa.5000000000000001`) but **240 GB on j1-3 vs 250 GB on j4**, and
+  `EPHEMERAL` is 239 GB vs 249 GB. j4's `maxSize: 100GiB`/`grow: false` block is **not
+  in effect** on the live volume (the partition predates it and does not shrink), so it
+  is a no-op today: drop it from j4 or apply it everywhere, knowing a real cap needs a
+  wipe. Before adding VLANs to j1-3, check whether any workload relies on j4 being the
+  only Pi with Multus legs. After the migration this is one shared `worker/` Pi patch
+  set and deleting `node/jormungandr4/`.
 - **OpenTofu + `siderolabs/talos`.** Re-evaluated 2026-09-23 with Derek and **not
   chosen**. The provider is healthy (v0.12.0 on 2026-09-21, first-party, Talos SDK
   1.14.0) and `tofu import` of the existing PKI was verified viable on 2026-08-31. The
