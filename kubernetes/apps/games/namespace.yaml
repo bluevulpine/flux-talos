@@ -7,3 +7,5 @@ metadata:
     kustomize.toolkit.fluxcd.io/prune: disabled
     # volsync couldn't restore satisfactory's data due to permission errors in the container
     volsync.backube/privileged-movers: "true"
+    # kopiur refuses root movers (PrivilegedMoverNotPermitted) without this; see docs/runbooks/kopiur-migration.md
+    kopiur.home-operations.com/privileged-movers: "true"

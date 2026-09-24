@@ -1,7 +1,9 @@
 # Runbook: VolSync → kopiur backup migration
 
-**Status (2026-09-23): foundation and repositories landed (#1870, #1879, #1880), both
-ClusterRepositories `Ready`; next is step 4 (epoch) then W0.** This is the single source of truth for the migration; the
+**Status (2026-09-24): repositories landed; step 4 (epoch) skipped on evidence; W0 landed
+(#1886) but wrote no backups. Every W0 `Snapshot` was refused with
+`PrivilegedMoverNotPermitted` (see the traps). The fix is the namespace annotation; after it,
+re-run the W0 gates.** This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
 
@@ -10,7 +12,7 @@ evidence.
 | Pilots (`media/recyclarr-kopiur-pilot`, `media/jellyseerr-kopiur-pilot`) | passed 4/4 and 5/5 (see their READMEs); still running `H */6` against `pilot-local` |
 | PR #1870 — component split + `components/kopiur` | **merged** 2026-09-22 (eab49e12); verified inert live: all Kustomizations Ready on it, all 93 ReplicationSources intact. No app includes `components/kopiur` yet |
 | Two `ClusterRepository` + 18 `ExternalSecret` | **landed** 2026-09-22 (#1879, e4539596), plus the `kopiur-system` Pod Security fix (#1880). Both `Ready`, all 18 secrets synced; catalog scanned 2026-09-23. See "The repositories" |
-| Fleet cutover (W0–W8) | not started |
+| Fleet cutover (W0–W8) | W0 landed 2026-09-23 (#1886, dedf3c4a). Policies `Ready`, identities exact, but **0 backups**: the 4 scheduled Snapshots sit `Pending` (refused mover), and `Forbid` blocks every later slot. Gates not yet passed; pilots still running |
 
 ## Why kopiur
 
@@ -42,7 +44,7 @@ needed manual pause-based recovery (done 2026-09-22; real backups of 1m28s–2m1
 | — | **one SnapshotSchedule per policy, never `policySelector`** | live CRD: jitter "derived from (scheduleUID, slot)" — per schedule, so a selector schedule fires every matched policy at one instant (the 00:00 herd that destroyed ZFS datasets) |
 | — | `ClusterRepository` ×2 (`kopia-local`, `kopia-r2`), not namespaced `Repository` | 8 namespaces, 2 repos; per-namespace repos = many Maintenance CRs contending for one lease |
 | — | `catalog.retain`: **`perIdentity: 50`, `maxAgeDays: 120`**, set before first scan | uncapped = 5,242 Snapshot CRs (pre-landing estimate; its basis wasn't recorded. **Measured 2026-09-23: `kopia-local` 5,276 + `kopia-r2` 657 = 5,933**); this gives ~2,179, and the 16 dead identities age out with no kopia data deleted. **Accepted cost:** 171 CRs of *live* identities (weekly/monthly tail) lose their CR — still restorable, see "Restoring an aged-out snapshot". **Actual first scan (2026-09-23): 1,108, not ~2,179.** R2 is complete (608, all 46 live identities). `kopia-local` got 500: the mover's hard 1,000-entry listing cap cuts before `perIdentity` applies, so only the first 10 identities by username came through. See the traps |
-| Q5 | `epoch.minDuration: 1h` on `kopia-local` only, **as its own change** | local repo carries ~4,500 index blobs vs 1,000 warn at ~97 writes/h; R2 needs nothing. **Re-check before step 4:** on 2026-09-22/23 kopiur's probe read 748, then 490–500 (the last sample just after the fork's 04:02Z maintenance), and current VolSync mover logs show no index-blob warning. One sample can't tell a stale figure from a pre-maintenance daily peak |
+| Q5 | `epoch.minDuration: 1h` on `kopia-local` only, **as its own change** | local repo carries ~4,500 index blobs vs 1,000 warn at ~97 writes/h; R2 needs nothing. **Re-check before step 4:** on 2026-09-22/23 kopiur's probe read 748, then 490–500 (the last sample just after the fork's 04:02Z maintenance), and current VolSync mover logs show no index-blob warning. One sample can't tell a stale figure from a pre-maintenance daily peak. **Measured, and skipped (2026-09-24):** 86 samples at 15 min, 09-23T13:50Z → 09-24T14:20Z. `kopia-local` is a ~4 h sawtooth, compacting to 452–501 and peaking at 822, 793, 813, 805, 793, 793. The ~4,500 figure was stale |
 | — | credentials: 18 ESO-minted Secrets (9 ns × 2) from the **same OpenBao keys** as VolSync | movers read creds via namespace-local `envFrom`; keeps "secrets only via ESO"; KOPIA_PASSWORD must match (it is the encryption key) |
 | — | mover runs **root by default** (`moverDefaults`), 8 apps override | preserves today's VolSync behaviour exactly; uid-matching is a later, deliberate improvement |
 | — | **same-identity dual writing** during each app's parallel run (Derek, 2026-09-22) | the only way to verify kopiur on real history before VolSync is removed; blobs are immutable and content-addressed, retention rules identical, one maintenance owner. **Accepted cost:** kopia applies retention per identity across *all* its snapshots, whichever engine wrote them, so while both run, `keepLatest` covers roughly half as much time. The hourly, daily, weekly and monthly buckets keep one snapshot per period, so they lose nothing. **The mechanics are subtler than this, and two consequences are still open.** See "Two deleters on one identity" |
@@ -99,7 +101,12 @@ Key properties, all commented in the manifests:
    Verified: both `Ready`; `indexBlobCount` populated (local 490, R2 278); 1,108
    discovered CRs (local 500 capped, R2 608 complete), all `deletionPolicy: Retain`,
    placed in each identity's own namespace.
-4. **Epoch change** on `kopia-local` (`epoch.minDuration: 1h`), applied into a gap between
+4. ~~**Epoch change**~~ **Skipped 2026-09-24** (see Q5): peak 822, never reached 1,000. Headroom is
+   ~180 blobs per ~4 h compaction cycle at the current ~90 blobs/h. kopiur runs add writes
+   on top of VolSync's during each parallel run, so **re-read the peak after each wave**
+   (`kubectl get clusterrepository kopia-local -o jsonpath='{.status.storageStats}'` just
+   before a drop). Apply the change below if a peak crosses ~900. Original plan: on
+   `kopia-local` (`epoch.minDuration: 1h`), applied into a gap between
    VolSync runs. **First confirm it is still needed** (see Q5): sample
    `status.storageStats.indexBlobCount` across at least one full 24h maintenance cycle.
    kopiur refreshes it every 30 min. No kopiur metrics are scraped (no ServiceMonitor), so
@@ -301,6 +308,30 @@ land past 02:40.
 
 ## Traps found so far (each one produced a plausible wrong answer)
 
+- **kopiur refuses root movers unless the namespace opts in, and nothing alerts.** Found
+  2026-09-24: every W0 Snapshot (`jellyseerr`/`recyclarr` × local/r2) was `Pending` with
+  `MoverPermitted=False` / `PrivilegedMoverNotPermitted`. The root `moverDefaults` on both
+  ClusterRepositories count as privileged. The pilots ran as 568 and never hit it. The
+  opt-in is the namespace annotation `kopiur.home-operations.com/privileged-movers: "true"`,
+  kopiur's twin of the `volsync.backube/privileged-movers` annotation that all 8
+  `allowedNamespaces` already carry. It is now set on all 8, so it is the same risk,
+  already accepted, and not a per-wave step. A namespace added to `allowedNamespaces` later
+  needs both. Three things hid it for ~21 h: (a) "the schedule fired" was read as "the
+  first run happened"; (b) the refused Snapshot stays `Pending` rather than `Failed`, so
+  `concurrencyPolicy: Forbid` skips every later slot (jellyseerr-local, `H */2`, created one
+  Snapshot in 21 h); (c) no bundled alert fires. `KopiurBackupStale` needs either a past
+  success or `consecutive_failures > 0`, and a refused never-run policy has neither. The
+  signal is there, as `kopiur_snapshot_refusals_total{reason}` and
+  `kopiur_resource_phase{kind="Snapshot",phase="Pending"}`, but no rule reads it. **Gate 1
+  means `Succeeded`, not "a Snapshot exists".**
+- **`indexBlobCountAt` is when the count was first seen at that value, not when it was
+  last probed.** `kopia-r2`'s stamp froze for 15 h and then 8 h, which looked like a
+  stalled probe. It was not stalled: `status.health.lastProbeAt` kept moving every 30 min.
+  The stamp is reused while the count is unchanged (kopiur 0.10.9
+  `crates/api/src/repository.rs:849`, to avoid a status hot loop), and R2 gets no writes
+  between the last slot (~06:55Z) and the next evening. Use `health.lastProbeAt` for
+  probe liveness.
+
 - **VolSync's retention manifest is not its effective retention.** The fork writes only
   the buckets a ReplicationSource sets to a path-scope kopia policy, and everything else
   falls through to kopia's **global defaults**. `policy show` on 2026-09-22: local
@@ -421,4 +452,8 @@ only when they are next recreated.
 - [x] The cluster runs kopiur **0.10.9**. The repositories patch (2 ClusterRepositories with
       `adoption: Ignore`, 18 ExternalSecrets) re-passed server dry-run against it on
       2026-09-22. The translator results above are still from 0.10.8
+- [ ] A local PrometheusRule for never-run policies:
+      `increase(kopiur_snapshot_refusals_total[1h]) > 0`, and/or a Snapshot `Pending` for
+      longer than its staging timeout. The bundled rules miss both (see the traps). Worth an
+      upstream issue too, because `KopiurBackupStale` is blind to a policy that never ran
 - [ ] hermes: app-level patch setting `staging.storageClassName: longhorn-1-replica`
