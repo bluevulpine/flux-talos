@@ -6,10 +6,10 @@ metadata:
   name: hermes
   annotations:
     gatus.home-operations.com/endpoint: |
-      group: develop
+      group: ai
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Hermes"
-    gethomepage.dev/group: "Development"
+    gethomepage.dev/group: "AI"
     gethomepage.dev/icon: "mdi-robot"
     gethomepage.dev/description: "Hermes Agent dashboard"
 spec:
@@ -18,7 +18,8 @@ spec:
   # MagicDNS entry, say) would be rejected at the WebSocket handshake.
   # Tailnet clients reach this same route: the ts-exit-node Connector advertises
   # 172.16.8.0/24, and the internal gateway lives at 172.16.8.2.
-  hostnames: ["hermes.${SECRET_DOMAIN}"]
+  hostnames:
+    - "hermes.${SECRET_DOMAIN}"
   parentRefs:
     - name: internal
       namespace: network

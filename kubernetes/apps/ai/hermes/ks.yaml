@@ -11,19 +11,21 @@ spec:
   dependsOn:
     - name: external-secrets-openbao-store
       namespace: external-secrets
-  interval: 1h
-  path: ./kubernetes/apps/develop/hermes/app
+  interval: 30m
+  retryInterval: 1m
+  timeout: 5m
+  path: ./kubernetes/apps/ai/hermes/app
   prune: true
   sourceRef:
     kind: GitRepository
     name: home-kubernetes
     namespace: flux-system
-  targetNamespace: develop
+  targetNamespace: ai
   wait: false
   postBuild:
     substitute:
       APP: *app
-      NS: develop
+      NS: ai
       GATUS_PORT: "9119"
       GATUS_SERVICE: hermes
       VOLSYNC_CAPACITY: 20Gi

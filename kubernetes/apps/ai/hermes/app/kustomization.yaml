@@ -1,0 +1,37 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ./externalsecret.yaml
+  - ./ocirepository.yaml
+  - ./helmrelease.yaml
+  - ./httproute.yaml
+components:
+  - ../../../../components/volsync-claim
+  - ../../../../components/volsync-backup
+patches:
+  # Moved here from `develop` (see the VolSync namespace-move runbook).
+  # Target by KIND, not name. The component resources are named ${APP} and
+  # ${APP:=temp}-dst-local at build time; the names only become hermes /
+  # hermes-dst-local after Flux postBuild substitution, so a name target matches
+  # nothing and kustomize silently drops it. Kind-only is safe ONLY while this
+  # app has exactly one PersistentVolumeClaim and one ReplicationDestination —
+  # re-check if a second claim is ever added.
+  - target: {kind: PersistentVolumeClaim}
+    patch: |-
+      # Pre-bind the claim to the volume that came with the app from `develop`.
+      # Keep this for the life of the claim: kustomize-controller owns the field
+      # by server-side apply, and removing it later tries to unset an immutable
+      # field and stalls the Kustomization at dry-run.
+      - op: add
+        path: /spec/volumeName
+        value: pvc-12f54114-9e99-442b-bae4-53a9cb239d69
+  - target: {kind: ReplicationDestination}
+    patch: |-
+      # NOT inert: the RD runs a restore on creation. Without this it asks for
+      # hermes@ai, which has no snapshots, and "restores" an empty volume with
+      # result Successful. The pre-move snapshots are hermes@develop.
+      - op: add
+        path: /spec/kopia/sourceIdentity/sourceNamespace
+        value: develop

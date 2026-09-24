@@ -63,7 +63,7 @@ or talosctl**, and `/opt/hermes` is read-only. There is also no provider config 
 create one.
 
 ```sh
-kubectl -n develop exec -it deploy/hermes -- hermes setup
+kubectl -n ai exec -it deploy/hermes -- hermes setup
 ```
 
 Anything that must survive a restart goes under `/opt/data` (which is `HERMES_HOME`);
