@@ -307,8 +307,9 @@ spec:
               # work already done, two more attempts, and then the memory itself.
               #
               # This deliberately covers reflect too. Reflect's interactive path
-              # is capped client-side at 25s regardless, but the SAME slot serves
-              # refresh_mental_model, which is background and uncapped -- and
+              # is capped client-side at 25s regardless, but refresh_mental_model ran
+              # on the same reflect config until 2026-09-24 (its chain is pinned to
+              # the main instance now, see below), and is background and uncapped -- and
               # which accounts for 22,338 of the failed operations in the table.
               # Timing those out to protect a client cap that does not apply to
               # them is how that number got so large.
@@ -326,8 +327,10 @@ spec:
               # Retain and consolidation already have generous wall limits
               # (RETAIN_WALL_TIMEOUT 3600, CONSOLIDATION_WALL_TIMEOUT 7200);
               # reflect is the uniquely tight one because its default assumes a
-              # waiting caller. refresh_mental_model shares the slot and has no
-              # such caller.
+              # waiting caller. refresh_mental_model has no such caller, and its
+              # reflect pass is bounded by this same REFLECT_WALL_TIMEOUT even
+              # though, since 2026-09-24, its LLM chain is separate (pinned to the
+              # main instance, see below) and no longer shares reflect's slot.
               # 1800 was still too low -- measured, not guessed. Over 8h of
               # local operation:
               #   refresh_mental_model  73 completed, avg 1884s, max 4346s
@@ -434,8 +437,15 @@ spec:
               # STRICT_SCHEMA comment below), a litellm-routed member with the
               # forced-tool option, or an Anthropic-compatible second endpoint.
               # --- reflect -> DGX Spark via LiteLLM ---
-              # This slot is NOT just the user-invoked `reflect` tool. It also
-              # serves `refresh_mental_model` and `mental_model_delta_ops`, which
+              # As of 2026-09-24 this stage is the user-invoked `reflect` tool ONLY.
+              # Automatic refresh (`refresh_mental_model` and
+              # `mental_model_delta_ops`, both resolved through the refresh chain in
+              # memory_engine) runs on the MENTAL_MODEL_REFRESH_LLM_* settings below,
+              # pinned to the main instance. What follows describes the stage before
+              # that split, and is why the split was made.
+              #
+              # This slot was NOT just the user-invoked `reflect` tool. It also
+              # served `refresh_mental_model` and `mental_model_delta_ops`, which
               # fire AUTOMATICALLY after consolidation, and that half dominates:
               # measured 2026-09-07 on the flux-talos bank, 232 calls and
               # 1,646,763 input tokens in ~2h against 3 user-invoked reflects.
@@ -579,8 +589,9 @@ spec:
               # rate-limiting it. Most of that is redundant work, and the floor
               # matters MORE now that the stage runs on the Spark rather than on
               # someone else's credits: a refresh storm no longer just wastes an
-              # allowance, it occupies the same 10 Ollama slots retain and reflect
-              # are budgeted against.
+              # allowance, it occupies the main-instance Ollama slots (8 today) that
+              # retain and consolidation are budgeted against. Reflect has its own
+              # instance now, but refresh does not, so the point stands.
               #
               # Safe by construction: a trigger arriving inside the window is
               # PARKED until it expires, not dropped, so no refresh is lost — and
