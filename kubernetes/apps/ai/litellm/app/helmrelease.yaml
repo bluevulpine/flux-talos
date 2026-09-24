@@ -256,11 +256,20 @@ spec:
 
               # Non-reasoning alternative, exposed so a stage can be moved off
               # gpt-oss with a single env-var change instead of a config edit.
-              # It exists for reflect specifically: reflect has a hard 25s client
-              # cap, and gpt-oss is a reasoning model. Measured on this hardware
-              # a reflect-shaped two-iteration tool loop runs 13.9s on gpt-oss
-              # against 15.2s here, so gpt-oss currently wins outright — this is
-              # the escape hatch if that stops being true under real prompts.
+              # It was added for reflect, which had a hard 25s client cap that a
+              # reasoning model risked missing. Measured on this hardware a
+              # reflect-shaped two-iteration tool loop ran 13.9s on gpt-oss
+              # against 15.2s here, so gpt-oss won outright.
+              #
+              # As of 2026-09-24 it is NOT an escape hatch for reflect any more.
+              # Reflect runs on the dedicated long-context instance
+              # (spark-gpt-oss-20b-long, 98,304-token window) and its context cap
+              # is sized to that window. This entry is served by the MAIN
+              # instance, whose window is 32,768, so moving reflect here silently
+              # truncates its prompts again (they arrived as exactly 16,386
+              # tokens) and it answers from a fraction of the evidence. It remains
+              # a valid non-reasoning alternative for stages that run on the main
+              # instance.
               #
               # Counter-intuitively it is also the SLOWER model at 26 tok/s
               # against gpt-oss's 63, despite being smaller: gpt-oss is MoE with
