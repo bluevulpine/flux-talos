@@ -580,6 +580,10 @@ spec:
               # recall x2 and search_observations x1. The guard is per-page state,
               # not a global setting, so a page created with the API default
               # (false) would lose it.
+              # ⚠️ The API key and BASE_URL for this chain are in the ExternalSecret and
+              # must stay there. Setting PROVIDER here without a BASE_URL sends the
+              # virtual key to api.openai.com (it did, once, on 2026-09-24); see the
+              # note beside HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_BASE_URL.
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_PROVIDER: openai
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL: spark-gpt-oss-20b
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "1"
