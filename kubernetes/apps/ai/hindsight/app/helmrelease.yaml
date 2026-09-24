@@ -265,10 +265,24 @@ spec:
               # outage — so it gets a reserved share rather than whatever is
               # left over.
               #
-              # Raising any of these three requires raising OLLAMA_NUM_PARALLEL
-              # first, and that lives on the Spark in
-              # /etc/systemd/system/ollama.service.d/override.conf, NOT in this
-              # repo. That gap is real — nothing here reconciles it.
+              # UPDATE 2026-09-24: this block is the MAIN instance's budget, and it
+              # has moved on. OLLAMA_NUM_PARALLEL is now 8 (spark-setup: hindsight
+              # takes 4, leaving ~4 for interactive apps), and reflect no longer
+              # draws from this pool: it runs on the dedicated one-slot instance set
+              # below, so it queues behind nothing here. What holds the fourth slot
+              # in this pool now is mental-model refresh, pinned to the main instance
+              # explicitly below (it used to share reflect's slot by inheritance).
+              # Main pool: retain 2 + consolidation 1 + refresh 1 = 4 of 8. Across
+              # ALL stages hindsight can now have 5 in flight against LiteLLM, the
+              # fifth being reflect on the other backend.
+              #
+              # Raising retain or consolidation requires raising OLLAMA_NUM_PARALLEL
+              # first, and that lives in the spark-setup repo (group_vars/all.yml,
+              # ollama_num_parallel), NOT in this one. That gap is real — nothing
+              # here reconciles it. Reflect is bound elsewhere: by the dedicated
+              # instance's OLLAMA_NUM_PARALLEL=1 (spark-setup,
+              # roles/inference/tasks/reflect.yml), so raising
+              # REFLECT_LLM_MAX_CONCURRENT above 1 only queues at that instance.
               # --- timeouts: raised for local inference ---
               # DEFAULT_LLM_TIMEOUT is 120s (config.py:1130), which was sized
               # against hosted APIs answering in seconds. It is too short here,
@@ -293,8 +307,9 @@ spec:
               # work already done, two more attempts, and then the memory itself.
               #
               # This deliberately covers reflect too. Reflect's interactive path
-              # is capped client-side at 25s regardless, but the SAME slot serves
-              # refresh_mental_model, which is background and uncapped -- and
+              # is capped client-side at 25s regardless, but refresh_mental_model ran
+              # on the same reflect config until 2026-09-24 (its chain is pinned to
+              # the main instance now, see below), and is background and uncapped -- and
               # which accounts for 22,338 of the failed operations in the table.
               # Timing those out to protect a client cap that does not apply to
               # them is how that number got so large.
@@ -312,8 +327,10 @@ spec:
               # Retain and consolidation already have generous wall limits
               # (RETAIN_WALL_TIMEOUT 3600, CONSOLIDATION_WALL_TIMEOUT 7200);
               # reflect is the uniquely tight one because its default assumes a
-              # waiting caller. refresh_mental_model shares the slot and has no
-              # such caller.
+              # waiting caller. refresh_mental_model has no such caller, and its
+              # reflect pass is bounded by this same REFLECT_WALL_TIMEOUT even
+              # though, since 2026-09-24, its LLM chain is separate (pinned to the
+              # main instance, see below) and no longer shares reflect's slot.
               # 1800 was still too low -- measured, not guessed. Over 8h of
               # local operation:
               #   refresh_mental_model  73 completed, avg 1884s, max 4346s
@@ -420,8 +437,15 @@ spec:
               # STRICT_SCHEMA comment below), a litellm-routed member with the
               # forced-tool option, or an Anthropic-compatible second endpoint.
               # --- reflect -> DGX Spark via LiteLLM ---
-              # This slot is NOT just the user-invoked `reflect` tool. It also
-              # serves `refresh_mental_model` and `mental_model_delta_ops`, which
+              # As of 2026-09-24 this stage is the user-invoked `reflect` tool ONLY.
+              # Automatic refresh (`refresh_mental_model` and
+              # `mental_model_delta_ops`, both resolved through the refresh chain in
+              # memory_engine) runs on the MENTAL_MODEL_REFRESH_LLM_* settings below,
+              # pinned to the main instance. What follows describes the stage before
+              # that split, and is why the split was made.
+              #
+              # This slot was NOT just the user-invoked `reflect` tool. It also
+              # served `refresh_mental_model` and `mental_model_delta_ops`, which
               # fire AUTOMATICALLY after consolidation, and that half dominates:
               # measured 2026-09-07 on the flux-talos bank, 232 calls and
               # 1,646,763 input tokens in ~2h against 3 user-invoked reflects.
@@ -496,35 +520,78 @@ spec:
               # open-ended synthesis, so the reasoning tax that killed gpt-5-mini
               # does not apply to this stage in practice.
               #
-              # If it does start missing the cap: qwen2.5:14b-instruct is already
-              # pulled on the Spark and exposed as `spark-qwen25-14b`, is
-              # confirmed non-reasoning, and is a one-value swap here.
-              HINDSIGHT_API_REFLECT_LLM_MODEL: spark-gpt-oss-20b
-              # HINDSIGHT_API_REFLECT_MAX_CONTEXT_TOKENS is deliberately left at its
-              # default (100,000). Do NOT lower it to fit the Spark's 32768 window.
+              # Historical: this stage once had a one-value swap to `spark-qwen25-14b`
+              # for missing the session-start hook's 25s cap. That no longer applies.
+              # `spark-qwen25-14b` routes to the MAIN instance (32,768-token window),
+              # and REFLECT_MAX_CONTEXT_TOKENS below is sized to the dedicated
+              # instance's 98,304 window, so swapping the model alone reintroduces the
+              # silent truncation this change fixes. Lowering the cap to compensate is
+              # no answer either: a cap of 22000 dropped the knowledge pages and was
+              # reverted. A different reflect model needs a window of ~92k or more.
+              # Reflect runs on the DEDICATED long-context ollama (:11435, one slot,
+              # 98,304-token window; spark-setup roles/inference/tasks/reflect.yml),
+              # not the main 8-slot instance. Reflect prompts on the flux-talos
+              # bank are 55-65k tokens -- `search_mental_models` returns whole
+              # knowledge pages, ~43-48k tokens in a single result -- and the main
+              # instance's 32k window silently keeps only the tail: they arrived as
+              # exactly 16,386 tokens and reflect answered from a fraction of the
+              # evidence, with fabricated detail (it invented a slot count and a
+              # file path).
               #
-              # Reflect prompts do get cut by Ollama: measured 2026-09-23 on
-              # flux-talos, 206k-229k characters (~55-65k tokens) arrive as exactly
-              # 16,386 tokens. But a low cap makes it worse. A cap of 22000 was
-              # tried and reverted the same day: `search_mental_models` returns
-              # whole knowledge pages (5 by default, ~43-48k tokens in one result),
-              # and reflect only splits oversized results that use the keys
-              # observations/memories/results. Past the budget (cap x 0.8) the
-              # pages are dropped, the final synthesis runs on a ~1.2k-token
-              # prompt, and reflect answers "no recorded decision" with full
-              # confidence, in ~26s, for questions direct recall can answer.
+              # The virtual key must allow this model_name before this deploys; see
+              # the note above HINDSIGHT_API_LLM_API_KEY in the ExternalSecret.
+              HINDSIGHT_API_REFLECT_LLM_MODEL: spark-gpt-oss-20b-long
+              # Sized to the 98,304 window, NOT to the default of 100,000, which is
+              # past it. The cap bounds the context reflect accumulates before it is
+              # forced to answer, and the final prompt's budget is cap x 0.8, so it
+              # must clear the biggest single result: a pages result of ~45k tokens
+              # is dropped WHOLE if it exceeds that budget (it is not one of the
+              # keys reflect splits), and reflect then answers "no recorded
+              # decision" from a ~1.2k-token prompt. That is exactly what a cap of
+              # 22000 did on 2026-09-23, and why it was reverted.
               #
-              # The real fix is a bigger window: a cap of ~60000 would keep that
-              # result whole, which needs OLLAMA_CONTEXT_LENGTH of ~70000+ on the
-              # Spark (a KV-cache memory decision there), or smaller pages.
+              # 76000 -> a 60.8k final-prompt budget, which leaves headroom over
+              # today's ~45k for the pages to grow. Window arithmetic: 76,000 + ~8k
+              # of the model's own output (a synthesis has reached 4.2k tokens and
+              # output shares the window) + ~10% because Hindsight counts tokens
+              # with its own encoding, not the model's = ~92k, under 98,304.
+              #
+              # ⚠️ Page size is the thing to watch. The pages are in delta mode, so
+              # they only grow ("Key decisions and rationale" is ~31k tokens against a
+              # configured 4,096). If a top-5 pages result outgrows the 60.8k budget,
+              # reflect silently falls back to the failure above. Full mode does not
+              # fix it with this model: a dry-run regenerated a 12k-token page as a
+              # 243-token stub.
+              HINDSIGHT_API_REFLECT_MAX_CONTEXT_TOKENS: "76000"
+              # Keep automatic mental-model refreshes on the MAIN instance. Unset,
+              # the refresh chain inherits reflect's config (memory_engine, #4463),
+              # which would put them on the new one-slot instance: a daily refresh of
+              # 7 pages at ~10 minutes each would then hold the slot and queue every
+              # interactive reflect behind it. Their prompts have measured 3-25k
+              # tokens, which fits the 32k window. Concurrency 1 keeps the main
+              # instance's budget as it was (retain 2 + consolidation 1 + refresh 1),
+              # since an unset value falls back to the default of 32.
+              #
+              # Refresh cannot hit the oversized-pages result that forced reflect off
+              # this instance: every page's trigger has exclude_mental_models=true
+              # (checked on all 7 flux-talos pages 2026-09-24), and the agent only
+              # enables the search_mental_models tool when that is false
+              # (memory_engine.py). A dry-run confirmed it: its tool calls were
+              # recall x2 and search_observations x1. The guard is per-page state,
+              # not a global setting, so a page created with the API default
+              # (false) would lose it.
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_PROVIDER: openai
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL: spark-gpt-oss-20b
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "1"
               # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
               # floor at all — which is how 232 refreshes ran in ~2h on
               # 2026-09-07: every consolidation batch queued another with nothing
               # rate-limiting it. Most of that is redundant work, and the floor
               # matters MORE now that the stage runs on the Spark rather than on
               # someone else's credits: a refresh storm no longer just wastes an
-              # allowance, it occupies the same 10 Ollama slots retain and reflect
-              # are budgeted against.
+              # allowance, it occupies the main-instance Ollama slots (8 today) that
+              # retain and consolidation are budgeted against. Reflect has its own
+              # instance now, but refresh does not, so the point stands.
               #
               # Safe by construction: a trigger arriving inside the window is
               # PARKED until it expires, not dropped, so no refresh is lost — and
