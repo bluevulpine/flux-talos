@@ -39,7 +39,7 @@ spec:
           initContainers:
             - name: defrag-freyja01
               # renovate: datasource=docker depName=ghcr.io/siderolabs/talosctl
-              image: ghcr.io/siderolabs/talosctl:v1.13.9
+              image: ghcr.io/siderolabs/talosctl:v1.14.1
               args:
                 - "-n"
                 - "10.0.10.35"
@@ -66,7 +66,7 @@ spec:
             # initContainers do the real work; this just gives the Pod a required
             # main container and a cheap proof the Talos API was reachable at all.
             - name: done
-              image: ghcr.io/siderolabs/talosctl:v1.13.9
+              image: ghcr.io/siderolabs/talosctl:v1.14.1
               args:
                 - "version"
                 - "--client"
