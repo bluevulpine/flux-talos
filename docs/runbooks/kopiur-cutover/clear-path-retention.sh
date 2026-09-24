@@ -18,12 +18,18 @@
 set -euo pipefail
 readonly APP="${1:?usage: $0 <app> [ns]}"
 readonly NS="${2:-media}"
-readonly IMAGE="ghcr.io/perfectra1n/volsync:v0.17.11" # the fork's kopia 0.22.3
+# The VolSync fork's own image (kopia 0.22.3), kept in step with its HelmRelease.
+# renovate: datasource=docker depName=ghcr.io/perfectra1n/volsync
+readonly IMAGE_TAG=v0.17.11
+readonly IMAGE="ghcr.io/perfectra1n/volsync:${IMAGE_TAG}"
 readonly KA=(--request-timeout=30s)
 
-left=$(kubectl "${KA[@]}" -n "$NS" get replicationsource,replicationdestination -o name |
-    grep -cE "/${APP}-(local|r2|dst-local)$" || true)
-movers=$(kubectl "${KA[@]}" -n "$NS" get pods -o name | grep -c "volsync-src-${APP}-" || true)
+# Fail closed: capture kubectl's output first, so a failed call aborts (set -e) instead
+# of counting as "0 found". Only grep's no-match exit is tolerated.
+vs_objs=$(kubectl "${KA[@]}" -n "$NS" get replicationsource,replicationdestination -o name)
+pods=$(kubectl "${KA[@]}" -n "$NS" get pods -o name)
+left=$(grep -cE "/${APP}-(local|r2|dst-local)$" <<<"$vs_objs" || true)
+movers=$(grep -c "volsync-src-${APP}-" <<<"$pods" || true)
 if [[ -z "${DRY:-}" && ( "$left" != 0 || "$movers" != 0 ) ]]; then
     echo "VolSync still present for ${APP} (${left} objects, ${movers} mover pods); wait for the prune" >&2
     exit 1

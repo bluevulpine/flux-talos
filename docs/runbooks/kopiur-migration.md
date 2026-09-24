@@ -3,8 +3,9 @@
 **Status (2026-09-24): repositories landed; step 4 (epoch) skipped on evidence; W0
 (jellyseerr, recyclarr) passed all per-app gates and the per-wave restore gate, the pilots
 are retired, and W0 is cut over: kopiur is the only backup of both apps. VolSync was removed
-at merge, and the fork's path-scope retention is cleared right after it (see "Per-app
-cutover"). Next: W1.** Every restore needs added capabilities (see
+at merge. **Pending:** clearing the fork's path-scope retention (`clear-path-retention.sh`
+for each app, see "Per-app cutover"); until then the fork's rules still apply on every
+kopiur run. Next: W1.** Every restore needs added capabilities (see
 "Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
