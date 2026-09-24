@@ -1,0 +1,9 @@
+#!/bin/bash
+# hm '<guard call>' — run guard functions from hermes-move-guards.sh in a fresh bash. An executable SCRIPT, not a shell function (functions and exports
+# do not survive separate tool calls). State paths come from the guards themselves (MOVE_DIR), never from the caller environment.
+# e.g.   hm 'record_pv'     hm 'pr_merge <PR> <full-sha>'
+[ $# -ge 1 ] || { echo "usage: hm '<guard function call>'" >&2; exit 2; }
+self=${BASH_SOURCE[0]}; [ -L "$self" ] && self=$(readlink "$self")          # ~/.local/bin/hm is a symlink to this file
+# shellcheck source=hermes-move-guards.sh
+source "$(cd "$(dirname "$self")" && pwd)/hermes-move-guards.sh"
+eval "$*"
