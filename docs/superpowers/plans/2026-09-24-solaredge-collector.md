@@ -76,7 +76,7 @@ Copy `influx_archive.py` from the beestat/minnkota repos.
 | `production.py` | Pure logic. Parses entries with `v.get("value")`: **missing key or None means no data, skip it** (never write 0). **Coerces every value to `float()`** (an int would write `0i` and cause a 422 field-type conflict). Converts local time to UTC with `zoneinfo`, and **explicitly drops spring-forward nonexistent times**. |
 | `influx_archive.py` | Batched idempotent writes (`WRITE_BATCH_SIZE`). Per-local-month `sum(energy_wh)` reads for reconciliation. Adapted from beestat/minnkota. |
 | `collector.py` | Config, run modes, exit codes. |
-| `tests/` | Window boundaries (31-day months, Feb, leap years). Both DST transitions. A **real saved `energyDetails` fixture** (night intervals with no `value` key, mixed int/float). Line protocol never contains an `i` suffix. The API key never appears in captured logs. 429 → exit 6. |
+| `tests/` | Window boundaries (31-day months, Feb, leap years). Both DST transitions. A **real saved `energyDetails` fixture** (night intervals with no `value` key, mixed int/float). Line protocol never contains an `i` suffix. The API key never appears in captured logs. 429 → exit 7. |
 
 **Run modes**
 - **Incremental** (hourly): fetches `now − LOOKBACK_DAYS(3)` → now. That's 1
@@ -104,7 +104,10 @@ Copy `influx_archive.py` from the beestat/minnkota repos.
 `meter=production`, float field `energy_wh`, UTC timestamps. Points are
 idempotent on `(measurement, tagset, field, time)`.
 
-**Exit codes** (minnkota numbering, extended):
+**Exit codes** (minnkota numbering, extended). Code 6 is deliberately unused:
+minnkota uses it for MQTT errors, and this collector has no MQTT. Reusing it with
+a different meaning would make the two collectors' codes look interchangeable
+when they aren't.
 
 | Code | Meaning | Retry? |
 | --- | --- | --- |
@@ -112,7 +115,7 @@ idempotent on `(measurement, tagset, field, time)`.
 | 3 | SolarEdge transient error, in-process retries exhausted | Pod-level retry |
 | 4 | Cloud comms stale | No |
 | 5 | InfluxDB error | Pod-level retry |
-| 6 | **429 quota / 403 window or auth** | **No** (deterministic) |
+| 7 | **429 quota / 403 window or auth** | **No** (deterministic) |
 
 **Budget, worst case:** incremental is 24 × 3 attempts × 2 calls = 144.
 Steady-state audit is ≈4 calls × 2 attempts = 8. The backfill is ~47 calls and
@@ -141,7 +144,7 @@ retries only cost the remaining months, since it resumes. Backfill day totals
   `concurrencyPolicy: Forbid`, `imagePullPolicy: Always`, and the image marker
   `# {"$imagepolicy": "flux-system:solaredge-collector"}` (**no `:tag`**).
   **Unlike minnkota:** `restartPolicy: Never` plus a `podFailurePolicy` of
-  `FailJob` on exit codes `[2, 4, 6]`, so deterministic failures don't burn quota.
+  `FailJob` on exit codes `[2, 4, 7]`, so deterministic failures don't burn quota.
   - `solaredge-collector`: `41 * * * *`, `backoffLimit: 2`, `ttlSecondsAfterFinished: 3600`.
   - `solaredge-collector-audit`: `29 2 * * *`, `AUDIT_MODE=true`, `backoffLimit: 1`,
     `ttlSecondsAfterFinished: 21600`, 256Mi (streamed per month).
