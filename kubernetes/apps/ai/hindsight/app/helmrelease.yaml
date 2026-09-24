@@ -265,6 +265,17 @@ spec:
               # outage — so it gets a reserved share rather than whatever is
               # left over.
               #
+              # UPDATE 2026-09-24: this block is the MAIN instance's budget, and it
+              # has moved on. OLLAMA_NUM_PARALLEL is now 8 (spark-setup: hindsight
+              # takes 4, leaving ~4 for interactive apps), and reflect no longer
+              # draws from this pool: it runs on the dedicated one-slot instance set
+              # below, so it queues behind nothing here. What holds the fourth slot
+              # in this pool now is mental-model refresh, pinned to the main instance
+              # explicitly below (it used to share reflect's slot by inheritance).
+              # Main pool: retain 2 + consolidation 1 + refresh 1 = 4 of 8. Across
+              # ALL stages hindsight can now have 5 in flight against LiteLLM, the
+              # fifth being reflect on the other backend.
+              #
               # Raising any of these three requires raising OLLAMA_NUM_PARALLEL
               # first, and that lives on the Spark in
               # /etc/systemd/system/ollama.service.d/override.conf, NOT in this
