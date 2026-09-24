@@ -237,6 +237,30 @@ Four statements that must not become false. Everything below exists to hold them
 | `SECRET_DOMAIN` | same | same |
 | rendered machine configs | `talos/clusterconfig/*.yaml` (plaintext, gitignored) | not written at all on the `apply` path; `render` only for the Phase 4 diff |
 
+### `SECRET_TS_AUTHKEY`: kept as-is, and it may be expired
+
+Decision (2026-09-23, Derek): **carry the existing `SECRET_TS_AUTHKEY` across unchanged.**
+Tailscale auth keys expire (90 days at most), so the stored one is likely expired. It is
+not rotated in this migration:
+
+- **Dry-run stays clean.** The stored value is presumably what the nodes were applied
+  with, so Phase 5's per-node `--dry-run` shows no diff on it. A placeholder would show a
+  diff on every node, and applying it would write a fake key into each node's
+  `ExtensionServiceConfig`, which likely restarts the tailscale extension service.
+- **One variable at a time.** A changed key in the same migration makes any config diff
+  harder to attribute.
+- **Expiry probably does not matter for running nodes.** An auth key is only consulted at
+  registration; an already-registered node keeps working on its node key. This is an
+  *inference*, not tested on this cluster. It is why existing nodes appear to ignore the
+  key.
+
+Where an expired key **does** matter: any node whose Tailscale state is cleared (a node
+reset or rebuild) cannot rejoin the tailnet until the key is refreshed. Rotating it is a
+separate follow-up and **must happen before any node reset or rebuild**. During Phase 5,
+watch jormungandr4 (the first apply) for a re-registration attempt after the config
+lands; if the extension tries to log in again, stop and rotate the key before continuing.
+The key is the `&extensionServices` anchor's `TS_AUTHKEY`, shared by all 8 nodes.
+
 ### Filenames: bend topf to `.sops.yaml`, not the reverse
 
 The repo's existing creation rule requires a literal `.sops.` infix:
