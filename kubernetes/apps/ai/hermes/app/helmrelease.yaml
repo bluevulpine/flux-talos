@@ -9,6 +9,11 @@ spec:
     kind: OCIRepository
     name: hermes
   interval: 1h
+  # Default is 5m and upgrade.remediation.strategy is rollback: a cold image pull
+  # (922 MiB, cached on one node only) plus the readiness delay can exceed it,
+  # and the rollback would put a just-started pod back to replicas 0. Remove
+  # this once the move is done and the image is warm (cleanup PR).
+  timeout: 15m
   install:
     remediation:
       retries: 3
@@ -20,6 +25,10 @@ spec:
   values:
     controllers:
       hermes:
+        # TEMPORARY (namespace move): nothing may write to the volume until its
+        # contents are verified against the pre-move baseline. Removed by the
+        # follow-up commit that starts the pod.
+        replicas: 0
         type: deployment
         annotations:
           reloader.stakater.com/auto: "true"
@@ -34,7 +43,9 @@ spec:
               repository: docker.io/nousresearch/hermes-agent
               # renovate: datasource=docker depName=docker.io/nousresearch/hermes-agent
               tag: v2026.9.21
-            args: ["gateway", "run"]
+            args:
+              - "gateway"
+              - "run"
             env:
               TZ: "${TIMEZONE}"
               HERMES_HOME: /opt/data
@@ -93,8 +104,13 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: false
               capabilities:
-                drop: ["ALL"]
-                add: ["CHOWN", "DAC_OVERRIDE", "SETGID", "SETUID"]
+                drop:
+                  - "ALL"
+                add:
+                  - "CHOWN"
+                  - "DAC_OVERRIDE"
+                  - "SETGID"
+                  - "SETUID"
             resources:
               requests:
                 cpu: 100m
