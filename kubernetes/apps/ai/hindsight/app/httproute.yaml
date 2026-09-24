@@ -57,6 +57,30 @@ spec:
       backendRefs:
         - name: hindsight-api
           port: 8888
+    # `/version`, EXACT match only, and the one path here that is NOT behind the
+    # tenant key: the API answers it without a token. It returns two things,
+    # `api_version` and eleven boolean feature flags, and nothing else (checked
+    # 2026-09-24), so what it discloses is the version.
+    #
+    # It exists for the Claude Code plugin's capability probe. Before it retains a
+    # session, the plugin does `GET /version` and enables incremental retain
+    # (`update_mode: append`, only the new turns) if api_version >= 0.8.6.
+    # Without this rule `/version` fell through to the control-plane route below,
+    # which is behind Authentik, so the probe got a 302 to the SSO page, could not
+    # parse it, and concluded "unsupported". Every session's cursor showed
+    # appendSupported=false (20 of 20 on 2026-09-24), and the plugin re-sent the
+    # WHOLE transcript on every Stop, for a server that reports 0.10.1.
+    #
+    # Exact, not a prefix: `/version/anything` and `/versions` still go to the
+    # control plane and its SSO. Gateway API matches exact paths before prefixes,
+    # so this wins over the control plane's `/` regardless of object order.
+    - matches:
+        - path:
+            type: Exact
+            value: /version
+      backendRefs:
+        - name: hindsight-api
+          port: 8888
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
