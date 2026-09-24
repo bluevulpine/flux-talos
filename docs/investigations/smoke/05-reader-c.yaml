@@ -1,0 +1,21 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata: {name: reader-c, namespace: smoke-dst, labels: {smoke-test: hermes-ns-move}}
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      securityContext: {runAsNonRoot: true, runAsUser: 1000, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: r
+          image: busybox:1.37
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          command:
+            - sh
+            - -c
+            - "ls -la /data; cat /data/SHA256SUMS 2>&1; echo rc=$?"
+          volumeMounts:
+            - {name: d, mountPath: /data}
+      volumes:
+        - {name: d, persistentVolumeClaim: {claimName: smokedata-c}}

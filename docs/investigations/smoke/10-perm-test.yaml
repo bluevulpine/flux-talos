@@ -1,0 +1,30 @@
+---
+# Extra: hermes' /opt/data is chowned to uid 10000 by its entrypoint. Does an UNANNOTATED-namespace mover (root, caps dropped ALL,
+# no DAC_OVERRIDE) still read uid-10000-owned, owner-only files? smoke-dst has NO privileged-movers annotation here.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: smokedata-f, namespace: smoke-dst, labels: {smoke-test: hermes-ns-move}}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources: {requests: {storage: 1Gi}}
+  storageClassName: longhorn-1-replica-local
+---
+apiVersion: batch/v1
+kind: Job
+metadata: {name: writer-f, namespace: smoke-dst, labels: {smoke-test: hermes-ns-move}}
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: w
+          image: busybox:1.37
+          command:
+            - sh
+            - -c
+            - "mkdir -p /data/secretdir && echo perm-marker > /data/secretdir/.env && echo top > /data/auth.json && chown -R 10000:10000 /data/secretdir /data/auth.json && chmod 700 /data/secretdir && chmod 600 /data/secretdir/.env /data/auth.json && ls -laR /data | head -20 && sync"
+          volumeMounts:
+            - {name: d, mountPath: /data}
+      volumes:
+        - {name: d, persistentVolumeClaim: {claimName: smokedata-f}}

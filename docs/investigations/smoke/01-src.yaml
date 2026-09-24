@@ -1,0 +1,52 @@
+---
+# Hand-rendered from components/volsync-claim + volsync-backup/local.yaml with hermes' ks.yaml values.
+# Deviations: capacity 1Gi / cache 2Gi (throwaway), username "smoketest", manual trigger, retain latest:2 only.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: smokedata, namespace: smoke-src, labels: {smoke-test: hermes-ns-move}}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources: {requests: {storage: 1Gi}}
+  storageClassName: longhorn-1-replica-local
+---
+apiVersion: batch/v1
+kind: Job
+metadata: {name: writer, namespace: smoke-src, labels: {smoke-test: hermes-ns-move}}
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: w
+          image: busybox:1.37
+          command:
+            - sh
+            - -c
+            - "echo smoke-marker-$(date +%s) > /data/marker.txt && head -c 1048576 /dev/urandom > /data/blob.bin && (cd /data && sha256sum marker.txt blob.bin | tee SHA256SUMS) && sync"
+          volumeMounts:
+            - {name: d, mountPath: /data}
+      volumes:
+        - {name: d, persistentVolumeClaim: {claimName: smokedata}}
+---
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata: {name: smoke-local, namespace: smoke-src, labels: {smoke-test: hermes-ns-move}}
+spec:
+  sourcePVC: smokedata
+  trigger: {manual: run-1}
+  kopia:
+    copyMethod: Snapshot
+    repository: smoke-volsync-local-secret
+    username: smoketest
+    volumeSnapshotClassName: longhorn-snapclass
+    cacheCapacity: 2Gi
+    cacheStorageClassName: longhorn-1-replica
+    cacheAccessModes:
+      - ReadWriteOnce
+    storageClassName: longhorn-1-replica
+    accessModes:
+      - ReadWriteOnce
+    capacity: 1Gi
+    moverSecurityContext: {runAsUser: 0, runAsGroup: 0, fsGroup: 0, fsGroupChangePolicy: OnRootMismatch}
+    retain: {latest: 2}
