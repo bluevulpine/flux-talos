@@ -276,10 +276,13 @@ spec:
               # ALL stages hindsight can now have 5 in flight against LiteLLM, the
               # fifth being reflect on the other backend.
               #
-              # Raising any of these three requires raising OLLAMA_NUM_PARALLEL
-              # first, and that lives on the Spark in
-              # /etc/systemd/system/ollama.service.d/override.conf, NOT in this
-              # repo. That gap is real — nothing here reconciles it.
+              # Raising retain or consolidation requires raising OLLAMA_NUM_PARALLEL
+              # first, and that lives in the spark-setup repo (group_vars/all.yml,
+              # ollama_num_parallel), NOT in this one. That gap is real — nothing
+              # here reconciles it. Reflect is bound elsewhere: by the dedicated
+              # instance's OLLAMA_NUM_PARALLEL=1 (spark-setup,
+              # roles/inference/tasks/reflect.yml), so raising
+              # REFLECT_LLM_MAX_CONCURRENT above 1 only queues at that instance.
               # --- timeouts: raised for local inference ---
               # DEFAULT_LLM_TIMEOUT is 120s (config.py:1130), which was sized
               # against hosted APIs answering in seconds. It is too short here,
@@ -507,9 +510,14 @@ spec:
               # open-ended synthesis, so the reasoning tax that killed gpt-5-mini
               # does not apply to this stage in practice.
               #
-              # If it does start missing the cap: qwen2.5:14b-instruct is already
-              # pulled on the Spark and exposed as `spark-qwen25-14b`, is
-              # confirmed non-reasoning, and is a one-value swap here.
+              # Historical: this stage once had a one-value swap to `spark-qwen25-14b`
+              # for missing the session-start hook's 25s cap. That no longer applies.
+              # `spark-qwen25-14b` routes to the MAIN instance (32,768-token window),
+              # and REFLECT_MAX_CONTEXT_TOKENS below is sized to the dedicated
+              # instance's 98,304 window, so swapping the model alone reintroduces the
+              # silent truncation this change fixes. Lowering the cap to compensate is
+              # no answer either: a cap of 22000 dropped the knowledge pages and was
+              # reverted. A different reflect model needs a window of ~92k or more.
               # Reflect runs on the DEDICATED long-context ollama (:11435, one slot,
               # 98,304-token window; spark-setup roles/inference/tasks/reflect.yml),
               # not the main 8-slot instance. Reflect prompts on the flux-talos
@@ -553,6 +561,15 @@ spec:
               # tokens, which fits the 32k window. Concurrency 1 keeps the main
               # instance's budget as it was (retain 2 + consolidation 1 + refresh 1),
               # since an unset value falls back to the default of 32.
+              #
+              # Refresh cannot hit the oversized-pages result that forced reflect off
+              # this instance: every page's trigger has exclude_mental_models=true
+              # (checked on all 7 flux-talos pages 2026-09-24), and the agent only
+              # enables the search_mental_models tool when that is false
+              # (memory_engine.py). A dry-run confirmed it: its tool calls were
+              # recall x2 and search_observations x1. The guard is per-page state,
+              # not a global setting, so a page created with the API default
+              # (false) would lose it.
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_PROVIDER: openai
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL: spark-gpt-oss-20b
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "1"
