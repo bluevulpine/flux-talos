@@ -8,11 +8,14 @@ libraries:
       - overlays
     collection_files:
       - repo: Anime.yml
+      # Holds collections, not overlays. It sat under overlay_files until 2026-09-24,
+      # where Kometa ignores `collections:` ("overlays attribute is required"), so none
+      # of its four collections had ever been built.
+      - repo: Anime - Charts.yml
       - default: basic
       - default: anilist
     overlay_files:
       - remove_overlays: false
-      - repo: Anime - Overlays - Charts.yml
       - default: ribbon
       - default: ratings
       - default: status
