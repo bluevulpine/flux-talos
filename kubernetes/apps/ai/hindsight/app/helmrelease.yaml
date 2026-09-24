@@ -405,6 +405,30 @@ spec:
               # session instead of minutes, since the engine no longer polls a
               # batch job every 60s.
               HINDSIGHT_API_RETAIN_BATCH_ENABLED: "false"
+              # Retain extraction runs at LOW reasoning effort. Retain is the dominant
+              # consumer of the Spark's decode capacity: over ~21h on the flux-talos
+              # bank it generated 584,114 of 807,189 output tokens (72%), averaging
+              # 5,900 per call (max 16,119) for inputs of ~2.5k tokens. That is output
+              # 2-3x the input, for a task whose visible result is a few short facts,
+              # which points at reasoning tokens, not facts. At ~18 tok/s on a busy
+              # Spark, 5,900 tokens is ~5 minutes of a slot per call. Three session
+              # transcripts account for 84% of it (re-retained as they grow).
+              #
+              # Replayed two real retain calls (Hindsight's current prompt and strict
+              # schema, temperature 0.1, through LiteLLM), same input each time:
+              #   call A   default 4,676 tokens, 5 facts    low 1,166 tokens, 6 facts
+              #   call B   default 5,081 tokens, 4 facts    low   717 tokens, 5 facts
+              # The default's ~4.7-5.1k tokens produced ~2.4-2.9k CHARACTERS of facts,
+              # so most of it was thinking. The facts covered the same events; `low`
+              # dropped one small detail in call B (a volume deletion) and added one
+              # the default missed in call A. Two samples is thin: after this lands,
+              # spot-read new facts against their transcripts, and revert if it thins
+              # the memory.
+              #
+              # Scoped to retain on purpose. Retain resolves its own effort; reflect,
+              # consolidation and mental-model refresh are untouched (refresh falls
+              # back to reflect's, then the global one; neither is set).
+              HINDSIGHT_API_RETAIN_LLM_REASONING_EFFORT: low
 
               # A retain failover member to Azure was tried here on 2026-09-07
               # and REMOVED the same evening: it never worked, and it made
