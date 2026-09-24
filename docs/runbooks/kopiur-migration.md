@@ -1,9 +1,9 @@
 # Runbook: VolSync → kopiur backup migration
 
-**Status (2026-09-24): repositories landed; step 4 (epoch) skipped on evidence; W0 landed
-(#1886) but wrote no backups. Every W0 `Snapshot` was refused with
-`PrivilegedMoverNotPermitted` (see the traps). The fix is the namespace annotation; after it,
-re-run the W0 gates.** This is the single source of truth for the migration; the
+**Status (2026-09-24): repositories landed; step 4 (epoch) skipped on evidence; W0
+(jellyseerr, recyclarr) passed all per-app gates and the per-wave restore gate. Next: retire
+the pilots, then the W0 per-app cutover.** Every restore needs added capabilities (see
+"Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
 
@@ -12,7 +12,7 @@ evidence.
 | Pilots (`media/recyclarr-kopiur-pilot`, `media/jellyseerr-kopiur-pilot`) | passed 4/4 and 5/5 (see their READMEs); still running `H */6` against `pilot-local` |
 | PR #1870 — component split + `components/kopiur` | **merged** 2026-09-22 (eab49e12); verified inert live: all Kustomizations Ready on it, all 93 ReplicationSources intact. No app includes `components/kopiur` yet |
 | Two `ClusterRepository` + 18 `ExternalSecret` | **landed** 2026-09-22 (#1879, e4539596), plus the `kopiur-system` Pod Security fix (#1880). Both `Ready`, all 18 secrets synced; catalog scanned 2026-09-23. See "The repositories" |
-| Fleet cutover (W0–W8) | W0 landed 2026-09-23 (#1886, dedf3c4a). Policies `Ready`, identities exact, but **0 backups**: the 4 scheduled Snapshots sit `Pending` (refused mover), and `Forbid` blocks every later slot. Gates not yet passed; pilots still running |
+| Fleet cutover (W0–W8) | W0 parallel run since 2026-09-23 (#1886). Backups refused for ~21 h until #1924 (namespace opt-in). Then, 2026-09-24: **per-app gates 1–4 pass** for both apps (both legs `Succeeded`, identities `<app>@media:/data`), and **the restore gate passes** (recyclarr, both legs, see below). Pilots still running; VolSync still live |
 
 ## Why kopiur
 
@@ -226,8 +226,52 @@ ClusterRepositories, and clear the fork's path-scope `--keep-*` at each app's cu
 4. the app's VolSync sources are still on schedule (while both run)
 
 **Per wave** — the first app of each StorageClass in the wave gets a **real restore** into a
-scratch PVC, compared against live (method: the pilot READMEs). Check for root-owned
-content first; root movers preserve it, non-root movers silently re-own it.
+scratch PVC, compared against live. The Restore mover needs the capabilities below, or
+ownership silently comes back wrong. Use the kit in
+[`kopiur-restore-verify/`](kopiur-restore-verify/README.md), which has two `Restore`s, a
+read-only compare pod, `run.sh` and adaptation steps.
+It compares sha256 of every file, then type/mode/owner/size of every entry, then file
+mtimes. Directory mtimes are listed but informational, because kopia does not preserve
+them. For a live SQLite writer, use the jellyseerr pilot's integrity check instead of byte
+identity.
+
+**W0 result (2026-09-24, recyclarr, `longhorn-1-replica`):** from `kopia-local` and from
+`kopia-r2`, 2,192 files / 2,523 entries. 0 differing lines on content, owner/mode/size and
+file mtimes, and only the 116 directory mtimes differ. It passed on the second run; the
+first run is the trap below.
+
+#### Restores need capabilities, not just root
+
+```yaml
+# Restore.spec.mover: required for every restore in this repo
+securityContext:
+  runAsUser: 0
+  runAsGroup: 0
+  capabilities:
+    add: [CHOWN, FOWNER, FSETID, DAC_OVERRIDE]
+```
+
+- **`runAsUser: 0` alone is not enough.** kopiur merges user settings *over* its hardened
+  base, which keeps `drop: [ALL]`. A root mover without `CAP_CHOWN` cannot `chown`, and
+  kopia's `ignorePermissionErrors` defaults to `true`. So the restore reports `Completed`
+  with every entry owned `0:0`. Run 1 did exactly that: content identical, all 2,523
+  entries `568:568 → 0:0`. The app runs as 568, so it would have lost write access to
+  its own data.
+- **`privilegedMode: true` does not fix it in 0.10.9**, despite kopiur's docs ("also
+  preserves UID/GID ownership on RESTORE"). It only feeds the admission gate and never
+  reaches the Job (`crates/controller/src/restore/mod.rs:3451-3483`). Upstream issue
+  candidate.
+- **Why each one:** `CHOWN` sets owners. `FOWNER` allows chmod/utimes on files root no
+  longer owns. `FSETID` keeps setgid on the `2775` directories, which is cleared when the
+  caller isn't in the file's group. `DAC_OVERRIDE` allows writing into directories already
+  chowned to the app. All four are allowed under the `baseline` Pod Security level, and a
+  server dry-run in `media` admits them. Added caps count as elevation, so the namespace
+  opt-in (#1924) is needed as well.
+- **Backups are unaffected.** kopia records each entry's owner at backup time, which is
+  why the restore with added caps matched exactly.
+- **This carries into `components/kopiur-claim`** (below). A populator `Restore` for a
+  recreated PVC needs the same block. Otherwise a disaster recovery comes back owned by
+  root and looks fine until the app tries to write.
 
 ### Rollback
 
@@ -385,8 +429,10 @@ land past 02:40.
 - **Catalog stats lag by design**: the 30-min probe refreshes `indexBlobCount` only;
   `snapshotCount`/`totalSizeBytes` freeze until a full bootstrap (`catalog.periodicRefresh`
   is off by default).
-- **The mover can't `chown` to root when non-root** — a restore silently re-owns root-owned
-  files. Root movers (the default here) avoid it.
+- **A restore mover can't `chown` without `CAP_CHOWN`, even as root.** A non-root mover
+  re-owns everything to its own uid (the pilot's 1 file), and a root mover with kopiur's
+  default `drop: [ALL]` re-owns everything to `0:0` (W0 run 1: all 2,523 entries). Both
+  report success. Fix: "Restores need capabilities, not just root".
 - **`$schema` host**: `k8s-schemas.home-operations.com`, not `kubernetes-schemas.pages.dev`,
   which answers 200 with HTML for groups it doesn't host.
 - **Client-side OpenAPI fetch times out** when the apiserver is struggling; use
@@ -407,7 +453,8 @@ which disappears with `volsync-backup`. That is **inert on a bound PVC** — but
 ever deleted and recreated, it will sit Pending forever. Plan: a `components/kopiur-claim`
 whose `dataSourceRef` targets a kopiur `Restore` in populator mode
 (`Restore.spec.target.populator`), used by newly created PVCs; existing PVCs move onto it
-only when they are next recreated.
+only when they are next recreated. Its `Restore` must carry the capability block from
+"Restores need capabilities, not just root".
 
 ## Open items
 
@@ -452,6 +499,8 @@ only when they are next recreated.
 - [x] The cluster runs kopiur **0.10.9**. The repositories patch (2 ClusterRepositories with
       `adoption: Ignore`, 18 ExternalSecrets) re-passed server dry-run against it on
       2026-09-22. The translator results above are still from 0.10.8
+- [ ] Upstream issue: `privilegedMode: true` is documented as preserving ownership on
+      restore, but in 0.10.9 it only feeds the gate; the Job keeps `drop: [ALL]`
 - [ ] A local PrometheusRule for never-run policies:
       `increase(kopiur_snapshot_refusals_total[1h]) > 0`, and/or a Snapshot `Pending` for
       longer than its staging timeout. The bundled rules miss both (see the traps). Worth an
