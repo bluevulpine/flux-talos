@@ -9,7 +9,7 @@ evidence.
 
 | piece | state |
 | --- | --- |
-| Pilots (`media/recyclarr-kopiur-pilot`, `media/jellyseerr-kopiur-pilot`) | passed 4/4 and 5/5 (see their READMEs); still running `H */6` against `pilot-local` |
+| Pilots (`media/recyclarr-kopiur-pilot`, `media/jellyseerr-kopiur-pilot`) | passed 4/4 and 5/5; **retired 2026-09-24** after W0 passed its gates. Their READMEs (verdicts, the SQLite integrity method) are at `b625ac57:kubernetes/apps/media/{recyclarr,jellyseerr}-kopiur-pilot/README.md` |
 | PR #1870 — component split + `components/kopiur` | **merged** 2026-09-22 (eab49e12); verified inert live: all Kustomizations Ready on it, all 93 ReplicationSources intact. No app includes `components/kopiur` yet |
 | Two `ClusterRepository` + 18 `ExternalSecret` | **landed** 2026-09-22 (#1879, e4539596), plus the `kopiur-system` Pod Security fix (#1880). Both `Ready`, all 18 secrets synced; catalog scanned 2026-09-23. See "The repositories" |
 | Fleet cutover (W0–W8) | W0 parallel run since 2026-09-23 (#1886). Backups refused for ~21 h until #1924 (namespace opt-in). Then, 2026-09-24: **per-app gates 1–4 pass** for both apps (both legs `Succeeded`, identities `<app>@media:/data`), and **the restore gate passes** (recyclarr, both legs, see below). Pilots still running; VolSync still live |
@@ -286,9 +286,13 @@ Waves go from cheapest-to-lose to hardest: W0 pilots → config volumes → live
 *arrs → databases + vaultwarden → large volumes → node-local class → tns-csi-nfs →
 tns-csi-nvmeof. `games/valheim-syncthing` is **out of scope** (Syncthing, not kopia).
 
-**W0** also retires the pilots: remove `jellyseerr-kopiur-pilot` first (it depends on
-recyclarr's `pilot-local` Repository and ExternalSecret), then `recyclarr-kopiur-pilot`,
-then the `kopiur-pilot` Garage bucket and OpenBao key `kopiur-pilot`.
+**W0** also retires the pilots (done 2026-09-24). Both were removed in one change, because
+`jellyseerr-kopiur-pilot` depends on recyclarr's `pilot-local` Repository and ExternalSecret.
+First, while the Repository still existed, the 24 schedule-created pilot Snapshot CRs were
+set to `deletionPolicy: Retain` and deleted by hand. Flux does not prune them
+(`onScheduleDelete: Retain` keeps them). Their `snapshot-cleanup` finalizer needs the
+Repository, so they would otherwise hang on delete once it is gone. After the merge, drop
+the `kopiur-pilot` Garage bucket and the OpenBao key `kopiur-pilot` by hand.
 
 | wave | app | VolSync local → kopiur local | VolSync R2 → kopiur R2 | copy | StorageClass | extra vars |
 |---|---|---|---|---|---|---|

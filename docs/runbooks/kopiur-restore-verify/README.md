@@ -38,8 +38,9 @@ not change that in 0.10.9. See "Restores need capabilities, not just root" in th
 5. **Live writers.** For a volume with an active writer (for example a SQLite DB), byte
    identity is not a valid test, because the source changes after the snapshot. Use the
    jellyseerr pilot's method instead: open the restored DB with the app's own driver and
-   run `PRAGMA integrity_check`. See `kubernetes/apps/media/jellyseerr-kopiur-pilot/README.md`
-   until the pilots are retired, and git history after.
+   run `PRAGMA integrity_check`. See criterion 4 in
+   `b625ac57:kubernetes/apps/media/jellyseerr-kopiur-pilot/README.md` (retired;
+   `git show` it).
 
 `restores.yaml` and `compare-pod.yaml` are server-dry-run clean in `media`. Use
 `kubectl apply --dry-run=server --validate=false`, because the client-side OpenAPI fetch
