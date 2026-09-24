@@ -1,5 +1,16 @@
 ---
 creation_rules:
+  # topf's cluster config is partially encrypted: only `data:` (the secrets that
+  # replace talenv.sops.yaml) is ciphertext, so talosVersion / kubernetesVersion stay
+  # readable. It is deliberately NOT named *.sops.yaml: .renovaterc.json5 ignores
+  # `**/*.sops.*`, which would hide those versions from Renovate again. topf's default
+  # config name is topf.yaml, so no --topfconfig flag is needed either.
+  # mac_only_encrypted lets Renovate edit the cleartext values without invalidating the
+  # MAC. This rule MUST sit above the general talos/ rule.
+  - path_regex: talos/topf\.yaml
+    encrypted_regex: ^data$
+    mac_only_encrypted: true
+    age: "age1ww3u7me5lwxtgqcd8djkv485q30wu7k40hs9e2acg8qvdw4e8spq9t5dem"
   - # IMPORTANT: This rule MUST be above the others
     path_regex: talos/.*\.sops\.yaml
     age: "age1ww3u7me5lwxtgqcd8djkv485q30wu7k40hs9e2acg8qvdw4e8spq9t5dem"

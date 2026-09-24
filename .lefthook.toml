@@ -4,7 +4,7 @@ parallel = true
 [pre-commit.commands.format-yaml]
 run = "yamlfmt {staged_files}"
 glob = ["*.yaml"]
-exclude = ["*.sops.yaml"]
+exclude = ["*.sops.yaml", "talos/topf.yaml"] # both are SOPS files; yamlfmt would reformat ciphertext
 stage_fixed = true
 
 [pre-commit.commands.format-just]
@@ -20,3 +20,19 @@ stage_fixed = true
 run = "gitleaks protect --staged --verbose --redact"
 glob = ["*"]
 exclude = ["*.sops.yaml"]
+
+# Files named *.sops.yaml are excluded from gitleaks above, by filename. This closes that
+# hole: a plaintext file that merely carries the name would otherwise commit unscanned.
+# talos/topf.yaml is partially encrypted and is scanned by gitleaks, but must still carry
+# a sops: block: without one, `data:` would be committed as plaintext secrets.
+[pre-commit.commands.sops-encrypted]
+run = """
+for file in {staged_files}; do
+    if ! grep -q '^sops:' "$file"; then
+        echo "$file must be SOPS-encrypted but has no sops: block (plaintext?)" >&2
+        exit 1
+    fi
+done
+"""
+glob = ["*.sops.yaml", "talos/topf.yaml"]
+exclude = [".sops.yaml"] # the SOPS config itself: matches the name, is legitimately plaintext

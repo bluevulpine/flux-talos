@@ -89,7 +89,7 @@ accepting a pre-1.0 dependency, and the claim to attack first if you disagree.
 
 | section | lines | disposition |
 |---|---:|---|
-| header (cluster, versions, CIDRs, certSANs) | 16 | → `topf.sops.yaml` |
+| header (cluster, versions, CIDRs, certSANs) | 16 | → `topf.yaml` (identity, versions) and `patches/all/` (pod/service CIDRs, cert SANs, `cni: none`, which topf has no typed field for) |
 | `nodes:` block | 436 | → patch tree (the actual work) |
 | global `patches:` | 174 | → `patches/all/`, essentially unedited |
 | `controlPlane.patches:` | 44 | → `patches/control-plane/`, unedited |
@@ -171,7 +171,7 @@ See [Phase 6](#phase-6--keep-the-versions-from-drifting-again).
 
 ```
 talos/
-├── topf.sops.yaml                 # cluster + nodes + data: (whole-file SOPS)
+├── topf.yaml                      # cluster + nodes; only `data:` is encrypted (see D1)
 ├── secrets.sops.yaml              # ← talsecret.sops.yaml, content unchanged
 ├── talosconfig                    # ← client config, was clusterconfig/talosconfig
 ├── schematics/
@@ -187,7 +187,7 @@ talos/
         └── jormungandr4/          # VLANs on end0, EPHEMERAL VolumeConfig
 ```
 
-`topf.sops.yaml` carries cluster identity plus a flat node list (`host`, `ip`, `role`,
+`topf.yaml` carries cluster identity plus a flat node list (`host`, `ip`, `role`,
 per-node `data:`). No typed fields for disks, NICs, volumes or taints — those are
 patch files. That is the abstraction level Derek has explicitly accepted.
 
@@ -232,7 +232,7 @@ Four statements that must not become false. Everything below exists to hold them
 | item | today | after |
 |---|---|---|
 | Talos PKI bundle | `talos/talsecret.sops.yaml` (SOPS) | `talos/secrets.sops.yaml` (SOPS, content identical) |
-| `SECRET_TS_AUTHKEY` | `talos/talenv.sops.yaml` (SOPS) | `talos/topf.sops.yaml` `data:` (whole-file SOPS) |
+| `SECRET_TS_AUTHKEY` | `talos/talenv.sops.yaml` (SOPS) | `talos/topf.yaml` `data:` (partial SOPS, key `tsAuthKey`) |
 | `SECRET_VOLUME_KEY` | same | same |
 | `SECRET_DOMAIN` | same | same |
 | rendered machine configs | `talos/clusterconfig/*.yaml` (plaintext, gitignored) | not written at all on the `apply` path; `render` only for the Phase 4 diff |
@@ -288,28 +288,47 @@ Both then match the existing rule and get whole-file encryption. **No new
 earlier draft of this spec built one, on the mistaken belief that the config
 filename was fixed and that the `talos/` convention was partial.
 
-**Decision D1 (2026-09-23, Derek): partial encryption.** The problem it solves: whole-file SOPS hides the versions from Renovate.
-`talosVersion` and `kubernetesVersion` live in `topf.sops.yaml`, and Renovate cannot
-read inside a SOPS-encrypted file — the `# renovate:` annotations at
-`talos/talconfig.yaml:2-5` would be encrypted away. Today those two lines are how
-Renovate learns of Talos and Kubernetes bumps. Whole-file SOPS silently ends that.
-Partial encryption (`encrypted_regex: ^data$`, own creation rule above the general one)
-keeps versions and the node list in the clear and only `data:` encrypted, which also
-restores diffability. That trades the whole-file simplicity below for a regex that must
-stay right. **Recommendation: partial**, because losing Renovate visibility on the two
-versions this cluster most depends on is a worse silent failure than a regex to
-maintain. **Decided: partial.** Phase 1 therefore adds a creation rule
-for `talos/topf.sops.yaml` with `encrypted_regex: ^data$`, placed **above** the general
-`talos/.*\.sops\.yaml` rule (which stays whole-file, for `secrets.sops.yaml`), and the
-phase-1 check that every `*.sops.yaml` carries a `sops:` block still applies. The
-whole-file paragraphs below describe the rejected alternative and are kept for the
+**Decision D1 (2026-09-23, Derek): partial encryption — implemented 2026-09-24 as
+`talos/topf.yaml`, NOT `talos/topf.sops.yaml`.**
+
+The problem it solves: `talosVersion` and `kubernetesVersion` live in the topf config,
+and Renovate cannot read inside a fully SOPS-encrypted file. The `# renovate:` annotations
+at `talos/talconfig.yaml:2-5` would be encrypted away, and those two lines are how
+Renovate learns of Talos and Kubernetes bumps today.
+
+Partial encryption (`encrypted_regex: ^data$`) keeps versions and the node list in the
+clear and encrypts only `data:`, which also restores diffability. It costs a creation
+rule and a regex that must stay right.
+
+**The file must not be named `*.sops.yaml`.** Found during Phase 1: `.renovaterc.json5`
+has `ignorePaths: ["**/*.sops.*"]`, so Renovate skips every such file whatever its
+contents. A partially encrypted `topf.sops.yaml` would have been just as invisible as a
+fully encrypted one. The file is therefore `talos/topf.yaml`, with its own creation rule
+in `.sops.yaml` (above the general `talos/.*\.sops\.yaml` rule, which stays whole-file
+for `secrets.sops.yaml`). Consequences, all handled in Phase 1:
+
+- topf's default config name is `topf.yaml`, so **no `--topfconfig` flag** is needed when
+  running from `talos/`.
+- `mac_only_encrypted: true` is required, so Renovate's edit of a cleartext version does
+  not invalidate the MAC. Tested: an in-place edit of `talosVersion` still decrypts.
+- `yamlfmt` must exclude it (it would reformat ciphertext); gitleaks now scans it, which
+  is fine because it holds only ciphertext.
+- The "must carry a `sops:` block" pre-commit check covers `talos/topf.yaml` explicitly,
+  since it no longer matches `*.sops.yaml`.
+- Any `data:` key at any depth is encrypted by `^data$`, including a per-node `data:`.
+  Per-node variance (bond MACs, disk models) is not secret, so **prefer `node/<host>/`
+  patch files over per-node `data:`** to keep it readable in git. **Decided 2026-09-24
+  (Derek): use `node/<host>/` patch files, not per-node `data:`.**
+
+The whole-file paragraphs below describe the rejected alternative and are kept for the
 reasoning.
 
 The tradeoff of whole-file: the node inventory is no longer readable or diffable in
 git. Partial encryption (`encrypted_regex: ^data$`) *does* work through topf's
 decrypt path if that is wanted — verified — but it needs its own creation rule
 placed above the general one, and it makes correctness depend on a regex staying
-right forever. Whole-file is the simpler default and is what this spec assumes.
+right forever. Whole-file is the simpler default, and was what this spec first assumed;
+D1 above replaced it.
 
 ### Rendered configs: keep plaintext off the disk
 
@@ -588,6 +607,37 @@ enough for the changes we expect on freyja01.
   Phase 4 is the first phase that writes plaintext configs to disk.
 - Verify by decrypt round-trip, not by reading the file.
 
+#### Phase 1 results (2026-09-24)
+
+Done in worktree `~/Repositories/flux-talos-talos-gen`, branch `talhelper-replacement`.
+
+- **`.sops.yaml`**: new rule for `talos/topf\.yaml` (`encrypted_regex: ^data$`,
+  `mac_only_encrypted: true`) above the general talos rule.
+- **`.gitignore`**: `output/` (bare, un-anchored — verified it ignores both `output/x` and
+  `talos/output/x`) and `talos/*.decrypted*`.
+- **`.lefthook.toml`**: new `sops-encrypted` pre-commit check. Verified it **rejects** a
+  staged plaintext `*.sops.yaml` (in which case gitleaks reported `skip: no matching
+  staged files`, i.e. the hole is real) and **accepts** a real one. `yamlfmt` now
+  excludes `talos/topf.yaml`.
+  The first version of the check flagged `.sops.yaml` itself (the SOPS config matches the
+  name and is legitimately plaintext); it is now excluded. Re-tested: a plaintext
+  `talos/topf.yaml` is still rejected.
+- **`talos/secrets.sops.yaml`** is a **copy** of `talsecret.sops.yaml`, byte-identical
+  (`cmp`), *not* a `git mv` as first written. talhelper still needs `talsecret.sops.yaml`
+  for the rollback path and for regenerating the baseline; the old file is deleted in
+  Phase 7. Two copies of the same ciphertext cannot diverge unless the PKI is rotated,
+  which this migration does not do.
+- **`talos/topf.yaml`** written by piping `sops -d talenv.sops.yaml` through `yq` into
+  `sops -e`, so no plaintext touched disk. Verified: only `data:` (`tsAuthKey`,
+  `volumeKey`, `domain`) is ciphertext; versions, annotations, `clusterName` and all 8
+  nodes are readable; **decrypted values are identical to `talenv.sops.yaml`** (compared
+  by hash, never printed); one age recipient; `sops filestatus` → `encrypted: true`.
+- **Dry run on synthetic data first**, including a Renovate-style in-place version edit
+  followed by a successful decrypt, and a topf render straight from the file with no
+  flag. Installer images split 1 × `647d4118…` (freyja01), 4 × `a6c707bf…`
+  (jormungandr1-4), 3 × `b915cd23…` (brokkr01-03).
+- `talenv.sops.yaml` is untouched: talhelper still reads it until Phase 7.
+
 ### Phase 2 — transcribe the schematics
 
 `schematics/pi.yaml`, `schematics/amd.yaml` and `schematics/freyja.yaml`, from the
@@ -619,7 +669,7 @@ Four things established by running topf, not by reading it:
 each directory.** Numbering files is load-bearing, not cosmetic.
 
 **The role directory is `control-plane`, not `controlplane`.** So is the `role:`
-value in `topf.sops.yaml`. Wrong spelling is a hard failure — `invalid node role
+value in `topf.yaml`. Wrong spelling is a hard failure — `invalid node role
 "controlplane": must be either "worker" or "control-plane"` — loud rather than
 silent, but it will cost time on first run.
 
@@ -774,9 +824,9 @@ bump PR (**#1849**, open since 2026-09-21) does not touch `talconfig.yaml`.
 
 - Decide #1849's timing before Phase 5 (see
   [Version drift](#version-drift-resolved-by-hand-but-it-will-recur)).
-- After Phase 1, the version lives in `topf.sops.yaml`. With whole-file SOPS Renovate
-  cannot see it at all (decision D1). With partial encryption it can carry the same
-  `# renovate: datasource=github-releases depName=siderolabs/talos` annotation as today.
+- After Phase 1 the version lives in `talos/topf.yaml`, **in the clear**, carrying the same
+  `# renovate: datasource=github-releases depName=siderolabs/talos` annotation as
+  `talconfig.yaml` does today (D1, and the file-name note in that section).
 - Add a Renovate group so `talosVersion`, the tuppr CR and the `etcd-defrag` image bump
   in one PR. tuppr keeps ownership of upgrades; topf never runs `topf upgrade`.
 
