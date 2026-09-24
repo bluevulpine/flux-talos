@@ -19,7 +19,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: w
-          image: busybox:1.37
+          image: busybox:1.38
           command:
             - sh
             - -c

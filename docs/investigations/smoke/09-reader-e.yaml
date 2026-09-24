@@ -9,7 +9,7 @@ spec:
       securityContext: {runAsNonRoot: true, runAsUser: 1000, seccompProfile: {type: RuntimeDefault}}
       containers:
         - name: r
-          image: busybox:1.37
+          image: busybox:1.38
           securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
           command:
             - sh
