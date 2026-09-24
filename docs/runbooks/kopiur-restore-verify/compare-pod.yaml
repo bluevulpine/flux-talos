@@ -1,0 +1,90 @@
+---
+# Read-only comparison of the live recyclarr volume against both W0 restores.
+# All three volumes mounted readOnly in one pod (the pilot method). Runs as root with
+# default capabilities so it can read 0600 files of any owner; baseline PSA allows it.
+# Prints a short summary only: kubectl output of long streams can truncate silently.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: w0-verify-recyclarr-compare
+  namespace: media
+spec:
+  restartPolicy: Never
+  containers:
+    - name: compare
+      image: debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251
+      command:
+        - /bin/bash
+        - -c
+        - |
+          set -uo pipefail
+          # content: sha256 of every regular file; meta: type/mode/owner/size of every
+          # entry, plus file mtimes. Directory mtimes are listed separately because the
+          # pilot found kopia does not preserve them.
+          manifest() {
+            cd "$1" || exit 1
+            find . -path ./lost+found -prune -o -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/$2.sha
+            find . -mindepth 1 -path ./lost+found -prune -o -printf '%y %m %U:%G %s %P\n' | sort -k5 > /tmp/$2.meta
+            find . -path ./lost+found -prune -o -type f -printf '%T@ %P\n' | sort -k2 > /tmp/$2.fmtime
+            find . -mindepth 1 -path ./lost+found -prune -o -type d -printf '%T@ %P\n' | sort -k2 > /tmp/$2.dmtime
+          }
+          manifest /live live; manifest /local local; manifest /r2 r2
+          echo "live root-owned entries: $(awk '$3 ~ /^0:|:0$/' /tmp/live.meta | wc -l)"
+          for t in live local r2; do
+            printf '%-5s files=%s entries=%s content=%s\n' $t "$(wc -l < /tmp/$t.sha)" \
+              "$(wc -l < /tmp/$t.meta)" "$(sha256sum < /tmp/$t.sha | cut -c1-16)"
+          done
+          rc=0
+          for t in local r2; do
+            for k in sha meta fmtime dmtime; do
+              n=$(diff /tmp/live.$k /tmp/$t.$k | grep -c '^[<>]')
+              echo "$t $k: $n differing lines"
+              if [ "$n" -gt 0 ]; then
+                [ "$k" != dmtime ] && rc=1
+                if [ "$k" = meta ] && [ "$(wc -l < /tmp/live.meta)" = "$(wc -l < /tmp/$t.meta)" ]; then
+                  # same entries in the same order: histogram each field's live->restored change
+                  paste -d'|' /tmp/live.meta /tmp/$t.meta | awk -F'|' '
+                    { split($1,a," "); split($2,b," ")
+                      if (a[5] != b[5]) p++
+                      if (a[2] != b[2]) m[a[1]" mode "a[2]"->"b[2]]++
+                      if (a[3] != b[3]) o[a[1]" owner "a[3]"->"b[3]]++
+                      if (a[1] == "f" && a[4] != b[4]) z++ }
+                    END { for (k in m) print "  " m[k] "x " k; for (k in o) print "  " o[k] "x " k
+                          print "  path mismatches: " p+0 ", file size mismatches: " z+0 }' | sort -rn | head -20
+                else
+                  diff /tmp/live.$k /tmp/$t.$k | grep '^<' | head -5
+                  diff /tmp/live.$k /tmp/$t.$k | grep '^>' | head -5
+                fi
+              fi
+            done
+          done
+          echo "RESULT: $([ $rc = 0 ] && echo PASS || echo FAIL) (dir mtimes informational)"
+      volumeMounts:
+        - name: live
+          mountPath: /live
+          readOnly: true
+        - name: local
+          mountPath: /local
+          readOnly: true
+        - name: r2
+          mountPath: /r2
+          readOnly: true
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          memory: 256Mi
+  volumes:
+    - name: live
+      persistentVolumeClaim:
+        claimName: recyclarr
+        readOnly: true
+    - name: local
+      persistentVolumeClaim:
+        claimName: w0-verify-recyclarr-local
+        readOnly: true
+    - name: r2
+      persistentVolumeClaim:
+        claimName: w0-verify-recyclarr-r2
+        readOnly: true
