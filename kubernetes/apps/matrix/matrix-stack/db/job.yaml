@@ -1,0 +1,117 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/batch/job_v1.json
+# Provisions the Synapse and MAS roles + databases on postgres18 with the same
+# postgres-init image every other app uses as an init container. The ESS chart has no
+# hook for an arbitrary init container, so it runs here as a standalone Job instead.
+#
+# Replayable by design, no manual SQL:
+#   - postgres-init is idempotent: it creates the role/DB only if missing, and
+#     unconditionally resets the role's password from OpenBao.
+#   - ttlSecondsAfterFinished removes the finished Job; the next Flux reconcile
+#     (ks.yaml interval) recreates and reruns it. To rerun now:
+#       kubectl -n matrix delete job matrix-db-init   # Flux recreates it
+#   - The force annotation lets Flux replace the Job when its (immutable) pod
+#     template changes, instead of failing the apply.
+#
+# Usernames and database names are literals, not OpenBao fields: the ESS HelmRelease
+# must name them as plain values too, and a literal cannot drift from a secret.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: matrix-db-init
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: 01-init-synapse
+          image: &image ghcr.io/home-operations/postgres-init:rolling
+          envFrom: &envFrom
+            - secretRef:
+                name: matrix-db-init-secret
+          env:
+            - name: INIT_POSTGRES_USER
+              value: synapse
+            - name: INIT_POSTGRES_DBNAME
+              value: synapse
+            # createdb --template template0 --encoding UTF8. Synapse refuses any
+            # database that is not UTF8 with C collation/ctype; template0 means the
+            # new DB takes the cluster's initdb locale, which the next step asserts.
+            - name: INIT_POSTGRES_UTF8
+              value: "true"
+            - name: INIT_POSTGRES_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: matrix-db-init-secret
+                  key: SYNAPSE_POSTGRES_PASS
+          resources: &resources
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext: &securityContext
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+        - name: 02-init-mas
+          image: *image
+          envFrom: *envFrom
+          env:
+            - name: INIT_POSTGRES_USER
+              value: mas
+            - name: INIT_POSTGRES_DBNAME
+              value: mas
+            - name: INIT_POSTGRES_UTF8
+              value: "true"
+            - name: INIT_POSTGRES_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: matrix-db-init-secret
+                  key: MAS_POSTGRES_PASS
+          resources: *resources
+          securityContext: *securityContext
+      containers:
+        # Synapse checks collation/ctype at startup and refuses to run on anything
+        # but C (IncorrectDatabaseSetup). CNPG's initdb defaults are C and
+        # cluster18.yaml does not override them, but postgres18 was bootstrapped by
+        # import from postgres16, so assert it here: a wrong locale fails this Job
+        # (and the Kustomization's health check) instead of crash-looping Synapse.
+        #
+        # If it ever fails on a fresh install, the DB is still empty, so the fix is:
+        #   DROP DATABASE synapse;
+        #   CREATE DATABASE synapse OWNER synapse TEMPLATE template0
+        #     ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C';
+        # then delete this Job to rerun it.
+        - name: assert-synapse-locale
+          image: *image
+          envFrom: *envFrom
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              export PGHOST="$${INIT_POSTGRES_HOST}" PGUSER=postgres PGDATABASE=postgres
+              export PGPASSWORD="$${INIT_POSTGRES_SUPER_PASS}"
+              locale="$(psql --tuples-only --no-align --command \
+                "SELECT datcollate || '/' || datctype FROM pg_database WHERE datname = 'synapse'")"
+              if [[ "$${locale}" != "C/C" ]]; then
+                echo "synapse database collation/ctype is '$${locale}', Synapse requires 'C/C'" >&2
+                exit 1
+              fi
+              echo "synapse database collation/ctype is C/C"
+          resources: *resources
+          securityContext: *securityContext

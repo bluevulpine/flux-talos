@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
+# Step 1 of the Matrix rollout (docs/briefs/2026-09-24-matrix-homeserver-evaluation.md):
+# provision the `synapse` and `mas` roles + databases on postgres18. The ESS
+# matrix-stack HelmRelease (step 2) will be its own Kustomization that dependsOn this
+# one, so Synapse and MAS never start against a database that does not exist yet.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app matrix-stack-db
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: matrix-stack
+  dependsOn:
+    # NOTE the `18` suffix — there is no `cloudnative-pg-cluster` Kustomization, and
+    # Flux parks silently on a missing dependsOn target.
+    - name: cloudnative-pg-cluster18
+      namespace: database
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+  path: ./kubernetes/apps/matrix/matrix-stack/db
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: matrix
+  # wait: the Job is health-checked, so this Kustomization is only Ready once the
+  # databases exist and the collation assertion passed. Step 2 relies on that.
+  wait: true
+  # The Job deletes itself (ttlSecondsAfterFinished) and every reconcile recreates it,
+  # so this interval is also how often the roles' passwords are re-synced from
+  # OpenBao — same semantics postgres-init has as an init container, where it runs on
+  # every pod start.
+  interval: 1h
+  retryInterval: 2m
+  timeout: 5m
+  postBuild:
+    substitute:
+      APP: *app
