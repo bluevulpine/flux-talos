@@ -188,6 +188,34 @@ spec:
                   api_base: http://10.0.10.237:11434/v1
                   api_key: unused-ollama-accepts-any
 
+              # --- long-context backend for hindsight reflect ---
+              # The SAME model as above, served by a second, dedicated ollama on
+              # :11435 (spark-setup, roles/inference/tasks/reflect.yml): ONE slot
+              # and a 98,304-token window, against the main instance's 8 slots at
+              # 32k. It exists because reflect prompts on the flux-talos bank are
+              # 55-65k tokens and the main window silently keeps only the tail --
+              # they arrived as exactly 16,386 tokens, and reflect answered from a
+              # fraction of the evidence with fabricated detail.
+              #
+              # Measured cost of the instance is ~17 GiB resident once loaded (a
+              # second copy of the weights plus ~1 GiB per 32k of window); it
+              # loads on the first reflect, not at boot. Nothing else should be
+              # pointed at this model_name: it has ONE slot, so a second consumer
+              # queues behind reflect's multi-minute calls.
+              #
+              # ⚠️ Hindsight's virtual key is restricted to spark-gpt-oss-20b and
+              # must be widened to include this model_name BEFORE the hindsight
+              # HelmRelease switches reflect to it, or reflect starts returning
+              # 403. See the note above HINDSIGHT_API_LLM_API_KEY in the hindsight
+              # ExternalSecret.
+              #
+              # Addressed by IP for the same reason as the entry above.
+              - model_name: spark-gpt-oss-20b-long
+                litellm_params:
+                  model: openai/gpt-oss:20b
+                  api_base: http://10.0.10.237:11435/v1
+                  api_key: unused-ollama-accepts-any
+
               # --- audio (spark-setup `audio` role) ---
               # Two plain Docker containers on the Spark, NOT Ollama, so they use
               # their own ports and the `mode` below tells LiteLLM which OpenAI

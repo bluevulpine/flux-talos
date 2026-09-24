@@ -181,6 +181,22 @@ endpoints:
     alerts:
       - type: pushover
 
+  # The dedicated long-context ollama (:11435) that hindsight reflect uses. A
+  # separate service from the one above, so it can be down while that one is up:
+  # reflect would fail while retain and consolidation kept working. Same probe and
+  # the same reasoning as above -- /v1/models is the surface LiteLLM calls, and the
+  # len() condition guards against a listener that answers 200 with no models
+  # (which is what it would do if it were not sharing the main model store).
+  - name: DGX Spark (Ollama, long-context)
+    group: inference
+    url: "http://10.0.10.237:11435/v1/models"
+    interval: 1m
+    conditions:
+      - "[STATUS] == 200"
+      - "len([BODY].data) > 0"
+    alerts:
+      - type: pushover
+
   # LiteLLM itself, probed DIRECTLY over cluster DNS rather than through its
   # HTTPRoute. The route carries `auth: authentik`, so an unauthenticated probe
   # against the hostname is redirected to SSO -- and gatus follows redirects, so
