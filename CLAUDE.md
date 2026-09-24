@@ -37,10 +37,10 @@ Three cases where the rule is **not** "always annotate":
 
 - **app-template nested container images** (`controllers.*.containers.*.image`) are detected
   natively with no annotation. `kubernetes/apps/productivity/n8n` has none and Renovate has
-  opened nine bump PRs for it (#1695, #1617, #1594, …). Annotating anyway is fine and ~47 of
-  111 HelmReleases do — the repo is deliberately mixed here. Prefer no annotation for a plain
-  semver tag; add one when you want an explicit datasource/depName, as `hermes` (#1743) and
-  `timescaledb` (#1715) do.
+  opened nine bump PRs for it (#1695, #1617, #1594, …). Annotating anyway is fine and roughly
+  half the HelmReleases in the repo do — it's deliberately mixed here. Prefer no annotation for
+  a plain semver tag; add one when you want an explicit datasource/depName, as `hermes` (#1743)
+  and `timescaledb` (#1715) do.
 - **A HelmRelease's top-level `image.repository`/`image.tag`** is already extracted by the
   built-in **`flux`** manager, which parses `values:` inside Flux HelmRelease CRs. Adding an
   annotation there makes **two managers match one line and Renovate open two PRs for one
@@ -63,18 +63,26 @@ Follow the existing layout under `kubernetes/apps/<namespace>/<app>/`:
 - `app/helmrelease.yaml` using an OCIRepository ref and an `&app` name anchor. **Do not add
   `install.strategy` / `upgrade.strategy`** — the `cluster-apps` patch injects
   `strategy: {name: RetryOnFailure}` into every HelmRelease, the same mechanism as the
-  `crds: CreateReplace` rule above. No manifest in the repo declares it (0 of 113).
+  `crds: CreateReplace` rule above. No manifest in the repo declares it.
   An explicit `install.remediation.retries` / `upgrade.cleanupOnFail` /
-  `upgrade.remediation.strategy: rollback` block is **optional**, not standard: 58 of 113
+  `upgrade.remediation.strategy: rollback` block is **optional**, not standard: about half the
   HelmReleases carry one, and the `app-template` web apps a new app usually patterns itself on
   (mosquitto, homebox, vaultwarden) do not.
 - `app/externalsecret.yaml` if runtime secrets are needed (pull from OpenBao via External Secrets Operator — `secretStoreRef: openbao`)
 - Include `# yaml-language-server: $schema=...` at the top of every Kubernetes manifest.
-  **Confirm the URL returns JSON before copying one from a neighbouring file.**
-  `kubernetes-schemas.pages.dev` answers **`200` with an HTML page** for any group it does not
-  host — indistinguishable from a live schema by status code alone — and it does not host
-  `image.toolkit.fluxcd.io` at all. For those kinds use
-  `https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/<kind>-image-v1.json`.
+  **Confirm the URL returns JSON before copying one from a neighbouring file** — a `200` status
+  alone doesn't mean a real schema; both of these hosts serve an HTML fallback page for any
+  group they don't cover, indistinguishable from a live schema by status code.
+  For **new** manifests, prefer `k8s-schemas.home-operations.com`: it's the actively-maintained
+  canonical source (home-operations' own `k8s-schemas` repo, Renovate-driven). Most of this
+  repo's existing headers still point at `kubernetes-schemas.pages.dev` — a separate community
+  mirror that still works today but isn't backed by anyone accountable and has a track record
+  of sibling mirrors going dark; don't newly copy from it. Neither host covers core `v1` types
+  (`configmap`, `secret`, …) or `image.toolkit.fluxcd.io` — for those use
+  `https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/<kubernetesVersion>-standalone-strict/<kind>-v1.json`
+  (core types) or
+  `https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/<kind>-image-v1.json`
+  (image automation kinds).
 
 Secrets come exclusively from OpenBao via `ExternalSecret` (`secretStoreRef` → `openbao` / `ClusterSecretStore`, `engineVersion: v2`). OpenBao field naming is PascalCase double-underscore: `App__Category__Field` (e.g. `Frigate__Mqtt__User`). Never commit secret values.
 
@@ -137,7 +145,12 @@ concluded there was no history, when 60 days of it existed in Thanos.
 
 Do **not** "fix" this by raising `retention:` in the kube-prometheus-stack
 HelmRelease. It would duplicate what Thanos already stores. (For sizing context
-if it ever does come up: ~2.2 GB/day, on a 105 GB PVC using 5.8 GB.)
+if it ever does come up: each Prometheus replica has its own 100Gi PVC. The
+container is distroless — no `df`/`du` — so read actual usage off Longhorn
+instead: `kubectl get volumes.longhorn.io -n longhorn-system <pv-name> -o
+jsonpath='{.status.actualSize}'`. That read 5.8 GB on 2026-08-13; by
+2026-09-21 the two active replicas were at ~16 GB each — cardinality/scrape
+volume has grown since, not a fixed number to assume.)
 
 Two traps when reading the results:
 
