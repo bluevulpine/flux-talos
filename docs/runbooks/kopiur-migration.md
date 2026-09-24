@@ -1,8 +1,8 @@
 # Runbook: VolSync → kopiur backup migration
 
 **Status (2026-09-24): repositories landed; step 4 (epoch) skipped on evidence; W0
-(jellyseerr, recyclarr) passed all per-app gates and the per-wave restore gate. Next: retire
-the pilots, then the W0 per-app cutover.** Every restore needs added capabilities (see
+(jellyseerr, recyclarr) passed all per-app gates and the per-wave restore gate, and the
+pilots are retired. Next: the W0 per-app cutover.** Every restore needs added capabilities (see
 "Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
@@ -12,7 +12,7 @@ evidence.
 | Pilots (`media/recyclarr-kopiur-pilot`, `media/jellyseerr-kopiur-pilot`) | passed 4/4 and 5/5; **retired 2026-09-24** after W0 passed its gates. Their READMEs (verdicts, the SQLite integrity method) are at `b625ac57:kubernetes/apps/media/{recyclarr,jellyseerr}-kopiur-pilot/README.md` |
 | PR #1870 — component split + `components/kopiur` | **merged** 2026-09-22 (eab49e12); verified inert live: all Kustomizations Ready on it, all 93 ReplicationSources intact. No app includes `components/kopiur` yet |
 | Two `ClusterRepository` + 18 `ExternalSecret` | **landed** 2026-09-22 (#1879, e4539596), plus the `kopiur-system` Pod Security fix (#1880). Both `Ready`, all 18 secrets synced; catalog scanned 2026-09-23. See "The repositories" |
-| Fleet cutover (W0–W8) | W0 parallel run since 2026-09-23 (#1886). Backups refused for ~21 h until #1924 (namespace opt-in). Then, 2026-09-24: **per-app gates 1–4 pass** for both apps (both legs `Succeeded`, identities `<app>@media:/data`), and **the restore gate passes** (recyclarr, both legs, see below). Pilots still running; VolSync still live |
+| Fleet cutover (W0–W8) | W0 parallel run since 2026-09-23 (#1886). Backups refused for ~21 h until #1924 (namespace opt-in). Then, 2026-09-24: **per-app gates 1–4 pass** for both apps (both legs `Succeeded`, identities `<app>@media:/data`), and **the restore gate passes** (recyclarr, both legs, see below). Pilots retired 2026-09-24; VolSync still live |
 
 ## Why kopiur
 
