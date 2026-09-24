@@ -1,8 +1,11 @@
 # Runbook: VolSync → kopiur backup migration
 
 **Status (2026-09-24): repositories landed; step 4 (epoch) skipped on evidence; W0
-(jellyseerr, recyclarr) passed all per-app gates and the per-wave restore gate, and the
-pilots are retired. Next: the W0 per-app cutover.** Every restore needs added capabilities (see
+(jellyseerr, recyclarr) passed all per-app gates and the per-wave restore gate, the pilots
+are retired, and W0 is cut over: kopiur is the only backup of both apps. VolSync was removed
+at merge. **Pending:** clearing the fork's path-scope retention (`clear-path-retention.sh`
+for each app, see "Per-app cutover"); until then the fork's rules still apply on every
+kopiur run. Next: W1.** Every restore needs added capabilities (see
 "Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
@@ -12,7 +15,7 @@ evidence.
 | Pilots (`media/recyclarr-kopiur-pilot`, `media/jellyseerr-kopiur-pilot`) | passed 4/4 and 5/5; **retired 2026-09-24** after W0 passed its gates. Their READMEs (verdicts, the SQLite integrity method) are at `b625ac57:kubernetes/apps/media/{recyclarr,jellyseerr}-kopiur-pilot/README.md` |
 | PR #1870 — component split + `components/kopiur` | **merged** 2026-09-22 (eab49e12); verified inert live: all Kustomizations Ready on it, all 93 ReplicationSources intact. No app includes `components/kopiur` yet |
 | Two `ClusterRepository` + 18 `ExternalSecret` | **landed** 2026-09-22 (#1879, e4539596), plus the `kopiur-system` Pod Security fix (#1880). Both `Ready`, all 18 secrets synced; catalog scanned 2026-09-23. See "The repositories" |
-| Fleet cutover (W0–W8) | W0 parallel run since 2026-09-23 (#1886). Backups refused for ~21 h until #1924 (namespace opt-in). Then, 2026-09-24: **per-app gates 1–4 pass** for both apps (both legs `Succeeded`, identities `<app>@media:/data`), and **the restore gate passes** (recyclarr, both legs, see below). Pilots retired 2026-09-24; VolSync still live |
+| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). W1–W8 not started |
 
 ## Why kopiur
 
@@ -149,12 +152,21 @@ fork's path-scope retention on the identity, in **both** repositories (a live ko
 so Derek runs it):
 
 ```bash
-# against kopia-local, then again against kopia-r2
+docs/runbooks/kopiur-cutover/clear-path-retention.sh <app> [ns]   # both repositories
+```
+
+It runs, per repository:
+
+```bash
 kopia policy set '<app>@<ns>:/data' \
   --keep-latest=inherit --keep-hourly=inherit --keep-daily=inherit \
   --keep-weekly=inherit --keep-monthly=inherit --keep-annual=inherit
 kopia policy show '<app>@<ns>:/data'   # the keep-* lines must read as inherited from <app>@<ns>
 ```
+
+It prints `RESULT <leg>: PASS` when all six `keep-*` lines read `inherited from
+<app>@<ns>`. It refuses to run while any of the app's ReplicationSources, its
+ReplicationDestination or a mover still exists. `DRY=1` server-dry-runs both pods instead.
 
 Doing this any earlier gets undone: the fork re-sets it on every VolSync run.
 
@@ -167,8 +179,11 @@ the `inherit` command, all six read `2147483647 inherited from <app>@<ns>`, and 
 stays `zstd (defined for this target)` (0.23.1 run).
 
 **Client:** a short-lived Pod running the fork's own image (`ghcr.io/perfectra1n/volsync:
-v0.17.11`, `kopia` at `/usr/local/bin`) with `envFrom` the app's
-`<app>-volsync-{local,r2}-secret`, connecting the way the fork's `entry.sh` does. The
+v0.17.11`, `kopia` at `/usr/local/bin`). It reads its credentials from kopiur's
+per-namespace `kopiur-{local,r2}-secret`, and bucket, endpoint and TLS from the live
+ClusterRepository. **Not** from `<app>-volsync-{local,r2}-secret`: those come from the
+`volsync-backup` component, so the cutover prunes their ExternalSecrets, ESO deletes the
+Secrets, and they are gone before this step can run. The
 read-only version of that Pod is `.handoff/verify-kopia-policies.sh` (connects `--readonly`;
 a write fails with `storage is read-only`, verified locally). The write version is the
 same Pod without `--readonly` and with the command above.

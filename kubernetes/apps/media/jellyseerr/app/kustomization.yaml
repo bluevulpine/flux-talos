@@ -8,9 +8,7 @@ resources:
   - ./dnsendpoint.yaml
 components:
   - ../../../../components/volsync-claim
-  - ../../../../components/volsync-backup
-  # kopiur parallel run (W0, docs/runbooks/kopiur-migration.md): both engines
-  # back up this PVC under the same kopia identity until the per-app gates
-  # pass, then volsync-backup is removed. volsync-claim stays: it owns the PVC.
+  # kopiur backs this PVC up (W0 cutover, docs/runbooks/kopiur-migration.md).
+  # volsync-claim stays: it owns the PVC and its (now inert) dataSourceRef.
   - ../../../../components/kopiur
 
