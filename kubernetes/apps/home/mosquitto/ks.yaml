@@ -42,7 +42,9 @@ spec:
       KOPIUR_LOCAL_CRON: "H * * * *"
       # R2 pinned to an explicit minute <= :39, not H 2: jitter could spill
       # into hour 03, reserved for kopia-maint-r2 (waves table footnote 2).
-      KOPIUR_R2_CRON: "0 2 * * *"
+      # :25 also keeps VolSync's own R2 run (02:19) outside the 20m
+      # jitter window, so the two engines don't write this identity together.
+      KOPIUR_R2_CRON: "25 2 * * *"
       KOPIUR_COPYMETHOD: Snapshot
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
       # Mirrors VOLSYNC_CACHE_CAPACITY.

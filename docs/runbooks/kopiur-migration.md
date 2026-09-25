@@ -328,17 +328,17 @@ the `kopiur-pilot` Garage bucket and the OpenBao key `kopiur-pilot` by hand.
 | W1 | media/notifiarr | `35 */4 * * *` → `H */4 * * *` | `49 2 * * *` → `10 2 * * *` ² | Snapshot | longhorn-1-replica |  |
 | W1 | media/sportarr | `53 */4 * * *` → `H */4 * * *` | `57 5 * * *` → `H 5 * * *` | Snapshot | longhorn-1-replica | uid/gid/fsGroup 568 |
 | W1 | media/tautulli | `20 */4 * * *` → `H */4 * * *` | `27 5 * * *` → `H 5 * * *` | Snapshot | longhorn-1-replica |  |
-| W2 | home/mosquitto | `50 * * * *` → `H * * * *` | `19 2 * * *` → `0 2 * * *` ² | Snapshot | longhorn-1-replica | cache 10Gi |
+| W2 | home/mosquitto | `50 * * * *` → `H * * * *` | `19 2 * * *` → `25 2 * * *` ² | Snapshot | longhorn-1-replica | cache 10Gi |
 | W2 | media/calibre | `30 * * * *` → `H * * * *` | `27 0 * * *` → `H 0 * * *` | Snapshot | longhorn-1-replica |  |
 | W2 | media/maintainerr | `38 */4 * * *` → `H */4 * * *` | `21 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica | uid/gid/fsGroup 1000 |
 | W2 | productivity/grocy | `15 */2 * * *` → `H */2 * * *` | `11 1 * * *` → `H 1 * * *` | Direct | longhorn-1-replica |  |
 | W2 | productivity/homebox | `20 */2 * * *` → `H */2 * * *` | `19 1 * * *` → `H 1 * * *` | Snapshot | longhorn-1-replica |  |
 | W2 | productivity/karakeep | `25 */2 * * *` → `H */2 * * *` | `49 1 * * *` → `H 1 * * *` | Snapshot | longhorn-1-replica |  |
-| W2 | productivity/mealie | `10,40 * * * *` → `25,55 * * * *` ¹ | `11 2 * * *` → `5 2 * * *` ² | Snapshot | longhorn-1-replica |  |
-| W2 | productivity/n8n | `6,36 * * * *` → `21,51 * * * *` ¹ | `27 2 * * *` → `15 2 * * *` ² | Snapshot | longhorn-1-replica |  |
-| W2 | productivity/nextcloud | `4,34 * * * *` → `19,49 * * * *` ¹ | `33 2 * * *` → `20 2 * * *` ² | Snapshot | longhorn-1-replica |  |
-| W2 | productivity/node-red | `8,38 * * * *` → `23,53 * * * *` ¹ | `41 2 * * *` → `25 2 * * *` ² | Snapshot | longhorn-1-replica | uid/gid/fsGroup 1000 |
-| W2 | productivity/obsidian | `12,42 * * * *` → `27,57 * * * *` ¹ | `57 2 * * *` → `30 2 * * *` ² | Direct | longhorn-1-replica |  |
+| W2 | productivity/mealie | `10,40 * * * *` → `25,55 * * * *` ¹ | `11 2 * * *` → `15 2 * * *` ² | Snapshot | longhorn-1-replica |  |
+| W2 | productivity/n8n | `6,36 * * * *` → `21,51 * * * *` ¹ | `27 2 * * *` → `30 2 * * *` ² | Snapshot | longhorn-1-replica |  |
+| W2 | productivity/nextcloud | `4,34 * * * *` → `19,49 * * * *` ¹ | `33 2 * * *` → `5 2 * * *` ² | Snapshot | longhorn-1-replica |  |
+| W2 | productivity/node-red | `8,38 * * * *` → `23,53 * * * *` ¹ | `41 2 * * *` → `0 2 * * *` ² | Snapshot | longhorn-1-replica | uid/gid/fsGroup 1000 |
+| W2 | productivity/obsidian | `12,42 * * * *` → `27,57 * * * *` ¹ | `57 2 * * *` → `35 2 * * *` ² | Direct | longhorn-1-replica |  |
 | W3 | download/qbittorrent | `0 */2 * * *` → `H */2 * * *` | `19 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica |  |
 | W3 | download/sabnzbd | `0 */4 * * *` → `H */4 * * *` | `57 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica |  |
 | W3 | media/audiobookshelf | `40 * * * *` → `H * * * *` | `3 0 * * *` → `H 0 * * *` | Snapshot | longhorn-1-replica |  |
@@ -375,7 +375,9 @@ don't snapshot the same volume in the same minute during the parallel run. Check
 against the same repository. Read `status.nextSchedule.at` after applying and move any that
 land past 02:40. Move it to an **explicit minute ≤ :39**, not another `H`: the jitter is
 re-derived for every slot, so one reading under 02:40 does not prove the next one is.
-`notifiarr-r2` (W1) read 02:59:19Z, so its `H` is at least :39, and it is pinned to `10 2`.
+`notifiarr-r2` (W1) read 02:59:19Z, so its `H` is at least :39, and it is pinned to `10 2`. Also keep
+each app's own VolSync R2 minute outside `[pin, pin+20m)`, so the two engines don't write the
+same identity together during the parallel run (W2's pins were chosen that way).
 A cron change does not re-pin a pending slot (see the traps), so the old slot still fires
 once.
 ³ **Add `NS: <namespace>`** to `postBuild.substitute`. See the `NS` trap below.
