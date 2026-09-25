@@ -35,6 +35,35 @@ spec:
               kind: Ingress
               metadata:
                 name: not-used
+          # Restart Synapse and MAS when matrix-stack-secret changes. Both bake the
+          # Postgres password (and every other secret) into their rendered config at
+          # pod start, and the chart's k8s.element.io/*-hash labels hash the Secret's
+          # NAME and key, not its contents — so without this a rotated password is
+          # only picked up by an unrelated restart, and until then every NEW
+          # connection fails. Ordering against the db Job: README "Rotating".
+          # Strategic merge, not a JSON-patch `add /metadata/annotations`, which would
+          # replace any annotations a future chart version sets. `target` because the
+          # rendered objects carry namespace: matrix, which a bare patch would not match.
+          - target:
+              kind: StatefulSet
+              name: matrix-stack-synapse-main
+            patch: |-
+              apiVersion: apps/v1
+              kind: StatefulSet
+              metadata:
+                name: matrix-stack-synapse-main
+                annotations:
+                  secret.reloader.stakater.com/reload: matrix-stack-secret
+          - target:
+              kind: Deployment
+              name: matrix-stack-matrix-authentication-service
+            patch: |-
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: matrix-stack-matrix-authentication-service
+                annotations:
+                  secret.reloader.stakater.com/reload: matrix-stack-secret
   values:
     # PERMANENT. Embedded in every user ID (@user:<serverName>) and room ID; per
     # the chart it "can not change after the initial deployment". The apex, delegated to

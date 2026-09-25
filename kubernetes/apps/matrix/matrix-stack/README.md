@@ -17,6 +17,7 @@ not Tuwunel / Continuwuity / Dendrite: `docs/briefs/2026-09-24-matrix-homeserver
 | `matrix.` | Synapse client + federation API (via HAProxy) | LAN + internet (Pangolin) |
 | `matrix.` `/_synapse/admin` etc. | Synapse admin API, `/_synapse/mas` | **LAN / tailnet only** |
 | `account.` | MAS — login, account management, Authentik callback | LAN + internet (Pangolin) |
+| `account.` `/api/admin` | MAS admin API | **LAN / tailnet only** (404 at the Pangolin edge) |
 | `chat.` | Element Web | LAN + internet (Pangolin) |
 | `matrix-admin.` | Element Admin | **LAN / tailnet only** |
 
@@ -72,7 +73,7 @@ Everything else is reconciled by Flux. These four are not:
 
 ```bash
 curl -s https://${SECRET_DOMAIN}/.well-known/matrix/server   # {"m.server": "matrix.<domain>:443"}
-curl -s https://${SECRET_DOMAIN}/.well-known/matrix/client   # base_url + MAS issuer
+curl -s https://${SECRET_DOMAIN}/.well-known/matrix/client   # m.homeserver.base_url only; clients find MAS via /_matrix/client/v1/auth_metadata
 curl -s https://matrix.${SECRET_DOMAIN}/_matrix/client/versions
 curl -s -o /dev/null -w '%{http_code}\n' https://matrix.${SECRET_DOMAIN}/_synapse/admin/v1/server_version  # from OUTSIDE the LAN: 404
 ```
@@ -91,17 +92,27 @@ That lets the user *request* admin in Element Admin; it does not make every sess
 
 ## Operations
 
-**Rotating a database password.**
+**Rotating a database password.** Order matters. Synapse and MAS restart
+automatically (Reloader) the moment `matrix-stack-secret` changes, and a restarted pod
+can only connect once the `matrix-db-init` Job has set the new password on the role.
+So update the database first, the app secret last:
 
 ```bash
 bao kv patch secret/matrix Synapse__Postgres__Password="$(openssl rand -hex 32)"
-kubectl -n matrix annotate externalsecret matrix-db-init-secret matrix-stack-secret force-sync="$(date +%s)" --overwrite
-kubectl -n matrix delete job matrix-db-init --ignore-not-found   # Flux recreates + reruns it
+# 1. database side: sync the Job's secret, rerun the Job, wait for it
+kubectl -n matrix annotate externalsecret matrix-db-init-secret force-sync="$(date +%s)" --overwrite
+kubectl -n matrix delete job matrix-db-init --ignore-not-found
+flux -n matrix reconcile ks matrix-stack-db       # recreates the Job now instead of within the hour
+kubectl -n matrix wait --for=condition=complete job/matrix-db-init --timeout=5m
+# 2. app side: Reloader rolls Synapse / MAS with the new password
+kubectl -n matrix annotate externalsecret matrix-stack-secret force-sync="$(date +%s)" --overwrite
 ```
 
-Left alone, the Job reruns on every reconcile of `matrix-stack-db` (`interval: 1h`) and
-converges the role passwords anyway; deleting it just makes that immediate. Use hex or
-alphanumerics — `postgres-init` puts the password inside a single-quoted SQL literal.
+`matrix-stack-secret` also refreshes by itself every 5 minutes, so do step 1 promptly.
+If it wins the race, the restarted pods fail database auth until the Job has run, then
+recover on their next retry. Left entirely alone after a `bao kv patch`, that window
+lasts until the Job's next hourly run. Use hex or alphanumerics: `postgres-init` puts
+the password inside a single-quoted SQL literal.
 
 **Never rotate `Synapse__SigningKey` by overwriting it.** It is the server's federation
 identity. A real rotation keeps the old key as an `old_signing_keys` entry; the script

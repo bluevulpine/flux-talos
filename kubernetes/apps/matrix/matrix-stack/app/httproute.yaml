@@ -122,17 +122,63 @@ metadata:
 spec:
   hostnames:
     - "account.${SECRET_DOMAIN}"
+  # LAN / tailnet: everything, including the MAS admin API (/api/admin), which
+  # Element Admin calls from the browser.
   parentRefs:
     - name: internal
-      namespace: network
-      sectionName: https
-    - name: external-pangolin
       namespace: network
       sectionName: https
   rules:
     - backendRefs:
         - name: matrix-stack-matrix-authentication-service
           port: 8080
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# Internet (Pangolin): the same host minus the MAS admin API. The chart puts the
+# `adminapi` resource on MAS's single public `web` listener, so it cannot be split
+# at the Service; it is refused here at the edge instead, matching the Synapse
+# admin API (matrix-synapse-lan). Gateway API has no "all except" match, hence a
+# separate route per gateway: a second /api/admin rule on `internal` would tie on
+# prefix length with the one above and be resolved by creation time.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: matrix-account-public
+spec:
+  hostnames:
+    - "account.${SECRET_DOMAIN}"
+  parentRefs:
+    - name: external-pangolin
+      namespace: network
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/admin
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: gateway.envoyproxy.io
+            kind: HTTPRouteFilter
+            name: matrix-not-found
+    - backendRefs:
+        - name: matrix-stack-matrix-authentication-service
+          port: 8080
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.envoyproxy.io/httproutefilter_v1alpha1.json
+# Answers at the edge without reaching a backend (Envoy Gateway extension).
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: HTTPRouteFilter
+metadata:
+  name: matrix-not-found
+spec:
+  directResponse:
+    statusCode: 404
+    contentType: text/plain
+    body:
+      type: Inline
+      inline: "Not Found"
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
 apiVersion: gateway.networking.k8s.io/v1
