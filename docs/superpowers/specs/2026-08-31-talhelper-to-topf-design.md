@@ -826,8 +826,17 @@ changed as a result:
 
 **What this does not prove.** The comparison used *synthetic* secrets, so every masked value
 is unchecked: the cluster PKI, the machine and bootstrap tokens, the Tailscale auth key, the
-LUKS passphrase and the registry domain. `NORM_HASH=1` hashes them instead, so a real-secrets
-render can be compared without printing anything; that run is Derek's (see Phase 4).
+LUKS passphrase and the registry domain. `compare.sh --hash` HMACs them with a random per-run
+key instead (`NORM_KEY`, set by the script; the earlier `NORM_HASH=1` no longer exists and
+`norm.py` now errors on it), so a real-secrets render can be compared without printing anything;
+that run is Derek's (see Phase 4).
+
+**A limit of the masked (synthetic) mode, found by the automated PR review.** Its catch-all
+for secret-shaped strings not covered by a known path reduces any 40+ character
+`[A-Za-z0-9+/=_-]` value to `<long-string:N>`, so two *different* values of the same length
+compare equal. Today every long value sits under a known secret path, so nothing is hidden, but
+a future digest, UUID or token field would be. The `--hash` run does not have this gap (the
+catch-all is HMAC'd there), which is one more reason it, not the synthetic run, is the gate.
 
 ### Phase 4 — prove the output matches
 

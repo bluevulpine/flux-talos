@@ -20,6 +20,9 @@ Masking is by exact PATH, never by field name: `key` also names taint keys and v
 """
 import hashlib, hmac, json, os, re, subprocess, sys
 
+if os.environ.get("NORM_HASH"):
+    # Removed: it was an unsalted hash. Silently ignoring it would fall back to weaker masking.
+    sys.exit("NORM_HASH no longer exists; run compare.sh --hash (it sets a random per-run NORM_KEY)")
 KEY = os.environ.get("NORM_KEY")
 SECRET_PREFIXES = ("machine.ca", "machine.token", "cluster.ca", "cluster.id", "cluster.secret",
                    "cluster.token", "cluster.aggregatorCA", "cluster.serviceAccount",
