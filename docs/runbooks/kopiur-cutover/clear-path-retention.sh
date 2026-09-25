@@ -100,9 +100,19 @@ EOF
     echo "=== ${leg}: ${NS}/${pod}"
     kubectl "${KA[@]}" -n "$NS" wait pod "$pod" --for=jsonpath='{.status.phase}'=Succeeded --timeout=5m ||
         kubectl -n "$NS" get pod "$pod"
-    kubectl -n "$NS" logs "$pod"
+    local log
+    log=$(kubectl -n "$NS" logs "$pod" 2>&1 || true)
+    printf '%s\n' "$log"
     kubectl "${KA[@]}" -n "$NS" delete pod "$pod" --wait=false >/dev/null
+    # A pod killed before it prints (OOMKilled on connect, 2026-09-25) leaves no RESULT
+    # line at all; count that as a failure rather than something to spot by eye.
+    if ! grep -q "^RESULT ${leg}: PASS" <<<"$log"; then
+        echo "LEG FAILED: ${leg} (no PASS line)" >&2
+        failed+=("$leg")
+    fi
 }
 
+failed=()
 run_leg local
 run_leg r2
+[[ -n "${DRY:-}" || ${#failed[@]} -eq 0 ]] || { echo "FAILED legs: ${failed[*]}" >&2; exit 1; }

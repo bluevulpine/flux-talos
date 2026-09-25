@@ -1,10 +1,9 @@
 # Runbook: VolSync → kopiur backup migration
 
-**Status (2026-09-24): repositories landed; step 4 (epoch) skipped on evidence; W0
-(jellyseerr, recyclarr) passed all per-app gates and the per-wave restore gate, the pilots
-are retired, and W0 is cut over: kopiur is the only backup of both apps (VolSync removed in #1934; the fork's
-path-scope retention cleared in both repositories, all six `keep-*` inherited). W1 is in its
-parallel run.** **W1 (8 apps) cut over 2026-09-25.** Every restore needs added capabilities (see
+**Status (2026-09-25): repositories landed; step 4 (epoch) skipped on evidence; W0
+(jellyseerr, recyclarr, #1934) and W1 (8 apps, #1941) are cut over: kopiur is their only
+backup, and the fork's path-scope retention is cleared in both repositories (all six `keep-*`
+inherited). W2–W8 not started.** Every restore needs added capabilities (see
 "Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
