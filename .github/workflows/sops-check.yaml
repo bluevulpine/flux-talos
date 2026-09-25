@@ -52,3 +52,15 @@ jobs:
           mapfile -t files < <(git ls-files '*.sops.yaml' talos/topf.yaml | grep -vx '\.sops\.yaml')
           printf 'checking %d files\n' "${#files[@]}"
           scripts/check-sops-encrypted.sh "${files[@]}"
+
+      # Until talconfig.yaml is retired (Phase 7 of the talhelper->topf migration) the PKI bundle
+      # exists twice: talhelper reads talsecret.sops.yaml, topf reads secrets.sops.yaml. They are
+      # byte-identical copies. `just talos gen-secrets` only rewrites the former, which would
+      # leave topf on a stale PKI with nothing to notice. Ciphertext equality needs no age key.
+      - name: PKI bundle copies stay in step
+        run: |-
+          set -euo pipefail
+          if [[ -f talos/talsecret.sops.yaml && -f talos/secrets.sops.yaml ]]; then
+            cmp talos/talsecret.sops.yaml talos/secrets.sops.yaml \
+              || { echo "::error::talos/talsecret.sops.yaml and talos/secrets.sops.yaml differ. Update both in the same change."; exit 1; }
+          fi

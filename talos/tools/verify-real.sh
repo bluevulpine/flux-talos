@@ -42,9 +42,12 @@ done
 
 echo "3. real-secrets render vs baseline, HMAC-compared"
 out="$(mktemp -d)"; trap 'rm -rf "$out"' EXIT
-( umask 077; cd "$TALOS_DIR" && "$TOPF" render -o "$out" </dev/null >/dev/null 2>"$out.err" ) \
-  || { echo "  render FAILED:"; sed 's/\x1b\[[0-9;]*m//g' "$out.err" | head -5 | cut -c1-200; rm -f "$out.err"; exit 1; }
-rm -f "$out.err"
+# topf's error text is deliberately NOT echoed: an error about a field can quote its value (a
+# passphrase, the Tailscale key), and this script promises never to print one. Reproduce it
+# deliberately and look yourself: (cd talos && ../.bin/topf render -o "$(mktemp -d)")
+( umask 077; cd "$TALOS_DIR" && "$TOPF" render -o "$out" </dev/null >/dev/null 2>/dev/null ) \
+  || { echo "  render FAILED (topf's output withheld; it may quote a secret). Reproduce by hand:"; \
+       echo "    (cd $TALOS_DIR && $TOPF render -o \"\$(mktemp -d)\")"; exit 1; }
 "$HERE/compare.sh" "$BASELINE" "$out" --hash || rc=1
 
 echo

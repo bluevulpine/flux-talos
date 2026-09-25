@@ -43,6 +43,10 @@ diff. A clean cluster needs none.
    needs a reboot is a cluster-wide API outage.
 7. **Do not merge Renovate #1849, and do not let tuppr roll, while this runs.** Never straddle
    a Talos bump.
+8. **Do not run `just talos gen-secrets` (rotate the PKI) during the migration.** The PKI bundle
+   exists twice until Phase 7 (`talsecret.sops.yaml` for talhelper, `secrets.sops.yaml` for topf)
+   and the recipe only rewrites the first. CI (`SOPS Check`) fails if they diverge; if you must
+   rotate, change both in one commit and re-run `verify-real.sh`.
 
 ## Before you start (once)
 

@@ -628,7 +628,11 @@ Done in worktree `~/Repositories/flux-talos-talos-gen`, branch `talhelper-replac
   (`cmp`), *not* a `git mv` as first written. talhelper still needs `talsecret.sops.yaml`
   for the rollback path and for regenerating the baseline; the old file is deleted in
   Phase 7. Two copies of the same ciphertext cannot diverge unless the PKI is rotated,
-  which this migration does not do.
+  which this migration does not do. **But `just talos gen-secrets` (untouched here) rewrites only
+  `talsecret.sops.yaml`**, which would leave topf on a stale PKI with nothing to notice; this was
+  raised by the automated PR review. Now guarded three ways: the `SOPS Check` workflow fails if
+  the two ciphertexts are not byte-identical (no age key needed), the recipe prints a warning,
+  and the Phase 5 runbook lists it as a hard rule.
 - **`talos/topf.yaml`** written by piping `sops -d talenv.sops.yaml` through `yq` into
   `sops -e`, so no plaintext touched disk. Verified: only `data:` (`tsAuthKey`,
   `volumeKey`, `domain`) is ciphertext; versions, annotations, `clusterName` and all 8
@@ -918,6 +922,11 @@ negative cases were tested on synthetic data: a different PKI bundle, a differen
 `talenv`, and a different rendered passphrase each produce `DIFFERENT` and `FAIL`.
 
 **Gate to Phase 5: exit 0.** Anything else means do not apply.
+
+`verify-real.sh` deliberately **withholds topf's error text on a render failure** (found by the
+automated PR review): an error about a field can quote its value, and the script promises never
+to print one. It prints how to reproduce the render by hand instead. Tested with a stand-in
+topf that writes a canary "secret" to stderr: it never reaches the output.
 
 **Result, 2026-09-24 (Derek ran it with the real age key): `RESULT: OK`.** The PKI bundles are
 the same; `tsAuthKey`, `volumeKey` and `domain` equal their `talenv.sops.yaml` originals; and
