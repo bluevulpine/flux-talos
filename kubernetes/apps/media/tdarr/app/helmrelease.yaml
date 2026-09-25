@@ -34,8 +34,7 @@ spec:
               # the tdarr-node LoadBalancer. The internal node had been at 0
               # workers and was a hazard rather than spare capacity: the plugin
               # stack hardcodes hevc_nvenc, and this pod only ever had an AMD
-              # iGPU. Turning it off also frees that iGPU for Plex and Jellyfin,
-              # which contend for the same three.
+              # iGPU, so the internal node could only fail jobs.
               internalNode: "false"
               inContainer: "true"
             envFrom:
@@ -146,21 +145,15 @@ spec:
         existingClaim: tdarr-media-nfs
         globalMounts:
           - path: /media
-      # Transcode scratch. emptyDir is right - this is genuinely disposable and
-      # wants NVMe rather than the NFS share, which is also serving playback.
+      # The library's cache path. It is kept because the Movies library names
+      # /temp. Since 2026-09-25 this pod runs no node, so nothing transcodes
+      # here. The Spark node transcodes into its own cache.
       #
-      # sizeLimit added 2026-09-02, because an unbounded emptyDir here is a
-      # node-level hazard rather than a pod-level one. /temp is backed by
-      # brokkr01's /dev/nvme1n1p4, which had 32G free of 100G when measured, and
-      # that partition is shared with container images, logs and every other
-      # emptyDir on the node. A single 4K transcode can want tens of GB; without
-      # a limit Tdarr can fill the node's ephemeral storage and trigger evictions
-      # across every workload on it. With a limit, the failure is one evicted
-      # tdarr pod.
-      #
-      # 16Gi is deliberately conservative against 32G of headroom. Raise it once
-      # real transcodes show what they actually need - and watch node disk before
-      # raising Tdarr's worker count, which multiplies this.
+      # sizeLimit dates from when the internal node did transcode here: an
+      # unbounded emptyDir sits on the node's ephemeral disk, which container
+      # images, logs and every other emptyDir share, and a single 4K transcode
+      # can want tens of GB. The limit is kept so that turning the internal
+      # node back on cannot fill a brokkr node's disk and evict its neighbours.
       transcode-cache:
         type: emptyDir
         sizeLimit: 16Gi

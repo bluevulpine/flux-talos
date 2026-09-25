@@ -37,10 +37,10 @@ spec:
       #
       # Longhorn RWO, not tns-csi-nfs RWX, since 2026-09-25. The claim carries
       # Tdarr's SQLite database (DB2/SQL/database.db), and SQLite on NFS stalled
-      # the whole server: poll-worker-limits took 0.5-0.75s at baseline with
-      # 14s+ spikes and dozens of >30s timeouts, from the external node AND from
-      # the internal node on 0.0.0.0 - so not the network - with the server CPU
-      # idle. Same failure and same fix as jellyfin (#1703). RWO specifically:
+      # the whole server. On 2026-09-25, 1 in 5 poll-worker-limits calls took
+      # 20-35s against a normal ~0.1s, and the node logs showed 68 >30s timeouts
+      # in 3h. That held from the external node AND from inside the pod on
+      # 0.0.0.0, so it was not the network, and the server CPU sat idle. Same failure and same fix as jellyfin (#1703). RWO specifically:
       # Longhorn RWX is itself NFS, via a share-manager pod.
       VOLSYNC_STORAGECLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
