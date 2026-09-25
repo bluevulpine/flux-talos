@@ -1,0 +1,15 @@
+#!/bin/bash
+# hm '<guard call>' — run guard functions from move-guards.sh in a fresh bash. An executable SCRIPT, not a shell function (functions and exports
+# do not survive separate tool calls). State paths come from the guards' config file, never from the caller environment.
+#   MOVE_CONF=/abs/move.conf hm 'record_pv'        MOVE_CONF=... hm 'pr_merge <PR> <full-sha>'
+# MOVE_CONF is REQUIRED (no default: the per-move config lives outside every repo). WHAT hm IS: a convenience that sources the guards and `eval`s its
+# argument, so the argument can be ANY shell — hm is NOT a sandbox and NOT an authorisation. The safety layer is the guard FUNCTIONS (move-guards.sh);
+# raw `kubectl`/`flux`/`gh` typed inside hm '...' bypass them. Use hm for guard calls; see README "Safety model" for what is and is not guarded.
+[ $# -ge 1 ] || { echo "usage: MOVE_CONF=/abs/move.conf hm '<guard function call>'" >&2; exit 2; }
+self=${BASH_SOURCE[0]}; [ -L "$self" ] && self=$(readlink "$self")          # e.g. ~/.local/bin/hm is a symlink to this file
+here=$(cd "$(dirname "$self")" && pwd)
+[ -n "${MOVE_CONF:-}" ] || { echo "REFUSE: set MOVE_CONF=/abs/path/to/the/per-move.conf (outside every repo)" >&2; exit 2; }
+export MOVE_CONF
+# shellcheck source=move-guards.sh
+source "$here/move-guards.sh"
+eval "$*"

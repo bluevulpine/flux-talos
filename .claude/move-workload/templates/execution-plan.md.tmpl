@@ -1,0 +1,65 @@
+# Execution plan: moving `<OLD>/<APP>` → `<NEW>/<APP>`
+
+Prepared <DATE>. **Nothing in this file has been executed until a step says so.** Procedure/evidence: `docs/runbooks/volsync-app-namespace-move.md`
+(step tags B0–B11, traps 1–15). Generic order of operations: `.claude/move-workload/workflow.md`. Every `hm '…'` is `MOVE_CONF=<conf> hm '…'`.
+**UNVERIFIED** = assumption; **TESTED** = rehearsal/real move; **UNTESTED** = reasoning only.
+
+## 0. Literals (the ONE place they are filled in)
+
+| Literal | Value |
+| --- | --- |
+| APP / OLD / NEW | `<APP>` / `<OLD>` / `<NEW>` |
+| PV | `<PV>` (re-read from the live PVC, never a saved variable) |
+| StorageClass / capacity | `<SC>` / `<CAP>` |
+| PR 1 / branch / SHA 1 | `<PR1>` / `<APP>-move-pr1` / `<PR1_SHA>` (commit 1: the move, pod held at 0) |
+| PR 2 / branch / SHA 2 | `<PR2>` / `<APP>-move-pr2` / `<PR2_SHA>` (commit 2: start the pod) |
+| BASE | `<BASE_SHA>` (main the commits were built on) |
+| Conf / state dir / worktree | `<MOVE_CONF>` / `<STATE_DIR>` / `<WORKTREE>` (all outside every repo) |
+| Cluster UID | `<CLUSTER_UID>` |
+| RS schedules | `<APP>-local` `<CRON>` (~`<DUR>`), `<APP>-r2` `<CRON>` (~`<DUR>`) |
+| Baseline layout (P1, read live) | files `<EXPECT_FILES>`; dirs `<EXPECT_DIRS>`; report `<REPORT_DIRS>`; live `<LIVE_FILES>` |
+
+Gate output, literally, per commit: <paste `move_gate` output for SHA 1 and SHA 2>.
+
+## 1. Clock and downtime
+Busy windows (UTC): `<local RS>`, `<r2 RS>`, kopia-maintenance `<…>`. Chosen start: `<UTC>`. Budget `<N>` min. Downtime estimate: best `<…>`, expected `<…>` (real size UNVERIFIED). 45-minute decision point.
+
+## 2. Who notices (alerts) and the silence
+<Gatus key, homepage tile, VolSyncVolumeOutOfSync, VolSyncMoverStuck, KubeJobFailed for hchk-*, Flux→Alertmanager provider.> Silence: only with `SILENCE`; `am_unsilence` at W-14.
+
+## 3. Rollback rows (runbook §5) — status per point
+| Point | Rollback | Status |
+| --- | --- | --- |
+| T-1 (PV `Retain` only) | recreated OLD PVC → STOP; undo `hm 'pv_reclaim $PV Delete'` | `Delete` patch TESTED [Rh-11] |
+| W-3…W-5 | resume HR + ks, scale up | UNTESTED (trivial) |
+| W-6…W-8 | resume HR; **never** `Delete` on a `Released` PV | UNTESTED |
+| PR 1 merged, pre re-point | forward-commit back with `volumeName` + `pv_repoint … <OLD>` + content check | UNTESTED as rollback |
+| Re-pointed, pod at 0 | same, or approach A into OLD | UNTESTED |
+| Pod running in NEW | suspend HR, scale 0, forward commit back (gate `want=1`), wait `Released`, re-point to OLD, content check, clean orphans | TESTED [Rh-4] (fixture) |
+| After B10 | restore from either series (approach A); replays app secrets | UNTESTED |
+Prepared rollback branch: `<APP>-move-rollback` = `<SHA>` (`templates/rollback-branch-recipe.md`), gated `move_gate <OLD> 1 zero`, **not pushed**.
+
+## 4. Abort rules
+A failed pass criterion = stop, no improvising. Before W-9 everything is reversible by resume + scale up. Never: `kubectl apply` a repo app, `flux reconcile` after a merge, remove a claimRef, patch any PV but `<PV>`, `Delete` early, delete PV/Longhorn volume, `--force`, edit RD `trigger.manual` while the ks runs, touch the app PV to fix the drill, a bare `gh pr merge`.
+
+## Phase T-1 (pre-window)
+T-1.1 `hm 'drift_check'` · T-1.2 `hm 'move_gate <NEW> 2 zero'` on SHA 1, `… 2 absent` on SHA 2 · T-1.3 cluster preconditions (`classify.md` #2/#7/#8/#9/#10, `hm 'others_ready'`) ·
+**T-1.3b `RETAIN`** `hm 'record_pv'` → `hm 'app_pv'` → `hm 'pv_reclaim $PV Retain'` → independent read-back · **T-1.4 `PUSH`** branches + draft PRs · T-1.5 CI + bot review read · T-1.6 rollback branch · T-1.7 human decisions.
+<Fill each with the literal commands and expected output, as `workflow.md` P4.>
+
+## Phase W (the window)
+W-0 clock · W-0b `hm 'w0b'` · W-1 silence · W-2 B0 · **W-3 B1 quiesce (`QUIESCE`)** · W-4 B2 baseline · W-5 B3 forced backup (calls A/B) · W-6 B4 · W-7 B4b · W-8 go/no-go · **W-9 B5 merge PR 1 (`MERGE-1`)** · W-10 patch proof · W-11 B6 re-point · W-12 B7 content compare · **W-13 merge PR 2 (`MERGE-2`)** · W-14 verify + unsilence · W-15 drill · W-16 B9 · W-17 end.
+<Fill each with the literal commands, pass/abort criteria and rollback status from `workflow.md` P5, using the literals above.>
+
+## End-of-window checklist
+- [ ] `hm app_pv` = `<PV>`; PV `Retain`/`Bound`/`<NEW>/<APP>`; Longhorn `kubernetesStatus` → `<NEW>/<APP>`
+- [ ] W-12 `content identical`; the human confirmed the state is there
+- [ ] exactly one route, in `<NEW>`; Gatus `<NEW>_<APP>` green; homepage group updated
+- [ ] `helm -n <NEW> history <APP>` = 2 revisions
+- [ ] `<APP>@<NEW>` written by both RS; no Pending PVC, no `hchk-*` Job/pod; silences removed; all ks Ready
+
+## Phase S (soak) and cleanup
+PV stays `Retain`. **B10** only with `B10_OK=yes` from the human. Cleanup PR (deferred edits, remove temporary `spec.timeout`), B11 orphans, age-out of `<APP>@<OLD>` ≥30 days, long-term shape decision (`IfNotPresent` vs pin). Residue table: <state dir, PV label, branches, old series, orphans>.
+
+## Stop and ask
+Before: `RETAIN`, `PUSH`, window time, `SILENCE`, drift/open PR/Pending PVC/low disk, any review finding that changes a file. During: any unmet pass criterion, `app_pv` ≠ `<PV>`, anything on the never-list, 45 minutes, unexplained alert, rollback. After: `B10`, soak length, long-term shape, age-out.

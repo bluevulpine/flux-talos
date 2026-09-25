@@ -1,0 +1,23 @@
+HOLD — merged only by step W-9 of `<execution plan path>` (the maintenance window). Do **not** merge, auto-merge, or squash. Merge commit only, head pinned to `<PR1_SHA>`.
+
+## What
+Moves `<APP>` from `<OLD>` to `<NEW>` (app directory + the two namespace kustomization lists only). The pod is **held at 0 replicas** (`controllers.<CONTROLLER>.replicas: 0`) so nothing writes to the volume until the data is verified; PR #<PR2> starts it.
+
+## Why it is safe
+- Data is kept, not restored: the PV `<PV>` is `Retain` (set before this PR was pushed), the claim is pre-bound with a **kind-targeted** `volumeName` patch, and the new ReplicationDestination reads the old series via `sourceNamespace: <OLD>`. Runbook: `docs/runbooks/volsync-app-namespace-move.md`.
+- The kopia identity forks (`<APP>@<OLD>` → `<APP>@<NEW>`); the old series is never deleted.
+- Pre-merge gate on the committed tree (literal output below): 2 patch lines, every object in `<NEW>`, parent build has exactly one child `<NEW> <APP> ./kubernetes/apps/<NEW>/<APP>/app <NEW>`, replicas 0.
+
+```
+<paste move_gate output>
+```
+
+## Do not
+- merge before the window (the PV is `Retain`, so an accident is recoverable — but it is still an outage); `git revert` this to roll back (forward commit + claimRef re-point instead, runbook §5);
+- `flux reconcile` after merging (webhook does it).
+
+Deferred to a cleanup PR after the soak: comment/docs edits, removing the temporary `spec.timeout`.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+<session URL>

@@ -1,0 +1,36 @@
+# Results: `<OLD>/<APP>` → `<NEW>/<APP>` (<DATE>)
+
+## Summary
+Outcome (one line): <PASS / PASS with surprises / rolled back at W-nn>. Data loss: <none | what>. Downtime: <start – end, N min> (estimated <…>). Window: <UTC start – end>.
+
+## Timeline (UTC)
+| Time | Step | Result | Evidence (command → key output) |
+| --- | --- | --- | --- |
+| | T-1.3b RETAIN | | |
+| | W-3 quiesce | | |
+| | W-5 B3 (both RS) | | |
+| | W-9 PR 1 merged | | |
+| | W-11 re-point → Bound | | |
+| | W-12 content compare | | |
+| | W-13 PR 2 merged → Ready | | |
+| | W-15 drill | | |
+| | W-16 B9 (`<APP>@<NEW>` both RS) | | |
+
+## Surprises
+Each: what was expected, what happened, cause if verified (else label **UNVERIFIED**), what changed in the runbook/guards/templates.
+
+## Guards / harness
+Harness counts for this conf: <passed/failed>; gate scenarios: <passed/failed>. Guard refusals hit during the run and whether each was right.
+
+## Runbook / workflow updates
+| Item | Change | Where |
+| --- | --- | --- |
+| Known-untested items closed or opened | | runbook § Known untested |
+| New trap | | `.claude/move-workload/traps.md` |
+| Rollback row exercised | | runbook §5 |
+
+## Residue
+PV label, state dir, branches, old series `<APP>@<OLD>` (age-out date), orphans in `<OLD>` (cleaned? date), Gatus history, kopia series for tests.
+
+## Open decisions
+B10 date · cleanup PR · long-term claim shape · age-out.
