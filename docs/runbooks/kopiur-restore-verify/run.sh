@@ -38,7 +38,7 @@ if [[ "${1:-}" == compare ]]; then
 fi
 
 # The compare pod is pinned to brokkr01; refuse if calibre-web has moved.
-node="$(kubectl "${KA[@]}" -n "$NS" get pods -l app.kubernetes.io/name=calibre-web -o jsonpath='{.items[0].spec.nodeName}')"
+node="$(kubectl "${KA[@]}" -n "$NS" get pods -l app.kubernetes.io/name=calibre-web --field-selector=status.phase=Running -o jsonpath='{.items[0].spec.nodeName}')"
 if [[ "$node" != brokkr01 ]]; then
     echo "calibre-web runs on '$node', not brokkr01: update nodeName in compare-pod.yaml" >&2
     exit 1

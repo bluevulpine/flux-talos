@@ -39,7 +39,8 @@ not change that in 0.10.9. See "Restores need capabilities, not just root" in th
    land elsewhere and sit in `Multi-Attach` until `run.sh`'s 10-minute wait fails.
 5. **Live writers.** For a file with an active writer (for example a SQLite DB), byte
    identity against live is not a valid test, because the source changes after the
-   snapshot. List those files in `WRITERS` and the database names in the integrity loop;
+   snapshot. List those files in `WRITERS` and the SQLite files in `DBS` (the only two
+   lists in `compare-pod.yaml`; everything else derives from them);
    find them with `ls -la --time-style=full-iso` in the app pod (mtime after the
    snapshots). Use the app's own image, by the running pod's digest, so `sqlite3` matches
    what the app uses. The local and R2 restores still have to match each other, so pick

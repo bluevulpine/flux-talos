@@ -414,8 +414,13 @@ once.
   the stale slot is one extra snapshot, not a missed one. **Two rules follow.** For W2 and
   later, land the `KOPIUR_*` vars (and `NS`) in their own PR, **one PR before** the
   component. The vars alone render nothing. After any wave, run
-  `docs/runbooks/kopiur-cutover/check-schedules.sh <ns>…`: it flags any `nextSchedule` outside its cron's hours,
-  allowing the forward `jitter` spill. Worth an upstream issue.
+  `docs/runbooks/kopiur-cutover/check-schedules.sh <ns>…`. It flags a schedule as `STALE`
+  when no minute in the jitter window before `nextSchedule` matches its cron (hour field,
+  and minute field when numeric), and as `STALE (obs<gen)` when `observedGeneration` is
+  behind `generation`, which is how the W1 race looked. An `H` minute is a hash it can't
+  see, so an `H` cron whose stale slot happens to land in an allowed hour passes on the
+  first test and is caught only by the second. The re-pin bug itself is worth an upstream
+  issue.
 - **`indexBlobCountAt` is when the count was first seen at that value, not when it was
   last probed.** `kopia-r2`'s stamp froze for 15 h and then 8 h, which looked like a
   stalled probe. It was not stalled: `status.health.lastProbeAt` kept moving every 30 min.
