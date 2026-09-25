@@ -199,12 +199,23 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities: {drop: ["ALL"]}
+            # One AMD iGPU for VAAPI hardware transcoding. The device plugin
+            # injects /dev/dri itself, so no hostPath and no privileged
+            # container; groups 44/109 above give access to it. No
+            # nodeSelector: all three brokkr nodes have one, and they are the
+            # only untainted nodes.
+            #
+            # Removed in df3959c6 (2026-04) as "underpowered boxes". Restored
+            # 2026-09-25, when tdarr stopped holding an iGPU (#1947) and none
+            # of the three was allocated to anything.
             resources:
               requests:
                 cpu: 100m
                 memory: 1Gi
+                amd.com/gpu: 1
               limits:
                 memory: 16Gi
+                amd.com/gpu: 1
     service:
       app:
         controller: *app
