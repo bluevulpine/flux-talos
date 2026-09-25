@@ -125,8 +125,9 @@ spec:
               #
               # 15 x 10s = 150s readiness rides out the measured stall with 27s to
               # spare and still ejects a genuinely wedged server inside 2.5 minutes.
-              # 30 x 10s = 300s liveness keeps the backstop while restoring the
-              # margin the split was meant to provide.
+              # 30 x 10s = 300s liveness kept the backstop while restoring the
+              # margin the split was meant to provide. (Raised to 30 min on
+              # 2026-09-25 - see "Upgrade restarts" below.)
               #
               # This is a cushion, not a fix - it makes the stall survivable, not
               # shorter. But it is a cushion over the right thing, which was not
@@ -178,7 +179,7 @@ spec:
                   initialDelaySeconds: 0
                   periodSeconds: 10
                   timeoutSeconds: 10
-                  failureThreshold: 30
+                  failureThreshold: 180
               readiness:
                 enabled: true
                 custom: true
@@ -190,11 +191,56 @@ spec:
                   periodSeconds: 10
                   timeoutSeconds: 10
                   failureThreshold: 15
+              # ─── Upgrade restarts (2026-09-25) ───
+              #
+              # The image is `rolling`, so any pod restart can pull a new Plex,
+              # and a new Plex runs migrations and database fix-ups on boot. The
+              # budgets above were sized for a steady-state stall; they killed
+              # an upgrade mid-flight.
+              #
+              # PMS 1.43.4.10903, from the /identity lines in its own log:
+              #   14:59-15:00  503 on every call - migration 202608120900 (11s)
+              #   15:00        200 in ~0ms
+              #   15:01-15:09  200 in 34-150s, 32 threads queued on db
+              #                connections behind the SyncCollections fix-up,
+              #                which crawled: steps of 30.7s, 30.7s, 61.4s, a
+              #                6-minute silence, another step at 15:09:02
+              #   15:09:15     liveness kill, 30 consecutive >10s timeouts
+              # The fix-up was still progressing. The restarted pod ran it in
+              # 0.3s and was ready in seconds, so the kill bought nothing and
+              # interrupted a database write.
+              #
+              # Two changes, because the stall straddled both probes:
+              #
+              # startup: was the chart's tcpSocket default, which passes the
+              # moment the port opens, about a second in. Now /identity, which
+              # answers 503 while migrations run, with 180 x 10s = 30 min. That
+              # covers the migration phase. It would NOT have saved 09-25 on its
+              # own: /identity went 200 at ~15:00, before the crawl.
+              #
+              # liveness: 30 x 10s -> 180 x 10s = 30 min, because the crawl ran
+              # after startup had passed. It was at least 8.5 minutes and still
+              # going when killed, so its true length is unknown. 30 minutes is
+              # the budget for "progressing slowly" to finish.
+              #
+              # The trade-off is deliberate. A Plex that is genuinely wedged now
+              # takes up to 30 minutes to restart itself, not 5. With one replica
+              # it is equally unavailable either way, and killing a slow Plex
+              # mid-write is the worse outcome. Plex is internet-facing, so it is
+              # kept current on `rolling`; these budgets are what make that
+              # safe. Readiness stays at 150s: it only pulls endpoints and kills
+              # nothing.
               startup:
                 enabled: true
+                custom: true
                 spec:
-                  failureThreshold: 30
+                  httpGet:
+                    path: *probePath
+                    port: *probePort
+                  initialDelaySeconds: 0
                   periodSeconds: 10
+                  timeoutSeconds: 10
+                  failureThreshold: 180
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
