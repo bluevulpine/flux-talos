@@ -372,10 +372,11 @@ don't snapshot the same volume in the same minute during the parallel run. Check
 `status.nextSchedule.at` after applying.
 ² **R2 in hour 02.** `jitter: 20m` is a forward window, so an `H` near :59 can spill into
 **hour 03, which stays reserved** while the fork's `kopia-maint-r2` runs at `0 3 * * *`
-against the same repository. Read `status.nextSchedule.at` after applying and move any that
-land past 02:40. Move it to an **explicit minute ≤ :39**, not another `H`: the jitter is
-re-derived for every slot, so one reading under 02:40 does not prove the next one is.
-`notifiarr-r2` (W1) read 02:59:19Z, so its `H` is at least :39, and it is pinned to `10 2`. Also keep
+against the same repository. So hour-02 R2 crons use an **explicit minute ≤ :39**, never
+`H 2`: `H` hides its minute and the jitter is re-derived for every slot, so one reading of
+`status.nextSchedule.at` proves nothing about the next. A pinned slot can legitimately land
+anywhere up to 02:59 (pin + jitter); only a slot **in hour 03** is wrong.
+`notifiarr-r2` (W1, on `H 2`) read 02:59:19Z, so its `H` is at least :39, and it is pinned to `10 2`. Also keep
 each app's own VolSync R2 minute outside `[pin, pin+20m)`, so the two engines don't write the
 same identity together during the parallel run (W2's pins were chosen that way).
 A cron change does not re-pin a pending slot (see the traps), so the old slot still fires
