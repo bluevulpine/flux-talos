@@ -1,0 +1,5 @@
+#!/bin/bash
+# fake curl for Alertmanager calls: logged, never networked.
+FX=${FX:?}; echo "curl $*" >> "$FX/calls.log"
+case " $* " in *" POST "*|*"-X POST"*) n=$(grep -c '^curl .*POST' "$FX/calls.log"); echo "{\"silenceID\":\"sil-$n\"}";; esac
+exit 0

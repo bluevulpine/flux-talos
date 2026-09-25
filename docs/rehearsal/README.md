@@ -7,6 +7,7 @@ under real Flux on the live cluster, following the runbook, to test the procedur
 | --- | --- |
 | `plan.md` | The plan that was executed (rev 3, after two adversarial reviews): scenarios, pass/abort criteria, guardrails, teardown. |
 | `plan-review.md`, `plan-review-2.md` | The two pre-flight reviews of that plan. Rev 1 and rev 2 were both NO-GO as written; the findings are what became the guards. |
+| `pin-fix/` | The 2026-09-25 rehearsal of `ssa: IfNotPresent` as the way to retire the permanent `volumeName` pin (plan, review, results, guard tooling). |
 | `results.md` | What actually happened, scenario by scenario, with observed output, plus the runbook corrections it produced. |
 | `rehearsal-guards.sh` | Reference copy of the guard functions used during the run. |
 

@@ -1,0 +1,42 @@
+#!/bin/bash
+# fake kubectl for the pinfix guard tests: fixtures in $FX, every call logged to $FX/calls.log. NEVER talks to a cluster.
+FX=${FX:?}; echo "$*" >> "$FX/calls.log"
+ns=""; args=("$@")
+if [ "${args[0]:-}" = "-n" ]; then ns=${args[1]}; args=("${args[@]:2}"); fi
+verb=${args[0]:-}; kind=${args[1]:-}; name=${args[2]:-}
+[ "${FAKE_API_ERROR:-}" = 1 ] && case "$kind" in pv|persistentvolume) echo "The connection to the server was refused" >&2; exit 1;; esac
+case "$verb $kind" in
+  "get ns") if [ "$name" = kube-system ]; then echo -n "${FAKE_UID:-793124f9-2b2e-4c9e-9fd0-41d27bd2d5a0}"; else cat "$FX/ns.txt" 2>/dev/null; fi; exit 0;;
+  "get ks,gitrepository") cat "$FX/flux.txt" 2>/dev/null; exit 0;;
+  "get ks")
+    if [ "$name" = "-A" ]; then cat "$FX/ks-all.json"; exit 0; fi
+    f="$FX/ks-$ns-$name.json"; [ -f "$f" ] || { echo "not found" >&2; exit 1; }; cat "$f"; exit 0;;
+  "get pv")
+    if [ "$name" = "-o" ]; then cat "$FX/pvlist.json" 2>/dev/null || echo '{"items":[]}'; exit 0; fi
+    f="$FX/pv-$name.json"
+    case " ${args[*]} " in *" --ignore-not-found "*) [ -f "$f" ] && echo "persistentvolume/$name"; exit 0;; esac
+    [ -f "$f" ] || { echo "not found" >&2; exit 1; }
+    case " ${args[*]} " in *"jsonpath"*) jq -r '.spec.persistentVolumeReclaimPolicy' "$f"; exit 0;; esac
+    cat "$f"; exit 0;;
+  "get pvc") f="$FX/pvc-$ns-$name.json"; [ -f "$f" ] || { echo "not found" >&2; exit 1; }; cat "$f"; exit 0;;
+  "get replicationsource.volsync.backube") f="$FX/rs-$ns-$name.json"; [ -f "$f" ] || exit 1; cat "$f"; exit 0;;
+  "get pod") case " ${args[*]} " in *" job-name="*) if [ "${FAKE_JOBPOD_LEFT:-}" = 1 ]; then echo '{"items":[{}]}'; else echo '{"items":[]}'; fi; exit 0;; esac
+    if [ -f "$FX/pods-$ns.json" ]; then cat "$FX/pods-$ns.json"; else echo '{"items":[]}'; fi; exit 0;;
+  "get job") if [ "${FAKE_JOB_STATE:-}" = pending ]; then echo '{"status":{}}'; elif [ "${FAKE_JOB_STATE:-}" = failed ]; then echo '{"status":{"failed":1}}'; else echo '{"status":{"succeeded":1}}'; fi; exit 0;;
+  "get volumesnapshotcontent") echo '{"items":[]}'; exit 0;;
+  "get volumes.longhorn.io")
+    case " ${args[*]} " in *" --ignore-not-found "*) [ -f "$FX/lh-$name.txt" ] && echo "volume/$name"; exit 0;; esac
+    echo '{"items":[]}'; exit 0;;
+  "logs "*) cat "$FX/joblogs.txt" 2>/dev/null; exit 0;;
+  "label pv") f="$FX/pv-$name.json"; if [ -f "$f" ] && [ "${FAKE_LABEL_NOOP:-}" != 1 ]; then jq '.metadata.labels.rehearsal="pin"' "$f" > "$f.new" && mv "$f.new" "$f"; fi; exit 0;;
+  "patch pv") exit 0;;
+  "patch replicationsource.volsync.backube")
+    f="$FX/rs-$ns-$name.json"; tag=$(printf '%s\n' "$*" | sed -E 's/.*"manual":"([^"]*)".*/\1/')
+    if [ "${FAKE_RS_STUCK:-}" != 1 ]; then
+      jq --arg t "$tag" --arg l "$(cat "$FX/moverlogs.txt" 2>/dev/null)" '.status.lastManualSync=$t|.status.lastSyncTime="2999-01-01T00:00:00Z"|.status.latestMoverStatus.logs=$l' "$f" > "$f.new" && mv "$f.new" "$f"
+    fi; exit 0;;
+  "delete pv") if [ "${FAKE_PV_STAYS:-}" != 1 ] && [ "${FAKE_DELETE_FAIL:-}" != 1 ]; then rm -f "$FX/pv-$name.json"; fi; [ "${FAKE_DELETE_FAIL:-}" = 1 ] && exit 1; exit 0;;
+  "apply -f") if [ "$name" = "-" ]; then cat > "$FX/last-apply.yaml"; fi; exit 0;;
+  "port-forward "*) exit 0;;
+esac
+exit 0

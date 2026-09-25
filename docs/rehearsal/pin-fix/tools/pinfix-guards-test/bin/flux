@@ -1,0 +1,10 @@
+#!/bin/bash
+# fake flux: `build` is OFFLINE and passes through to the real flux (with KUBECONFIG dead, so it cannot reach a cluster); every other verb is only logged.
+FX=${FX:?}; echo "flux $*" >> "$FX/calls.log"
+if [ "${1:-}" = build ]; then
+  self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+  real=$(PATH=$(printf '%s' "$PATH" | tr ':' '\n' | grep -vxF "$self" | paste -sd: -) command -v flux) || { echo "no real flux" >&2; exit 1; }
+  exec "$real" "$@"
+fi
+[ "${FAKE_FLUX_FAIL:-}" = 1 ] && exit 1
+exit 0
