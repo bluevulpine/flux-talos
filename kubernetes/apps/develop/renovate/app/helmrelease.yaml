@@ -1,0 +1,103 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+# Self-hosted Renovate for the repos on Gitea (gitea.derekjacobs.dev). This
+# repo is NOT one of them: flux-talos lives on GitHub and is handled by the
+# hosted Renovate app there, configured in .renovaterc.json5. Nothing here
+# touches or duplicates that.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app renovate
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: renovate
+  interval: 1h
+  values:
+    controllers:
+      renovate:
+        type: cronjob
+        cronjob:
+          # Hourly, off the top of the hour. Forbid, because two runs against
+          # one repo race each other's branch force-pushes.
+          schedule: "23 * * * *"
+          concurrencyPolicy: Forbid
+          # A run is a few minutes; anything near an hour is hung, and would
+          # otherwise block every later run under Forbid.
+          activeDeadlineSeconds: 3000
+          # No retries: the next hourly run is the retry, and a retry of a
+          # half-finished run only repeats its failure against the API.
+          backoffLimit: 0
+          successfulJobsHistory: 1
+          failedJobsHistory: 2
+        pod:
+          restartPolicy: Never
+        containers:
+          app:
+            image:
+              # Renovate ships near-daily. flux-talos's own Renovate bumps this
+              # tag; spark-setup's renovate.json uses managerFilePatterns, so
+              # this must stay >= 41.
+              repository: ghcr.io/renovatebot/renovate
+              tag: 44.115.7
+            env:
+              TZ: "${TIMEZONE}"
+              LOG_LEVEL: info
+              RENOVATE_PLATFORM: gitea
+              RENOVATE_ENDPOINT: https://gitea.derekjacobs.dev/api/v1
+              # An explicit list, not autodiscover. The bot only acts on repos
+              # named here, so adding it as a collaborator somewhere does not
+              # silently enrol that repo. To widen it, comma-separate more
+              # repos here (the bot must be a collaborator with write on each).
+              # To take a whole org, replace this with
+              #   RENOVATE_AUTODISCOVER: "true"
+              #   RENOVATE_AUTODISCOVER_FILTER: "bvn-homelab/*"
+              # and accept that any repo the bot can write to is then in scope.
+              RENOVATE_REPOSITORIES: bvn-homelab/spark-setup
+              # Repos must carry their own renovate.json. Without one Renovate
+              # opens an onboarding PR and changes nothing else.
+              RENOVATE_ONBOARDING: "true"
+              RENOVATE_REQUIRE_CONFIG: required
+              # Repo schedules ("before 6am") are read in local time.
+              RENOVATE_TIMEZONE: "${TIMEZONE}"
+              # Cold runs, no cache volume. Renovate's caches (repository and
+              # package lookups) only save time, never correctness, and for one
+              # repo a cold run is a couple of minutes each hour. A PVC would buy
+              # little and cost a Longhorn volume plus its backup wiring. If the
+              # repo list grows until runs get slow, move RENOVATE_CACHE_DIR onto
+              # a small longhorn-1-replica claim and set
+              # RENOVATE_REPOSITORY_CACHE: enabled.
+              RENOVATE_BASE_DIR: /tmp/renovate
+              RENOVATE_CACHE_DIR: /tmp/renovate/cache
+            envFrom:
+              - secretRef:
+                  name: renovate-secret
+            securityContext:
+              allowPrivilegeEscalation: false
+              # Verified with this image: Renovate starts, initialises its
+              # tools and runs with only /tmp writable.
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                  - ALL
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 2Gi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        # The image's own `ubuntu` user.
+        runAsUser: 12021
+        runAsGroup: 12021
+        fsGroup: 12021
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+    persistence:
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
