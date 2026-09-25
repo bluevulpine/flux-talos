@@ -1,0 +1,35 @@
+# move.conf — per-move configuration for move-guards.sh. Copy to a path OUTSIDE every repo, fill in, and point MOVE_CONF at it.
+# It is PARSED as data (never sourced or executed) by move-guards.sh: only KEY="value" lines, known keys, each once, no $ ` \ or " inside a value
+# (a leading $HOME/ is expanded); comments and blank lines are fine. Every value is validated. These are safety-critical: read from THIS file only, never from the environment.
+
+APP="myapp"                      # app name = Kustomization / PVC / HelmRelease name; kopia username. DNS label.
+OLD="old-ns"                     # namespace the app is moving FROM
+NEW="new-ns"                     # namespace the app is moving TO
+PV="pvc-00000000-0000-0000-0000-000000000000"   # the ONE PV: kubectl -n $OLD get pvc $APP -o jsonpath='{.spec.volumeName}'  (re-read it before use)
+
+# The two draft PRs (workflow.md P4) and the SHAs they were built at. Fill at T-1 after `gh pr create`; pr_merge refuses anything else.
+PR1="0000"                       # move PR   (branch ${APP}-move-pr1)  literal number
+PR2="0001"                       # start PR  (branch ${APP}-move-pr2)  literal number
+PR1_SHA="0000000000000000000000000000000000000000"   # full 40-hex head of PR 1
+PR2_SHA="0000000000000000000000000000000000000000"   # full 40-hex head of PR 2
+BASE_SHA="0000000000000000000000000000000000000000"  # origin/main the commits were built on (drift_check compares against it)
+
+STATE_DIR="$HOME/.herdr/worktrees/flux-talos/myapp-move-state"   # baseline listing, T0/TAG/SINCE, silences. Outside every repo.
+WORKTREE="$HOME/.herdr/worktrees/flux-talos/myapp-move"          # the git worktree holding the move branch (COMMIT / move_gate / drift_check run here)
+GH_REPO="bluevulpine/flux-talos" # every gh call passes -R $GH_REPO
+
+# kube-system namespace UID of the cluster this move is allowed to touch (identifies the cluster, not a kubeconfig name):
+#   kubectl get ns kube-system -o jsonpath='{.metadata.uid}'
+CLUSTER_UID="00000000-0000-0000-0000-000000000000"
+
+# Content gate (workflow.md P1: read the REAL layout of the volume first; never assume one). Top-level names, space-separated,
+# [A-Za-z0-9._/-] only. Files must exist AND be non-empty in the baseline; dirs must contain files.
+EXPECT_FILES="config.yaml"       # e.g. the app's config/secret/db files
+EXPECT_DIRS="data"               # dirs that hold state. NOT dirs that are legitimately empty
+REPORT_DIRS=""                   # optional: dirs whose file count is only reported (e.g. one that is empty on the real volume)
+LIVE_FILES=""                    # optional: live-database file names (their -wal/-shm siblings match too) that data_compare --ignore-live may skip
+
+# Paths on origin/main that change how the (minimal) move renders or textually collides with it. Comment-only edits are deferred to the cleanup PR and NOT listed.
+DRIFT_PATHS="kubernetes/apps/old-ns/myapp kubernetes/apps/old-ns/kustomization.yaml kubernetes/apps/new-ns/myapp kubernetes/apps/new-ns/kustomization.yaml kubernetes/components/volsync-claim kubernetes/components/volsync-backup kubernetes/components/kopiur kubernetes/components/common kubernetes/flux/cluster/ks.yaml kubernetes/apps/volsync-system"
+
+# CONTROLLER="myapp"             # optional: app-template controller key for the replicas gate (default: $APP)

@@ -1,0 +1,24 @@
+#!/bin/bash
+# fake kubectl: fixtures in $FX; every call logged to $FX/calls.log
+FX=${FX:?}; echo "$*" >> "$FX/calls.log"
+ns=""; args=("$@")
+if [ "${args[0]:-}" = "-n" ]; then ns=${args[1]}; args=("${args[@]:2}"); fi
+verb=${args[0]:-}; kind=${args[1]:-}; name=${args[2]:-}
+[ "${FAKE_API_ERROR:-}" = 1 ] && [ "$kind" = pv ] && { echo "The connection to the server was refused" >&2; exit 1; }
+case "$verb $kind" in
+  "get ns") [ "$name" = kube-system ] && echo -n "${FAKE_UID:-${FAKE_CLUSTER_UID:?}}"; exit 0;;
+  "get pv") f="$FX/pv-$name.json"; [ -f "$f" ] || { echo "not found" >&2; exit 1; }; cat "$f"; exit 0;;
+  "get pvc") [ "${FAKE_PVC_ERROR:-}" = 1 ] && { echo "Unable to connect to the server: dial tcp: i/o timeout" >&2; exit 1; }
+             f="$FX/pvc-$ns-$name.json"; [ -f "$f" ] || { echo "Error from server (NotFound): persistentvolumeclaims \"$name\" not found" >&2; exit 1; }; cat "$f"; exit 0;;
+  "get helmrelease") f="$FX/hr-$ns-$name.json"; [ -f "$f" ] || { echo "not found" >&2; exit 1; }; cat "$f"; exit 0;;
+  "get kustomization.kustomize.toolkit.fluxcd.io") f="$FX/ks-$ns-$name.json"; [ -f "$f" ] || { echo "not found" >&2; exit 1; }; cat "$f"; exit 0;;
+  "get deploy") f="$FX/deploys-$ns.json"; if [ -f "$f" ]; then cat "$f"; else echo '{"items":[]}'; fi; exit 0;;
+  "get replicationsource.volsync.backube") f="$FX/rs-$ns-$name.json"; [ -f "$f" ] || exit 1; cat "$f"; exit 0;;
+  "get httproute") cat "$FX/httproute.txt"; exit 0;;
+  "get job") if [ "${FAKE_JOB_STATE:-}" = pending ]; then echo '{"status":{}}'; else echo '{"status":{"succeeded":1}}'; fi; exit 0;;
+  "get pods") [ "${FAKE_POD_LEFT:-}" = 1 ] && echo "pod/hchk-left"; exit 0;;
+  "get pod") f="$FX/pods-$ns.json"; if [ -f "$f" ]; then cat "$f"; else echo '{"items":[]}'; fi; exit 0;;
+  "logs job/"*|"logs "*) cat "$FX/joblogs.txt"; exit 0;;
+  "patch pv"|"label pv") exit 0;;
+esac
+exit 0

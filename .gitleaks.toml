@@ -10,3 +10,12 @@ reference (ghcr.io/.../plugin-barman-cloud-sidecar:<tag>), not a credential.
 Allowlisted by path so re-vendoring on version bumps stays clean.
 """
 paths = ['''kubernetes/apps/database/cloudnative-pg/plugin-barman-cloud/manifest\.yaml''']
+
+[[allowlists]]
+description = """
+Vendored kn-guard.sh test suite (sha256-pinned copy, must stay byte-identical to the
+shared source). It feeds a FAKE 'password: hunter2-TOPSECRET' string to kn to prove
+the guard's refusal messages never echo manifest content; it is not a credential.
+Allowlisted by path so re-vendoring stays clean.
+"""
+paths = ['''\.claude/move-workload/guards/kn-guard\.test\.sh''']

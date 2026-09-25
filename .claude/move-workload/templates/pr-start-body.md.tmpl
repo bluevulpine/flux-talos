@@ -1,0 +1,12 @@
+HOLD — merged only by step W-13 of `<execution plan path>`, and **only after** PR #<PR1> is merged **and** the W-12 content comparison passed. Merge commit only, head pinned to `<PR2_SHA>`. Until PR #<PR1> merges this PR shows both commits (expected; after it merges the diff is commit 2 alone with the same head SHA).
+
+## What
+Drops the temporary `controllers.<CONTROLLER>.replicas: 0` so `<APP>` starts in `<NEW>` on the verified, retained volume `<PV>`. Nothing else changes.
+
+## Verification before merging
+- W-12: `hm 'data_compare …'` printed `content identical` (baseline taken in `<OLD>` with the pod at 0 vs the volume re-bound in `<NEW>`).
+- `git merge-tree --write-tree origin/main <PR2_SHA>` diffed against `origin/main` shows only `kubernetes/apps/<NEW>/<APP>/app/helmrelease.yaml` (the PR record can be stale right after PR 1 merges).
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+<session URL>
