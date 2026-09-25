@@ -1,37 +1,111 @@
 # matrix-stack
 
-Synapse + Matrix Authentication Service via Element's ESS Community `matrix-stack`
-chart, with state on the shared CNPG `postgres18` cluster. Why this and not Tuwunel /
-Continuwuity / Dendrite: `docs/briefs/2026-09-24-matrix-homeserver-evaluation.md`.
+Synapse + Matrix Authentication Service (MAS) via Element's ESS Community
+`matrix-stack` chart, with state on the shared CNPG `postgres18` cluster. Why this and
+not Tuwunel / Continuwuity / Dendrite: `docs/briefs/2026-09-24-matrix-homeserver-evaluation.md`.
 
 ## Layout
 
 | Path | Flux Kustomization | What |
 | --- | --- | --- |
 | `db/` | `matrix-stack-db` | Job that provisions the `synapse` and `mas` roles + databases with `postgres-init`, then asserts Synapse's required `C` collation |
-| `app/` | *(step 2, not yet written)* | ESS HelmRelease; will `dependsOn: matrix-stack-db` |
+| `app/` | `matrix-stack` (`dependsOn: matrix-stack-db`) | ESS HelmRelease, secrets, HTTPRoutes, public DNS, media PVC |
 
-## Prerequisite: OpenBao key
+| Host | What | Reachable from |
+| --- | --- | --- |
+| `${SECRET_DOMAIN}` | `server_name`; only `/.well-known/matrix/*` is routed | internet (Cloudflare `external`) |
+| `matrix.` | Synapse client + federation API (via HAProxy) | LAN + internet (Pangolin) |
+| `matrix.` `/_synapse/admin` etc. | Synapse admin API, `/_synapse/mas` | **LAN / tailnet only** |
+| `account.` | MAS — login, account management, Authentik callback | LAN + internet (Pangolin) |
+| `chat.` | Element Web | LAN + internet (Pangolin) |
+| `matrix-admin.` | Element Admin | **LAN / tailnet only** |
 
-`secret/matrix` must exist before `matrix-stack-db` can go Ready:
+Deliberate departures from the chart defaults, each explained where it is set:
+
+- **No chart Ingresses.** A HelmRelease `postRenderer` deletes them; `app/httproute.yaml`
+  mirrors their paths. Re-diff the paths on chart upgrades (`helm template` the new
+  version and compare the Ingress rules).
+- **`/_synapse` is not all public.** The chart's Ingress exposes all of it; here only
+  `/_synapse/client` is, so the admin API stays on the LAN.
+- **`initSecrets` off.** Every secret is in OpenBao, above all the Synapse signing key.
+- **No local passwords in MAS.** Authentik is the only way in.
+- **`matrixRTC` off** until rollout step 6 (LiveKit needs UDP → Pangolin UDP resource).
+
+## First deploy — one-time manual steps
+
+Everything else is reconciled by Flux. These four are not:
+
+1. **OpenBao.** Generate every chart secret (idempotent; never overwrites a field):
+
+   ```bash
+   ./scripts/matrix-generate-secrets.sh
+   ```
+
+2. **Authentik provider.** Create an OAuth2/OpenID **confidential** provider and an
+   application with slug **`matrix`** (the MAS issuer is
+   `https://sso.${SECRET_DOMAIN}/application/o/matrix/`):
+   - Redirect URI (strict):
+     `https://account.${SECRET_DOMAIN}/upstream/callback/01M3AYCYVJ7HE0FG3HPQYC0ZE7`
+   - Scopes: `openid`, `profile`, `email`
+   - Store the credentials:
+
+     ```bash
+     bao kv patch secret/matrix Mas__Authentik__ClientId=... Mas__Authentik__ClientSecret=...
+     ```
+
+   The Authentik **username** becomes the Matrix ID (`@<username>:${SECRET_DOMAIN}`) and
+   can never be renamed. Restrict who may sign in with the application's policy
+   bindings — anyone Authentik lets through gets a Matrix account.
+
+3. **Pangolin resources.** Add an HTTP resource for each of `matrix.`, `account.` and
+   `chat.${SECRET_DOMAIN}`, exactly as in `docs/runbooks/pangolin-vps-setup.md` step 4.
+   The public CNAMEs come from `app/dnsendpoint.yaml`; without the resources they
+   resolve to a VPS that does not know the hosts.
+
+4. **Apex DNS.** `matrix-well-known` attaches the apex to the Cloudflare `external`
+   gateway, so external-dns-cloudflare will try to publish an apex CNAME to the tunnel.
+   If the apex already has a record external-dns does not own, it is left alone — then
+   whatever serves the apex must forward `/.well-known/matrix/` here. Check with the
+   verification below either way.
+
+## Verify
 
 ```bash
-bao kv put secret/matrix \
-  Synapse__Postgres__Password="$(openssl rand -hex 32)" \
-  Mas__Postgres__Password="$(openssl rand -hex 32)"
+curl -s https://${SECRET_DOMAIN}/.well-known/matrix/server   # {"m.server": "matrix.<domain>:443"}
+curl -s https://${SECRET_DOMAIN}/.well-known/matrix/client   # base_url + MAS issuer
+curl -s https://matrix.${SECRET_DOMAIN}/_matrix/client/versions
+curl -s -o /dev/null -w '%{http_code}\n' https://matrix.${SECRET_DOMAIN}/_synapse/admin/v1/server_version  # from OUTSIDE the LAN: 404
 ```
 
-Use hex (or at least no `'`): postgres-init interpolates the password into a
-single-quoted SQL literal. Later steps add their fields to this key with
-`bao kv patch`, never `put`, which would drop these.
+Then <https://federationtester.matrix.org/#${SECRET_DOMAIN}>. Join a small room before a
+large one (#matrix:matrix.org pulls a lot of state on first join).
 
-## Rotating a database password
+**First admin.** After signing in once through Authentik:
+
+```bash
+kubectl -n matrix exec deploy/matrix-stack-matrix-authentication-service -- \
+  mas-cli manage promote-admin <username> --config /conf/mas-config.yaml
+```
+
+That lets the user *request* admin in Element Admin; it does not make every session admin.
+
+## Operations
+
+**Rotating a database password.**
 
 ```bash
 bao kv patch secret/matrix Synapse__Postgres__Password="$(openssl rand -hex 32)"
-kubectl -n matrix annotate externalsecret matrix-db-init-secret force-sync="$(date +%s)" --overwrite
+kubectl -n matrix annotate externalsecret matrix-db-init-secret matrix-stack-secret force-sync="$(date +%s)" --overwrite
 kubectl -n matrix delete job matrix-db-init --ignore-not-found   # Flux recreates + reruns it
 ```
 
-Left alone, the Job reruns on every reconcile (`interval: 1h`) and converges the role
-passwords anyway. Deleting it just makes that immediate.
+Left alone, the Job reruns on every reconcile of `matrix-stack-db` (`interval: 1h`) and
+converges the role passwords anyway; deleting it just makes that immediate. Use hex or
+alphanumerics — `postgres-init` puts the password inside a single-quoted SQL literal.
+
+**Never rotate `Synapse__SigningKey` by overwriting it.** It is the server's federation
+identity. A real rotation keeps the old key as an `old_signing_keys` entry; the script
+refuses to replace an existing field for this reason.
+
+**Media** is on the `synapse-media` PVC (VolSync local + R2, same as most apps) until
+rollout step 4 moves it to Garage S3.

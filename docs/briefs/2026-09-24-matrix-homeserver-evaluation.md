@@ -1,8 +1,9 @@
 # Brief: self-hosted Matrix homeserver — evaluation
 
 **Date:** 2026-09-24
-**Status:** Decision made; step 1 (database provisioning) in progress on
-`claude/matrix-homeserver-evaluation-1d055g`.
+**Status:** Decision made. Steps 1 (database provisioning) and 2 (ESS HelmRelease)
+written on `claude/matrix-homeserver-evaluation-1d055g`, not yet deployed. Manual
+first-deploy steps and verification: `kubernetes/apps/matrix/matrix-stack/README.md`.
 **Decision:** Synapse + Matrix Authentication Service (MAS), deployed with Element's
 ESS Community `matrix-stack` chart, bundled Postgres **off**, state on `postgres18`.
 **Runner-up:** Tuwunel (lighter, but RocksDB on a PV only).
@@ -118,7 +119,9 @@ feels like too much machinery, Tuwunel on a Longhorn PV with kopiur is the answe
    off, own HTTPRoutes on `external-pangolin`; MAS upstream → Authentik. `dependsOn` the
    step-1 Kustomization.
 3. Apex `.well-known` route. Federation Tester; join a small room before a large one.
-4. S3 media provider → Garage.
+4. S3 media provider → Garage. **Open question:** whether the ESS Synapse image ships
+   `synapse-s3-storage-provider` (unverified). If not, it needs a derived image or an
+   `extraInitContainers` install into a shared volume — settle this before starting.
 5. Bridges — own DB each, `msc4190: true`.
 6. LiveKit + lk-jwt-service over a Pangolin UDP resource.
 

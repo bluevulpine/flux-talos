@@ -1,0 +1,152 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+# Element Server Suite Community: Synapse + Matrix Authentication Service + Element
+# Web + Element Admin + .well-known delegation. Decision record:
+# docs/briefs/2026-09-24-matrix-homeserver-evaluation.md
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app matrix-stack
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: matrix-stack
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  # The chart renders networking.k8s.io Ingress objects only; this cluster routes
+  # with Gateway API (./httproute.yaml mirrors the chart's Ingress paths). No
+  # ingress controller would ever serve them, so drop them rather than leave
+  # dead objects around. Kind-only target: every Ingress this chart emits goes.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Ingress
+            patch: |-
+              $patch: delete
+              apiVersion: networking.k8s.io/v1
+              kind: Ingress
+              metadata:
+                name: not-used
+  values:
+    # PERMANENT. Embedded in every user ID (@user:<serverName>) and room ID; per
+    # the chart it "can not change after the initial deployment". The apex, delegated to
+    # matrix.<domain> via /.well-known/matrix/server (no port 8448).
+    serverName: "${SECRET_DOMAIN}"
+
+    # Every secret comes from OpenBao (./externalsecret.yaml) — see the comment
+    # there for why the chart's own generator is off.
+    initSecrets:
+      enabled: false
+
+    # State lives on the shared CNPG postgres18 cluster; roles and databases are
+    # provisioned by the matrix-stack-db Kustomization (../db), which this one
+    # dependsOn. With both components pointed at an external Postgres the chart's
+    # bundled Postgres is not rendered at all.
+    postgres:
+      enabled: false
+
+    ingress:
+      # The Ingresses are deleted by the postRenderer; this only stops the chart
+      # from wanting a TLS Secret for them. TLS terminates at Envoy Gateway.
+      tlsEnabled: false
+
+    synapse:
+      # No workers: a handful of users is well inside one Synapse process, and a
+      # monolith needs no Redis. If that changes, point synapse.redisOrValkey at
+      # the existing Dragonfly rather than letting the chart deploy its Valkey.
+      postgres:
+        host: "${POSTGRES_HOST}"
+        port: 5432
+        user: synapse
+        database: synapse
+        password:
+          secret: matrix-stack-secret
+          secretKey: SYNAPSE_POSTGRES_PASSWORD
+      signingKey:
+        secret: matrix-stack-secret
+        secretKey: SYNAPSE_SIGNING_KEY
+      macaroon:
+        secret: matrix-stack-secret
+        secretKey: SYNAPSE_MACAROON
+      registrationSharedSecret:
+        secret: matrix-stack-secret
+        secretKey: SYNAPSE_REGISTRATION_SHARED_SECRET
+      ingress:
+        host: "matrix.${SECRET_DOMAIN}"
+      media:
+        storage:
+          # volsync-claim/volsync-backup PVC (see ../ks.yaml). Temporary: step 4 of
+          # the rollout moves media to Garage S3 and this becomes a cache.
+          existingClaim: synapse-media
+        # Public traffic comes through Pangolin, not Cloudflare, so the 100MB CF
+        # body cap does not apply. Uploads buffer in the tmp emptyDir first, so it
+        # is moved off tmpfs (medium "") — a 500M upload in a Memory emptyDir would
+        # count against the pod's memory limit.
+        maxUploadSize: 500M
+        ephemeralStorages:
+          tmp:
+            sizeLimit: 2Gi
+            medium: ""
+
+    matrixAuthenticationService:
+      postgres:
+        host: "${POSTGRES_HOST}"
+        port: 5432
+        user: mas
+        database: mas
+        password:
+          secret: matrix-stack-secret
+          secretKey: MAS_POSTGRES_PASSWORD
+      encryptionSecret:
+        secret: matrix-stack-secret
+        secretKey: MAS_ENCRYPTION_SECRET
+      synapseSharedSecret:
+        secret: matrix-stack-secret
+        secretKey: MAS_SYNAPSE_SHARED_SECRET
+      privateKeys:
+        rsa:
+          secret: matrix-stack-secret
+          secretKey: MAS_KEY_RSA
+        ecdsaPrime256v1:
+          secret: matrix-stack-secret
+          secretKey: MAS_KEY_ECDSA_PRIME256V1
+      ingress:
+        host: "account.${SECRET_DOMAIN}"
+      additional:
+        00-authentik-only:
+          # Authentik is the only way to sign in or register: no local passwords
+          # to leak, and account lifecycle stays in one place.
+          config: |
+            passwords:
+              enabled: false
+        01-upstream-authentik:
+          configSecret: matrix-stack-secret
+          configSecretKey: mas-upstream-authentik.yaml
+
+    elementWeb:
+      ingress:
+        host: "chat.${SECRET_DOMAIN}"
+
+    elementAdmin:
+      ingress:
+        host: "matrix-admin.${SECRET_DOMAIN}"
+
+    wellKnownDelegation:
+      # Only /.well-known/matrix/* is routed on the apex (./httproute.yaml); the
+      # apex itself is not handed to Element Web.
+      baseDomainRedirect:
+        enabled: false
+
+    # Element Call backend (LiveKit SFU + lk-jwt-service). Needs UDP from the
+    # internet, which the Cloudflare tunnel cannot carry — rollout step 6, over a
+    # Pangolin UDP resource.
+    matrixRTC:
+      enabled: false

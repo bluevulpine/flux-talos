@@ -39,3 +39,53 @@ spec:
   postBuild:
     substitute:
       APP: *app
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
+# Step 2: the ESS matrix-stack HelmRelease, its secrets, routes and DNS.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app matrix-stack
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    # Ready only once the synapse/mas databases exist and passed the collation
+    # assertion (wait: true on that Kustomization).
+    - name: matrix-stack-db
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+  path: ./kubernetes/apps/matrix/matrix-stack/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: matrix
+  wait: false
+  interval: 30m
+  retryInterval: 1m
+  timeout: 10m
+  postBuild:
+    substitute:
+      # APP names the media PVC and its VolSync sources (components/volsync-*),
+      # which is why it is not the Kustomization name.
+      APP: synapse-media
+      NS: matrix
+      VOLSYNC_CAPACITY: 20Gi
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      # Snapshot: Synapse holds the RWO volume, so the mover cannot co-mount it.
+      VOLSYNC_COPYMETHOD: Snapshot
+      # Mover runs as Synapse's own uid/gid (chart default 10091) instead of root,
+      # so the namespace needs no privileged-movers annotation.
+      VOLSYNC_RUN_AS_USER: "10091"
+      VOLSYNC_RUN_AS_GROUP: "10091"
+      VOLSYNC_FS_GROUP: "10091"
+      # Free slots at the time of writing: no other local mover on minute 47, and
+      # 06:45 continues the 06:xx R2 grid (13/21/29/37/53) without a collision.
+      VOLSYNC_LOCAL_SCHEDULE: "47 */2 * * *"
+      VOLSYNC_R2_SCHEDULE: "45 6 * * *"
