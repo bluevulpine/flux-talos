@@ -1,0 +1,12 @@
+---
+# ImageVolume feature gate on the control-plane components.
+cluster:
+  apiServer:
+    extraArgs:
+      feature-gates: ImageVolume=true
+  controllerManager:
+    extraArgs:
+      feature-gates: ImageVolume=true
+  scheduler:
+    extraArgs:
+      feature-gates: ImageVolume=true

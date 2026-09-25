@@ -1,0 +1,13 @@
+---
+# Kubernetes -> Talos API access (tuppr, etcd backup, the actions runner).
+machine:
+  features:
+    kubernetesTalosAPIAccess:
+      enabled: true
+      allowedRoles:
+        - os:admin
+        - os:etcd:backup
+      allowedKubernetesNamespaces:
+        - system-upgrade
+        - kube-system
+        - actions-runner-system

@@ -1,0 +1,11 @@
+---
+# Cilium is the CNI; Talos must not install one. Pod/service CIDRs were talconfig.yaml's
+# clusterPodNets / clusterSvcNets.
+cluster:
+  network:
+    cni:
+      name: none
+    podSubnets:
+      - 10.69.0.0/16
+    serviceSubnets:
+      - 10.96.0.0/16

@@ -12,7 +12,7 @@ Serena is configured for this repo. At session start, activate the project and r
 
 **`talos/clusterconfig/`** is gitignored and contains generated machine configs. Do not edit these files directly; the source of truth is `talos/talconfig.yaml`. Regenerate with `just talos gen-config`.
 
-**YAML formatting**: all `.yaml` files except `*.sops.yaml` must pass `yamlfmt`. Block-style arrays, `---` document start, LF line endings. Lefthook enforces this on pre-commit — do not skip hooks.
+**YAML formatting**: all `.yaml` files except `*.sops.yaml` and `talos/topf.yaml` (partially SOPS-encrypted; yamlfmt would reformat the ciphertext) must pass `yamlfmt`. Block-style arrays, `---` document start, LF line endings. Lefthook enforces this on pre-commit — do not skip hooks.
 
 **`crds: CreateReplace`** is injected globally via the `cluster-apps` Flux patch; do not add it to individual HelmRelease manifests.
 
