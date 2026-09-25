@@ -22,6 +22,10 @@ spec:
       namespace: database
     - name: external-secrets-openbao-store
       namespace: external-secrets
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   interval: 1h
   path: ./kubernetes/apps/media/sportarr/app
   prune: true
@@ -79,6 +83,16 @@ spec:
       VOLSYNC_RUN_AS_USER: "568"
       VOLSYNC_RUN_AS_GROUP: "568"
       VOLSYNC_FS_GROUP: "568"
+      # kopiur (components/kopiur). H picks a minute per schedule; hours match
+      # the VolSync schedules above. Copy method + snapshot class mirror VolSync.
+      KOPIUR_LOCAL_CRON: "H */4 * * *"
+      KOPIUR_R2_CRON: "H 5 * * *"
+      KOPIUR_COPYMETHOD: Snapshot
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
+      # Mirrors VOLSYNC_RUN_AS_* / VOLSYNC_FS_GROUP above.
+      KOPIUR_RUN_AS_USER: "568"
+      KOPIUR_RUN_AS_GROUP: "568"
+      KOPIUR_FS_GROUP: "568"
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
