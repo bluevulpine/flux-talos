@@ -1,0 +1,7 @@
+#!/bin/bash
+# fake date: FAKE_NOW_MIN=<MM> / FAKE_NOW_HOUR=<HH> override only `date -u +%M` / `date -u +%H` (so the slot-window tests are not wall-clock dependent); everything else is the real date.
+if [ -n "${FAKE_NOW_MIN:-}" ] && [ "$*" = "-u +%M" ]; then echo "$FAKE_NOW_MIN"; exit 0; fi
+if [ -n "${FAKE_NOW_HOUR:-}" ] && [ "$*" = "-u +%H" ]; then echo "$FAKE_NOW_HOUR"; exit 0; fi
+self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+real=$(PATH=$(printf '%s' "$PATH" | tr ':' '\n' | grep -vxF "$self" | paste -sd: -) command -v date)
+exec "$real" "$@"
