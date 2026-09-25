@@ -1,10 +1,9 @@
 # Runbook: VolSync → kopiur backup migration
 
-**Status (2026-09-24): repositories landed; step 4 (epoch) skipped on evidence; W0
-(jellyseerr, recyclarr) passed all per-app gates and the per-wave restore gate, the pilots
-are retired, and W0 is cut over: kopiur is the only backup of both apps (VolSync removed in #1934; the fork's
-path-scope retention cleared in both repositories, all six `keep-*` inherited). W1 is in its
-parallel run.** Every restore needs added capabilities (see
+**Status (2026-09-25): repositories landed; step 4 (epoch) skipped on evidence; W0
+(jellyseerr, recyclarr, #1934) and W1 (8 apps, #1941) are cut over: kopiur is their only
+backup, and the fork's path-scope retention is cleared in both repositories (all six `keep-*`
+inherited). W2–W8 not started.** Every restore needs added capabilities (see
 "Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
@@ -14,7 +13,7 @@ evidence.
 | Pilots (`media/recyclarr-kopiur-pilot`, `media/jellyseerr-kopiur-pilot`) | passed 4/4 and 5/5; **retired 2026-09-24** after W0 passed its gates. Their READMEs (verdicts, the SQLite integrity method) are at `b625ac57:kubernetes/apps/media/{recyclarr,jellyseerr}-kopiur-pilot/README.md` |
 | PR #1870 — component split + `components/kopiur` | **merged** 2026-09-22 (eab49e12); verified inert live: all Kustomizations Ready on it, all 93 ReplicationSources intact. No app includes `components/kopiur` yet |
 | Two `ClusterRepository` + 18 `ExternalSecret` | **landed** 2026-09-22 (#1879, e4539596), plus the `kopiur-system` Pod Security fix (#1880). Both `Ready`, all 18 secrets synced; catalog scanned 2026-09-23. See "The repositories" |
-| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 parallel run** from 2026-09-24: 8 apps with `components/kopiur` beside `volsync-backup`. Restore gate passed 2026-09-25 (calibre-web); per-app gates 1–4 pass for 6 of 8, `ev-charge-ledger` and `cross-seed` await their first R2 run. W2–W8 not started |
+| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 cut over 2026-09-25** (#1941, 17:00Z): autobrr, cross-seed, ev-charge-ledger, ev-charge-tracker, calibre-web, notifiarr, sportarr and tautulli are backed up by kopiur only; path-scope retention cleared in both repositories, 16/16 legs PASS. Parallel run from 2026-09-24 (#1936); per-app gates 1–4 (cross-seed-r2 via a manual Snapshot) and the restore gate (calibre-web) passed (#1939). W2–W8 not started |
 
 ## Why kopiur
 
@@ -417,8 +416,21 @@ has re-planned it; moving it to an earlier wave is fine.
   the stale slot is one extra snapshot, not a missed one. **Two rules follow.** For W2 and
   later, land the `KOPIUR_*` vars (and `NS`) in their own PR, **one PR before** the
   component. The vars alone render nothing. After any wave, run
-  `docs/runbooks/kopiur-cutover/check-schedules.sh <ns>…`: it flags any `nextSchedule` outside its cron's hours,
-  allowing the forward `jitter` spill. Worth an upstream issue.
+  `docs/runbooks/kopiur-cutover/check-schedules.sh <ns>…`. It flags a schedule as `STALE`
+  when no minute in the jitter window before `nextSchedule` matches its cron (hour field,
+  and minute field when numeric), and as `STALE (obs<gen)` when `observedGeneration` is
+  behind `generation`, which is how the W1 race looked. An `H` minute is a hash it can't
+  see, so an `H` cron whose stale slot happens to land in an allowed hour passes on the
+  first test and is caught only by the second. The re-pin bug itself is worth an upstream
+  issue.
+- **The retention-clear pod can OOM at `kopia repository connect`.** kopia loads the
+  repository index into memory on connect. At 1Gi, `clear-path-retention.sh` worked for W0
+  (2026-09-24) but was OOMKilled 2 s into connect on `kopia-local` at `indexBlobCount` 652
+  (2026-09-25, W1). The log is empty and nothing had been written, so a re-run is safe; every
+  step is idempotent. The script now defaults to 4Gi (`MEM=` overrides), the same as
+  `kopia-maintenance-local` needs for the same reason. **Don't edit the script while a run is
+  in progress**: bash reads a script as it executes, and a mid-run edit made one invocation
+  end early.
 - **`indexBlobCountAt` is when the count was first seen at that value, not when it was
   last probed.** `kopia-r2`'s stamp froze for 15 h and then 8 h, which looked like a
   stalled probe. It was not stalled: `status.health.lastProbeAt` kept moving every 30 min.

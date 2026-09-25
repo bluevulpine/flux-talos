@@ -23,6 +23,10 @@ readonly NS="${2:-media}"
 readonly IMAGE_TAG=v0.17.11
 readonly IMAGE="ghcr.io/perfectra1n/volsync:${IMAGE_TAG}"
 readonly KA=(--request-timeout=30s)
+# kopia connect loads the repository index into memory. 1Gi was enough for W0
+# (2026-09-24) but OOMKilled 2 s into connect on kopia-local at indexBlobCount 652
+# (2026-09-25); kopia-maintenance-local needs 4Gi for the same reason. Override with MEM=.
+readonly MEM="${MEM:-4Gi}"
 
 # Fail closed: capture kubectl's output first, so a failed call aborts (set -e) instead
 # of counting as "0 found". Only grep's no-match exit is tolerated.
@@ -81,7 +85,7 @@ spec:
         - {name: KOPIA_CHECK_FOR_UPDATES, value: "false"}
       resources:
         requests: {cpu: 50m, memory: 128Mi}
-        limits: {memory: 1Gi}
+        limits: {memory: ${MEM}}
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
@@ -96,9 +100,19 @@ EOF
     echo "=== ${leg}: ${NS}/${pod}"
     kubectl "${KA[@]}" -n "$NS" wait pod "$pod" --for=jsonpath='{.status.phase}'=Succeeded --timeout=5m ||
         kubectl -n "$NS" get pod "$pod"
-    kubectl -n "$NS" logs "$pod"
+    local log
+    log=$(kubectl -n "$NS" logs "$pod" 2>&1 || true)
+    printf '%s\n' "$log"
     kubectl "${KA[@]}" -n "$NS" delete pod "$pod" --wait=false >/dev/null
+    # A pod killed before it prints (OOMKilled on connect, 2026-09-25) leaves no RESULT
+    # line at all; count that as a failure rather than something to spot by eye.
+    if ! grep -q "^RESULT ${leg}: PASS" <<<"$log"; then
+        echo "LEG FAILED: ${leg} (no PASS line)" >&2
+        failed+=("$leg")
+    fi
 }
 
+failed=()
 run_leg local
 run_leg r2
+[[ -n "${DRY:-}" || ${#failed[@]} -eq 0 ]] || { echo "FAILED legs: ${failed[*]}" >&2; exit 1; }

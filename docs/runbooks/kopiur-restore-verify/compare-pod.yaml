@@ -3,9 +3,9 @@
 # All three volumes mounted readOnly in one pod (the pilot method). Runs as root with
 # default capabilities so it can read 0600 files of any owner; baseline PSA allows it.
 # Uses calibre-web's own image (digest of the running pod) for its sqlite3 and the tools.
-# Known writers: app.db and calibre-web.log change on live after both snapshots, so they
-# are excluded from the strict live comparison and checked separately (integrity_check
-# for app.db, informational for the log). Everything else must match exactly.
+# Known writers (WRITERS below) change on live after both snapshots, so they are excluded
+# from the strict comparison and checked separately (integrity_check for DBS,
+# informational for the rest). Everything else must match exactly.
 # nodeName: the live PVC is RWO and attached to the running calibre-web pod on brokkr01.
 # Prints a short summary only: kubectl output of long streams can truncate silently.
 apiVersion: v1
@@ -24,22 +24,30 @@ spec:
         - -c
         - |
           set -uo pipefail
-          WRITERS='^(app\.db|calibre-web\.log)$'
+          # The ONLY two lists to edit when adapting (README step 5). WRITERS: files
+          # the app changes after the snapshots, left out of the strict comparison.
+          # DBS: the SQLite files among them (and any others) to integrity-check.
+          WRITERS=(app.db calibre-web.log)
+          DBS=(app.db gdrive.db)
+          printf '%s\n' "${WRITERS[@]}" > /tmp/writers
           # content: sha256 of every regular file; meta: type/mode/owner/size of every
           # entry, plus file mtimes. Directory mtimes are listed separately because the
-          # pilot found kopia does not preserve them. Lines are keyed by path (last field).
+          # pilot found kopia does not preserve them. Tab-separated with the path last,
+          # so a path containing spaces still keys correctly.
           manifest() {
             cd "$1" || exit 1
-            find . -path ./lost+found -prune -o -type f -printf '%P\0' | sort -z | xargs -0 sha256sum > /tmp/$2.sha
-            find . -mindepth 1 -path ./lost+found -prune -o -printf '%y %m %U:%G %s %P\n' | sort -k5 > /tmp/$2.meta
-            find . -path ./lost+found -prune -o -type f -printf '%T@ %P\n' | sort -k2 > /tmp/$2.fmtime
-            find . -mindepth 1 -path ./lost+found -prune -o -type d -printf '%T@ %P\n' | sort -k2 > /tmp/$2.dmtime
+            find . -path ./lost+found -prune -o -type f -printf '%P\0' | sort -z | xargs -0 sha256sum | sed 's/  /\t/' > /tmp/$2.sha
+            find . -mindepth 1 -path ./lost+found -prune -o -printf '%y\t%m\t%U:%G\t%s\t%P\n' | sort -t$'\t' -k5 > /tmp/$2.meta
+            find . -path ./lost+found -prune -o -type f -printf '%T@\t%P\n' | sort -t$'\t' -k2 > /tmp/$2.fmtime
+            find . -mindepth 1 -path ./lost+found -prune -o -type d -printf '%T@\t%P\n' | sort -t$'\t' -k2 > /tmp/$2.dmtime
           }
-          strict() { awk -v re="$WRITERS" '{ if ($NF !~ re) print }' "$1"; }
+          # strict: drop writer lines; writer: keep only them. Exact path match.
+          strict() { awk -F'\t' 'NR==FNR { w[$0]; next } !($NF in w)' /tmp/writers "$1"; }
+          writer() { awk -F'\t' 'NR==FNR { w[$0]; next } ($NF in w)' /tmp/writers "$1"; }
           manifest /live live; manifest /local local; manifest /r2 r2
           for t in live local r2; do
             printf '%-5s files=%s entries=%s owners=%s\n' $t "$(wc -l < /tmp/$t.sha)" \
-              "$(wc -l < /tmp/$t.meta)" "$(awk '{print $3}' /tmp/$t.meta | sort | uniq -c | tr -s ' ' | paste -sd,)"
+              "$(wc -l < /tmp/$t.meta)" "$(cut -f3 /tmp/$t.meta | sort | uniq -c | tr -s ' ' | paste -sd,)"
           done
           rc=0
           cmp_pair() {  # $1 $2 = manifests; strict except known writers
@@ -54,19 +62,20 @@ spec:
           }
           cmp_pair live local; cmp_pair live r2; cmp_pair local r2
           echo "--- known writers (informational except integrity)"
-          for t in live local r2; do grep -E ' (app\.db|calibre-web\.log)$' /tmp/$t.meta | sed "s/^/$t meta: /"; done
-          for f in app.db calibre-web.log; do
-            a=$(grep " $f\$" /tmp/local.sha | cut -c1-16); b=$(grep " $f\$" /tmp/r2.sha | cut -c1-16)
+          for t in live local r2; do writer /tmp/$t.meta | sed "s/^/$t meta: /"; done
+          for f in "${WRITERS[@]}"; do
+            a=$(awk -F'\t' -v f="$f" '$2 == f { print substr($1, 1, 16) }' /tmp/local.sha)
+            b=$(awk -F'\t' -v f="$f" '$2 == f { print substr($1, 1, 16) }' /tmp/r2.sha)
             echo "local vs r2 $f: $([ "$a" = "$b" ] && echo identical || echo "differs ($a / $b)")"
           done
           for t in local r2; do
-            for db in app.db gdrive.db; do
+            for db in "${DBS[@]}"; do
               # immutable=1: open read-only without creating -wal/-shm on the RO mount
               r=$(sqlite3 "file:/$t/$db?immutable=1" 'PRAGMA integrity_check;' 2>&1 | head -3 | paste -sd' ')
-              echo "$t $db integrity_check: $r"
+              n=$(sqlite3 "file:/$t/$db?immutable=1" 'select count(*) from sqlite_master where type="table";' 2>&1)
+              echo "$t $db integrity_check: $r (tables: $n)"
               [ "$r" = ok ] || rc=1
             done
-            echo "$t app.db tables: $(sqlite3 "file:/$t/app.db?immutable=1" 'select count(*) from sqlite_master where type="table";' 2>&1)"
           done
           echo "RESULT: $([ $rc = 0 ] && echo PASS || echo FAIL) (dir mtimes + writer contents informational)"
       volumeMounts:
