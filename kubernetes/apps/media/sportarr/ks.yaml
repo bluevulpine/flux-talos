@@ -66,30 +66,21 @@ spec:
       # concurrency-driven failures in 18 days, one burst destroying two ZFS
       # datasets behind already-Bound PVs. See docs/runbooks/volsync-mover-stuck.md.
       VOLSYNC_CAPACITY: 4Gi
-      VOLSYNC_LOCAL_SCHEDULE: "53 */4 * * *"
-      VOLSYNC_R2_SCHEDULE: "57 5 * * *"
       VOLSYNC_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
       VOLSYNC_ACCESSMODES: ReadWriteOnce
-      # Set alongside ACCESSMODES, never on its own: the component defaults to
+      # kopiur (components/kopiur). H picks a minute per schedule; the hours are
+      # the ones VolSync used before the cutover.
+      KOPIUR_LOCAL_CRON: "H */4 * * *"
+      KOPIUR_R2_CRON: "H 5 * * *"
+      # Snapshot, never the default: the component defaults to
       # Direct, which reads the volume live while the app is writing to it.
-      VOLSYNC_COPYMETHOD: Snapshot
+      KOPIUR_COPYMETHOD: Snapshot
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
       # The image has no USER directive and its entrypoint drops privileges via
       # PUID/PGID only when it starts as root. We start it as 568 instead, which
       # skips that path entirely (verified by running 4.1.6.1116 as 568 on
       # 2026-09-02). The mover must match or it restores root-owned files the
       # app cannot read.
-      VOLSYNC_RUN_AS_USER: "568"
-      VOLSYNC_RUN_AS_GROUP: "568"
-      VOLSYNC_FS_GROUP: "568"
-      # kopiur (components/kopiur). H picks a minute per schedule; hours match
-      # the VolSync schedules above. Copy method + snapshot class mirror VolSync.
-      KOPIUR_LOCAL_CRON: "H */4 * * *"
-      KOPIUR_R2_CRON: "H 5 * * *"
-      KOPIUR_COPYMETHOD: Snapshot
-      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
-      # Mirrors VOLSYNC_RUN_AS_* / VOLSYNC_FS_GROUP above.
       KOPIUR_RUN_AS_USER: "568"
       KOPIUR_RUN_AS_GROUP: "568"
       KOPIUR_FS_GROUP: "568"
