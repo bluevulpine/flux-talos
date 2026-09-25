@@ -36,9 +36,7 @@ spec:
       GATUS_SERVICE: ev-charge-tracker
       VOLSYNC_CAPACITY: 2Gi
       VOLSYNC_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
-      # ReadWriteOnce + Snapshot, not the RWX + Direct default that
+      # ReadWriteOnce + Snapshot (KOPIUR_COPYMETHOD), not the RWX + Direct default that
       # identity/vaultwarden uses. RWX on Longhorn is served by a
       # share-manager NFS export, and this app puts its single SQLite file
       # into WAL mode. Upstream's own models/database.py warns that "WAL
@@ -49,26 +47,13 @@ spec:
       # mover a point-in-time copy instead of the live file. Matches
       # home/mosquitto and productivity/homebox.
       VOLSYNC_ACCESSMODES: ReadWriteOnce
-      VOLSYNC_COPYMETHOD: Snapshot
       # A handful of rows a day, so every 2 hours is ample. Twice hourly was
       # 48 snapshots/day for no extra recoverable data, and snapshot
       # write-rate is one of the drivers of the Kopia index-blob floor
       # currently being tuned; this is 12/day instead.
-      #
-      # Keeping :09 and dropping the :39 firing is the minimal change, and
-      # :09 is collision-free. Checked by expanding every ReplicationSource
-      # and CronJob schedule in the live cluster to its (hour, minute) firing
-      # set and intersecting — not by comparing schedule strings, which hides
-      # cross-shape overlap. The obvious-looking ":29, next to the existing
-      # */2 family at :00-:25" would have fired at 06:29 on top of
-      # develop/hermes-r2.
-      #
-      # R2 stays nightly at 06:37, the open rung of the 8-minute ladder after
-      # hermes at 06:29; hour 03 remains reserved for kopia-maint-r2.
-      VOLSYNC_LOCAL_SCHEDULE: "9 */2 * * *"
-      VOLSYNC_R2_SCHEDULE: "37 6 * * *"
-      # kopiur (components/kopiur). H picks a minute per schedule; hours match
-      # the VolSync schedules above. Copy method + snapshot class mirror VolSync.
+      # Hour 03 stays reserved for kopia-maint-r2 (R2 is H 6).
+      # kopiur (components/kopiur). H picks a minute per schedule; the hours are
+      # the ones VolSync used before the cutover.
       KOPIUR_LOCAL_CRON: "H */2 * * *"
       KOPIUR_R2_CRON: "H 6 * * *"
       KOPIUR_COPYMETHOD: Snapshot
