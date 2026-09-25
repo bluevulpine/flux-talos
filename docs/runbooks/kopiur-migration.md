@@ -334,11 +334,11 @@ the `kopiur-pilot` Garage bucket and the OpenBao key `kopiur-pilot` by hand.
 | W2 | productivity/grocy | `15 */2 * * *` → `H */2 * * *` | `11 1 * * *` → `H 1 * * *` | Direct | longhorn-1-replica |  |
 | W2 | productivity/homebox | `20 */2 * * *` → `H */2 * * *` | `19 1 * * *` → `H 1 * * *` | Snapshot | longhorn-1-replica |  |
 | W2 | productivity/karakeep | `25 */2 * * *` → `H */2 * * *` | `49 1 * * *` → `H 1 * * *` | Snapshot | longhorn-1-replica |  |
-| W2 | productivity/mealie | `10,40 * * * *` → `25,55 * * * *` ¹ | `11 2 * * *` → `15 2 * * *` ² | Snapshot | longhorn-1-replica |  |
-| W2 | productivity/n8n | `6,36 * * * *` → `21,51 * * * *` ¹ | `27 2 * * *` → `30 2 * * *` ² | Snapshot | longhorn-1-replica |  |
-| W2 | productivity/nextcloud | `4,34 * * * *` → `19,49 * * * *` ¹ | `33 2 * * *` → `5 2 * * *` ² | Snapshot | longhorn-1-replica |  |
-| W2 | productivity/node-red | `8,38 * * * *` → `23,53 * * * *` ¹ | `41 2 * * *` → `0 2 * * *` ² | Snapshot | longhorn-1-replica | uid/gid/fsGroup 1000 |
-| W2 | productivity/obsidian | `12,42 * * * *` → `27,57 * * * *` ¹ | `57 2 * * *` → `35 2 * * *` ² | Direct | longhorn-1-replica |  |
+| W2 | productivity/mealie | `10,40 * * * *` → `15,45 * * * *` ¹ | `11 2 * * *` → `15 2 * * *` ² | Snapshot | longhorn-1-replica |  |
+| W2 | productivity/n8n | `6,36 * * * *` → `11,41 * * * *` ¹ | `27 2 * * *` → `30 2 * * *` ² | Snapshot | longhorn-1-replica |  |
+| W2 | productivity/nextcloud | `4,34 * * * *` → `9,39 * * * *` ¹ | `33 2 * * *` → `5 2 * * *` ² | Snapshot | longhorn-1-replica |  |
+| W2 | productivity/node-red | `8,38 * * * *` → `13,43 * * * *` ¹ | `41 2 * * *` → `0 2 * * *` ² | Snapshot | longhorn-1-replica | uid/gid/fsGroup 1000 |
+| W2 | productivity/obsidian | `12,42 * * * *` → `17,47 * * * *` ¹ | `57 2 * * *` → `35 2 * * *` ² | Direct | longhorn-1-replica |  |
 | W3 | download/qbittorrent | `0 */2 * * *` → `H */2 * * *` | `19 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica |  |
 | W3 | download/sabnzbd | `0 */4 * * *` → `H */4 * * *` | `57 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica |  |
 | W3 | media/audiobookshelf | `40 * * * *` → `H * * * *` | `3 0 * * *` → `H 0 * * *` | Snapshot | longhorn-1-replica |  |
@@ -348,16 +348,16 @@ the `kopiur-pilot` Garage bucket and the OpenBao key `kopiur-pilot` by hand.
 | W3 | media/prowlarr | `15 * * * *` → `H * * * *` | `11 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica |  |
 | W3 | media/radarr | `5 * * * *` → `H * * * *` | `27 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica |  |
 | W3 | media/sonarr | `0 * * * *` → `H * * * *` | `19 5 * * *` → `H 5 * * *` | Snapshot | longhorn-1-replica |  |
-| W3 | media/tracearr | `24,54 * * * *` → `39,9 * * * *` ¹ | `17 2 * * *` → `H 2 * * *` ² | Snapshot | longhorn-1-replica | uid/gid/fsGroup 1001 |
-| W4 | database/couchdb | `14,44 * * * *` → `29,59 * * * *` ¹ | `41 0 * * *` → `H 0 * * *` | Direct | longhorn-1-replica |  |
-| W4 | database/influxdb | `16,46 * * * *` → `31,1 * * * *` ¹ | `27 1 * * *` → `H 1 * * *` | Direct | longhorn-1-replica | uid/gid/fsGroup 1000 |
-| W4 | database/timescaledb | `22,52 * * * *` → `37,7 * * * *` ¹ | `13 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica | uid/gid/fsGroup 1000 |
-| W4 | identity/vaultwarden | `2,32 * * * *` → `17,47 * * * *` ¹ | `49 5 * * *` → `H 5 * * *` | Direct | longhorn-1-replica |  |
+| W3 | media/tracearr | `24,54 * * * *` → `29,59 * * * *` ¹ | `17 2 * * *` → `H 2 * * *` ² | Snapshot | longhorn-1-replica | uid/gid/fsGroup 1001 |
+| W4 | database/couchdb | `14,44 * * * *` → `19,49 * * * *` ¹ | `41 0 * * *` → `H 0 * * *` | Direct | longhorn-1-replica |  |
+| W4 | database/influxdb | `16,46 * * * *` → `21,51 * * * *` ¹ | `27 1 * * *` → `H 1 * * *` | Direct | longhorn-1-replica | uid/gid/fsGroup 1000 |
+| W4 | database/timescaledb | `22,52 * * * *` → `27,57 * * * *` ¹ | `13 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica | uid/gid/fsGroup 1000 |
+| W4 | identity/vaultwarden | `2,32 * * * *` → `7,37 * * * *` ¹ | `49 5 * * *` → `H 5 * * *` | Direct | longhorn-1-replica |  |
 | W5 | media/jellyfin | `35 * * * *` → `H * * * *` | `33 1 * * *` → `H 1 * * *` | Snapshot | longhorn-1-replica |  |
-| W5 | media/plex | `20,50 * * * *` → `35,5 * * * *` ¹ | `3 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica | cache 30Gi, **`NS: media`** ³ |
+| W5 | media/plex | `20,50 * * * *` → `25,55 * * * *` ¹ | `3 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica | cache 30Gi, **`NS: media`** ³ |
 | W6 | develop/hermes | `23 * * * *` → `H * * * *` | `29 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica-local | **staging.storageClassName: longhorn-1-replica patch** |
 | W6 | home/scrypted | `45 * * * *` → `H * * * *` | `11 5 * * *` → `H 5 * * *` | Snapshot | longhorn-1-replica-local | cache 10Gi |
-| W7 | develop/gitea | `18,48 * * * *` → `33,3 * * * *` ¹ | `3 1 * * *` → `H 1 * * *` | Direct | tns-csi-nfs |  |
+| W7 | develop/gitea | `18,48 * * * *` → `23,53 * * * *` ¹ | `3 1 * * *` → `H 1 * * *` | Direct | tns-csi-nfs |  |
 | W7 | home/frigate | `45 * * * *` → `H * * * *` | `57 0 * * *` → `H 0 * * *` | Snapshot | tns-csi-nfs |  |
 | W7 | media/readarr-audiobooks | `20 * * * *` → `H * * * *` | `33 4 * * *` → `H 4 * * *` | Snapshot | tns-csi-nfs |  |
 | W7 | media/readarr-ebooks | `25 * * * *` → `H * * * *` | `41 4 * * *` → `H 4 * * *` | Snapshot | tns-csi-nfs |  |
@@ -367,9 +367,14 @@ the `kopiur-pilot` Garage bucket and the OpenBao key `kopiur-pilot` by hand.
 
 ¹ **Twice-hourly apps.** kopiur has no stepped `H`. `substitute_h` (`crates/api/src/jitter.rs`
 at 0.10.9) rewrites only a field that is *exactly* `H`, and `H/30` is passed through to
-croner unexpanded. So these keep explicit minutes, shifted +15 from VolSync's so the two engines
-don't snapshot the same volume in the same minute during the parallel run. Check
-`status.nextSchedule.at` after applying.
+croner unexpanded. So these keep explicit minutes, shifted **+5** from VolSync's. The shift
+has to clear the jitter, not just the minute: local schedules get the same forward `jitter:
+20m` as R2, so a pin fires anywhere in `[pin, pin+20m)`. The first choice, +15, cleared the
+exact minute but always had VolSync's next slot (pin+15) inside that window. claude-review
+caught it on #1953, before any W2 schedule existed. +5 leaves VolSync's slots (v, v+30)
+outside both windows (`[v+5, v+25)` and `[v+35, v+55)`), so the two engines don't write the
+same identity together during the parallel run. Check `status.nextSchedule.at` after
+applying.
 ² **R2 in hour 02.** `jitter: 20m` is a forward window, so an `H` near :59 can spill into
 **hour 03, which stays reserved** while the fork's `kopia-maint-r2` runs at `0 3 * * *`
 against the same repository. So hour-02 R2 crons use an **explicit minute ≤ :39**, never
