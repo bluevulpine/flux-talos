@@ -52,8 +52,8 @@ spec:
       # RWO belongs in the RWX->RWO migration, where the PVC is recreated
       # anyway - not here.
       #
-      # RWX + Snapshot is not a novel combination in this repo: frigate, tdarr
-      # and both readarr instances already run it.
+      # RWX + Snapshot is not a novel combination in this repo: frigate and
+      # both readarr instances already run it.
       VOLSYNC_COPYMETHOD: Snapshot
       VOLSYNC_LOCAL_SCHEDULE: "20,50 * * * *"
       VOLSYNC_R2_SCHEDULE: "3 4 * * *"
