@@ -190,11 +190,38 @@ spec:
                   periodSeconds: 10
                   timeoutSeconds: 10
                   failureThreshold: 15
+              # Startup is where upgrades happen: the image is `rolling`, so any
+              # pod restart can pull a new Plex, and its migrations and database
+              # fix-ups run before /identity answers. The old startup probe was
+              # the chart's tcpSocket default, which passes the moment the port
+              # opens - about a second in, before any database work - so it never
+              # protected startup at all, and liveness's 300s ran from second 0.
+              #
+              # That killed Plex on 2026-09-25 (PMS 1.43.4.10903, migration
+              # 202608120900). The migration itself took 11s. Then the
+              # SyncCollections fix-up crawled under lock contention with 32
+              # threads queued on db connections: steps of 30.7s, 30.7s and 61.4s,
+              # a 6-minute silence, then another step at 15:09:02. /identity never
+              # answered. Liveness killed it at 15:09:15, still making progress.
+              # The restarted pod ran the same fix-up in 0.3s and was ready in
+              # seconds. So it was slow, not stuck - and the kill cost a second
+              # start rather than saving anything.
+              #
+              # 180 x 10s = 30 minutes on the real endpoint, 3x the observed
+              # crawl. Liveness and readiness only begin once this passes, so the
+              # steady-state budgets above are unchanged. A Plex that cannot serve
+              # /identity inside 30 minutes of starting is genuinely wedged.
               startup:
                 enabled: true
+                custom: true
                 spec:
-                  failureThreshold: 30
+                  httpGet:
+                    path: *probePath
+                    port: *probePort
+                  initialDelaySeconds: 0
                   periodSeconds: 10
+                  timeoutSeconds: 10
+                  failureThreshold: 180
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
