@@ -1,9 +1,0 @@
----
-# talconfig.yaml's additionalMachineCertSans. The API server's own list is in
-# control-plane/02-api-cert-sans.yaml: talhelper never wrote it to workers.
-machine:
-  certSANs:
-    - 10.0.10.30
-    - 127.0.0.1 # KubePrism
-    - talos.flyingfox-decibel.ts.net
-    - k8s.internal
