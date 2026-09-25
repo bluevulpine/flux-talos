@@ -11,4 +11,8 @@ components:
   - ../../../../components/volsync-claim
   - ../../../../components/volsync-backup
   - ../../../../components/externalsecret-refresh
+  # kopiur parallel run (W2, docs/runbooks/kopiur-migration.md): both engines
+  # back up this PVC under the same kopia identity until the per-app gates
+  # pass, then volsync-backup is removed. volsync-claim stays: it owns the PVC.
+  - ../../../../components/kopiur
 
