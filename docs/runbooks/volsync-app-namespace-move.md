@@ -35,6 +35,7 @@ Statements the rehearsal confirmed carry **CONFIRMED [Rh-n]**; statements the re
 | **[R-6]** | `git revert` is not a rollback (it restores a stock claim, no `volumeName`) |
 | **[R-7]** | the `ai` RD's `restore-once` runs a full restore on creation (live) |
 | **[R-8 … R-14]** | see the corresponding steps; each is cited where it applies |
+| **[Pf-1 … Pf-7]** | the pin-fix rehearsal (2026-09-25, `docs/rehearsal/pin-fix/`): **Retiring the permanent pin** below |
 | **[Rh-1]** | SSA accepts the initial `volumeName` add on a pre-bound claim, keeps it across reconciles and a spec change; removing the patch later stalls the ks (verbatim error) — **CONFIRMED** (S2, S1, S4/4c) |
 | **[Rh-2]** | B6 order: both "PVC first" and "OLD pruned first (actual)" bind cleanly via the re-point — **CONFIRMED** (S2, S1) |
 | **[Rh-3]** | the claimRef re-point (`uid`/`resourceVersion: null`) binds a `Released` PV; a claimRef-less PV is taken by any matching claim — **CONFIRMED** (S2, S3, S1, S8) |
@@ -128,6 +129,7 @@ The snapshots live outside the cluster (Garage S3 + R2). Deleting Kubernetes obj
     the failure `volsync-claim/kustomization.yaml:14-20` describes for `dataSourceRef`. **Observed verbatim (S4 4c):** the ks went `Ready=False` with `PersistentVolumeClaim/<ns>/<app> dry-run failed (Invalid): … spec: Forbidden: spec is immutable after creation except resources.requests and volumeAttributesClassName for bound claims` (diff `-"VolumeName": "pvc-…"` / `+"VolumeName": ""`).
     The failure is at the **dry-run**, so nothing else in that Kustomization is applied; the live PVC stayed `Bound` and the PV untouched; restoring the patch cleared it. Keep the patch for the life of that PVC. The initial add on a claim whose `dataSourceRef` the component owns was **accepted** (S2), the field survived two forced reconciles and a spec change (1Gi→2Gi, online, no object recreated).
     **Do not add `force: true` to the child ks** — with it this failure would become a delete/recreate of the PVC.
+    **The pin can be retired without recreating the claim** — by `ssa: IfNotPresent` on the claim, in the same commit that drops the patch — **CONFIRMED [Pf-2]**; see **Retiring the permanent pin** below. Without that annotation the rule above stands.
 13. **Two `hermes.${SECRET_DOMAIN}` routes: the OLDEST wins [R-11].** Gateway API resolves host conflicts to the route with the oldest `creationTimestamp` — `develop`'s (18d). Brief blip if the old one is pruned; a **permanent 503** if it is orphaned (trap 6).
 14. **The Longhorn populator/clone path can wedge — OBSERVED on the rehearsal's very first deploy [Rh-B1]** (`volsync-mover-stuck.md` §"Fifth/Sixth fingerprint"). Sequence seen: the RD finished `Successful` and published a `latestImage`; the populator's `vs-prime-*` PVC never bound
     (`failed to verify data source: snapshot … is not ready to use`, then `snapshot.longhorn.io "snapshot-…" not found`); the HelmRelease timed out; ~1 h to a healthy app. Four things to know:
@@ -651,7 +653,7 @@ After the smoke test, the review, the rehearsal **and the real move (2026-09-24)
 ## Real-move results (2026-09-24)
 
 `develop/hermes` → `ai/hermes`, approach B (the Longhorn volume retained, released and re-claimed). **Full record: `docs/rehearsal/hermes-move/results.md`.** Summary (UTC): quiesce 16:29:26 → PR 1 merged 16:38:56 → PV re-pointed 16:40:10 → content verified identical → PR 2 merged 16:46:01 → pod Ready ~16:47; **~17.5 min downtime**, ~5 min of it operator latency. Both `hermes-local` and `hermes-r2` wrote a final `hermes@develop` snapshot first; the new series `hermes@ai` was written by both new sources. Gatus `ai_hermes` was 200 immediately, no hermes alert fired, the human confirmed the dashboard login and the old sessions.
-Deviations and new traps are 16–20 above ([Hm-2], [Hm-4], [Hm-7]); what stayed open is **Known untested** 3, 4, 6, 7, 9, 10. Follow-ups still pending: B10, the cleanup PR (drop the RD `sourceNamespace` patch, the deferred comment-only updates, `spec.timeout: 15m`, decide the volume pin), the `develop` orphans after B10, and re-targeting of the held Renovate bump.
+Deviations and new traps are 16–20 above ([Hm-2], [Hm-4], [Hm-7]); what stayed open is **Known untested** 3, 4, 6, 7, 9, 10. Follow-ups still pending: B10, the cleanup PR (drop the RD `sourceNamespace` patch, the deferred comment-only updates, `spec.timeout: 15m`, retire the volume pin — **decided by the pin-fix rehearsal: `ssa: IfNotPresent`, see "Retiring the permanent pin"**), the `develop` orphans after B10, and re-targeting of the held Renovate bump.
 
 ## Rehearsal (done)
 
@@ -677,6 +679,54 @@ Outcome: **all scenarios PASS**, hermes untouched throughout (pod never restarte
 
 **Residue:** kopia series `moveprobe@rehearsal-old` and `moveprobe@rehearsal-new` remain in the shared local (Garage) and R2 repositories (a handful of tiny snapshots each; deleting them needs a kopia client) — as do the smoke test's `smoketest*`. **A re-run must use `APP=moveprobe2`.**
 Guards fixes made afterwards: `app_pv` now re-reads the PVC on every call (never a cached file), and the `Claude-Session` commit trailer comes from the optional `CLAUDE_SESSION_URL` environment variable (omitted if unset).
+
+## Retiring the permanent pin: `ssa: IfNotPresent` (rehearsed 2026-09-25)
+
+**Why.** Trap 12 says the kind-targeted `volumeName` patch can never be removed while the claim exists, and on a rebuilt cluster it leaves the claim `Pending` forever (it names a PV that no longer exists).
+A Flux-level rehearsal on a throwaway app (`moveprobe2`, kustomize-controller v1.9.1; record: `docs/rehearsal/pin-fix/results.md`, plan and review beside it) tested the fix proposed in the hermes DR review.
+
+**The fix — one commit** in the app's `app/kustomization.yaml`: replace the two kind-targeted pin patches (`PersistentVolumeClaim` `volumeName`, `ReplicationDestination` `sourceNamespace`) with a **strategic-merge** patch
+(it works whether or not the rendered claim already has `metadata.annotations`; a JSON `add` would not):
+
+```yaml
+patches:
+  - target: {kind: PersistentVolumeClaim}
+    patch: |-
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: not-used
+        annotations:
+          kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
+```
+
+Gate: `flux build` shows `ssa: IfNotPresent` once and **no** `volumeName`/`sourceNamespace` line. Drop the RD `sourceNamespace` patch only after the new series exists in the **local** repository (`check_backup <ns> <app>-local <app>@<ns>`), because the RD reads local.
+
+**What was observed (kustomize-controller v1.9.1).**
+
+- **[Pf-1] Real-shape state.** The rehearsal claim reached exactly the ownership of the real `ai/hermes` (`kustomize-controller (Apply)` owns `f:volumeName`; `kube-controller-manager` owns only annotations) by doing what the move does — PV `Retain` → delete the claim with the ks suspended → commit the pin → Flux **creates** the claim pre-bound → re-point the PV.
+  **The obvious shortcut is invalid:** adding the `volumeName` patch to an already-*provisioned* claim leaves `kube-controller-manager (Update)` co-owning `f:volumeName`, so dropping the patch later does *not* stall and the control cannot reproduce trap 12 — the experiment could not tell "the annotation fixed it" from "the pin was never a problem". Verify the shape with `--show-managed-fields` before trusting any rehearsal of this.
+- **[Pf-2] The control stalls, the fix does not.** Dropping the pin with no annotation → ks `Ready=False` `spec is immutable…` (verbatim as trap 12), nothing else in the ks applied. The one-commit fix → `Ready=True`, no immutable error, claim uid and `volumeName` unchanged, live claim state identical before/after (ownership included), the RD patch really dropped and the RD did **not** re-run.
+- **[Pf-3] Mechanism (read from source, then observed).** `IfNotPresent` is read from the **desired** object and skips the apply **before** the dry-run when the object already exists — so no validation and no write. Consequences: the annotation is **not on the live claim**; nothing in the claim's desired spec or metadata ever reaches it again.
+- **[Pf-4] The DR path works.** With the claim deleted **and the ReplicationDestination deleted** (a rebuild recreates both; recreating only the PVC would restore the RD's stale `latestImage`, not the newest series), Flux recreated the claim **unpinned**, with the annotation on the live object, and the recreated RD's `restore-once` restored the **newest** series (`requestedIdentity <app>@<ns>`, Longhorn snapshot behind the image present): every start line written before the rebuild came back, in order. **Do not ship the cleanup on the strength of "the fix does not stall" alone — the reason for it is this path.**
+
+**What it costs — write these next to the annotation in the app's manifest.**
+
+1. **Never remove the annotation while the claim exists.** Flux keeps owning `f:volumeName` (frozen ownership); the next apply without the annotation and without the field tries to unset it, and the immutable stall (trap 12) is one commit away.
+2. **Claim edits in git are silently ignored** — `VOLSYNC_CAPACITY`, `storageClassName`, labels, annotations (rehearsed: the RS/RD capacity *did* apply, the claim did not). **Expansion becomes manual:** `kubectl patch pvc <app> -p '{"spec":{"resources":{"requests":{"storage":"<size>"}}}}'` (online, ~30 s, no restart), *and* keep the git value equal. The manual patch moves `f:resources` ownership from Flux to `kubectl-patch`.
+3. **Drift is silent [Pf-5].** A desired `volumeName`/class that differs from the bound one raises nothing: ks `Ready=True`, no event. The only traces are the controller log (`"PersistentVolumeClaim/…":"skipped"`) and `flux diff` printing `… skipped`. Keep the pre-merge `flux build` assertion for the claim.
+4. **`prune: disabled` on an existing claim is a one-off manual step [Pf-6].** In git it does **not** land on the existing claim (skipped apply); `kubectl annotate pvc <app> kustomize.toolkit.fluxcd.io/prune=disabled` does, and survives Flux. It is read from the **live** object, so it works: deleting the child Kustomization pruned everything else, left the claim (same uid, PV untouched), and recreating the ks **adopted** the same claim. On a *recreated* claim (rebuild) the annotation in git lands, because the claim is created from the manifest. The optional annotation is therefore a manual step for `ai/hermes`.
+5. **Before merging the cleanup PR** re-check that nothing changed the live claim's ownership since the rehearsal's reference was taken (`kubectl -n ai get pvc hermes --show-managed-fields …`): a manual `annotate`/`patch` changes it, and the rehearsal's S1 equivalence then no longer describes it.
+
+**Rehearsal-method corrections (for anyone re-running this).**
+
+- Reach the post-move state **real-shape** (above), and assert it mechanically by comparing `managedFields` owners with the real claim.
+- A **rebuild simulation must delete the RD as well as the claim** [Pf-4].
+- A **forced backup must not wait on `lastManualSync`**: the child ks (5 min interval) strips a hand-patched `trigger.manual` mid-run [Rh-7], so it may never equal the tag although the sync succeeded [Pf-7]. Wait for *no sync in flight and `lastSyncTime > T0`*, and read the mover log (R-3 rule).
+- A Kustomization deleted while **not** suspended prunes its inventory except `prune: disabled` objects; the parent must be suspended first or it recreates the child at once.
+- Guard tooling used (`kn` allow-list, gated push, silence/window interlocks) is in `docs/rehearsal/pin-fix/tools/`; the reusable `kn-guard.sh` is vendored at `.claude/move-workload/guards/`.
+
+**Not covered:** the old-namespace prune / `Released` race (rehearsed earlier [Rh-2, Rh-3]), the HTTPRoute, hermes' real size and timing, kopiur, and the cleanup PR itself (still to be written; `hermes@ai` must exist in the local repo first).
 
 ## Procedure hygiene for the hermes move [Rh-F, Rh-B2]
 
