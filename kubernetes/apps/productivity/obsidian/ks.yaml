@@ -13,6 +13,10 @@ spec:
       namespace: external-secrets
     - name: longhorn
       namespace: longhorn-system
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   path: ./kubernetes/apps/productivity/obsidian/app
   prune: true
   sourceRef:
@@ -37,4 +41,16 @@ spec:
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
       VOLSYNC_LOCAL_SCHEDULE: "12,42 * * * *"
       VOLSYNC_R2_SCHEDULE: "57 2 * * *"
+      # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
+      # SnapshotSchedules are created with these crons, not the component's
+      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # Twice-hourly: explicit minutes, VolSync's +15 (kopiur has no stepped H).
+      KOPIUR_LOCAL_CRON: "27,57 * * * *"
+      # R2 pinned to an explicit minute <= :39, not H 2: jitter could spill
+      # into hour 03, reserved for kopia-maint-r2 (waves table footnote 2).
+      # :35 also keeps VolSync's own R2 run (02:57) outside the 20m
+      # jitter window, so the two engines don't write this identity together.
+      KOPIUR_R2_CRON: "35 2 * * *"
+      KOPIUR_COPYMETHOD: Direct
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
 

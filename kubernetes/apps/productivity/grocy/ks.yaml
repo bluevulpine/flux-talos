@@ -13,6 +13,10 @@ spec:
       namespace: external-secrets
     - name: longhorn
       namespace: longhorn-system
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   path: ./kubernetes/apps/productivity/grocy/app
   prune: true
   sourceRef:
@@ -38,3 +42,11 @@ spec:
       # Low criticality: inventory, infrequent changes - backup every 2 hours (staggered +15min)
       VOLSYNC_LOCAL_SCHEDULE: "15 */2 * * *"
       VOLSYNC_R2_SCHEDULE: "11 1 * * *"
+      # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
+      # SnapshotSchedules are created with these crons, not the component's
+      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # H picks a minute per schedule; the hours match VolSync's.
+      KOPIUR_LOCAL_CRON: "H */2 * * *"
+      KOPIUR_R2_CRON: "H 1 * * *"
+      KOPIUR_COPYMETHOD: Direct
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass

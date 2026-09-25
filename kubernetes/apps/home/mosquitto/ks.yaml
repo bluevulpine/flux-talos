@@ -8,6 +8,11 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
+  dependsOn:
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   interval: 1h
   path: ./kubernetes/apps/home/mosquitto/app
   prune: true
@@ -30,3 +35,17 @@ spec:
       VOLSYNC_COPYMETHOD: Snapshot
       VOLSYNC_LOCAL_SCHEDULE: "50 * * * *"
       VOLSYNC_R2_SCHEDULE: "19 2 * * *"
+      # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
+      # SnapshotSchedules are created with these crons, not the component's
+      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # H picks a minute per schedule; the hours match VolSync's.
+      KOPIUR_LOCAL_CRON: "H * * * *"
+      # R2 pinned to an explicit minute <= :39, not H 2: jitter could spill
+      # into hour 03, reserved for kopia-maint-r2 (waves table footnote 2).
+      # :25 also keeps VolSync's own R2 run (02:19) outside the 20m
+      # jitter window, so the two engines don't write this identity together.
+      KOPIUR_R2_CRON: "25 2 * * *"
+      KOPIUR_COPYMETHOD: Snapshot
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
+      # Mirrors VOLSYNC_CACHE_CAPACITY.
+      KOPIUR_CACHE_CAPACITY: 10Gi
