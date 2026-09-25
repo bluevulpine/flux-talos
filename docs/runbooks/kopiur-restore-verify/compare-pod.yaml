@@ -18,7 +18,7 @@ spec:
   nodeName: brokkr01
   containers:
     - name: compare
-      image: ghcr.io/linuxserver/calibre-web@sha256:868b56271e4fdd37f4b5d2fe925e62ffd74f89e0e290082e76be6b1f21b77bd8
+      image: ghcr.io/linuxserver/calibre-web@sha256:802729966faed5e32d671cd4f92ba6196e9e754a6c0f740ce1ee9acd86b10e55
       command:
         - /usr/bin/bash
         - -c
