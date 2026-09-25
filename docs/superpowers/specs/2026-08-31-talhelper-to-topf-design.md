@@ -728,7 +728,7 @@ have bitten jormungandr4's `EPHEMERAL` volume.
 
 #### Phase 3 results (2026-09-24)
 
-`talos/patches/` is written: `all/` (14 files, incl. a guard), `control-plane/` (4), `worker/` (7)
+`talos/patches/` is written: `all/` (14 files, incl. a guard), `control-plane/` (3), `worker/` (7)
 and `node/<host>/` for freyja01, jormungandr4 and brokkr01-03 (9). Rendered with synthetic
 secrets and compared against the regenerated talhelper baseline with a **normalizer**
 (parse each document, flatten to sorted `Kind/name | path = value` lines, mask secrets):
@@ -748,6 +748,9 @@ Design choices made while extracting:
   measured in Phase 0). `data-1` is shared; `data-2` exists only per node.
 - **`apiServer.certSANs` is control-plane only.** talhelper never wrote it to workers; putting
   it in `all/` produced a 4-line diff on every worker. `machine.certSANs` stays on all nodes.
+  Both come from **one** role-gated template, `all/03-cert-sans.yaml.tpl`, so the list exists
+  once (talconfig had one shared list; the first extraction had split it into two files that
+  had to be kept in step).
 - **`nfsmount.conf` has no trailing newline.** The original `|` block sat inside an outer
   `|-` patch that stripped the final newline; the patch uses `|-` to reproduce that exactly.
 - **`machine.nodeTaints` is written in addition to the kubelet `registerWithTaints`** on the
@@ -756,6 +759,16 @@ Design choices made while extracting:
 - **The `admissionControl: null` patch was dropped, not ported.** It is a no-op under both
   tools (default `PodSecurity` is present either way), so omitting it renders identically and
   removes a comment that was never true.
+
+**Repeatable offline check.** `talos/tools/render-check.sh` needs no real secret and no cluster.
+It builds a throwaway fixture (synthetic age key, PKI bundle and data values, reusing the
+cleartext of `topf.yaml` so the node list cannot drift), renders all 8 nodes, runs
+`talosctl validate --mode metal` on each, asserts each node's installer image carries its own
+schematic and never the extension-less default, asserts no `${` reached a render, and asserts
+the guard **rejects** an unknown host, an unknown prefix, a role flip and a node with no
+`schematicId`. Given a baseline directory it also runs the masked equivalence comparison.
+23/23 pass; with the guard emptied, exactly the four guard checks fail, so the test
+discriminates. Keep it as the regression test for the patch tree even after Phase 7.
 
 **A defect in the first comparison, worth recording.** The normalizer initially masked every
 field *named* `key`, which also masked `registerWithTaints[].key`, so a wrong taint key would
@@ -776,7 +789,7 @@ changed as a result:
   is dictionary-attackable); empty containers and non-map documents no longer collapse or get
   skipped; and the tool **fails** on empty input, on an unexpected rendered node, and on any
   difference. All five misses are now caught (empty TS key in both modes; the other four by
-  `--hash`), re-verified on fixtures. The tools live in `talos/tools/` (`norm.py`,
+  `--hash`), re-verified on fixtures. The tools live in `talos/tools/` (`render-check.sh`, `norm.py`,
   `compare.sh`, `verify-real.sh`), tracked so they outlive the session; delete with
   `talconfig.yaml` in Phase 7.
 - **A comparison-tool defect worth remembering**: the first `compare.sh` aborted after the
@@ -801,12 +814,13 @@ changed as a result:
   `kubernetes/`, everything for `talos/*.sops.yaml`). Passes all 10 tracked SOPS files; rejects
   all 9 attack cases; still accepts Renovate-style edits of cleartext fields. **Limit**: it
   checks the ciphertext *form*, not that it decrypts (only `sops -d` verifies the MAC).
-  **Follow-up**: the only enforcement is a local hook; add the same check to CI.
+  It also runs server-side: `.github/workflows/sops-check.yaml` runs the same script over every
+  tracked SOPS file and `talos/topf.yaml` on PRs and pushes to main, because a local hook is
+  bypassable (`--no-verify`, or a checkout without lefthook).
 - `.gitignore` gains `talos/secrets.yaml` (topf's default `secretsPath`, where a bare
   `--confirm=false` writes a new plaintext PKI). The `.sops.yaml` rule is anchored
   (`^talos/topf\.yaml$`) so it cannot match `topf.yaml.bak`.
-- **Noted, not changed**: the API and machine cert-SAN lists are now two copies (talconfig had
-  one shared list); `all/05` and `all/11` use `machine.files`, which Talos deprecates (a
+- **Noted, not changed**: `all/05` and `all/11` use `machine.files`, which Talos deprecates (a
   1.14-era migration); document **order** differs from the baseline on every node (the leaf
   comparison ignores it; Phase 5's dry-run decides whether it matters).
 
@@ -954,6 +968,9 @@ two share a failure domain. Concretely:
 - With no second control plane there is no quorum to lose *and* none to fail over to. A
   bad config that stops `apiserver` coming back is recoverable only through the Talos
   API on that node, so confirm the talosconfig can reach freyja01 directly first.
+
+**The step-by-step procedure is in [`docs/runbooks/talos-topf-migration-apply.md`](../../runbooks/talos-topf-migration-apply.md)**
+(per-node commands, decision tables, stop conditions, rollback). The hazards it is built on:
 
 **Phase 5 preconditions and hazards (from the 2026-09-24 safety review):**
 
