@@ -1,0 +1,10 @@
+---
+# talconfig.yaml's additionalApiServerCertSans. Same list as machine.certSANs in
+# all/03-cert-sans.yaml; keep them in step.
+cluster:
+  apiServer:
+    certSANs:
+      - 10.0.10.30
+      - 127.0.0.1 # KubePrism
+      - talos.flyingfox-decibel.ts.net
+      - k8s.internal

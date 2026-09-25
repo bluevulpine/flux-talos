@@ -6,18 +6,21 @@ clusterEndpoint: https://10.0.10.30:6443
 kubernetesVersion: v1.36.2
 # renovate: datasource=github-releases depName=siderolabs/talos
 talosVersion: v1.13.9
-schematicId: '@schematics/pi.yaml'
 secretsPath: secrets.sops.yaml
+patchesDir: patches
 nodes:
   - host: jormungandr1
     ip: 10.0.10.31
     role: worker
+    schematicId: '@schematics/pi.yaml'
   - host: jormungandr2
     ip: 10.0.10.32
     role: worker
+    schematicId: '@schematics/pi.yaml'
   - host: jormungandr3
     ip: 10.0.10.33
     role: worker
+    schematicId: '@schematics/pi.yaml'
   - host: freyja01
     ip: 10.0.10.35
     role: control-plane
@@ -25,6 +28,7 @@ nodes:
   - host: jormungandr4
     ip: 10.0.10.34
     role: worker
+    schematicId: '@schematics/pi.yaml'
   - host: brokkr01
     ip: 10.0.10.38
     role: worker

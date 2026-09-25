@@ -1,0 +1,15 @@
+---
+# Global NFS mount options.
+machine:
+  files:
+    - op: create
+      path: /var/etc/nfsmount.conf
+      permissions: 0o644
+      # `|-`: no trailing newline, matching what talhelper generated (its `|` sat inside an
+      # outer `|-` block that stripped the final newline).
+      content: |-
+        [ NFSMount_Global_Options ]
+        nfsvers=4.2
+        hard=True
+        nconnect=16
+        noatime=True
