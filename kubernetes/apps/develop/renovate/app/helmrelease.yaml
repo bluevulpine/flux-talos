@@ -69,6 +69,11 @@ spec:
               # RENOVATE_REPOSITORY_CACHE: enabled.
               RENOVATE_BASE_DIR: /tmp/renovate
               RENOVATE_CACHE_DIR: /tmp/renovate/cache
+              # The image's HOME (/home/ubuntu) is on the read-only root, and git
+              # and the package managers write dotfiles there (~/.gitconfig,
+              # ~/.npm). PATH still lists /home/ubuntu/bin explicitly, so moving
+              # HOME does not hide the image's own tools.
+              HOME: /tmp/home
             envFrom:
               - secretRef:
                   name: renovate-secret
