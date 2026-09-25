@@ -14,7 +14,7 @@ evidence.
 | Pilots (`media/recyclarr-kopiur-pilot`, `media/jellyseerr-kopiur-pilot`) | passed 4/4 and 5/5; **retired 2026-09-24** after W0 passed its gates. Their READMEs (verdicts, the SQLite integrity method) are at `b625ac57:kubernetes/apps/media/{recyclarr,jellyseerr}-kopiur-pilot/README.md` |
 | PR #1870 — component split + `components/kopiur` | **merged** 2026-09-22 (eab49e12); verified inert live: all Kustomizations Ready on it, all 93 ReplicationSources intact. No app includes `components/kopiur` yet |
 | Two `ClusterRepository` + 18 `ExternalSecret` | **landed** 2026-09-22 (#1879, e4539596), plus the `kopiur-system` Pod Security fix (#1880). Both `Ready`, all 18 secrets synced; catalog scanned 2026-09-23. See "The repositories" |
-| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 parallel run** from 2026-09-24: 8 apps with `components/kopiur` beside `volsync-backup` (gates pending). W2–W8 not started |
+| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 parallel run** from 2026-09-24: 8 apps with `components/kopiur` beside `volsync-backup`. Restore gate passed 2026-09-25 (calibre-web); per-app gates 1–4 pass for 6 of 8, `ev-charge-ledger` and `cross-seed` await their first R2 run. W2–W8 not started |
 
 ## Why kopiur
 
@@ -253,6 +253,15 @@ identity.
 `kopia-r2`, 2,192 files / 2,523 entries. 0 differing lines on content, owner/mode/size and
 file mtimes, and only the 116 directory mtimes differ. It passed on the second run; the
 first run is the trap below.
+
+**W1 result (2026-09-25, calibre-web, `longhorn-1-replica`):** PASS on the first run, from
+`kopia-local` (`calibre-web-local-20260925042007`) and `kopia-r2`
+(`calibre-web-r2-20260925041658`). 7 files, all `568:568`. Live vs each restore and local
+vs R2: 0 differing lines on content, owner/mode/size, file mtimes and dir mtimes, excluding
+the two files the app keeps writing (`app.db`, `calibre-web.log`). Those are identical
+between the two restores, and `integrity_check` is `ok` on the restored `app.db` (21
+tables) and `gdrive.db` from both legs. The kit now handles live writers and an
+always-attached app (`nodeName`); see its README.
 
 #### Restores need capabilities, not just root
 
