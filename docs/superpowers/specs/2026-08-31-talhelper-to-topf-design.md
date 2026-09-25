@@ -654,6 +654,17 @@ attempt. `freyja` has not been run through it yet. The transcription is mechanic
 resolves IDs locally and only contacts the factory under `--submit-to-factory`,
 which defaults off.
 
+#### Phase 2 results (2026-09-24)
+
+`talos/schematics/{pi,amd,freyja}.yaml` were **generated from `talconfig.yaml` with `yq`**
+(`explode(.)` to resolve anchors, comments stripped), not transcribed by hand, so the
+freyja01 inline schematic cannot be missed and the extraction is repeatable. Against the
+real `talos/topf.yaml`, `topf schematic-ids` returns exactly the IDs the regenerated
+talhelper baseline uses: `647d4118…` (freyja01, 1 node), `a6c707bf…` (jormungandr1-4),
+`b915cd23…` (brokkr01-03). Set equality only; the per-node mapping is confirmed in
+Phase 4 from the rendered installer images. Re-verified after the `yamlfmt` pre-commit
+pass, since the ID depends on parsed content, not formatting.
+
 ### Phase 3 — extract the patch tree
 
 Split the 160 global and 44 control-plane patch lines into files under `all/` and
