@@ -317,7 +317,7 @@ the `kopiur-pilot` Garage bucket and the OpenBao key `kopiur-pilot` by hand.
 | W1 | home/ev-charge-ledger | `43 */2 * * *` → `H */2 * * *` | `53 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica | **`NS: home`** ³ |
 | W1 | home/ev-charge-tracker | `9 */2 * * *` → `H */2 * * *` | `37 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica |  |
 | W1 | media/calibre-web | `15 */4 * * *` → `H */4 * * *` | `33 0 * * *` → `H 0 * * *` | Snapshot | longhorn-1-replica |  |
-| W1 | media/notifiarr | `35 */4 * * *` → `H */4 * * *` | `49 2 * * *` → `H 2 * * *` ² | Snapshot | longhorn-1-replica |  |
+| W1 | media/notifiarr | `35 */4 * * *` → `H */4 * * *` | `49 2 * * *` → `10 2 * * *` ² | Snapshot | longhorn-1-replica |  |
 | W1 | media/sportarr | `53 */4 * * *` → `H */4 * * *` | `57 5 * * *` → `H 5 * * *` | Snapshot | longhorn-1-replica | uid/gid/fsGroup 568 |
 | W1 | media/tautulli | `20 */4 * * *` → `H */4 * * *` | `27 5 * * *` → `H 5 * * *` | Snapshot | longhorn-1-replica |  |
 | W2 | home/mosquitto | `50 * * * *` → `H * * * *` | `19 2 * * *` → `H 2 * * *` ² | Snapshot | longhorn-1-replica | cache 10Gi |
@@ -365,7 +365,11 @@ don't snapshot the same volume in the same minute during the parallel run. Check
 ² **R2 in hour 02.** `jitter: 20m` is a forward window, so an `H` near :59 can spill into
 **hour 03, which stays reserved** while the fork's `kopia-maint-r2` runs at `0 3 * * *`
 against the same repository. Read `status.nextSchedule.at` after applying and move any that
-land past 02:40.
+land past 02:40. Move it to an **explicit minute ≤ :39**, not another `H`: the jitter is
+re-derived for every slot, so one reading under 02:40 does not prove the next one is.
+`notifiarr-r2` (W1) read 02:59:19Z, so its `H` is at least :39, and it is pinned to `10 2`.
+A cron change does not re-pin a pending slot (see the traps), so the old slot still fires
+once.
 ³ **Add `NS: <namespace>`** to `postBuild.substitute`. See the `NS` trap below.
 
 ## Traps found so far (each one produced a plausible wrong answer)
@@ -386,6 +390,23 @@ land past 02:40.
   signal is there, as `kopiur_snapshot_refusals_total{reason}` and
   `kopiur_resource_phase{kind="Snapshot",phase="Pending"}`, but no rule reads it. **Gate 1
   means `Succeeded`, not "a Snapshot exists".**
+- **A schedule created with the default cron fires once at the wrong slot, and fixing the
+  cron does not move it.** Found 2026-09-25 in the W1 parallel run (#1936): 12 of 16
+  SnapshotSchedules were *created* with `components/kopiur`'s default crons (local
+  `H */2`, R2 `H 4`), not the table's. It was a Flux ordering race. The app Kustomizations
+  built the new revision, which added the component, before `cluster-apps` had applied the
+  new `KOPIUR_*` vars to their `ks.yaml`, so postBuild filled in the defaults. Flux corrected
+  `spec.schedule.cron` seconds later (generation 2). But kopiur 0.10.9 re-pins
+  `status.nextSchedule` only when the timezone or jitter changes, never the cron
+  (`snapshot_schedule.rs:830-840`). So `observedGeneration` stays 1, and each schedule fires
+  **once** at the stale slot before it self-heals (locals ~02:13–02:49Z, R2 04:16–04:58Z;
+  none landed in the reserved hour 03). Observed: `calibre-web-r2` fired at 04:16:58Z and
+  re-pinned to 00:30Z, which matches `H 0`. Nothing reports it: the schedule is `Ready`, and
+  the stale slot is one extra snapshot, not a missed one. **Two rules follow.** For W2 and
+  later, land the `KOPIUR_*` vars (and `NS`) in their own PR, **one PR before** the
+  component. The vars alone render nothing. After any wave, run
+  `docs/runbooks/kopiur-cutover/check-schedules.sh <ns>…`: it flags any `nextSchedule` outside its cron's hours,
+  allowing the forward `jitter` spill. Worth an upstream issue.
 - **`indexBlobCountAt` is when the count was first seen at that value, not when it was
   last probed.** `kopia-r2`'s stamp froze for 15 h and then 8 h, which looked like a
   stalled probe. It was not stalled: `status.health.lastProbeAt` kept moving every 30 min.
@@ -523,4 +544,7 @@ only when they are next recreated. Its `Restore` must carry the capability block
       `increase(kopiur_snapshot_refusals_total[1h]) > 0`, and/or a Snapshot `Pending` for
       longer than its staging timeout. The bundled rules miss both (see the traps). Worth an
       upstream issue too, because `KopiurBackupStale` is blind to a policy that never ran
+- [ ] Upstream issue: a `spec.schedule.cron` change does not re-pin `status.nextSchedule`
+      (only tz/jitter do; `snapshot_schedule.rs:830-840` at 0.10.9), so the stale slot
+      fires once (see the traps)
 - [ ] hermes: app-level patch setting `staging.storageClassName: longhorn-1-replica`
