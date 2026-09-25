@@ -1,0 +1,54 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: SOPS Check
+
+# gitleaks excludes *.sops.yaml by filename, and the local pre-commit hook is bypassable
+# (`--no-verify`, or a checkout without lefthook installed). This is the server-side check that
+# every SOPS file is actually ciphertext, not merely named or marked so. See
+# scripts/check-sops-encrypted.sh for exactly what it verifies.
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "**/*.sops.yaml"
+      - talos/topf.yaml
+      - scripts/check-sops-encrypted.sh
+      - .github/workflows/sops-check.yaml
+  push:
+    branches:
+      - main
+    paths:
+      - "**/*.sops.yaml"
+      - talos/topf.yaml
+      - scripts/check-sops-encrypted.sh
+      - .github/workflows/sops-check.yaml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  main:
+    name: SOPS Check - Encrypted
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check SOPS files are encrypted
+        run: |-
+          set -euo pipefail
+          yq --version   # mikefarah yq v4 is preinstalled on ubuntu-latest; the script needs it
+          # .sops.yaml is the SOPS config: it matches the name and is legitimately plaintext.
+          mapfile -t files < <(git ls-files '*.sops.yaml' talos/topf.yaml | grep -vx '\.sops\.yaml')
+          printf 'checking %d files\n' "${#files[@]}"
+          scripts/check-sops-encrypted.sh "${files[@]}"

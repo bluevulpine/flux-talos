@@ -24,7 +24,7 @@ NOT_ENC='[.. | select(kind == "scalar") | select(tag != "!!null") | select((tag 
 for f in "$@"; do
   [[ -f "$f" ]] || { fail "$f" "no such file"; continue; }
 
-  docs=$(yq eval-all '[document_index] | length' "$f" | paste -sd+ - | bc)
+  docs=$(yq eval-all '[.] | length' "$f")   # total documents in the file (no bc/paste dependency)
   [[ "$docs" == "1" ]] || { fail "$f" "expected 1 YAML document, found $docs (a 2nd document can hide plaintext)"; continue; }
 
   if ! yq -e '(.sops | tag == "!!map") and (.sops.mac | tag == "!!str") and (.sops.mac | test("^ENC\\[")) and ((.sops.age // .sops.kms // .sops.pgp // .sops.gcp_kms // .sops.azure_kv // .sops.hc_vault // []) | length > 0)' "$f" >/dev/null 2>&1; then
