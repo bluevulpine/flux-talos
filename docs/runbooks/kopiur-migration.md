@@ -2,10 +2,9 @@
 
 **Status (2026-09-24): repositories landed; step 4 (epoch) skipped on evidence; W0
 (jellyseerr, recyclarr) passed all per-app gates and the per-wave restore gate, the pilots
-are retired, and W0 is cut over: kopiur is the only backup of both apps. VolSync was removed
-at merge. **Pending:** clearing the fork's path-scope retention (`clear-path-retention.sh`
-for each app, see "Per-app cutover"); until then the fork's rules still apply on every
-kopiur run. Next: W1.** Every restore needs added capabilities (see
+are retired, and W0 is cut over: kopiur is the only backup of both apps (VolSync removed in #1934; the fork's
+path-scope retention cleared in both repositories, all six `keep-*` inherited). W1 is in its
+parallel run.** Every restore needs added capabilities (see
 "Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
@@ -15,7 +14,7 @@ evidence.
 | Pilots (`media/recyclarr-kopiur-pilot`, `media/jellyseerr-kopiur-pilot`) | passed 4/4 and 5/5; **retired 2026-09-24** after W0 passed its gates. Their READMEs (verdicts, the SQLite integrity method) are at `b625ac57:kubernetes/apps/media/{recyclarr,jellyseerr}-kopiur-pilot/README.md` |
 | PR #1870 — component split + `components/kopiur` | **merged** 2026-09-22 (eab49e12); verified inert live: all Kustomizations Ready on it, all 93 ReplicationSources intact. No app includes `components/kopiur` yet |
 | Two `ClusterRepository` + 18 `ExternalSecret` | **landed** 2026-09-22 (#1879, e4539596), plus the `kopiur-system` Pod Security fix (#1880). Both `Ready`, all 18 secrets synced; catalog scanned 2026-09-23. See "The repositories" |
-| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). W1–W8 not started |
+| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 parallel run** from 2026-09-24: 8 apps with `components/kopiur` beside `volsync-backup` (gates pending). W2–W8 not started |
 
 ## Why kopiur
 

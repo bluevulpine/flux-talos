@@ -13,6 +13,10 @@ spec:
       namespace: external-secrets
     - name: qbittorrent
       namespace: download
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   interval: 1h
   path: ./kubernetes/apps/download/cross-seed/app
   prune: true
@@ -25,6 +29,9 @@ spec:
   postBuild:
     substitute:
       APP: *app
+      # components/kopiur pins the kopia identity hostname to NS (runbook: the
+      # "Four apps set no NS" trap).
+      NS: download
       VOLSYNC_CAPACITY: 1Gi
       # Low criticality: config + cache, easily rebuilt - backup every 4 hours (staggered +10min)
       VOLSYNC_LOCAL_SCHEDULE: "10 */4 * * *"
@@ -34,3 +41,9 @@ spec:
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       VOLSYNC_COPYMETHOD: Snapshot
+      # kopiur (components/kopiur). H picks a minute per schedule; hours match
+      # the VolSync schedules above. Copy method + snapshot class mirror VolSync.
+      KOPIUR_LOCAL_CRON: "H */4 * * *"
+      KOPIUR_R2_CRON: "H 0 * * *"
+      KOPIUR_COPYMETHOD: Snapshot
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass

@@ -13,6 +13,10 @@ spec:
       namespace: longhorn-system
     - name: external-secrets-openbao-store
       namespace: external-secrets
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   interval: 1h
   path: ./kubernetes/apps/home/ev-charge-tracker/app
   prune: true
@@ -63,3 +67,9 @@ spec:
       # hermes at 06:29; hour 03 remains reserved for kopia-maint-r2.
       VOLSYNC_LOCAL_SCHEDULE: "9 */2 * * *"
       VOLSYNC_R2_SCHEDULE: "37 6 * * *"
+      # kopiur (components/kopiur). H picks a minute per schedule; hours match
+      # the VolSync schedules above. Copy method + snapshot class mirror VolSync.
+      KOPIUR_LOCAL_CRON: "H */2 * * *"
+      KOPIUR_R2_CRON: "H 6 * * *"
+      KOPIUR_COPYMETHOD: Snapshot
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
