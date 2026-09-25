@@ -72,5 +72,27 @@
       matchPackageNames: ["/gitea\\/gitea$/"],
       enabled: false,
     },
+    {
+      // The Tdarr node on the DGX Spark (bvn-homelab/spark-setup on Gitea,
+      // bumped by the self-hosted Renovate in kubernetes/apps/develop/renovate)
+      // must run the same version as this server, or the server rejects it.
+      // spark-setup carries the mirror of this rule for tdarr_node. Never
+      // automerge either side. The two PRs share a version and the word
+      // "tdarr" in the title; the notes tell each reviewer where the other is.
+      description: "Tdarr server: lockstep with the spark-setup tdarr_node bump, never automerge",
+      matchPackageNames: ["ghcr.io/haveagitgat/tdarr"],
+      automerge: false,
+      addLabels: ["tdarr-lockstep"],
+      prBodyNotes: [
+        "⚠️ **Lockstep with the Tdarr node.** Merge this first, let it roll out, then merge the matching `tdarr_node` bump in [spark-setup](https://gitea.derekjacobs.dev/bvn-homelab/spark-setup/pulls?state=open&q=tdarr) and run `ansible-playbook main.yml --tags tdarr`. Until both match, the node is rejected and receives no jobs.",
+      ],
+    },
+    {
+      // Renovate itself (kubernetes/apps/develop/renovate) releases near-daily.
+      // A weekly PR is plenty for a tool whose failures cost at most an hour.
+      description: "Self-hosted Renovate image: weekly, not daily",
+      matchPackageNames: ["ghcr.io/renovatebot/renovate"],
+      schedule: ["before 6am on monday"],
+    },
   ],
 }
