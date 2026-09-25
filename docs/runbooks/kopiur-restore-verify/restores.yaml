@@ -1,23 +1,21 @@
 ---
-# kopiur restore gate (see README.md). As committed: W0, recyclarr (longhorn-1-replica), one restore per leg.
-# Both source snapshots were taken after recyclarr's 00:00Z @daily run and nothing
-# has written the volume since, so the restores must be byte-identical to live.
-# The target PVCs are NOT owned by the Restore (kopiur docs/restores.md); delete them by hand.
-# Mover runs as root on purpose: this is the first restore with root movers, and the point
-# is to confirm ownership now survives (the pilot's 568 mover re-owned a uid-0 file).
-# Run 1 (root, caps dropped): content identical, but all 2,523 entries came back 0:0.
+# kopiur restore gate, W1 (longhorn-1-replica): calibre-web, one restore per leg.
+# Sources: calibre-web-r2 04:16:58Z and calibre-web-local 04:20:07Z, both 2,792,918 B.
+# Live keeps writing app.db (last 09:00Z) and calibre-web.log after both, so the compare
+# pod treats those two as known writers vs live and checks them by integrity instead.
+# Root mover + the capability block: live is 568:568 (abc) with setgid dirs.
 apiVersion: kopiur.home-operations.com/v1alpha1
 kind: Restore
 metadata:
-  name: w0-verify-recyclarr-local
+  name: w1-verify-calibre-web-local
   namespace: media
 spec:
   source:
     snapshotRef:
-      name: recyclarr-local-20260924065332
+      name: calibre-web-local-20260925042007
   target:
     pvc:
-      name: w0-verify-recyclarr-local
+      name: w1-verify-calibre-web-local
       storageClassName: longhorn-1-replica
       capacity: 1Gi
   mover:
@@ -43,15 +41,15 @@ spec:
 apiVersion: kopiur.home-operations.com/v1alpha1
 kind: Restore
 metadata:
-  name: w0-verify-recyclarr-r2
+  name: w1-verify-calibre-web-r2
   namespace: media
 spec:
   source:
     snapshotRef:
-      name: recyclarr-r2-20260924044158
+      name: calibre-web-r2-20260925041658
   target:
     pvc:
-      name: w0-verify-recyclarr-r2
+      name: w1-verify-calibre-web-r2
       storageClassName: longhorn-1-replica
       capacity: 1Gi
   mover:

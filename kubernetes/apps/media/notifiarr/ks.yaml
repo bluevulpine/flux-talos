@@ -42,6 +42,6 @@ spec:
       # kopiur (components/kopiur). H picks a minute per schedule; hours match
       # the VolSync schedules above. Copy method + snapshot class mirror VolSync.
       KOPIUR_LOCAL_CRON: "H */4 * * *"
-      KOPIUR_R2_CRON: "H 2 * * *"
+      KOPIUR_R2_CRON: "10 2 * * *"
       KOPIUR_COPYMETHOD: Snapshot
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
