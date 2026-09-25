@@ -38,6 +38,9 @@ talos/*.iso
 # not match a render run from the repo root.
 output/
 talos/*.decrypted*
+# topf's default secretsPath, and where a bare `--confirm=false` with a wrong path WRITES A NEW
+# PLAINTEXT PKI (measured in Phase 0). Nothing tracked is named this.
+talos/secrets.yaml
 
 # Claude Code scratch (session ledgers, briefs, worktrees) — never commit
 .superpowers/

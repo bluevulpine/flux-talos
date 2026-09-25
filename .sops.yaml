@@ -7,7 +7,7 @@ creation_rules:
   # config name is topf.yaml, so no --topfconfig flag is needed either.
   # mac_only_encrypted lets Renovate edit the cleartext values without invalidating the
   # MAC. This rule MUST sit above the general talos/ rule.
-  - path_regex: talos/topf\.yaml
+  - path_regex: ^talos/topf\.yaml$
     encrypted_regex: ^data$
     mac_only_encrypted: true
     age: "age1ww3u7me5lwxtgqcd8djkv485q30wu7k40hs9e2acg8qvdw4e8spq9t5dem"

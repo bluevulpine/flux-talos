@@ -21,18 +21,13 @@ run = "gitleaks protect --staged --verbose --redact"
 glob = ["*"]
 exclude = ["*.sops.yaml"]
 
-# Files named *.sops.yaml are excluded from gitleaks above, by filename. This closes that
-# hole: a plaintext file that merely carries the name would otherwise commit unscanned.
-# talos/topf.yaml is partially encrypted and is scanned by gitleaks, but must still carry
-# a sops: block: without one, `data:` would be committed as plaintext secrets.
+# Files named *.sops.yaml are excluded from gitleaks above, by filename, so a plaintext file
+# with that name (or a real one with a plaintext value added by hand) would commit unscanned.
+# scripts/check-sops-encrypted.sh verifies the values are ENC[...] ciphertext, not merely that
+# a `sops:` marker exists. talos/topf.yaml is partially encrypted (only `data:`) and is NOT
+# named *.sops.yaml, because .renovaterc.json5 ignores **/*.sops.* and we want Renovate to see
+# its versions; gitleaks does scan it.
 [pre-commit.commands.sops-encrypted]
-run = """
-for file in {staged_files}; do
-    if ! grep -q '^sops:' "$file"; then
-        echo "$file must be SOPS-encrypted but has no sops: block (plaintext?)" >&2
-        exit 1
-    fi
-done
-"""
+run = "scripts/check-sops-encrypted.sh {staged_files}"
 glob = ["*.sops.yaml", "talos/topf.yaml"]
 exclude = [".sops.yaml"] # the SOPS config itself: matches the name, is legitimately plaintext

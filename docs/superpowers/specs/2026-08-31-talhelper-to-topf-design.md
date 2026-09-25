@@ -615,9 +615,11 @@ Done in worktree `~/Repositories/flux-talos-talos-gen`, branch `talhelper-replac
   `mac_only_encrypted: true`) above the general talos rule.
 - **`.gitignore`**: `output/` (bare, un-anchored — verified it ignores both `output/x` and
   `talos/output/x`) and `talos/*.decrypted*`.
-- **`.lefthook.toml`**: new `sops-encrypted` pre-commit check. Verified it **rejects** a
-  staged plaintext `*.sops.yaml` (in which case gitleaks reported `skip: no matching
-  staged files`, i.e. the hole is real) and **accepts** a real one. `yamlfmt` now
+- **`.lefthook.toml`**: new `sops-encrypted` pre-commit check, **later strengthened after
+  review** (see Phase 3 review round): it now runs `scripts/check-sops-encrypted.sh`, which
+  verifies the values are `ENC[AES256_GCM,…]` ciphertext instead of grepping for a `sops:`
+  marker. First version verified against a staged plaintext `*.sops.yaml` (gitleaks then
+  reported `skip: no matching staged files`, i.e. the hole is real). `yamlfmt` now
   excludes `talos/topf.yaml`.
   The first version of the check flagged `.sops.yaml` itself (the SOPS config matches the
   name and is legitimately plaintext); it is now excluded. Re-tested: a plaintext
@@ -724,6 +726,95 @@ whole `provisioning` block in the overlay, or (preferred) do not define the docu
 two layers and drive the difference with `.Node.Data`. This is the mechanism that would
 have bitten jormungandr4's `EPHEMERAL` volume.
 
+#### Phase 3 results (2026-09-24)
+
+`talos/patches/` is written: `all/` (14 files, incl. a guard), `control-plane/` (4), `worker/` (7)
+and `node/<host>/` for freyja01, jormungandr4 and brokkr01-03 (9). Rendered with synthetic
+secrets and compared against the regenerated talhelper baseline with a **normalizer**
+(parse each document, flatten to sorted `Kind/name | path = value` lines, mask secrets):
+**all 8 nodes differ by 0 lines**, and `talosctl validate --mode metal` accepts the output.
+`grep '\${' talos/patches talos/schematics` returns nothing.
+
+Design choices made while extracting:
+
+- **Group differences are hostname-gated templates in `worker/`; per-node facts are
+  `node/<host>/` files.** topf has no host groups. Rather than copy the same Pi or brokkr
+  patch into three `node/` directories, one `.yaml.tpl` per concern is gated on
+  `hasPrefix "jormungandr"` / `hasPrefix "brokkr"` / `regexMatch "^jormungandr[123]$"`. Only
+  what genuinely differs per node lives in `node/`: brokkr's bond NICs and `data-2` disk
+  model, jormungandr4's network and volume, freyja01's network and install disk. **No
+  per-node `data:` is used** (decision D1 follow-up), so all of it stays readable in git.
+- **No same-named document is defined in two layers** (the partial-overlay field loss
+  measured in Phase 0). `data-1` is shared; `data-2` exists only per node.
+- **`apiServer.certSANs` is control-plane only.** talhelper never wrote it to workers; putting
+  it in `all/` produced a 4-line diff on every worker. `machine.certSANs` stays on all nodes.
+- **`nfsmount.conf` has no trailing newline.** The original `|` block sat inside an outer
+  `|-` patch that stripped the final newline; the patch uses `|-` to reproduce that exactly.
+- **`machine.nodeTaints` is written in addition to the kubelet `registerWithTaints`** on the
+  Pis, because talhelper's typed `nodeTaints` produced the former and the inline patch the
+  latter.
+- **The `admissionControl: null` patch was dropped, not ported.** It is a no-op under both
+  tools (default `PodSecurity` is present either way), so omitting it renders identically and
+  removes a comment that was never true.
+
+**A defect in the first comparison, worth recording.** The normalizer initially masked every
+field *named* `key`, which also masked `registerWithTaints[].key`, so a wrong taint key would
+have compared as equal. It now masks by exact secret path prefix (`machine.ca`,
+`cluster.secret`, …) and the taint key is compared. Any future comparison tool must mask by
+path, not by field name.
+
+**Review round (2026-09-24).** Three independent adversarial reviewers (read-only, told not
+to touch real secrets) examined the patch tree's fidelity, the comparison method, and the
+secrets/safety of the whole branch. No CRITICAL fidelity defect; several real gaps. What
+changed as a result:
+
+- **Comparison method (red-team, 19 fault injections).** Five faults were MISSED because
+  masked values compare equal: a worker that gains the machine CA private key, a wrong LUKS
+  passphrase, an empty Tailscale key, a wrong `data.domain`, a hardcoded domain. Fixes:
+  masking now shows `<empty>` for blank values (so absent never equals present); real-secrets
+  runs use **HMAC with a random per-run key** shared by both sides (a bare hash of the domain
+  is dictionary-attackable); empty containers and non-map documents no longer collapse or get
+  skipped; and the tool **fails** on empty input, on an unexpected rendered node, and on any
+  difference. All five misses are now caught (empty TS key in both modes; the other four by
+  `--hash`), re-verified on fixtures. The tools live in `talos/tools/` (`norm.py`,
+  `compare.sh`, `verify-real.sh`), tracked so they outlive the session; delete with
+  `talconfig.yaml` in Phase 7.
+- **A comparison-tool defect worth remembering**: the first `compare.sh` aborted after the
+  first differing node, because `head` closing a pipe tripped `pipefail`. It failed safe
+  (non-zero exit) but truncated the report.
+- **Secrets were pasted unquoted into YAML** (`passphrase:`, `TS_AUTHKEY=`). A value with `#`
+  was silently truncated and `0123` was read as octal. talhelper had the same exposure, so
+  parity held, but the masked comparison would have hidden a mangled value. Now
+  `| toJson`. Phase 4 verifies by HMAC that the rendered passphrase equals the data value; if
+  it does not, the live LUKS slot 1 already holds a mangled key: **stop there**.
+- **Adding or renaming a node went wrong silently** (`brokkr04` with no `node/` directory
+  rendered and validated, with `bond0` VLANs but no `BondConfig`). New `all/00-guard.yaml.tpl`
+  fails the render for an unknown hostname, a role mismatch, or a node with no schematic.
+- **A node with no `schematicId` silently gets Talos's *default* schematic**
+  (`37656798…`, no system extensions): it installs and validates, then breaks iSCSI/NFS/
+  tailscale at the next upgrade. Removing the global Pi default (each node now names its own)
+  makes that reachable, so the guard rejects an empty or default schematic.
+- **The `sops-encrypted` hook was weak** (a plaintext file with a `sops: {}` stub, a real file
+  with a hand-added plaintext key, and `yq -i` adding a plaintext `.data.newKey` all passed).
+  Replaced by `scripts/check-sops-encrypted.sh`: one document, a valid `sops` block, and every
+  scalar in scope is ENC ciphertext (`.data` for `topf.yaml`, `.data`/`.stringData` for
+  `kubernetes/`, everything for `talos/*.sops.yaml`). Passes all 10 tracked SOPS files; rejects
+  all 9 attack cases; still accepts Renovate-style edits of cleartext fields. **Limit**: it
+  checks the ciphertext *form*, not that it decrypts (only `sops -d` verifies the MAC).
+  **Follow-up**: the only enforcement is a local hook; add the same check to CI.
+- `.gitignore` gains `talos/secrets.yaml` (topf's default `secretsPath`, where a bare
+  `--confirm=false` writes a new plaintext PKI). The `.sops.yaml` rule is anchored
+  (`^talos/topf\.yaml$`) so it cannot match `topf.yaml.bak`.
+- **Noted, not changed**: the API and machine cert-SAN lists are now two copies (talconfig had
+  one shared list); `all/05` and `all/11` use `machine.files`, which Talos deprecates (a
+  1.14-era migration); document **order** differs from the baseline on every node (the leaf
+  comparison ignores it; Phase 5's dry-run decides whether it matters).
+
+**What this does not prove.** The comparison used *synthetic* secrets, so every masked value
+is unchecked: the cluster PKI, the machine and bootstrap tokens, the Tailscale auth key, the
+LUKS passphrase and the registry domain. `NORM_HASH=1` hashes them instead, so a real-secrets
+render can be compared without printing anything; that run is Derek's (see Phase 4).
+
 ### Phase 4 — prove the output matches
 
 ```bash
@@ -781,6 +872,43 @@ attributable one is the reference.
 **Regenerate the baseline before Phase 7, not after.** Phase 7 uninstalls talhelper;
 whatever baseline exists at that moment is the last one obtainable.
 
+### Phase 4 tooling and the real-secrets gate
+
+The comparison in Phase 3 used synthetic secrets, so it cannot show that the PKI, tokens,
+Tailscale key, LUKS passphrase or registry domain are right. `talos/tools/verify-real.sh`
+closes that. Run by the operator (it needs the age key), it prints only `SAME` / `DIFFERENT` /
+counts, never a value:
+
+```bash
+SOPS_AGE_KEY_FILE=~/Repositories/flux-talos/age.key talos/tools/verify-real.sh
+```
+
+1. `talsecret.sops.yaml` and `secrets.sops.yaml` are the same PKI bundle;
+2. each of the three values in `topf.yaml` `data:` equals its `talenv.sops.yaml` original;
+3. a **real-secrets render** (into a mode-700 temp dir, removed on exit) equals the baseline
+   for all 8 nodes, HMAC-compared, so a wrong secret, a mangled passphrase or a missing key
+   cannot compare equal.
+
+The default baseline is the live-applied `~/Repositories/flux-talos/talos/clusterconfig/`,
+which Phase 0 showed is byte-identical to what talhelper generates today. The script's own
+negative cases were tested on synthetic data: a different PKI bundle, a different secret in
+`talenv`, and a different rendered passphrase each produce `DIFFERENT` and `FAIL`.
+
+**Gate to Phase 5: exit 0.** Anything else means do not apply.
+
+**Result, 2026-09-24 (Derek ran it with the real age key): `RESULT: OK`.** The PKI bundles are
+the same; `tsAuthKey`, `volumeKey` and `domain` equal their `talenv.sops.yaml` originals; and
+a render with the real secrets matches the baseline for all 8 nodes (jormungandr1-3: 120
+lines each, freyja01: 161, jormungandr4: 140, brokkr01-03: 177 each), **0 differing lines,
+HMAC-compared**. That covers the cluster PKI, tokens, Tailscale key, LUKS passphrase (so
+`| toJson` did not alter it) and registry domain. The only note the tool printed is that
+document **order** differs from the baseline on every node; the leaf comparison ignores order
+by design, and whether it matters is decided by Phase 5's per-node `--dry-run`.
+
+This settles equivalence to talhelper's *output*. It does not settle equivalence to what the
+nodes actually run (hand-applied drift is invisible here) or that `topf apply` sends the same
+bytes as `topf render`; both are what the Phase 5 dry-run is for.
+
 ### The authoritative check is Phase 5, not this one
 
 This phase compares topf against *another generator*. `topf apply --dry-run`
@@ -826,6 +954,29 @@ two share a failure domain. Concretely:
 - With no second control plane there is no quorum to lose *and* none to fail over to. A
   bad config that stops `apiserver` coming back is recoverable only through the Talos
   API on that node, so confirm the talosconfig can reach freyja01 directly first.
+
+**Phase 5 preconditions and hazards (from the 2026-09-24 safety review):**
+
+- **topf silently falls back to an insecure TLS client.** Verified in v0.6.0
+  `internal/topf/client.go`: `Client()` probes `:50000` for mTLS and, if the node does not
+  demand a client certificate, uses `createInsecureClient` and pushes the full config. That is
+  the maintenance-mode path, but it also fires for a spoofed IP, a node reset into
+  maintenance mode, or a wrong `ip:`, and the config carries the CA keys, etcd and
+  service-account keys. talosctl needs an explicit `--insecure`; topf does not. **Before each
+  apply, run an mTLS-verified `talosctl -n <ip> version`**, and apply one node at a time with
+  `--nodes-filter '^<host>$'`.
+- **`--redact` does not cover the node's *current* values.** It masks the new `data:` values
+  and a fixed list of PKI fields, but not the running node's TS_AUTHKEY or LUKS passphrase; a
+  dry-run diff that touches those lines would print the old values. Do not run dry-runs into a
+  log, `tee` or recorded terminal.
+- **Stop conditions on freyja01's dry-run, in order of severity:** (1) any change to the
+  `Layer2VIPConfig` (10.0.10.30, the cluster endpoint) or the `LinkAliasConfig`/DHCP selector:
+  an API outage; (2) `HostnameConfig` (`auto: "off"` overriding topf's `auto: stable`): a
+  hostname change breaks node and etcd identity; (3) the PKI or `clusterName`; (4) the
+  tailscale `ExtensionServiceConfig` env: an extension restart and the second remote path to
+  the node; (5) `install.disk` and the installer image, which only take effect at upgrade.
+- A render that fails (for example the guard) still writes the nodes that succeeded. Confirm
+  `apply` aborts on a render error before relying on it; if unsure, render first, then apply.
 
 ### Phase 6 — keep the versions from drifting again
 
@@ -1059,6 +1210,10 @@ difference.
 | **freyja01 is the only control plane on the same host as vault** — an apply needing a reboot is an API outage, and a config that stops `kube-apiserver` is recoverable only via the Talos API | Apply last, `--dry-run` first, no-reboot modes, vault-maintenance-window discipline; see Phase 5 |
 | **Whole-file SOPS hides `talosVersion`/`kubernetesVersion` from Renovate** | Decision D1: partial encryption (decided 2026-09-23) |
 | **`admissionControl: null` is a no-op** (both tools keep the default `PodSecurity` plugin) — the patch never did what its comment claims | Measured parity; do not change it in this migration; Phase 4 confirms |
+| **A node with no `schematicId` silently gets Talos's default (extension-less) schematic** | `all/00-guard.yaml.tpl` fails the render; no global default |
+| **Adding/renaming a node renders and validates but lacks its network, disk or bond** | The same guard fails on an unknown hostname or role |
+| **Secrets pasted unquoted into YAML** (`#` truncates, `0123` becomes octal) | `| toJson`; Phase 4 verifies the rendered passphrase by HMAC |
+| **topf falls back to an insecure TLS client when a node does not demand mTLS** | mTLS-verified `talosctl version` before each apply; one node at a time |
 | **`--confirm=false` with a wrong secrets path mints a new plaintext PKI** | Do not blanket-pass it; keep `--confirm` on for `render`; verify the secrets path before any `--confirm=false` apply |
 | **A partial `node/` overlay of a same-named document drops fields** (`diskSelector` lost) | Do not layer same-named documents; drive differences with `.Node.Data` |
 | **Renovate #1849 rolls Talos while topf is being introduced** | Sequence it: never straddle the bump (see Version drift) |
