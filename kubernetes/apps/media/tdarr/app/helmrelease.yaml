@@ -29,10 +29,15 @@ spec:
               serverIP: 0.0.0.0
               serverPort: &serverPort 8266
               webUIPort: &webPort 8265
-              internalNode: "true"
+              # Server only. All transcoding runs on the external NVIDIA node on
+              # the DGX Spark (spark-setup repo), which reaches this pod through
+              # the tdarr-node LoadBalancer. The internal node had been at 0
+              # workers and was a hazard rather than spare capacity: the plugin
+              # stack hardcodes hevc_nvenc, and this pod only ever had an AMD
+              # iGPU. Turning it off also frees that iGPU for Plex and Jellyfin,
+              # which contend for the same three.
+              internalNode: "false"
               inContainer: "true"
-              ffmpegVersion: "6"
-              nodeName: internal-node
             envFrom:
               - secretRef:
                   name: tdarr-secret
@@ -58,10 +63,8 @@ spec:
               requests:
                 cpu: 100m
                 memory: 512Mi
-                amd.com/gpu: 1
               limits:
                 memory: 4Gi
-                amd.com/gpu: 1
     defaultPodOptions:
       securityContext:
         runAsNonRoot: false
@@ -69,13 +72,10 @@ spec:
         runAsGroup: 568
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
-        # 44 = video, 109 = render (for GPU access), 568 = apps
+        # 568 = apps. video (44) and render (109) went with the internal node's
+        # GPU; nothing else in the pod opens /dev/dri.
         supplementalGroups:
-          - 44
-          - 109
           - 568
-      nodeSelector:
-        feature.node.kubernetes.io/pci-0300_1002.present: "true"
     service:
       app:
         controller: tdarr
@@ -118,10 +118,20 @@ spec:
       #
       # Mounted as a subPath on the existing `tdarr` claim rather than a new PVC
       # so it inherits that claim's volsync backup - the config half of DB2
-      # (LibrarySettingsJSONDB, FlowsJSONDB, AutomationsJSONDB, ApiKeysJSONDB)
-      # is real human effort and worth replicating. The derived half
-      # (FileJSONDB, JobReports, StatisticsJSONDB) rides along; Tdarr does not
-      # separate them.
+      # (library settings, flows, plugin stacks, node worker limits, API keys)
+      # is real human effort and worth replicating. The derived half (file
+      # index, job reports, statistics) rides along; Tdarr does not separate
+      # them. As of 2.89 all of it is in one SQLite file, DB2/SQL/database.db;
+      # the *JSONDB directories beside it are empty.
+      #
+      # So the claim is one volume with two halves, and any move or restore must
+      # carry both: the node/server config JSON at its root (mounted below as
+      # /app/configs) and this `server/` directory. volsync backs up the whole
+      # volume, so a restore does.
+      #
+      # The claim is Longhorn RWO (see ks.yaml) because SQLite on NFS stalled
+      # the server. Moved 2026-09-25 by a kopia backup and restore through the
+      # claim's own ReplicationDestination, the jellyfin (#1703) method.
       #
       # Side effect worth knowing: `config` mounts this claim at its root, so
       # the DB is also visible at /app/configs/server. Cosmetic - Tdarr reads

@@ -362,7 +362,7 @@ the `kopiur-pilot` Garage bucket and the OpenBao key `kopiur-pilot` by hand.
 | W7 | home/frigate | `45 * * * *` → `H * * * *` | `57 0 * * *` → `H 0 * * *` | Snapshot | tns-csi-nfs |  |
 | W7 | media/readarr-audiobooks | `20 * * * *` → `H * * * *` | `33 4 * * *` → `H 4 * * *` | Snapshot | tns-csi-nfs |  |
 | W7 | media/readarr-ebooks | `25 * * * *` → `H * * * *` | `41 4 * * *` → `H 4 * * *` | Snapshot | tns-csi-nfs |  |
-| W7 | media/tdarr | `30 */4 * * *` → `H */4 * * *` | `33 5 * * *` → `H 5 * * *` | Snapshot | tns-csi-nfs |  |
+| W7 | media/tdarr | `30 */4 * * *` → `H */4 * * *` | `33 5 * * *` → `H 5 * * *` | Snapshot | longhorn-1-replica ⁴ |  |
 | W8 | games/satisfactory | `55 * * * *` → `H * * * *` | `3 5 * * *` → `H 5 * * *` | Direct | tns-csi-nvmeof | uid/gid/fsGroup 1000 |
 | W8 | games/valheim | `58 * * * *` → `H * * * *` | `41 5 * * *` → `H 5 * * *` | Direct | tns-csi-nvmeof | uid/gid/fsGroup 1000 |
 
@@ -380,6 +380,9 @@ re-derived for every slot, so one reading under 02:40 does not prove the next on
 A cron change does not re-pin a pending slot (see the traps), so the old slot still fires
 once.
 ³ **Add `NS: <namespace>`** to `postBuild.substitute`. See the `NS` trap below.
+⁴ **tdarr left `tns-csi-nfs` on 2026-09-25** (SQLite on NFS stalled the server), so it is
+now a Longhorn RWO config volume like the W1/W2 apps. It stays in W7 only because nothing
+has re-planned it; moving it to an earlier wave is fine.
 
 ## Traps found so far (each one produced a plausible wrong answer)
 

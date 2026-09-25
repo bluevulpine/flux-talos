@@ -34,10 +34,18 @@ spec:
       # No longer "low criticality, regenerates": as of 2026-09-02 this claim
       # holds the library definitions and flows, which are hand-built and do not
       # regenerate. Backup every 4 hours (staggered +30min).
-      VOLSYNC_STORAGECLASS: tns-csi-nfs
-      VOLSYNC_CLONE_STORAGECLASS: tns-csi-nfs
-      VOLSYNC_SNAPSHOTCLASS: tns-csi-nfs-snapshot
-      VOLSYNC_ACCESSMODES: ReadWriteMany
+      #
+      # Longhorn RWO, not tns-csi-nfs RWX, since 2026-09-25. The claim carries
+      # Tdarr's SQLite database (DB2/SQL/database.db), and SQLite on NFS stalled
+      # the whole server: poll-worker-limits took 0.5-0.75s at baseline with
+      # 14s+ spikes and dozens of >30s timeouts, from the external node AND from
+      # the internal node on 0.0.0.0 - so not the network - with the server CPU
+      # idle. Same failure and same fix as jellyfin (#1703). RWO specifically:
+      # Longhorn RWX is itself NFS, via a share-manager pod.
+      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
       VOLSYNC_COPYMETHOD: Snapshot
       VOLSYNC_LOCAL_SCHEDULE: "30 */4 * * *"
       VOLSYNC_R2_SCHEDULE: "33 5 * * *"
