@@ -1,0 +1,20 @@
+---
+# freyja01, the control-plane VM on vault. Expected ID 647d4118dd02…4066.
+# Extracted from talos/talconfig.yaml (freyja01's schematic, anchors resolved) so topf and talhelper
+# compute the same Image Factory ID. Do not hand-edit: the ID depends on the exact content.
+customization:
+  extraKernelArgs:
+    - -init_on_alloc
+    - -init_on_free
+    - -selinux
+    - apparmor=0
+    - init_on_alloc=0
+    - init_on_free=0
+    - mitigations=off
+    - security=none
+    - talos.auditd.disabled=1
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/qemu-guest-agent
+      - siderolabs/tailscale
+      - siderolabs/util-linux-tools

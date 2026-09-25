@@ -34,7 +34,12 @@ jobs:
 
       - name: Run Claude Code Review
         id: claude-review
-        uses: anthropics/claude-code-action@cfc3eb22bfed5c26ef66e3223c982af27e4524de # v1
+        # The action bundles its own Claude Code CLI, so this pin also decides which models
+        # `--model` below can use. Must bundle Claude Code >= 2.1.280 for claude-opus-5-5:
+        # cfc3eb2 shipped 2.1.278, and the API answers that version with "400 Claude Code
+        # 2.1.278 does not support this model; version 2.1.280 or newer is required" - a
+        # 0-token, ~300ms `is_error:true` failure whose message the action hides.
+        uses: anthropics/claude-code-action@9171db3e57d6a3140a37ddc2ba92788584e0ead6 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Without this the action refuses PRs opened by a GitHub App with
@@ -74,7 +79,36 @@ jobs:
           # in the ordinary log, so the fix has a free numeric readout. 26 -> 0
           # means solved. Guessing wrong costs one CI run; a permanent disclosure
           # would cost until someone remembered to turn it back off.
-          claude_args: '--allowedTools "Task,Read,Grep,Glob,Bash(gh:*)"'
+          #
+          # Model: pinned to Opus 5.5. This used to be unset, so the run silently took the
+          # action's default (claude-sonnet-5, per the 2026-09-25 run log), and a review model that
+          # changes when the action's default changes is not one anybody chose. The plugin's
+          # sub-agents (gating, summarising) pick their own models regardless of this flag.
+          # Trade-off: Opus is slower and costs more per run. Drop `--model` to go back.
+          #
+          # A newer model needs a newer CLI: see the version note on `uses:` above. If this
+          # step fails in well under a second with `result is_error:true` and $0 cost,
+          # suspect that first. Re-running with debug logging does NOT reveal the hidden
+          # message (the action reads ACTIONS_STEP_DEBUG from the process env, which a
+          # debug re-run does not set). Reproduce locally with the bundled CLI version
+          # instead: `npx @anthropic-ai/claude-code@<ver> -p --model <id> ok`.
+          claude_args: '--model claude-opus-5-5 --allowedTools "Task,Read,Grep,Glob,Bash(gh:*)"'
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
+        # A step-level env, not claude_args: the variable is read by Claude Code,
+        # not passed as a flag. It is documented to turn off `run_in_background`
+        # for Bash and for subagents, so every finder agent the review spawns runs
+        # in the foreground and the parent has the results in hand before it posts.
+        # Why: on large docs-only PRs (#1919, #1929) the run finished `success` in
+        # 7-12 turns at the highest cost ($1.7-2.2) with the tracking comment stuck
+        # at "finder agents running in background" and no verdict, while PRs that
+        # DID get a verdict took 6-62 turns. permission_denials_count does not
+        # separate the two groups (3-15 posted, 12-16 stalled), so the denials fix
+        # above is not this. UNVERIFIED that background mode is the cause - headless
+        # mode is documented to wait for background subagents, so the mechanism may
+        # be something else - and the action validates this file against main, so
+        # it can only be tested after merge: the next large docs PR either gets a
+        # verdict or does not. A review bot has no use for background tasks anyway.
+        env:
+          CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1'
 

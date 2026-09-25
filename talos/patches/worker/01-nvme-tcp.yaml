@@ -1,0 +1,6 @@
+---
+# Every worker loads nvme_tcp (tns-csi NVMe-oF). freyja01, the control plane, does not.
+machine:
+  kernel:
+    modules:
+      - name: nvme_tcp

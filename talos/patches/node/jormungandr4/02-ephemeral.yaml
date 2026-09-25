@@ -1,0 +1,12 @@
+---
+# NOTE: the live EPHEMERAL volume is ~249 GB, so this cap has never taken effect (the
+# partition predates it and does not shrink). Kept as-is to reproduce today's config; see
+# the spec's deferred jormungandr1-4 convergence.
+apiVersion: v1alpha1
+kind: VolumeConfig
+name: EPHEMERAL
+provisioning:
+  diskSelector:
+    match: disk.model == "2115"
+  grow: false
+  maxSize: 100GiB

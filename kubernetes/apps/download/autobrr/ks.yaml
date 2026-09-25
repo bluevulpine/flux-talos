@@ -13,6 +13,10 @@ spec:
       namespace: database
     - name: external-secrets-openbao-store
       namespace: external-secrets
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   interval: 1h
   path: ./kubernetes/apps/download/autobrr/app
   prune: true
@@ -37,3 +41,9 @@ spec:
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       VOLSYNC_COPYMETHOD: Snapshot
+      # kopiur (components/kopiur). H picks a minute per schedule; hours match
+      # the VolSync schedules above. Copy method + snapshot class mirror VolSync.
+      KOPIUR_LOCAL_CRON: "H */4 * * *"
+      KOPIUR_R2_CRON: "H 0 * * *"
+      KOPIUR_COPYMETHOD: Snapshot
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass

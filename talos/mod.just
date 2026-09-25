@@ -1,4 +1,4 @@
-set quiet := true
+set quiet
 set shell := ['bash', '-euo', 'pipefail', '-c']
 
 scripts_dir := justfile_dir() + '/scripts'
@@ -66,6 +66,9 @@ gen-secrets:
     just log warn "  2. Encrypt with SOPS: sops -e -i {{ talos_dir }}/talsecret.sops.yaml.new"
     just log warn "  3. Replace old secrets: mv {{ talos_dir }}/talsecret.sops.yaml.new {{ talos_dir }}/talsecret.sops.yaml"
     just log warn "  4. Regenerate configs: just talos gen-config"
+    just log warn "  5. topf ALSO reads talos/secrets.sops.yaml (a copy of talsecret.sops.yaml) until the"
+    just log warn "     talhelper->topf migration is finished: copy the new bundle there in the same change,"
+    just log warn "     or CI (SOPS Check) will fail and topf will keep using the old PKI."
 
 [doc('Generate Talos machine configs from talconfig.yaml using talhelper')]
 gen-config:
