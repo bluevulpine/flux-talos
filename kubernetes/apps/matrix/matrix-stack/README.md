@@ -59,7 +59,11 @@ Everything else is reconciled by Flux. These four are not:
    bindings — anyone Authentik lets through gets a Matrix account.
 
 3. **Pangolin resources.** Add an HTTP resource for each of `matrix.`, `account.` and
-   `chat.${SECRET_DOMAIN}`, exactly as in `docs/runbooks/pangolin-vps-setup.md` step 4.
+   `chat.${SECRET_DOMAIN}`, set up like `docs/runbooks/pangolin-vps-setup.md` step 4
+   **except the target**: copy the target of the existing immich/mealie resources. The
+   runbook (and the comment in `pangolin-newt/app/helmrelease.yaml`) still name
+   `external.network.svc.cluster.local`, the Cloudflare gateway; these routes attach
+   only to `external-pangolin`, so that target would 404 them.
    The public CNAMEs come from `app/dnsendpoint.yaml`; without the resources they
    resolve to a VPS that does not know the hosts.
 

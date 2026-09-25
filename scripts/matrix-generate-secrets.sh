@@ -17,7 +17,8 @@
 # Not generated (they come from Authentik): Mas__Authentik__ClientId and
 # Mas__Authentik__ClientSecret. The script reports if they are missing.
 #
-# Prerequisites: bao (authenticated, BAO_ADDR set), openssl.
+# Prerequisites: bao (authenticated, BAO_ADDR set), OpenSSL 3 (not LibreSSL:
+# the ed25519 signing key needs `genpkey -algorithm ed25519`).
 #
 # Usage:
 #   ./scripts/matrix-generate-secrets.sh [--dry-run]
@@ -31,11 +32,33 @@ DRY_RUN=false
 tmp="$(mktemp -d)"
 trap 'rm -rf "${tmp}"' EXIT
 
+die() {
+    echo "ERROR: $*" >&2
+    exit 1
+}
+
+# Only a definite "not found" may count as missing. Any other failure (wrong
+# BAO_ADDR, expired token, permission denied on read) must abort: treating it as
+# "missing" would regenerate — and on write, overwrite — fields that exist, the
+# Synapse signing key included.
+bao token lookup >/dev/null 2>&1 ||
+    die "bao cannot reach/authenticate to ${BAO_ADDR:-its default 127.0.0.1:8200}. Set BAO_ADDR (e.g. http://openbao.derekjacobs.dev) and run 'bao login'."
+
 path_exists=false
-bao kv get "${BAO_PATH}" >/dev/null 2>&1 && path_exists=true
+if out="$(bao kv get "${BAO_PATH}" 2>&1)"; then
+    path_exists=true
+elif [[ "${out}" != *"No value found"* ]]; then
+    die "cannot read ${BAO_PATH}: ${out}"
+fi
 
 has_field() {
-    ${path_exists} && bao kv get -field="$1" "${BAO_PATH}" >/dev/null 2>&1
+    local out
+    ${path_exists} || return 1
+    if out="$(bao kv get -field="$1" "${BAO_PATH}" 2>&1)"; then
+        return 0
+    fi
+    [[ "${out}" == *"not present in secret"* ]] && return 1
+    die "cannot read ${BAO_PATH} field $1: ${out}"
 }
 
 rand_alnum() { # length
