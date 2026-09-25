@@ -1,0 +1,256 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# These routes replace the Ingresses the chart renders (deleted by the HelmRelease
+# postRenderer). Paths and backends are copied from `helm template` of
+# matrix-stack 26.9.3 — re-diff them on chart upgrades.
+#
+# Public hosts attach to `internal` (LAN A record via external-dns-unifi) and
+# `external-pangolin` (public CNAME from ./dnsendpoint.yaml). Pangolin, not the
+# Cloudflare tunnel: no 100MB body cap on media, and no Cloudflare bot challenges
+# in front of server-to-server federation traffic.
+#
+# Synapse client + federation API. Deliberately NARROWER than the chart's Ingress,
+# which exposes all of /_synapse: here only /_synapse/client is public, so the
+# admin API (/_synapse/admin) and MAS's Synapse endpoints (/_synapse/mas) are not
+# reachable from the internet. See matrix-synapse-lan below.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: matrix-synapse
+  annotations:
+    gatus.home-operations.com/endpoint: |
+      group: matrix
+      url: https://matrix.${SECRET_DOMAIN}/_matrix/client/versions
+spec:
+  hostnames:
+    - "matrix.${SECRET_DOMAIN}"
+  parentRefs:
+    - name: internal
+      namespace: network
+      sectionName: https
+    - name: external-pangolin
+      namespace: network
+      sectionName: https
+  rules:
+    # With MAS, login/refresh/logout on the client API are served by MAS's
+    # compatibility layer, not Synapse. Longest-prefix wins over /_matrix below.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /_matrix/client/api/v1/login
+        - path:
+            type: PathPrefix
+            value: /_matrix/client/api/v1/refresh
+        - path:
+            type: PathPrefix
+            value: /_matrix/client/api/v1/logout
+        - path:
+            type: PathPrefix
+            value: /_matrix/client/r0/login
+        - path:
+            type: PathPrefix
+            value: /_matrix/client/r0/refresh
+        - path:
+            type: PathPrefix
+            value: /_matrix/client/r0/logout
+        - path:
+            type: PathPrefix
+            value: /_matrix/client/v3/login
+        - path:
+            type: PathPrefix
+            value: /_matrix/client/v3/refresh
+        - path:
+            type: PathPrefix
+            value: /_matrix/client/v3/logout
+        - path:
+            type: PathPrefix
+            value: /_matrix/client/unstable/login
+        - path:
+            type: PathPrefix
+            value: /_matrix/client/unstable/refresh
+        - path:
+            type: PathPrefix
+            value: /_matrix/client/unstable/logout
+      backendRefs:
+        - name: matrix-stack-matrix-authentication-service
+          port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /_matrix
+        - path:
+            type: PathPrefix
+            value: /_synapse/client
+      backendRefs:
+        # HAProxy in front of Synapse (routes to workers if ever enabled).
+        - name: matrix-stack-synapse
+          port: 8008
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# The rest of /_synapse (admin API, /_synapse/mas, /_synapse/ess/version) for LAN
+# and tailnet clients only — Element Admin runs in the browser and calls
+# matrix.<domain>/_synapse/admin directly, which resolves to the internal gateway
+# on-network. Same hostname as above: Gateway API merges the two routes' rules on
+# `internal`, and the longer /_synapse/client prefix above still wins for that path.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: matrix-synapse-lan
+spec:
+  hostnames:
+    - "matrix.${SECRET_DOMAIN}"
+  parentRefs:
+    - name: internal
+      namespace: network
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /_synapse
+      backendRefs:
+        - name: matrix-stack-synapse
+          port: 8008
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# Matrix Authentication Service: OAuth/OIDC endpoints, account management UI, and
+# the upstream callback Authentik redirects to.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: matrix-account
+spec:
+  hostnames:
+    - "account.${SECRET_DOMAIN}"
+  # LAN / tailnet: everything, including the MAS admin API (/api/admin), which
+  # Element Admin calls from the browser.
+  parentRefs:
+    - name: internal
+      namespace: network
+      sectionName: https
+  rules:
+    - backendRefs:
+        - name: matrix-stack-matrix-authentication-service
+          port: 8080
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# Internet (Pangolin): the same host minus the MAS admin API. The chart puts the
+# `adminapi` resource on MAS's single public `web` listener, so it cannot be split
+# at the Service; it is refused here at the edge instead, matching the Synapse
+# admin API (matrix-synapse-lan). Gateway API has no "all except" match, hence a
+# separate route per gateway: a second /api/admin rule on `internal` would tie on
+# prefix length with the one above and be resolved by creation time.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: matrix-account-public
+spec:
+  hostnames:
+    - "account.${SECRET_DOMAIN}"
+  parentRefs:
+    - name: external-pangolin
+      namespace: network
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/admin
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: gateway.envoyproxy.io
+            kind: HTTPRouteFilter
+            name: matrix-not-found
+    - backendRefs:
+        - name: matrix-stack-matrix-authentication-service
+          port: 8080
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.envoyproxy.io/httproutefilter_v1alpha1.json
+# Answers at the edge without reaching a backend (Envoy Gateway extension).
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: HTTPRouteFilter
+metadata:
+  name: matrix-not-found
+spec:
+  directResponse:
+    statusCode: 404
+    contentType: text/plain
+    body:
+      type: Inline
+      inline: "Not Found"
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: matrix-element-web
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Element"
+    gethomepage.dev/group: "Productivity"
+    gethomepage.dev/icon: "element.svg"
+    gethomepage.dev/description: "Matrix chat"
+spec:
+  hostnames:
+    - "chat.${SECRET_DOMAIN}"
+  parentRefs:
+    - name: internal
+      namespace: network
+      sectionName: https
+    - name: external-pangolin
+      namespace: network
+      sectionName: https
+  rules:
+    - backendRefs:
+        - name: matrix-stack-element-web
+          port: 80
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# Element Admin is LAN-only, matching the admin API it drives (matrix-synapse-lan).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: matrix-element-admin
+spec:
+  hostnames:
+    - "matrix-admin.${SECRET_DOMAIN}"
+  parentRefs:
+    - name: internal
+      namespace: network
+      sectionName: https
+  rules:
+    - backendRefs:
+        - name: matrix-stack-element-admin
+          port: 8080
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# Delegation: the apex (serverName) answers /.well-known/matrix/{server,client,support}
+# from HAProxy's static well-known frontend; federation then goes to
+# matrix.<domain>:443. ONLY that path is claimed on the apex, and only on the
+# Cloudflare `external` gateway — the responses are a few hundred bytes, so the body
+# cap is irrelevant, and not attaching to `internal` keeps external-dns-unifi from
+# publishing a LAN A record for the bare apex.
+#
+# external-dns-cloudflare will want an apex CNAME -> external.<domain>. If the apex
+# already has a record it does not own (no k8s. TXT), it leaves it alone; in that
+# case make sure whatever serves the apex forwards /.well-known/matrix/ here.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: matrix-well-known
+spec:
+  hostnames:
+    - "${SECRET_DOMAIN}"
+  parentRefs:
+    - name: external
+      namespace: network
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /.well-known/matrix
+      backendRefs:
+        - name: matrix-stack-well-known
+          port: 8010
