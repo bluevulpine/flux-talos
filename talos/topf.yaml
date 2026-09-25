@@ -1,0 +1,63 @@
+# Talos cluster definition for topf. Only `data:` is encrypted (see .sops.yaml), so the
+# versions below stay readable to Renovate. Node-specific config lives in patches/.
+clusterName: home-kubernetes # must stay verbatim: it names the talosconfig context
+clusterEndpoint: https://10.0.10.30:6443
+# renovate: datasource=github-releases depName=kubernetes/kubernetes
+kubernetesVersion: v1.36.2
+# renovate: datasource=github-releases depName=siderolabs/talos
+talosVersion: v1.13.9
+secretsPath: secrets.sops.yaml
+patchesDir: patches
+nodes:
+  - host: jormungandr1
+    ip: 10.0.10.31
+    role: worker
+    schematicId: '@schematics/pi.yaml'
+  - host: jormungandr2
+    ip: 10.0.10.32
+    role: worker
+    schematicId: '@schematics/pi.yaml'
+  - host: jormungandr3
+    ip: 10.0.10.33
+    role: worker
+    schematicId: '@schematics/pi.yaml'
+  - host: freyja01
+    ip: 10.0.10.35
+    role: control-plane
+    schematicId: '@schematics/freyja.yaml'
+  - host: jormungandr4
+    ip: 10.0.10.34
+    role: worker
+    schematicId: '@schematics/pi.yaml'
+  - host: brokkr01
+    ip: 10.0.10.38
+    role: worker
+    schematicId: '@schematics/amd.yaml'
+  - host: brokkr02
+    ip: 10.0.10.39
+    role: worker
+    schematicId: '@schematics/amd.yaml'
+  - host: brokkr03
+    ip: 10.0.10.40
+    role: worker
+    schematicId: '@schematics/amd.yaml'
+data:
+  tsAuthKey: ENC[AES256_GCM,data:C1STHo94qqT2sd7NJ3oNfYZb/BeQXYr6ye3zXa/yYQO6tvp0C5ftCzVgmyGgOjpGon0ZDWm11+nZJgUi0eU=,iv:65Y4kn1iS9wQ+/WmEjhOpTTJh0J8UAXbbj3b/kZ79Ko=,tag:3ol6McUNTj52ipsc3Uq2Sg==,type:str]
+  volumeKey: ENC[AES256_GCM,data:DZ/4Y2/6BXdF8XFXxjtC53T3Jfokhy6ND7igQ6cJl5ayMPWEoT/Y9Z2baCkMfCtt+7wtllXuQM7B5L4=,iv:ZdajlW7PqXZCW64HP84UA0JMPkYohSRw+iZoK7IuyeI=,tag:wkmWFJ2iFKHcL4nPhgJkUw==,type:str]
+  domain: ENC[AES256_GCM,data:6XfyONhi2jXNoHWJPj6V,iv:geCnsCoTI1+tcB09NclAhzPa3z5+5ujLlWS7C3eJBJk=,tag:0RzjkHwkeH2KuAeBoQhslw==,type:str]
+sops:
+  age:
+    - enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBHcHQxcjg3TXM0eFlGaXFv
+        VTY4dFAwSFpvRDlEUnVYSmFSa2psYlZXMGxBCmc1cDc5SXJmM3p5UEJjcnVNajJY
+        REVDWFYvT1NVNXJLVjZ2MENXcWZRU2MKLS0tIDFOSXN3ZVJzMmIvc2xkblIwY2N4
+        aDIyektqTGNjbnU5UjRsN1AwakFIZVUKO7oSDvle/cmAUXbeFlPNLP/8OcZEFnJc
+        TLDUzGejpzPIlSBKLnIYvPQeuZmBbhjQcYvF7e5HifKtY709Gg1SIw==
+        -----END AGE ENCRYPTED FILE-----
+      recipient: age1ww3u7me5lwxtgqcd8djkv485q30wu7k40hs9e2acg8qvdw4e8spq9t5dem
+  encrypted_regex: ^data$
+  lastmodified: "2026-09-24T17:21:04Z"
+  mac: ENC[AES256_GCM,data:q5Cu+jm/W/Qvg2imPcmYV2swtUPvTCJxXiyrYdd5mg11Cd54rt98hpMHVmmDL7tByOz6XjFJbk4AI09n0aAsLz8Ft7mwH1VdSayNQHjy7Hrr0R7PsfRhGM3DqxTOscaaQMpPbtL0iYK4E9mnG2I3K3rrAyMzijqBlnb2tbNCSX0=,iv:oviEnPsPy8/9vOvEcuiDR4t3b+t3g6cl/8JqdVUd230=,tag:8VB8pS2a5RD0kStnM18QSg==,type:str]
+  mac_only_encrypted: true
+  version: 3.13.3

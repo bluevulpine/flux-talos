@@ -1,0 +1,26 @@
+---
+# AMD mini-PC workers (brokkr01-03). Expected ID b915cd2395b3…056a.
+# Extracted from talos/talconfig.yaml (brokkr01's schematic, anchors resolved) so topf and talhelper
+# compute the same Image Factory ID. Do not hand-edit: the ID depends on the exact content.
+customization:
+  extraKernelArgs:
+    - -init_on_alloc
+    - -init_on_free
+    - -selinux
+    - apparmor=0
+    - init_on_alloc=0
+    - init_on_free=0
+    - amd_iommu=on
+    - iommu=pt
+    - mitigations=off
+    - security=none
+    - talos.auditd.disabled=1
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/amd-ucode
+      - siderolabs/amdgpu
+      - siderolabs/binfmt-misc
+      - siderolabs/iscsi-tools
+      - siderolabs/nfsrahead
+      - siderolabs/tailscale
+      - siderolabs/util-linux-tools

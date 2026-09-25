@@ -33,6 +33,15 @@ talos/clusterconfig/talosconfig
 **/talosconfig
 talos/*.iso
 
+# topf render writes PLAINTEXT machine configs (PKI included) to ./output by default.
+# Bare and un-anchored on purpose so it matches at any depth; `talos/output/` would
+# not match a render run from the repo root.
+output/
+talos/*.decrypted*
+# topf's default secretsPath, and where a bare `--confirm=false` with a wrong path WRITES A NEW
+# PLAINTEXT PKI (measured in Phase 0). Nothing tracked is named this.
+talos/secrets.yaml
+
 # Claude Code scratch (session ledgers, briefs, worktrees) — never commit
 .superpowers/
 .claude/worktrees/
