@@ -45,8 +45,9 @@ spec:
       # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # Twice-hourly: explicit minutes, VolSync's +15 (kopiur has no stepped H).
-      KOPIUR_LOCAL_CRON: "19,49 * * * *"
+      # Twice-hourly: explicit minutes, VolSync's +5 (kopiur has no stepped H;
+      # +5 keeps VolSync's slots outside the 20m forward jitter window).
+      KOPIUR_LOCAL_CRON: "9,39 * * * *"
       # R2 pinned to an explicit minute <= :39, not H 2: jitter could spill
       # into hour 03, reserved for kopia-maint-r2 (waves table footnote 2).
       # :05 also keeps VolSync's own R2 run (02:33) outside the 20m
