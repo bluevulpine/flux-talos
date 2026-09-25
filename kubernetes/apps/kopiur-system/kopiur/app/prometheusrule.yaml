@@ -1,0 +1,54 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kopiur-local
+spec:
+  groups:
+    - name: kopiur-local.rules
+      rules:
+        # The chart's rules can't see a backup that never runs.
+        # KopiurBackupStale needs either a past success or
+        # consecutive_failures > 0, and a refused Snapshot has neither: it
+        # stays Pending, not Failed, and with concurrencyPolicy: Forbid it also
+        # blocks every later slot of that schedule. That hid W0's
+        # PrivilegedMoverNotPermitted refusals for ~21 h (2026-09-23/24,
+        # docs/runbooks/kopiur-migration.md traps). Backtested over that window:
+        # both rules below fire on exactly those four Snapshots and on nothing
+        # else in 3 days (normal Snapshots are Pending for ~2.5 min).
+        #
+        # Refused and still waiting: names the reason directly. The refusal
+        # counter is per Snapshot and outlives it, so it is joined against the
+        # Snapshot still being Pending; a refused Snapshot that is later
+        # admitted (as W0's were) resolves on its own.
+        - alert: KopiurSnapshotRefused
+          annotations:
+            summary: >-
+              kopiur refused Snapshot {{ $labels.namespace }}/{{ $labels.name }}
+              ({{ $labels.reason }}) and it is still Pending, so no backup runs
+              for its schedule. For PrivilegedMoverNotPermitted, the namespace
+              needs kopiur.home-operations.com/privileged-movers: "true".
+          expr: |
+            max by (namespace, name, reason) (kopiur_snapshot_refusals_total) > 0
+              and on (namespace, name)
+            (kopiur_resource_phase{kind="Snapshot", phase="Pending"} == 1)
+          for: 10m
+          labels:
+            severity: critical
+
+        # Stuck for any other reason: a staging wait is bounded at 10m
+        # (spec.staging.timeout), so an hour in Pending is never normal.
+        - alert: KopiurSnapshotStuckPending
+          annotations:
+            summary: >-
+              Snapshot {{ $labels.namespace }}/{{ $labels.name }} (policy
+              {{ $labels.policy }}) has been Pending for over an hour; with
+              concurrencyPolicy Forbid its schedule fires nothing else until it
+              clears. `kubectl -n {{ $labels.namespace }} describe
+              snapshots.kopiur.home-operations.com {{ $labels.name }}`.
+          expr: |
+            max by (namespace, name, policy) (kopiur_resource_phase{kind="Snapshot", phase="Pending"}) == 1
+          for: 1h
+          labels:
+            severity: warning

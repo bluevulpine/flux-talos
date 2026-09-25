@@ -572,10 +572,13 @@ only when they are next recreated. Its `Restore` must carry the capability block
       2026-09-22. The translator results above are still from 0.10.8
 - [ ] Upstream issue: `privilegedMode: true` is documented as preserving ownership on
       restore, but in 0.10.9 it only feeds the gate; the Job keeps `drop: [ALL]`
-- [ ] A local PrometheusRule for never-run policies:
-      `increase(kopiur_snapshot_refusals_total[1h]) > 0`, and/or a Snapshot `Pending` for
-      longer than its staging timeout. The bundled rules miss both (see the traps). Worth an
-      upstream issue too, because `KopiurBackupStale` is blind to a policy that never ran
+- [x] A local PrometheusRule for never-run policies (`kopiur-system/kopiur/app/prometheusrule.yaml`,
+      2026-09-25): `KopiurSnapshotRefused` (a refusal joined to the Snapshot still being `Pending`,
+      10m, critical) and `KopiurSnapshotStuckPending` (`Pending` over 1h, warning). There is no
+      `SnapshotPolicy` kind in `kopiur_resource_phase`, so a policy that never *fires* at all
+      (no Snapshot minted) is still uncovered. Backtested on W0: both fire on exactly the four
+      refused Snapshots and on nothing else in 3 days. Still worth an upstream issue, because
+      `KopiurBackupStale` is blind to a policy that never ran
 - [ ] Upstream issue: a `spec.schedule.cron` change does not re-pin `status.nextSchedule`
       (only tz/jitter do; `snapshot_schedule.rs:830-840` at 0.10.9), so the stale slot
       fires once (see the traps)
