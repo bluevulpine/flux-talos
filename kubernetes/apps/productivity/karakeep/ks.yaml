@@ -35,14 +35,9 @@ spec:
       GATUS_PORT: "3000"
       GATUS_SERVICE: karakeep
       VOLSYNC_CAPACITY: 10Gi
-      # Low criticality: bookmarks - backup every 2 hours (staggered +25min)
-      VOLSYNC_LOCAL_SCHEDULE: "25 */2 * * *"
-      VOLSYNC_R2_SCHEDULE: "49 1 * * *"
+      # Low criticality: bookmarks - backup every 2 hours
       VOLSYNC_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
       VOLSYNC_ACCESSMODES: ReadWriteOnce
-      VOLSYNC_COPYMETHOD: Snapshot
       # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).

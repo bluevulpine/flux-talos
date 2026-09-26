@@ -36,21 +36,14 @@ spec:
       GATUS_SERVICE: obsidian
       VOLSYNC_CAPACITY: 20Gi
       VOLSYNC_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_CACHE_CLASS: longhorn-1-replica
-      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
-      VOLSYNC_LOCAL_SCHEDULE: "12,42 * * * *"
-      VOLSYNC_R2_SCHEDULE: "57 2 * * *"
       # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # Twice-hourly: explicit minutes, VolSync's +5 (kopiur has no stepped H;
-      # +5 keeps VolSync's slots outside the 20m forward jitter window).
+      # Twice-hourly: explicit minutes (kopiur has no stepped H), chosen as
+      # VolSync's +5 so the two engines stayed apart during the parallel run.
       KOPIUR_LOCAL_CRON: "17,47 * * * *"
       # R2 pinned to an explicit minute <= :39, not H 2: jitter could spill
       # into hour 03, reserved for kopia-maint-r2 (waves table footnote 2).
-      # :35 also keeps VolSync's own R2 run (02:57) outside the 20m
-      # jitter window, so the two engines don't write this identity together.
       KOPIUR_R2_CRON: "35 2 * * *"
       KOPIUR_COPYMETHOD: Direct
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
