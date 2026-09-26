@@ -19,9 +19,14 @@ upload and the VPS bandwidth (≈10× the CF tunnel) with **no upload cap**.
 > protection, IP hiding). Route through Pangolin only what Cloudflare serves
 > badly: large uploads / high throughput (Immich, Mealie, Karakeep, CouchDB) and
 > server-to-server traffic that CF bot challenges would break (Matrix
-> federation), plus what those depend on (authentik's `sso.`, which Matrix and
-> other Pangolin apps send users to for sign-in). This also limits how much traffic hits the VPS's (often metered)
-> egress. The current set is whatever HTTPRoutes attach to `external-pangolin`:
+> federation). Authentik's `sso.` moved too (#1565, 2026-07-31) for **latency**:
+> its ~4 MB of login assets made it the slowest page on the tunnel (~4s load).
+> Its server and outpost routes must move as a pair (the outpost serves
+> `/outpost.goauthentik.io/*` for forward auth). Trade-off, accepted: external
+> sign-in now depends on the VPS, including for apps still on the tunnel,
+> which redirect to `sso.`. This also limits how much traffic hits the VPS's
+> (often metered) egress. The current set is whatever HTTPRoutes attach to
+> `external-pangolin`:
 >
 > ```bash
 > grep -rl 'name: external-pangolin' kubernetes/apps | grep -v envoy-gateway
