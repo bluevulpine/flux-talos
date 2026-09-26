@@ -500,6 +500,16 @@ has re-planned it; moving it to an earlier wave is fine.
 - **Catalog stats lag by design**: the 30-min probe refreshes `indexBlobCount` only;
   `snapshotCount`/`totalSizeBytes` freeze until a full bootstrap (`catalog.periodicRefresh`
   is off by default).
+- **A root *backup* mover can't read an app's private files either.** kopiur keeps
+  `drop: [ALL]` on the snapshot mover too, so `runAsUser: 0` is uid 0 with ordinary permission
+  checks. W2's first local runs (2026-09-25) failed `PermissionDenied` on mosquitto
+  (`mosquitto.db` 0600 1000:1000), n8n (`config` 0600 1000:1000), calibre (cache dirs 0770
+  568:568) and nextcloud (25,219 files), while mealie and obsidian (world-readable) and node-red
+  (mover uid = owner) passed. W0/W1 only passed because their files happened to be readable.
+  VolSync's root mover keeps the runtime's default capabilities, `DAC_OVERRIDE` among them.
+  `components/kopiur` now adds `DAC_OVERRIDE` to the mover. `DAC_READ_SEARCH` would be the
+  read-only minimum, but baseline Pod Security (`media`) rejects it. The alert that caught it
+  was the chart's `KopiurBackupStale`, via `consecutive_failures > 0`.
 - **A restore mover can't `chown` without `CAP_CHOWN`, even as root.** A non-root mover
   re-owns everything to its own uid (the pilot's 1 file), and a root mover with kopiur's
   default `drop: [ALL]` re-owns everything to `0:0` (W0 run 1: all 2,523 entries). Both
