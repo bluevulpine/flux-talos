@@ -1262,16 +1262,27 @@ happening now.
       gitleaks across the working tree *without* the `*.sops.yaml` exclusion.
 - [x] The new pre-commit check rejects a plaintext file named `*.sops.yaml`. *(`scripts/check-sops-encrypted.sh`, tested against 9 attack cases; also runs server-side in CI.)*
 - [x] All 8 nodes healthy after apply; `talosctl health` clean. *(Phase 5, 2026-09-25:
-      `talosctl health --server=false` against freyja01 reported all k8s nodes
-      schedulable OK; `readyz`, etcd status and Flux/pod checks covered the rest.)*
+      `talosctl health --server=false` against freyja01, output truncated to the last 8
+      lines rather than captured whole — `SKIP` on the k8s-nodes-ready/kube-proxy/coredns
+      checks (expected in `--server=false`, client-only mode) and `OK` on
+      all-nodes-schedulable; exit code not separately recorded. `readyz`, etcd status and
+      Flux/pod checks covered the rest.)*
 - [x] Talos version is consistent across the topf config, the tuppr CR, and the
       running cluster (all `v1.13.9`). *(#1849, held since 2026-09-21, can now be decided —
       see Phase 6.)*
-- [ ] Renovate still sees the version (D1, partial SOPS). **Not yet confirmed**: checked
-      the Dependency Dashboard (issue #1) on 2026-09-25 and `talos/topf.yaml` is not
-      listed under any PR, only the pre-existing `talconfig.yaml`-driven #1849 and #1733.
-      `topf.yaml` only merged that day, so Renovate may simply not have scanned it yet —
-      re-check after its next run, and open a fresh finding if it stays invisible.
+- [ ] Renovate still sees the version (D1, partial SOPS). **Not yet confirmed as a
+      distinct signal**: the Dependency Dashboard (issue #1) lists no PR for
+      `talos/topf.yaml` on 2026-09-25 — only the pre-existing `talconfig.yaml`-driven
+      #1849 and #1733. That is expected, not a problem: `.renovate/customManagers.json5`'s
+      regex manager matches any `.yaml` file and matches `topf.yaml`'s
+      `talosVersion`/`kubernetesVersion` lines exactly as it does `talconfig.yaml`'s, and
+      Renovate groups identical dependency+version strings across files into one PR
+      rather than opening a second one. So the visible signal is not a new PR but (a) a
+      second file appearing in **#1849's diff** once Renovate next rebases it, and (b) an
+      entry per file under the dashboard's **"Detected dependencies"** section. **Before
+      merging #1849, confirm it touches `talos/topf.yaml` as well as `talconfig.yaml`** —
+      if it only bumps one, the two drift apart again, which is exactly what Phase 6 exists
+      to prevent.
 - [x] `admissionControl` on freyja01 renders identically to the baseline. *(No-op under both tools — Phase 0.)*
 - [x] `topf apply --dry-run` shows an empty diff, or only expected differences, on every
       node — freyja01 last. *(Phase 5: every node showed only the document-reorder difference;
