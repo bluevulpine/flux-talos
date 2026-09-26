@@ -31,15 +31,24 @@ upload and the VPS bandwidth (≈10× the CF tunnel) with **no upload cap**.
                                           │ (Newt dials OUT)          ▼
                           ┌───────────────┴──── cluster (this repo) ──────────────────┐
                           │  Newt connector (pangolin-newt, network ns, amd64)         │
-                          │     └─ forwards to  external.network.svc.cluster.local:443 │
-                          │  Envoy `external` Gateway → existing HTTPRoutes → services │
+                          │     └─ forwards to external-pangolin.network.svc…:443      │
+                          │  Envoy `external-pangolin` Gateway → HTTPRoutes → services │
                           └────────────────────────────────────────────────────────────┘
 ```
 
-Newt targets the **same internal origin cloudflared uses**
-(`external.network.svc.cluster.local:443`), so Envoy HTTPRoutes, cert-manager
-certs, and authentik are untouched. Pangolin only replaces the transport leg for
-the hostnames you move to it.
+Newt targets the **`external-pangolin` Gateway**
+(`external-pangolin.network.svc.cluster.local:443`), a third Envoy Gateway beside
+`external` (Cloudflare tunnel) and `internal` (LAN). Envoy Gateway runs in
+`GatewayNamespace` mode, so each Gateway's proxy Service is named after it in
+`network`. Same certs, same authentik, same HTTPRoutes pattern: a Pangolin-served
+app attaches its route to `external-pangolin` (plus `internal`) and gets its public
+record from a `DNSEndpoint` (see immich, mealie, matrix-stack). Keeping it a
+separate Gateway is what preserves split-horizon DNS — see the comment on the
+Gateway in `kubernetes/apps/network/envoy-gateway/resources/gateways.yaml`.
+
+**Not** `external.network.svc.cluster.local`: that is the Cloudflare-tunnel
+Gateway, and routes attached only to `external-pangolin` return 404 there. Earlier
+revisions of this runbook named it, from before the separate Gateway existed.
 
 The cluster side is GitOps-managed: `kubernetes/apps/network/pangolin-newt/`.
 The VPS side is **not** in this repo — it is the manual setup below.
@@ -95,7 +104,8 @@ In the Pangolin dashboard (`https://pangolin.<domain>`):
    cluster.)
 3. **Resource** — add an HTTP resource for the app hostname (e.g.
    `photos.<domain>`), attached to the Site above, with **target**:
-   - host: `external.network.svc.cluster.local`
+   - host: `external-pangolin.network.svc.cluster.local` (not `external.…`, the
+     Cloudflare Gateway — see Architecture)
    - port: `443`, TLS to backend enabled
    - Host header / SNI: preserve the original host so Envoy routes correctly.
    - Leave Pangolin's own SSO **off** (authentik already fronts the app via
@@ -237,7 +247,7 @@ scrape arrives as `tag:server`; no Tailscale ACL change is needed.
   **Do not read these bytes as link utilisation.** They are counted at newt's own
   proxy layer, before WireGuard encapsulation, so the bytes actually crossing the
   258/135 Mbit WAN are strictly more than what this counter reports. (Newt is a
-  raw TCP proxy to `external.network.svc:443`, so the origin-side TLS record
+  raw TCP proxy to `external-pangolin.network.svc:443`, so the origin-side TLS record
   framing *is* already inside the count — what is excluded is the WireGuard, UDP
   and IP overhead wrapped around it, not the TLS.) The dashboard draws the 258 Mbit figure as a reference line on
   the upload panel, but a series that appears to be approaching it has already

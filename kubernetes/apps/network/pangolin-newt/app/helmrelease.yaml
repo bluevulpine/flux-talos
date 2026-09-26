@@ -38,10 +38,11 @@ spec:
             # Newt is the tunnel *client*: it dials out to the Pangolin server
             # (PANGOLIN_ENDPOINT over 443 + Gerbil WireGuard over UDP) and, once
             # registered, forwards traffic to the target configured in the
-            # Pangolin dashboard for this Site -- point that at the same internal
-            # origin cloudflared uses (external.network.svc.cluster.local:443) so
-            # the existing Envoy HTTPRoutes/certs/authentik are unchanged. Nothing
-            # about the target lives here; only the connector credentials do.
+            # Pangolin dashboard for this Site -- point that at the
+            # `external-pangolin` Gateway (external-pangolin.network.svc.cluster.local:443),
+            # NOT the Cloudflare `external` Gateway: Pangolin-served routes attach
+            # only to external-pangolin and 404 on external. Nothing about the
+            # target lives here; only the connector credentials do.
             # Newt's built-in Prometheus exporter (`-metrics`). It is the only
             # metrics source for the Pangolin path that lives inside the cluster:
             # gerbil/traefik on the VPS are behind a Tailscale ACL boundary, so
