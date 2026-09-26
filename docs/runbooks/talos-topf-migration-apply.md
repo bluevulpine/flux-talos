@@ -209,6 +209,19 @@ Everything above applies, plus:
 
 Any of 1-3: **do not apply.** 4-5: understand it first.
 
+#### Stop conditions are about content, not position
+
+A document from the table above appearing in the diff is not by itself a trigger — read
+what actually changed. **A document that only moves position in the file, with
+byte-identical content, is not a trigger; a genuine field or value change is.** This
+came up for real on 2026-09-25: freyja01's diff showed `LinkConfig(ethSel0)` relocating
+relative to `Layer2VIPConfig`/`DHCPv4Config`, which meant those two rows appeared to be
+"touched" by a naive read of the diff. They were not: `Layer2VIPConfig`'s fields
+(`name: 10.0.10.30`, `link: ethSel0`), the `LinkAliasConfig` MAC selector, and
+`DHCPv4Config`'s fields never appear as an added or removed line — only as unchanged
+context around the block that moved. Read the diff's `+`/`-` lines themselves, not just
+which document *names* are near a hunk.
+
 **If (and only if) the diff is empty or accepted:**
 ```bash
 (cd talos && ../.bin/topf --nodes-filter '^freyja01$' apply --dry-run </dev/null); echo "exit=$?"
