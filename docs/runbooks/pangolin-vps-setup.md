@@ -107,15 +107,19 @@ curl -fsSL https://get.docker.com | sh
 ```
 
 Provide your root domain (`<domain>`) and dashboard domain
-(`pangolin.<domain>`). Traefik obtains its own Let's Encrypt certs by **DNS-01**
-(independent of the cluster's cert-manager wildcard), so the VPS's geo rules
-(step 4) do not affect issuance.
+(`pangolin.<domain>`). Traefik obtains its own Let's Encrypt certs by **HTTP-01**
+(independent of the cluster's cert-manager wildcard). Two consequences:
+
+- `80/tcp` must stay open to the world — Let's Encrypt validates on port 80, and
+  from several vantage points, not all of them in the US.
+- A hostname only validates once its public DNS already points at the VPS.
 
 **A resource created before its DNS record exists may never get a cert.** Seen
 2026-09-26: the `matrix.` / `account.` / `chat.` resources were created before
-the PR publishing their CNAMEs merged, and Traefik kept serving
-`TRAEFIK DEFAULT CERT` for all three after the records appeared. Restarting
-Traefik fixed it:
+the PR publishing their CNAMEs merged. Traefik tried HTTP-01 at creation, when
+the names did not resolve to the VPS yet, and did not retry once they did — it
+kept serving `TRAEFIK DEFAULT CERT` for all three. Restarting Traefik makes it
+retry:
 
 ```bash
 docker restart traefik        # on the VPS; brief 502 on every Pangolin hostname
@@ -162,6 +166,13 @@ Pangolin, so no rule applies to it. A missing exception shows up as a **401**
 from non-US probes — the federation tester
 (`https://federationtester.matrix.org/#<domain>`) failed exactly this way until
 the rules were relaxed on 2026-09-26.
+
+Certificate issuance is a separate question. Traefik answers
+`/.well-known/acme-challenge/` from its own built-in router, which should sit
+ahead of Pangolin's per-resource rules. That has not been tested with the geo
+restriction in force, though. If a new hostname is stuck on
+`TRAEFIK DEFAULT CERT` after a Traefik restart, suspect the geo rules next:
+Let's Encrypt's secondary validation vantage points are outside the US.
 
 ## 5. Store the connector credentials in OpenBao
 
