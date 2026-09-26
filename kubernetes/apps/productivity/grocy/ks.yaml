@@ -36,12 +36,7 @@ spec:
       GATUS_SERVICE: grocy
       VOLSYNC_CAPACITY: 2Gi
       VOLSYNC_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_CACHE_CLASS: longhorn-1-replica
-      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
-      # Low criticality: inventory, infrequent changes - backup every 2 hours (staggered +15min)
-      VOLSYNC_LOCAL_SCHEDULE: "15 */2 * * *"
-      VOLSYNC_R2_SCHEDULE: "11 1 * * *"
+      # Low criticality: inventory, infrequent changes - backup every 2 hours
       # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
