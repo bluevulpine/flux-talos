@@ -59,13 +59,14 @@ Everything else is reconciled by Flux. These four are not:
    bindings — anyone Authentik lets through gets a Matrix account.
 
 3. **Pangolin resources.** Add an HTTP resource for each of `matrix.`, `account.` and
-   `chat.${SECRET_DOMAIN}`, set up like `docs/runbooks/pangolin-vps-setup.md` step 4
-   **except the target**: copy the target of the existing immich/mealie resources. The
-   runbook (and the comment in `pangolin-newt/app/helmrelease.yaml`) still name
-   `external.network.svc.cluster.local`, the Cloudflare gateway; these routes attach
-   only to `external-pangolin`, so that target would 404 them.
-   The public CNAMEs come from `app/dnsendpoint.yaml`; without the resources they
-   resolve to a VPS that does not know the hosts.
+   `chat.${SECRET_DOMAIN}` per `docs/runbooks/pangolin-vps-setup.md` step 4 (target
+   `external-pangolin.network.svc.cluster.local:443`). The public CNAMEs come from
+   `app/dnsendpoint.yaml`; without the resources they resolve to a VPS that does not
+   know the hosts. Two things that bit the first deploy (runbook steps 3 and 4):
+   - **Geo rules.** `matrix.` must answer `/_matrix/federation/*` and `/_matrix/key/*`
+     from anywhere, or federation fails with 401 from other homeservers.
+   - **Certs.** Resources created before the CNAMEs existed kept serving
+     `TRAEFIK DEFAULT CERT` until `docker restart traefik` on the VPS.
 
 4. **Apex DNS.** `matrix-well-known` attaches the apex to the Cloudflare `external`
    gateway, so external-dns-cloudflare will try to publish an apex CNAME to the tunnel.
