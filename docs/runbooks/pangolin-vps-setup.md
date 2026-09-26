@@ -19,7 +19,8 @@ upload and the VPS bandwidth (≈10× the CF tunnel) with **no upload cap**.
 > protection, IP hiding). Route through Pangolin only what Cloudflare serves
 > badly: large uploads / high throughput (Immich, Mealie, Karakeep, CouchDB) and
 > server-to-server traffic that CF bot challenges would break (Matrix
-> federation). This also limits how much traffic hits the VPS's (often metered)
+> federation), plus what those depend on (authentik's `sso.`, which Matrix and
+> other Pangolin apps send users to for sign-in). This also limits how much traffic hits the VPS's (often metered)
 > egress. The current set is whatever HTTPRoutes attach to `external-pangolin`:
 >
 > ```bash
@@ -221,7 +222,8 @@ curl -o /dev/null -s -w 'up=%{speed_upload}B/s http=%{http_code}\n' \
 - **Rollback:** a Pangolin app has no Cloudflare record to flip back to. Move
   its HTTPRoute parentRef from `external-pangolin` back to `external` and delete
   its `dnsendpoint.yaml` CNAME; external-dns then publishes the tunnel record
-  again. Expect up to the 300s record TTL of mixed resolution while it swaps.
+  again. Expect up to the 300s record TTL of mixed resolution while it swaps,
+  and the Cloudflare limits (100 MB uploads, throughput) come back with it.
 - **Expansion:** to put another service behind Pangolin:
   1. attach its HTTPRoute to `external-pangolin` + `internal` (instead of
      `external`);
