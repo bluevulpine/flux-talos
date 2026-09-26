@@ -81,11 +81,12 @@ record **DNS-only** (`cloudflare-proxied: "false"`) — orange-clouding one woul
 put Cloudflare back in the path. Do not create these by hand in the Cloudflare
 dashboard:
 
-- `pangolin.<domain>` (A + AAAA → the VPS) — the dashboard, and the single name
-  every app hostname hangs off. From
+- `pangolin.<domain>` (A + AAAA → the VPS) for **each** zone (`SECRET_DOMAIN`,
+  `SECRET_DOMAIN_MEDIA`, `SECRET_DOMAIN_BLOG`) — the entry host app hostnames in
+  that zone hang off; the main-domain one is also the dashboard. All from
   `kubernetes/apps/network/pangolin-newt/app/dnsendpoint.yaml`; a VPS IP change
   is an edit there and nowhere else.
-- Each app hostname — a CNAME → `pangolin.<domain>` in the app's own
+- Each app hostname — a CNAME → its own zone's `pangolin.` host in the app's own
   `app/dnsendpoint.yaml` (see mealie's for the annotated pattern). The app's
   HTTPRoute attaches to `external-pangolin` + `internal`, never `external`,
   so external-dns does not also publish a tunnel record for it.
@@ -217,13 +218,14 @@ curl -o /dev/null -s -w 'up=%{speed_upload}B/s http=%{http_code}\n' \
 - **HA:** started as a single Newt replica; a pod restart drops the tunnel for a
   few seconds. Newer Pangolin supports multiple connectors per Site — add a
   second replica (with anti-affinity) if uptime demands it.
-- **Rollback:** the hostname's DNS still has its CF-proxied record available;
-  flip DNS back to the Cloudflare path to revert instantly. cloudflared and Newt
-  target the same origin, so both can serve in parallel during migration.
+- **Rollback:** a Pangolin app has no Cloudflare record to flip back to. Move
+  its HTTPRoute parentRef from `external-pangolin` back to `external` and delete
+  its `dnsendpoint.yaml` CNAME; external-dns then publishes the tunnel record
+  again. Expect up to the 300s record TTL of mixed resolution while it swaps.
 - **Expansion:** to put another service behind Pangolin:
   1. attach its HTTPRoute to `external-pangolin` + `internal` (instead of
      `external`);
-  2. add an `app/dnsendpoint.yaml` CNAME → `pangolin.<domain>`, DNS-only;
+  2. add an `app/dnsendpoint.yaml` CNAME → its zone's `pangolin.` host, DNS-only;
   3. once that has merged and resolves, add the Pangolin Resource (step 4),
      plus a geo exception if other servers must reach it.
 
