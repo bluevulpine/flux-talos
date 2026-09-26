@@ -1,9 +1,9 @@
-# Pangolin VPS setup (external ingress for Immich)
+# Pangolin VPS setup (external ingress)
 
 Stand up a self-hosted [Pangolin](https://docs.pangolin.net) server on an
 external VPS and connect the cluster to it with a **Newt** connector, giving
-Immich (and later other services) a public path that is **not** subject to
-Cloudflare Tunnel's two hard limits:
+selected services a public path that is **not** subject to Cloudflare Tunnel's
+two hard limits:
 
 - **100 MB proxied-upload cap** — Immich mobile uploads of full-res photos/videos
   `413` through cloudflared. Hard limit on CF Free/Pro, every connector/transport.
@@ -16,15 +16,21 @@ A direct Pangolin/WireGuard path is limited only by the cluster's ~135 Mbit
 upload and the VPS bandwidth (≈10× the CF tunnel) with **no upload cap**.
 
 > Scope: keep **Cloudflare** as the front door for most services (free WAF, DDoS
-> protection, IP hiding). Route **only** Immich (and other >100 MB / high-
-> throughput services) through Pangolin. This also limits how much traffic hits
-> the VPS's (often metered) egress.
+> protection, IP hiding). Route through Pangolin only what Cloudflare serves
+> badly: large uploads / high throughput (Immich, Mealie, Karakeep, CouchDB) and
+> server-to-server traffic that CF bot challenges would break (Matrix
+> federation). This also limits how much traffic hits the VPS's (often metered)
+> egress. The current set is whatever HTTPRoutes attach to `external-pangolin`:
+>
+> ```bash
+> grep -rl 'name: external-pangolin' kubernetes/apps | grep -v envoy-gateway
+> ```
 
 ## Architecture
 
 ```
                           ┌───────────────── external VPS (public IP) ─────────────────┐
-  Immich users ──HTTPS──► │  Traefik (LE certs)  →  Gerbil (WireGuard server)          │
+  internet users ─HTTPS─► │  Traefik (LE certs)  →  Gerbil (WireGuard server)          │
                           │  Pangolin (dashboard/API)                                  │
                           └───────────────▲──────────────────────────┬─────────────────┘
                                           │ outbound WireGuard        │ (no inbound to home)
@@ -56,7 +62,7 @@ The VPS side is **not** in this repo — it is the manual setup below.
 ## 1. Provision the VPS
 
 - **Size:** 1 vCPU / 1–2 GB RAM is plenty (Pangolin is light). Pick a provider
-  with generous/unmetered egress — all Immich traffic transits it.
+  with generous/unmetered egress — all Pangolin-routed traffic transits it.
 - **OS:** Debian 12+ or Ubuntu 22.04+.
 - **Public IPv4**, SSH key-only login, unattended-upgrades enabled.
 - **Firewall (ufw/provider):** allow only
@@ -64,14 +70,25 @@ The VPS side is **not** in this repo — it is the manual setup below.
   - `80/tcp`, `443/tcp` (Traefik)
   - `51820/udp` (Gerbil WireGuard)
   - `21820/udp` (Newt connector traffic)
+  - plus any port a raw TCP/UDP resource listens on. None exist yet; Matrix
+    calls (LiveKit, rollout step 6 in `kubernetes/apps/matrix/matrix-stack/`)
+    will be the first.
 
 ## 2. DNS
 
-Point these at the VPS public IP (Cloudflare can stay as DNS provider, but set
-these records **DNS-only / grey-cloud** so they are not CF-proxied):
+All of it is published by external-dns-cloudflare from `DNSEndpoint`s, every
+record **DNS-only** (`cloudflare-proxied: "false"`) — orange-clouding one would
+put Cloudflare back in the path. Do not create these by hand in the Cloudflare
+dashboard:
 
-- `pangolin.<domain>` — the dashboard.
-- The app hostname(s) you are moving, e.g. `photos.<domain>` (Immich).
+- `pangolin.<domain>` (A + AAAA → the VPS) — the dashboard, and the single name
+  every app hostname hangs off. From
+  `kubernetes/apps/network/pangolin-newt/app/dnsendpoint.yaml`; a VPS IP change
+  is an edit there and nowhere else.
+- Each app hostname — a CNAME → `pangolin.<domain>` in the app's own
+  `app/dnsendpoint.yaml` (see mealie's for the annotated pattern). The app's
+  HTTPRoute attaches to `external-pangolin` + `internal`, never `external`,
+  so external-dns does not also publish a tunnel record for it.
 
 > **Split-horizon caveat:** internal clients resolve `<app>.<domain>` to the LAN
 > Envoy IP (`172.16.8.2`) and will keep using the fast internal path — they never
@@ -90,8 +107,22 @@ curl -fsSL https://get.docker.com | sh
 ```
 
 Provide your root domain (`<domain>`) and dashboard domain
-(`pangolin.<domain>`). Traefik obtains its own Let's Encrypt certs (independent
-of the cluster's cert-manager wildcard).
+(`pangolin.<domain>`). Traefik obtains its own Let's Encrypt certs by **DNS-01**
+(independent of the cluster's cert-manager wildcard), so the VPS's geo rules
+(step 4) do not affect issuance.
+
+**A resource created before its DNS record exists may never get a cert.** Seen
+2026-09-26: the `matrix.` / `account.` / `chat.` resources were created before
+the PR publishing their CNAMEs merged, and Traefik kept serving
+`TRAEFIK DEFAULT CERT` for all three after the records appeared. Restarting
+Traefik fixed it:
+
+```bash
+docker restart traefik        # on the VPS; brief 502 on every Pangolin hostname
+curl -sv https://<host>/ -o /dev/null 2>&1 | grep -E 'subject|issuer'   # expect Let's Encrypt
+```
+
+Creating the resource *after* the DNS is live avoids this.
 
 ## 4. Create Org, Site, and Resource
 
@@ -110,6 +141,27 @@ In the Pangolin dashboard (`https://pangolin.<domain>`):
    - Host header / SNI: preserve the original host so Envoy routes correctly.
    - Leave Pangolin's own SSO **off** (authentik already fronts the app via
      Envoy) — transport-only.
+
+   Ideally create it after the app's `DNSEndpoint` has merged and resolves —
+   see the cert note in step 3.
+
+### Access rules (geo restriction)
+
+Pangolin access rules have restricted resources to **US source IPs**. That is
+fine for people and wrong for server-to-server traffic, which comes from wherever the
+other server is. Anything federated needs an exception:
+
+| Resource | Must be reachable from anywhere | Why |
+| --- | --- | --- |
+| `matrix.<domain>` | `/_matrix/federation/*`, `/_matrix/key/*` | other homeservers fetch keys and push events here |
+
+Those paths are the minimum; the client API, `account.` and `chat.` may stay
+geo-restricted.
+The apex `/.well-known/matrix/*` is on the Cloudflare `external` gateway, not
+Pangolin, so no rule applies to it. A missing exception shows up as a **401**
+from non-US probes — the federation tester
+(`https://federationtester.matrix.org/#<domain>`) failed exactly this way until
+the rules were relaxed on 2026-09-26.
 
 ## 5. Store the connector credentials in OpenBao
 
@@ -132,10 +184,10 @@ bao kv put <mount>/pangolin \
 
 ## 6. Enable the cluster connector
 
-Merge the `feat/pangolin-newt-immich` PR (kept as a **draft** until steps 1–5 are
-done — before the `pangolin` OpenBao key exists, the ExternalSecret fails and
-Newt crashloops). On merge, Flux deploys `pangolin-newt` in the `network`
-namespace; Newt reads the creds, dials the VPS, and registers the Site.
+Flux deploys `pangolin-newt` in the `network` namespace
+(`kubernetes/apps/network/pangolin-newt/`); Newt reads the creds, dials the VPS,
+and registers the Site. Do step 5 first when rebuilding: before the `pangolin`
+OpenBao key exists, the ExternalSecret fails and Newt crashloops.
 
 ## 7. Verify
 
@@ -153,13 +205,16 @@ curl -o /dev/null -s -w 'up=%{speed_upload}B/s http=%{http_code}\n' \
 
 - **HA:** started as a single Newt replica; a pod restart drops the tunnel for a
   few seconds. Newer Pangolin supports multiple connectors per Site — add a
-  second replica (with anti-affinity) if Immich uptime demands it.
+  second replica (with anti-affinity) if uptime demands it.
 - **Rollback:** the hostname's DNS still has its CF-proxied record available;
   flip DNS back to the Cloudflare path to revert instantly. cloudflared and Newt
   target the same origin, so both can serve in parallel during migration.
-- **Expansion:** to move another service, add a Pangolin Resource + flip that
-  hostname's DNS — no cluster change needed (Newt already targets the shared
-  Envoy origin).
+- **Expansion:** to put another service behind Pangolin:
+  1. attach its HTTPRoute to `external-pangolin` + `internal` (instead of
+     `external`);
+  2. add an `app/dnsendpoint.yaml` CNAME → `pangolin.<domain>`, DNS-only;
+  3. once that has merged and resolves, add the Pangolin Resource (step 4),
+     plus a geo exception if other servers must reach it.
 
 Related: `docs/runbooks/flux-image-automation.md`, and the memory
 `project_cloudflare_tunnel_pi_retire_pangolin`.
