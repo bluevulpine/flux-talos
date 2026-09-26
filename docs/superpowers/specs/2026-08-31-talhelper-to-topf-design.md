@@ -1,7 +1,9 @@
 # Migrating Talos machine config from talhelper to topf
 
 **Date:** 2026-08-31, **revised 2026-09-23** (see [Revision history](#revision-history))
-**Status:** Design — topf chosen over OpenTofu on 2026-09-23. Nothing implemented.
+**Status:** Phases 0-5 COMPLETE (2026-09-25). All 8 nodes are on topf-generated config,
+verified with real secrets and re-confirmed as a no-op after apply. `talconfig.yaml` and
+talhelper stay in place as the rollback path per the Rollback section. Phases 6-7 remain.
 **Goal:** Replace the archived `talhelper` with `topf` as the generator for this
 cluster's Talos machine configuration, reproducing today's output exactly and
 without re-keying the cluster.
@@ -1013,13 +1015,55 @@ two share a failure domain. Concretely:
 - A render that fails (for example the guard) still writes the nodes that succeeded. Confirm
   `apply` aborts on a render error before relying on it; if unsure, render first, then apply.
 
+#### Phase 5 results (2026-09-25)
+
+All 8 nodes applied, in the planned order, each preceded by an mTLS-verified
+`talosctl version` and followed by a health check. **Every node showed the identical
+class of diff: a pure document reorder, zero field-level content change** — the
+hazard the design predicted (topf orders documents by patch-file layout;
+talhelper's order was different) and the reason the per-node dry-run gate existed.
+None of it needed a reboot.
+
+| node | diff | apply | post-apply |
+|---|---|---|---|
+| jormungandr4 | `LinkAliasConfig`/`DHCPv4Config`/`LinkConfig`/`VolumeConfig` reordered | `--mode no-reboot`, applied by Derek | re-dry-run: no changes; `ext-tailscale` never restarted |
+| jormungandr1-3 | `DHCPv4Config`/`LinkConfig` for `ethSel0` swap order | `--mode no-reboot` | re-dry-run: no changes each; `ext-tailscale` Running throughout |
+| brokkr01-03 | network docs (`DHCPv4Config`, 3×`VLANConfig`) and `BondConfig` move earlier | `--mode no-reboot` | `bond0` + all 3 VLANs stayed `up`/`true` throughout; pods kept running (80-86 Running per node, no disruption); re-dry-run confirmed "no changes to apply" on each of the three |
+| freyja01 | `LinkConfig(ethSel0)` relocates earlier in the document sequence (previously after `Layer2VIPConfig`, now before `DHCPv4Config`) | `--mode no-reboot --stabilization-duration 2m`, own window | re-dry-run: no changes; `kubectl get --raw /readyz` → `ok`; `talosctl health --server=false`: k8s nodes schedulable OK; etcd single-member leader, no errors; VIP `10.0.10.30` reachable |
+
+None of the five freyja01 stop conditions triggered — corrected wording, since the
+original draft overstated this: `Layer2VIPConfig` (the VIP), the `LinkAliasConfig` MAC
+selector, `DHCPv4Config`, the hostname, the PKI/`clusterName`, the tailscale extension
+env and the install disk/image are **byte-identical**; only the *position* of the
+unrelated `LinkConfig` document changed. That is a judgement call the runbook's
+stop-condition table did not itself state as a rule — see the note added to
+[Phase 5's hazards](../../runbooks/talos-topf-migration-apply.md#stop-conditions-are-about-content-not-position),
+which now says so explicitly for next time.
+
+**Preconditions, re-verified same-day before freyja01** (hours had passed since the
+worker batch): `talos/tools/verify-real.sh` → `RESULT: OK`; both `talos-s3-backup` and
+`talos-offsite` CronJobs recent; all 8 nodes Ready; every Flux Kustomization Ready;
+`talosupgrade`/`kubernetesupgrade` both `Completed`; vault reachable; direct Talos API
+reachability to freyja01 confirmed (the rollback path). A manual etcd snapshot was
+taken immediately before the freyja01 apply (superseding an earlier one that had gone
+stale) — hash `accb26fb`, 15,449 keys, 411 MB, mode 600, outside the repo.
+
+**Post-apply, whole cluster:** every Flux Kustomization Ready, no pod outside
+Running/Completed, all 8 nodes on the correct schematic and `v1.13.9`.
+
+**Not exercised**, because nothing needed it: an apply that actually requires a
+reboot, `--mode staged`/`try`, `--skip-problematic-nodes`, `--allow-not-ready`, and a
+genuine field-level diff (drift, a wrong secret, a stop-condition hit). The
+"document reorder only" case is now proven; the others remain as designed but
+unverified against a real node.
+
 ### Phase 6 — keep the versions from drifting again
 
 The 2026-08-31 drift is already fixed (all three at `v1.13.9`). What remains is the
 structural cause: nothing ties `talosVersion` to the tuppr CR, and Renovate's Talos
 bump PR (**#1849**, open since 2026-09-21) does not touch `talconfig.yaml`.
 
-- Decide #1849's timing before Phase 5 (see
+- Decide #1849's timing now that Phase 5 is done (see
   [Version drift](#version-drift-resolved-by-hand-but-it-will-recur)).
 - After Phase 1 the version lives in `talos/topf.yaml`, **in the clear**, carrying the same
   `# renovate: datasource=github-releases depName=siderolabs/talos` annotation as
@@ -1206,30 +1250,57 @@ happening now.
 
 ## Acceptance criteria
 
-- [ ] `topf render` output is equivalent to the talhelper golden baseline after normalisation (parsed, key-sorted, keyed by kind+name), or
-      every difference is explained and accepted.
-- [ ] Both schematic IDs reproduce exactly.
-- [ ] **`grep -rn '\${' talos/patches/ talos/schematics/` returns nothing.** Any
+- [x] `topf render` output is equivalent to the talhelper golden baseline after normalisation (parsed, key-sorted, keyed by kind+name), or
+      every difference is explained and accepted. *(Phase 3/4; the one remaining difference class — document order — is explained above and confirmed harmless by the Phase 5 dry-runs.)*
+- [x] All three schematic IDs reproduce exactly (the criterion predates freyja01's; this
+      cluster now has three, not two). *(Phase 2.)*
+- [x] **`grep -rn '\${' talos/patches/ talos/schematics/` returns nothing.** Any
       surviving `${SECRET_*}` would render verbatim into a live machine config
       without raising an error.
-- [ ] `sops -d talos/secrets.sops.yaml` round-trips; cluster PKI unchanged.
-- [ ] No file in the repo contains an unencrypted secret — verified by running
+- [x] `sops -d talos/secrets.sops.yaml` round-trips; cluster PKI unchanged. *(Phase 4/5: byte-identical to `talsecret.sops.yaml`, checked again on every CI run.)*
+- [x] No file in the repo contains an unencrypted secret — verified by running
       gitleaks across the working tree *without* the `*.sops.yaml` exclusion.
-- [ ] The new pre-commit check rejects a plaintext file named `*.sops.yaml`.
-- [ ] All 8 nodes healthy after apply; `talosctl health` clean.
-- [ ] Talos version is consistent across the topf config, the tuppr CR, and the
-      running cluster, and Renovate still sees the version (D1).
-- [ ] `admissionControl` on freyja01 renders identically to the baseline.
-- [ ] `topf apply --dry-run` shows an empty diff, or only expected differences, on every
-      node — freyja01 last.
+- [x] The new pre-commit check rejects a plaintext file named `*.sops.yaml`. *(`scripts/check-sops-encrypted.sh`, tested against 9 attack cases; also runs server-side in CI.)*
+- [x] All 8 nodes healthy after apply; `talosctl health` clean. *(Phase 5, 2026-09-25:
+      `talosctl health --server=false` against freyja01, output truncated to the last 8
+      lines rather than captured whole — `SKIP` on the k8s-nodes-ready/kube-proxy/coredns
+      checks (expected in `--server=false`, client-only mode) and `OK` on
+      all-nodes-schedulable; exit code not separately recorded. `readyz`, etcd status and
+      Flux/pod checks covered the rest.)*
+- [x] Talos version is consistent across the topf config, the tuppr CR, and the
+      running cluster (all `v1.13.9`). *(#1849, held since 2026-09-21, can now be decided —
+      see Phase 6.)*
+- [ ] Renovate still sees the version (D1, partial SOPS). **Not yet confirmed as a
+      distinct signal**: the Dependency Dashboard (issue #1) lists no PR for
+      `talos/topf.yaml` on 2026-09-25 — only the pre-existing `talconfig.yaml`-driven
+      #1849 and #1733. That is expected, not a problem: `.renovate/customManagers.json5`'s
+      regex manager matches any `.yaml` file and matches `topf.yaml`'s
+      `talosVersion`/`kubernetesVersion` lines exactly as it does `talconfig.yaml`'s, and
+      Renovate groups identical dependency+version strings across files into one PR
+      rather than opening a second one. So the visible signal is not a new PR but (a) a
+      second file appearing in **#1849's diff** once Renovate next rebases it, and (b) an
+      entry per file under the dashboard's **"Detected dependencies"** section. **Before
+      merging #1849, confirm it touches `talos/topf.yaml` as well as `talconfig.yaml`** —
+      if it only bumps one, the two drift apart again, which is exactly what Phase 6 exists
+      to prevent.
+- [x] `admissionControl` on freyja01 renders identically to the baseline. *(No-op under both tools — Phase 0.)*
+- [x] `topf apply --dry-run` shows an empty diff, or only expected differences, on every
+      node — freyja01 last. *(Phase 5: every node showed only the document-reorder difference;
+      freyja01 re-confirmed "no changes to apply" after applying.)*
 
 ## Rollback
 
-Through Phase 4, rollback is deleting a branch — nothing has touched the cluster.
+Through Phase 4, rollback was deleting a branch — nothing touched the cluster.
 
-After Phase 5, `talconfig.yaml` is still in git history and talhelper 3.1.17 still
-runs, so regenerating and re-applying the previous config is a working escape hatch.
-Keep the golden baseline until Phase 7 is signed off. **Do not delete
+**Phase 5 is now done (2026-09-25).** `talconfig.yaml` is still in git history and
+talhelper 3.1.17 still runs, so regenerating and re-applying the previous config
+remains a working escape hatch. A manual etcd snapshot was taken immediately before the freyja01 apply (`accb26fb`,
+411 MB, kept outside the repo) as a safety net **for that apply window** — it is not a
+machine-config rollback (the config lives on the nodes, not in etcd) and restoring it
+becomes destructive as it ages, since doing so discards every write to Kubernetes
+state since 2026-09-25. **Config rollback is re-applying talhelper's output**, as
+described above. Keep the golden baseline (`talos/clusterconfig/`) and `talconfig.yaml`
+until Phase 7 is signed off. **Do not delete
 `talconfig.yaml` until the cluster has been healthy on topf-generated config through
 at least one tuppr upgrade cycle** — the first event that would expose a latent
 difference.

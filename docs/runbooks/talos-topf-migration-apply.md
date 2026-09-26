@@ -3,7 +3,26 @@
 **Audience:** the operator (Derek). **Design and rationale:**
 [`docs/superpowers/specs/2026-08-31-talhelper-to-topf-design.md`](../superpowers/specs/2026-08-31-talhelper-to-topf-design.md).
 
-> **Status: not yet run.** Phases 0-4 are done and reviewed. Nothing has touched a node.
+> **Status: COMPLETE (2026-09-25).** All 8 nodes applied and verified healthy. See
+> [Results](#results-2026-09-25) below for what actually happened; keep the rest of this
+> document as the reference procedure for the next time a patch-tree change needs a
+> re-apply.
+
+## Results (2026-09-25)
+
+Every node — jormungandr4, jormungandr1-3, brokkr01-03, then freyja01 in its own window
+— showed the identical class of dry-run diff: **a pure document reorder with zero
+field-level change**, exactly the hazard this runbook's intro predicted. None needed a
+reboot. All 7 workers were applied first; freyja01's preconditions were re-verified
+same-day (hours had passed) before its own apply, including a fresh manual etcd
+snapshot. Full per-node table and evidence: the design spec's "Phase 5 results"
+section. Post-apply, the whole cluster stayed healthy — every Flux Kustomization
+Ready, no disrupted pod, all 8 nodes on the correct schematic and `v1.13.9`.
+
+**Not exercised** — the classes of diff this runbook's decision tables were written
+for never came up: drift, a wrong secret, an actual reboot-requiring change, or any of
+the freyja01 stop conditions firing. Re-read those sections in full the next time a
+real field-level diff appears; this run only confirmed the reorder case.
 
 ## What Phase 5 actually is
 
@@ -190,6 +209,19 @@ Everything above applies, plus:
 
 Any of 1-3: **do not apply.** 4-5: understand it first.
 
+#### Stop conditions are about content, not position
+
+A document from the table above appearing in the diff is not by itself a trigger — read
+what actually changed. **A document that only moves position in the file, with
+byte-identical content, is not a trigger; a genuine field or value change is.** This
+came up for real on 2026-09-25: freyja01's diff showed `LinkConfig(ethSel0)` relocating
+relative to `Layer2VIPConfig`/`DHCPv4Config`, which meant row 1's documents appeared to be
+"touched" by a naive read of the diff. They were not: `Layer2VIPConfig`'s fields
+(`name: 10.0.10.30`, `link: ethSel0`), the `LinkAliasConfig` MAC selector, and
+`DHCPv4Config`'s fields never appear as an added or removed line — only as unchanged
+context around the block that moved. Read the diff's `+`/`-` lines themselves, not just
+which document *names* are near a hunk.
+
 **If (and only if) the diff is empty or accepted:**
 ```bash
 (cd talos && ../.bin/topf --nodes-filter '^freyja01$' apply --dry-run </dev/null); echo "exit=$?"
@@ -237,11 +269,15 @@ from the `talos-s3-backup` snapshot).
 
 ## When it is done
 
-1. Record per-node results (exit codes, anything accepted) in the spec's Phase 5 section.
-2. Only then: unblock Renovate #1849 (decide whether its `talosctl` 1.14.1 image belongs in
-   the same PR as the installer bump), and do Phases 6-7 (a Renovate group that bumps
+1. ~~Record per-node results (exit codes, anything accepted) in the spec's Phase 5
+   section.~~ Done — see [Results](#results-2026-09-25) above and the design spec.
+2. Now unblockable: Renovate #1849 (decide whether its `talosctl` 1.14.1 image belongs in
+   the same PR as the installer bump), and Phases 6-7 (a Renovate group that bumps
    `talosVersion`, the tuppr CR and the `etcd-defrag` image together; retire `talconfig.yaml`,
    `talenv.sops.yaml`, `talsecret.sops.yaml`, the `just` recipes and `talos/tools/`).
+   Also still open: a `just talos install-topf` recipe (there is none today — every fresh
+   checkout needs `go install .../topf@v0.6.0` by hand), and the deferred jormungandr1-4
+   convergence.
 3. **Keep `talos/clusterconfig/` and `talconfig.yaml` until the cluster has been healthy on
    topf-generated config through one tuppr upgrade cycle**, the first event that would expose
    a latent difference.
