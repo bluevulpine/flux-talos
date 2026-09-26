@@ -77,6 +77,18 @@ spec:
     securityContext:
       runAsUser: ${KOPIUR_RUN_AS_USER:-0}
       runAsGroup: ${KOPIUR_RUN_AS_GROUP:-0}
+      # kopiur's mover keeps drop: [ALL] under whatever is set here, so root
+      # alone is only uid 0 with ordinary permission checks: it cannot read an
+      # app's private files (mosquitto.db and n8n's config are 0600 1000:1000,
+      # calibre's cache dirs 0770 568:568). W2's first local runs failed on
+      # exactly that, PermissionDenied, 2026-09-25. VolSync's root mover never
+      # hit it because it keeps the runtime's default capabilities, which
+      # include DAC_OVERRIDE. DAC_READ_SEARCH would be the read-only minimum,
+      # but baseline Pod Security (media) rejects it; DAC_OVERRIDE is
+      # baseline-allowed and is what VolSync had. Inert for a non-root mover.
+      capabilities:
+        add:
+          - DAC_OVERRIDE
     podSecurityContext:
       fsGroup: ${KOPIUR_FS_GROUP:-0}
       fsGroupChangePolicy: OnRootMismatch
