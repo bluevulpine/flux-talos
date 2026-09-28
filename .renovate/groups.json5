@@ -68,10 +68,18 @@
       minimumGroupSize: 2,
     },
     {
+      // One PR for everything that names a Talos version, so they cannot drift apart:
+      // the installer image (tuppr TalosUpgrade CR), the talosctl client image
+      // (etcd-defrag), and the `talosVersion` lines in talos/topf.yaml and
+      // talos/talconfig.yaml (annotated `datasource=github-releases depName=siderolabs/talos`).
+      // Before this the docker packages moved in one PR (#1849) and the release lines in
+      // another (#1733), so merging either alone left the nodes and the version files
+      // disagreeing. Merging this PR rolls the nodes via tuppr; freyja01 is the only control
+      // plane, so that is a brief API outage. See docs/runbooks/talos-topf-migration-apply.md.
       description: "Talos Group",
       groupName: "talos",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["/installer/", "/talosctl/"],
+      matchDatasources: ["docker", "github-releases"],
+      matchPackageNames: ["/installer/", "/talosctl/", "siderolabs/talos"],
       group: {
         commitMessageTopic: "{{{groupName}}} group",
       },
