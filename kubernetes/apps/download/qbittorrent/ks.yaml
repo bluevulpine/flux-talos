@@ -11,6 +11,10 @@ spec:
   dependsOn:
     - name: external-secrets-openbao-store
       namespace: external-secrets
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   interval: 1h
   path: ./kubernetes/apps/download/qbittorrent/app
   prune: true
@@ -36,3 +40,11 @@ spec:
       # Low criticality: config + torrent state, easily rebuilt - backup every 2 hours
       VOLSYNC_LOCAL_SCHEDULE: "0 */2 * * *"
       VOLSYNC_R2_SCHEDULE: "19 4 * * *"
+      # kopiur (components/kopiur), W3. Landed one PR BEFORE the component so the
+      # SnapshotSchedules are created with these crons, not the component's
+      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # H picks a minute per schedule; the hours match VolSync's.
+      KOPIUR_LOCAL_CRON: "H */2 * * *"
+      KOPIUR_R2_CRON: "H 4 * * *"
+      KOPIUR_COPYMETHOD: Snapshot
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
