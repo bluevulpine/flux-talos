@@ -1,0 +1,15 @@
+---
+# No schema header: the home-operations mirror answers 200 + HTML for
+# service_v1.json (checked 2026-09-28), which is not a schema.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ops-console
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ops-console
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

@@ -1,0 +1,79 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/apps/deployment_v1.json
+# The ops console: UI and forwarder only. Source: bvn-homelab/ops-console.
+# No state of its own (a pending login lives in the reauth servers), so a restart
+# loses nothing but an open browser tab.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ops-console
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ops-console
+  template:
+    metadata:
+      labels:
+        # The reauth servers' NetworkPolicies admit exactly this label.
+        app.kubernetes.io/name: ops-console
+    spec:
+      serviceAccountName: ops-console
+      automountServiceAccountToken: true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ops-console
+          # Full ref auto-updated by Flux image automation (ImagePolicy flux-system:ops-console).
+          # NOTE: no ":tag" suffix on the marker — this is a combined image:repo:tag scalar,
+          # so Flux must write the whole ref. ":tag" would overwrite the scalar with the bare tag.
+          image: gitea.derekjacobs.dev/bvn-homelab/ops-console:1-465520e6 # {"$imagepolicy": "flux-system:ops-console"}
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: OPS_NAMESPACE
+              value: home
+          envFrom:
+            - secretRef:
+                name: ops-console-secret
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 3
+            failureThreshold: 20
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              memory: 192Mi
