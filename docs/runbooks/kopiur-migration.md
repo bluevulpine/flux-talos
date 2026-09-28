@@ -1,9 +1,10 @@
 # Runbook: VolSync → kopiur backup migration
 
-**Status (2026-09-25): repositories landed; step 4 (epoch) skipped on evidence; W0
+**Status (2026-09-28): repositories landed; step 4 (epoch) skipped on evidence; W0
 (jellyseerr, recyclarr, #1934) and W1 (8 apps, #1941) are cut over: kopiur is their only
 backup, and the fork's path-scope retention is cleared in both repositories (all six `keep-*`
-inherited). W2 (11 apps, #1959) is cut over too. W3–W8 not started.** Every restore needs added capabilities (see
+inherited). W2 (11 apps, #1959) is cut over too. W3's `KOPIUR_*` vars are landing
+ahead of its parallel run; W4–W8 not started.** Every restore needs added capabilities (see
 "Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
@@ -353,12 +354,12 @@ the `kopiur-pilot` Garage bucket and the OpenBao key `kopiur-pilot` by hand.
 | W3 | download/sabnzbd | `0 */4 * * *` → `H */4 * * *` | `57 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica |  |
 | W3 | media/audiobookshelf | `40 * * * *` → `H * * * *` | `3 0 * * *` → `H 0 * * *` | Snapshot | longhorn-1-replica |  |
 | W3 | media/bazarr | `5 */2 * * *` → `H */2 * * *` | `19 0 * * *` → `H 0 * * *` | Snapshot | longhorn-1-replica |  |
-| W3 | media/kometa | `25 */4 * * *` → `H */4 * * *` | `57 1 * * *` → `H 1 * * *` | Snapshot | longhorn-1-replica |  |
-| W3 | media/lidarr | `10 * * * *` → `H * * * *` | `3 2 * * *` → `H 2 * * *` ² | Snapshot | longhorn-1-replica |  |
+| W3 | media/kometa | `25 */4 * * *` → `H */4 * * *` | `57 1 * * *` → `H 1 * * *` | Snapshot | longhorn-1-replica | **`NS: media`** ³ |
+| W3 | media/lidarr | `10 * * * *` → `H * * * *` | `3 2 * * *` → `20 2 * * *` ² | Snapshot | longhorn-1-replica |  |
 | W3 | media/prowlarr | `15 * * * *` → `H * * * *` | `11 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica |  |
 | W3 | media/radarr | `5 * * * *` → `H * * * *` | `27 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica |  |
 | W3 | media/sonarr | `0 * * * *` → `H * * * *` | `19 5 * * *` → `H 5 * * *` | Snapshot | longhorn-1-replica |  |
-| W3 | media/tracearr | `24,54 * * * *` → `29,59 * * * *` ¹ | `17 2 * * *` → `H 2 * * *` ² | Snapshot | longhorn-1-replica | uid/gid/fsGroup 1001 |
+| W3 | media/tracearr | `24,54 * * * *` → `29,59 * * * *` ¹ | `17 2 * * *` → `38 2 * * *` ² | Snapshot | longhorn-1-replica | uid/gid/fsGroup 1001 |
 | W4 | database/couchdb | `14,44 * * * *` → `19,49 * * * *` ¹ | `41 0 * * *` → `H 0 * * *` | Direct | longhorn-1-replica |  |
 | W4 | database/influxdb | `16,46 * * * *` → `21,51 * * * *` ¹ | `27 1 * * *` → `H 1 * * *` | Direct | longhorn-1-replica | uid/gid/fsGroup 1000 |
 | W4 | database/timescaledb | `22,52 * * * *` → `27,57 * * * *` ¹ | `13 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica | uid/gid/fsGroup 1000 |
@@ -464,7 +465,8 @@ has re-planned it; moving it to an earlier wave is fine.
   (global)`. Translating the manifests 1:1 would have silently dropped all three once the
   path-scope clear hands retention to kopiur. `components/kopiur` now states them. Compare
   against `kopia policy show`, never against `retain:`.
-- **Four apps set no `NS`** (`recyclarr`, `cross-seed`, `ev-charge-ledger`, `plex`). VolSync
+- **Five apps set no `NS`** (`recyclarr`, `cross-seed`, `ev-charge-ledger`, `plex`, and
+  `kometa`, which this list missed until the W3 vars PR, 2026-09-27). VolSync
   never needed it, because the fork takes the hostname from the namespace implicitly.
   `components/kopiur` pins `hostname: "${NS}"`, and unset it becomes `""`. The webhook
   **admits** that: the empty field drops out and kopiur falls back to its default hostname

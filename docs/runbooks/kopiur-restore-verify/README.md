@@ -44,8 +44,9 @@ not change that in 0.10.9. See "Restores need capabilities, not just root" in th
    lists in `compare-pod.yaml`; everything else derives from them);
    find them with `ls -la --time-style=full-iso` in the app pod (mtime after the
    snapshots). Use the app's own image, by the running pod's digest, so `sqlite3` matches
-   what the app uses. If the app's image has no `sqlite3` (grocy's doesn't), use any pinned image
-   that has it plus bash/find/sha256sum as a toolbox; W2 used the calibre-web one. The local and R2 restores still have to match each other, so pick
+   what the app uses. If the app's image has no `sqlite3` (grocy's doesn't), use any
+   pinned image that has it plus bash/find/sha256sum as a toolbox; W2 used the
+   calibre-web one. The local and R2 restores still have to match each other, so pick
    two snapshots with no write between them (same `stats.sizeBytes` is a good sign). The
    method is the jellyseerr pilot's (criterion 4 in
    `b625ac57:kubernetes/apps/media/jellyseerr-kopiur-pilot/README.md`).

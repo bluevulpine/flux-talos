@@ -13,6 +13,10 @@ spec:
       namespace: database
     - name: external-secrets-openbao-store
       namespace: external-secrets
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   interval: 1h
   path: ./kubernetes/apps/media/lidarr/app
   prune: true
@@ -37,3 +41,14 @@ spec:
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       VOLSYNC_COPYMETHOD: Snapshot
+      # kopiur (components/kopiur), W3. Landed one PR BEFORE the component so the
+      # SnapshotSchedules are created with these crons, not the component's
+      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # H picks a minute per schedule; the hours match VolSync's.
+      KOPIUR_LOCAL_CRON: "H * * * *"
+      # R2 pinned to an explicit minute <= :39, not H 2: jitter could spill
+      # into hour 03, reserved for kopia-maint-r2 (waves table footnote 2).
+      # The minute also keeps VolSync's own R2 run outside the 20m window.
+      KOPIUR_R2_CRON: "20 2 * * *"
+      KOPIUR_COPYMETHOD: Snapshot
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
