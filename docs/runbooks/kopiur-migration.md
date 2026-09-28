@@ -3,7 +3,7 @@
 **Status (2026-09-25): repositories landed; step 4 (epoch) skipped on evidence; W0
 (jellyseerr, recyclarr, #1934) and W1 (8 apps, #1941) are cut over: kopiur is their only
 backup, and the fork's path-scope retention is cleared in both repositories (all six `keep-*`
-inherited). W2 is in its parallel run; W3–W8 not started.** Every restore needs added capabilities (see
+inherited). W2 (11 apps, #1959) is cut over too. W3–W8 not started.** Every restore needs added capabilities (see
 "Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
@@ -13,7 +13,7 @@ evidence.
 | Pilots (`media/recyclarr-kopiur-pilot`, `media/jellyseerr-kopiur-pilot`) | passed 4/4 and 5/5; **retired 2026-09-24** after W0 passed its gates. Their READMEs (verdicts, the SQLite integrity method) are at `b625ac57:kubernetes/apps/media/{recyclarr,jellyseerr}-kopiur-pilot/README.md` |
 | PR #1870 — component split + `components/kopiur` | **merged** 2026-09-22 (eab49e12); verified inert live: all Kustomizations Ready on it, all 93 ReplicationSources intact. No app includes `components/kopiur` yet |
 | Two `ClusterRepository` + 18 `ExternalSecret` | **landed** 2026-09-22 (#1879, e4539596), plus the `kopiur-system` Pod Security fix (#1880). Both `Ready`, all 18 secrets synced; catalog scanned 2026-09-23. See "The repositories" |
-| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 cut over 2026-09-25** (#1941, 17:00Z): autobrr, cross-seed, ev-charge-ledger, ev-charge-tracker, calibre-web, notifiarr, sportarr and tautulli are backed up by kopiur only; path-scope retention cleared in both repositories, 16/16 legs PASS. Parallel run from 2026-09-24 (#1936); per-app gates 1–4 (cross-seed-r2 via a manual Snapshot) and the restore gate (calibre-web) passed (#1939). **W2 parallel run** from 2026-09-25: 11 apps with `components/kopiur` beside `volsync-backup`, their `KOPIUR_*` vars landed one PR earlier (#1950) so the schedules are created with the right crons. W3–W8 not started |
+| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 cut over 2026-09-25** (#1941, 17:00Z): autobrr, cross-seed, ev-charge-ledger, ev-charge-tracker, calibre-web, notifiarr, sportarr and tautulli are backed up by kopiur only; path-scope retention cleared in both repositories, 16/16 legs PASS. Parallel run from 2026-09-24 (#1936); per-app gates 1–4 (cross-seed-r2 via a manual Snapshot) and the restore gate (calibre-web) passed (#1939). **W2 cut over 2026-09-26** (#1959, 06:52Z): 11 apps on kopiur only; path-scope retention cleared, 22/22 legs PASS. Parallel run from 2026-09-25 (#1953), vars landed one PR earlier (#1950), so no schedule race; the first local runs failed PermissionDenied until #1957 gave the mover `DAC_OVERRIDE`; gates 11/11 and the restore gate (grocy) passed. W3–W8 not started |
 
 ## Why kopiur
 
@@ -261,6 +261,16 @@ the two files the app keeps writing (`app.db`, `calibre-web.log`). Those are ide
 between the two restores, and `integrity_check` is `ok` on the restored `app.db` (21
 tables) and `gdrive.db` from both legs. The kit now handles live writers and an
 always-attached app (`nodeName`); see its README.
+
+**W2 result (2026-09-26, grocy, `longhorn-1-replica`):** PASS on the first run, from
+`kopia-local` (`grocy-local-20260926003415`) and `kopia-r2` (`grocy-r2-20260926011359`).
+74 files / 86 entries, all `568:568`, 0 differing lines on content, owner/mode/size and file
+mtimes, live vs each restore and local vs R2, outside the one writer
+(`log/nginx/access.log`). `data/grocy.db` was byte-identical on all three and
+`integrity_check` `ok` (38 tables) on both restores. It was chosen over mealie (Postgres, no
+SQLite on the volume) because it is SQLite-backed and copies `Direct`, the riskier path.
+Kit variant: grocy's PVC is ReadWriteMany, so no `nodeName`; its image has no `sqlite3`, so
+the pinned calibre-web image served as the compare pod's toolbox.
 
 #### Restores need capabilities, not just root
 
