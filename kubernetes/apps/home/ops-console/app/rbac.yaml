@@ -1,8 +1,13 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/rbac.authorization.k8s.io/role_v1.json
 # What the console may do in the Kubernetes API: run a component's own CronJob once,
-# to prove a re-auth held, and read the result. Nothing else -- no secrets, no pods,
-# no logs, nothing outside this namespace.
+# to prove a re-auth held, and read the result. This Role grants only that -- no
+# secrets, no pods, no logs, nothing outside this namespace.
+#
+# `create jobs` is, in effect, "run a pod in this namespace", and RBAC cannot look
+# inside the Job. jobs-policy.yaml (a ValidatingAdmissionPolicy scoped to this
+# ServiceAccount) is what bounds the Job's ServiceAccount, images, Secrets and
+# volumes to the two Kia workloads. Both must change together.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -36,8 +41,7 @@ subjects:
     name: ops-console
     namespace: home
 ---
-# No schema header for this doc: the home-operations mirror answers 200 + HTML for
-# serviceaccount_v1.json (checked 2026-09-28), which is not a schema.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/core/serviceaccount_v1.json
 apiVersion: v1
 kind: ServiceAccount
 metadata:
