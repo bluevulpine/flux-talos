@@ -1,0 +1,37 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# The whole host is behind Authentik SSO, on the internal gateway only. The console
+# starts credential re-enrolments, so it has no business on `external`.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ops-console
+  annotations:
+    gatus.home-operations.com/endpoint: |
+      group: home
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Ops Console"
+    gethomepage.dev/group: "Home"
+    gethomepage.dev/icon: "mdi-toolbox"
+    gethomepage.dev/description: "Credential refreshes and ops actions"
+  labels:
+    # NOT optional. The app trusts X-authentik-username, which only the forward-auth
+    # SecurityPolicy on this label sets. Without the label the route serves the app
+    # with no user, which it answers 401 -- fails closed -- but do not rely on that.
+    # `home` is already in identity/authentik/app/referencegrant.yaml.
+    auth: authentik
+spec:
+  hostnames:
+    - ops.${SECRET_DOMAIN}
+  parentRefs:
+    - name: internal
+      namespace: network
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: ops-console
+          port: 8000

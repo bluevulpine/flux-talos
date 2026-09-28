@@ -1,0 +1,33 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/networking.k8s.io/networkpolicy_v1.json
+# Only the internal gateway's Envoy pods may reach the console.
+#
+# This is a security control, not tidiness: the app trusts the X-authentik-username
+# header, and that header is only trustworthy if the request came through the
+# gateway's forward auth. Any pod that could reach this Service directly could set
+# the header itself and be "derek". Do not widen this without changing the auth model.
+# kubelet probes originate from the node, and Cilium admits host-to-pod traffic
+# whatever the ingress policy says (expected, checked at deploy: if the pod never
+# becomes Ready, suspect this policy first).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ops-console-allow-gateway
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ops-console
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: network
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: envoy
+              gateway.envoyproxy.io/owning-gateway-name: internal
+      ports:
+        - port: 8000
+          protocol: TCP

@@ -22,5 +22,6 @@ resources:
   - ./rackpanel/ks.yaml
   - ./minnkota-collector/ks.yaml
   - ./yardstick/ks.yaml
+  - ./ops-console/ks.yaml
   # self-repair for the reflector "no tags in database" bug (recurs on reflector restart)
   - ./image-reflector-healer/ks.yaml
