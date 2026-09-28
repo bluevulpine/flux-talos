@@ -1,0 +1,82 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/master-standalone/clusterrole-rbac-v1.json
+# Read-only cluster visibility for the hermes-agent workload (agentic code
+# work needs to inspect workloads, events, PVC state and Flux reconciliation
+# status). No write verbs: if the agent ever needs to mutate, widen this role
+# deliberately, never by hand-applying with an admin kubeconfig.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hermes-agent-reader
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - "pods"
+      - "pods/log"
+      - "services"
+      - "endpoints"
+      - "nodes"
+      - "events"
+      - "persistentvolumeclaims"
+      - "persistentvolumes"
+      - "namespaces"
+      - "configmaps"
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
+  - apiGroups:
+      - "apps"
+    resources:
+      - "deployments"
+      - "statefulsets"
+      - "daemonsets"
+      - "replicasets"
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
+  - apiGroups:
+      - "batch"
+    resources:
+      - "jobs"
+      - "cronjobs"
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
+  - apiGroups:
+      - "kustomize.toolkit.fluxcd.io"
+      - "helm.toolkit.fluxcd.io"
+      - "source.toolkit.fluxcd.io"
+    resources:
+      - "*"
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
+  - apiGroups:
+      - "gateway.networking.k8s.io"
+    resources:
+      - "httproutes"
+      - "gateways"
+      - "grpcroutes"
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/master-standalone/clusterrolebinding-rbac-v1.json
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: hermes-agent-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: hermes-agent-reader
+subjects:
+  - kind: ServiceAccount
+    name: hermes
+    namespace: ai

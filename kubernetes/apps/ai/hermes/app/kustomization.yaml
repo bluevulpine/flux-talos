@@ -7,6 +7,7 @@ resources:
   - ./ocirepository.yaml
   - ./helmrelease.yaml
   - ./httproute.yaml
+  - ./rbac.yaml
 components:
   - ../../../../components/volsync-claim
   - ../../../../components/volsync-backup

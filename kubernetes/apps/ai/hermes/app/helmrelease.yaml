@@ -23,6 +23,15 @@ spec:
       strategy: rollback
       retries: 3
   values:
+    # Run the gateway as the hermes ServiceAccount (created by the chart, bound
+    # to a read-only ClusterRole in rbac.yaml). The projected SA token lets
+    # kubectl use in-cluster config — no kubeconfig secret needed. The
+    # chart-created SA is required rather than an externally-declared one: per
+    # the rackpanel note, app-template's controller serviceAccount does not
+    # adopt a same-name external SA.
+    serviceAccount:
+      app:
+        enabled: true
     controllers:
       hermes:
         type: deployment
@@ -114,6 +123,10 @@ spec:
               limits:
                 memory: 6Gi
     defaultPodOptions:
+      # app-template defaults this to false; without it the pod gets no
+      # projected SA token and kubectl's in-cluster config has nothing to
+      # authenticate with.
+      automountServiceAccountToken: true
       securityContext:
         fsGroup: 10000
         fsGroupChangePolicy: OnRootMismatch
