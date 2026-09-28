@@ -14,6 +14,21 @@
       overridePackageName: "ghcr.io/siderolabs/installer",
     },
     {
+      // The cluster is on Talos 1.13. Renovate proposed talosctl 1.14.1 (a minor AHEAD of every
+      // node) in #1849 and siderolabs/talos 1.14.1 in #1733; 1.14 changes generated defaults
+      // (workloadIsolation on, an auto-generated KubeFlannelCNIConfig that would start Flannel
+      // beside Cilium) that topf would apply on the next `apply`. So the whole Talos family is
+      // held to 1.13.x, and the client stays on the same minor as the nodes.
+      // TO MOVE TO 1.14: delete this rule (or change the regex to 1\.14), and read the 1.14
+      // notes in docs/superpowers/specs/2026-08-31-talhelper-to-topf-design.md first.
+      description: "Talos: hold installer, talosctl and the release version at 1.13.x",
+      matchDatasources: ["docker", "github-releases"],
+      // Exact names, not the /installer/ substring the group uses: this rule CAPS versions, and
+      // an unrelated future image with "installer" in its name must not be silently held back.
+      matchPackageNames: ["ghcr.io/siderolabs/installer", "ghcr.io/siderolabs/talosctl", "siderolabs/talos"],
+      allowedVersions: "/^v?1\\.13\\./",
+    },
+    {
       description: "Calibre-Web: Only allow 0.x versions (5.x is a different versioning scheme)",
       matchDatasources: ["docker"],
       matchPackageNames: ["ghcr.io/linuxserver/calibre-web"],
