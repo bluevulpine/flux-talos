@@ -1,0 +1,40 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+#
+# Why this is a staleness alert and not KubeJobFailed: the keeper's Jobs carry a
+# 600 s ttlSecondsAfterFinished (so a one-off failure while the Connector pod is
+# recreated ages out unseen), which is shorter than KubeJobFailed's 15 m `for`.
+# Every run is a new Job, so no single kube_job_failed series ever lasts 15 m and
+# KubeJobFailed can never fire for this job -- however long it keeps failing. What
+# does persist across Jobs is the CronJob's last successful time, so alert on that.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ts-exit-node-mss-clamp
+spec:
+  groups:
+    - name: ts-exit-node-mss-clamp.rules
+      rules:
+        # The job runs every minute. 10 minutes without a success, sustained for
+        # another 5, means the clamp is not being maintained: after the next
+        # Connector pod recreation, large replies through the tunnel (TLS to
+        # 172.16.8.2, git over SSH, vault SMB) hang again with nothing else to say
+        # why. Likely causes: RBAC on the ServiceAccount, iptables-nft or sh missing
+        # after a tailscale image bump, the pod label selector drifting.
+        # `absent()` covers a CronJob that never succeeded at all (the metric does
+        # not exist until the first success).
+        - alert: TailscaleMssClampStale
+          annotations:
+            summary: >-
+              The ts-exit-node MSS clamp has not been confirmed in over 10m.
+              If the Connector pod is recreated now, large TCP replies over the
+              tailnet subnet route will hang. Check
+              `kubectl -n network get cronjob,jobs | grep mss-clamp` and
+              `kubectl -n network logs job/<newest ts-exit-node-mss-clamp job>`.
+          expr: |
+            (time() - max(kube_cronjob_status_last_successful_time{namespace="network", cronjob="ts-exit-node-mss-clamp"}) > 600)
+            or
+            absent(kube_cronjob_status_last_successful_time{namespace="network", cronjob="ts-exit-node-mss-clamp"})
+          for: 5m
+          labels:
+            severity: warning

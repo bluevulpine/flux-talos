@@ -63,6 +63,8 @@ spec:
           # NOTE: below 1280 this would break IPv6 over the tailnet (1280 is
           # the IPv6 minimum link MTU); 1220 is deliberately the inner MTU, so
           # the outer packet stays at 1280.
+          # The TCP MSS clamp in mss-clamp-cronjob.yaml is MTU - 40 (1180); change
+          # both together.
           - name: TS_DEBUG_MTU
             value: "1220"
         resources:

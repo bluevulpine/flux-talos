@@ -10,7 +10,12 @@ spec:
   proxyClass: multi-vlan-exit-node
   subnetRouter:
     advertiseRoutes:
-      - "10.0.10.0/24" # VLAN 10
+      # Only the UniFi gateway (DNS for split-DNS domains), not all of VLAN 10.
+      # The subnet path drops full-size TCP segments (no MSS clamp, no ICMP
+      # frag-needed), so bulk TCP to VLAN 10 hosts like vault SMB/Time Machine
+      # hangs through this route (2026-08-31). DNS is small packets and works;
+      # queries reach UniFi SNATed to a VLAN 10 address, which it answers.
+      - "10.0.10.1/32" # UniFi gateway (morpheus) DNS
       - "192.168.50.0/24" # VLAN 50 (IOT)
       - "172.16.8.0/24" # Cluster LoadBalancer pool (BGP advertised)
       - "10.25.52.0/22" # Additional subnet
