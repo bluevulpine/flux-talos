@@ -1,0 +1,102 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/batch/cronjob_v1.json
+# Keeps a TCP MSS clamp on the ts-exit-node Connector pod.
+#
+# Why: the pod's tun MTU is 1220 (TS_DEBUG_MTU in proxyclass-multivlan.yaml) but a
+# tailnet client's default tun MTU is 1280, so it advertises MSS 1240 in its SYN.
+# The LAN server obeys that and sends 1280-byte packets, which do not fit the
+# 1220 tunnel; they are dropped with no ICMP frag-needed, so PMTUD never engages
+# and any reply bigger than ~1180 B hangs (TLS handshakes to 172.16.8.2, vault
+# SMB, git-over-SSH key exchange). Capping the SYN's MSS at 1180 (= 1220 - 40)
+# makes the server send packets that fit. Measured 2026-09-28 with the route
+# 172.16.8.0/24 via the tunnel: rule off = TLS to openbao fails 3/3 and a 870 KB
+# download returns 0 bytes; rule on = 3/3 succeed and the download takes 0.05 s.
+#
+# Direction matters: a segment's size is set by the MSS option in the OTHER side's
+# SYN, so the clamp goes on SYNs arriving FROM tailscale0. Clamping the SYN-ACK
+# leaving tailscale0 (--clamp-mss-to-pmtu -o tailscale0) was tried first and did
+# nothing.
+#
+# Why a CronJob: the operator's ProxyClass has no command, sidecar or lifecycle
+# hook, and tailscaled owns the mangle table's base chains (iptables-nft cannot
+# even list it), so nothing in the Connector spec can install this rule. The rule
+# lives in the pod's network namespace, so it is lost whenever the pod is
+# recreated; this job re-adds it within a minute. `-C` first makes it idempotent.
+#
+# Keep 1180 in step with TS_DEBUG_MTU: MSS = MTU - 40.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ts-exit-node-mss-clamp
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 60
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 50
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: ts-exit-node-mss-clamp
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: keeper
+              # renovate: datasource=docker depName=alpine/k8s
+              image: docker.io/alpine/k8s:1.37.0
+              command:
+                - "/bin/sh"
+                - "-c"
+              args:
+                - |
+                  set -u
+                  SEL="app.kubernetes.io/name=tailscale-exit-node"
+                  RULE="FORWARD -i tailscale0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1180 -m comment --comment ts-exit-node-mss-clamp"
+                  # Unquoted $RULE is intentional: it must split into iptables arguments.
+                  pods="$(kubectl get pods -n network -l "$SEL" --field-selector=status.phase=Running -o name)"
+                  if [ -z "$pods" ]; then
+                    echo "[mss-clamp] no Running pod matches $SEL"
+                    exit 1
+                  fi
+                  rc=0
+                  for pod in $pods; do
+                    if kubectl exec -n network "$pod" -c tailscale -- iptables-nft -t mangle -C $RULE 2>/dev/null; then
+                      echo "[mss-clamp] $pod: rule present"
+                    elif kubectl exec -n network "$pod" -c tailscale -- iptables-nft -t mangle -A $RULE 2>/dev/null; then
+                      echo "[mss-clamp] $pod: rule ADDED"
+                    else
+                      echo "[mss-clamp] $pod: FAILED to add rule"
+                      rc=1
+                    fi
+                  done
+                  exit "$rc"
+              env:
+                - name: HOME
+                  value: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  cpu: "10m"
+                  memory: "32Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "128Mi"
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: {}

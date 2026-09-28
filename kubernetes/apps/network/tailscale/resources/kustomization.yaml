@@ -5,3 +5,5 @@ resources:
   - ./proxyclass.yaml
   - ./proxyclass-multivlan.yaml
   - ./exitnode.yaml
+  - ./mss-clamp-rbac.yaml
+  - ./mss-clamp-cronjob.yaml

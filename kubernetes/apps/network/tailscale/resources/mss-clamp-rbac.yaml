@@ -1,0 +1,47 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/rbac.authorization.k8s.io/role_v1.json
+# Lets the MSS-clamp keeper find the Connector pod and exec into it.
+#
+# pods/exec cannot be narrowed to one pod: the operator names the pod with a
+# random suffix (ts-ts-exit-node-<random>-0), so a resourceNames rule would break
+# on the next recreate. The blast radius is "exec into any pod in the network
+# namespace" -- accepted because this namespace holds only edge/network plumbing
+# and the job runs only the script in mss-clamp-cronjob.yaml.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ts-exit-node-mss-clamp
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - "pods"
+    verbs:
+      - "get"
+      - "list"
+  - apiGroups:
+      - ""
+    resources:
+      - "pods/exec"
+    verbs:
+      - "create"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ts-exit-node-mss-clamp
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ts-exit-node-mss-clamp
+subjects:
+  - kind: ServiceAccount
+    name: ts-exit-node-mss-clamp
+    namespace: network
+---
+# No schema header for this doc: the home-operations mirror answers 200 + HTML
+# for serviceaccount_v1.json (checked 2026-09-28), which is not a schema.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ts-exit-node-mss-clamp
