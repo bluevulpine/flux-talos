@@ -38,12 +38,15 @@ spec:
     spec:
       backoffLimit: 0
       activeDeadlineSeconds: 50
-      # KubeJobFailed fires after 15m of kube_job_failed > 0, and failedJobsHistoryLimit
-      # only evicts a failed Job when a newer one fails, so without a TTL a single
-      # blip (this job exits 1 for the minute or two the Connector pod is being
-      # recreated) would linger forever while later runs succeed. 600 s is under the
-      # 15 m alert delay, so a one-off failure ages out unseen, while a persistent
-      # one keeps producing fresh failed Jobs and still alerts.
+      # A failed Job is kept until this TTL. Each run is a new Job, and this job
+      # exits 1 for the minute or two the Connector pod is recreated, so without a
+      # TTL one blip would sit in kube_job_failed indefinitely (failedJobsHistoryLimit
+      # only evicts a failed Job when a newer one fails). 600 s is deliberately
+      # SHORTER than KubeJobFailed's 15 m `for`, which means KubeJobFailed can never
+      # fire for this job -- no single Job's series lasts 15 m. Alerting is done by
+      # TailscaleMssClampStale (mss-clamp-prometheusrule.yaml) on the CronJob's last
+      # successful time instead. If you raise this above 15 m you get KubeJobFailed
+      # back, at the price of a brief page on every pod recreation.
       ttlSecondsAfterFinished: 600
       template:
         spec:
