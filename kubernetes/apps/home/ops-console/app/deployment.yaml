@@ -7,6 +7,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ops-console
+  annotations:
+    # The bearers and the signing key come from OpenBao through ops-console-secret;
+    # roll the pod when they rotate (a rotated bearer is otherwise not picked up).
+    reloader.stakater.com/auto: "true"
 spec:
   replicas: 1
   strategy:
@@ -37,7 +41,7 @@ spec:
           # Full ref auto-updated by Flux image automation (ImagePolicy flux-system:ops-console).
           # NOTE: no ":tag" suffix on the marker — this is a combined image:repo:tag scalar,
           # so Flux must write the whole ref. ":tag" would overwrite the scalar with the bare tag.
-          image: gitea.derekjacobs.dev/bvn-homelab/ops-console:1-465520e6 # {"$imagepolicy": "flux-system:ops-console"}
+          image: gitea.derekjacobs.dev/bvn-homelab/ops-console:2-e183ac0e # {"$imagepolicy": "flux-system:ops-console"}
           imagePullPolicy: Always
           ports:
             - name: http
