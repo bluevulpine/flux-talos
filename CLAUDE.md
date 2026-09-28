@@ -16,16 +16,28 @@ Serena is configured for this repo. At session start, activate the project and r
 
 **`crds: CreateReplace`** is injected globally via the `cluster-apps` Flux patch; do not add it to individual HelmRelease manifests.
 
-**Commit authorship for agent-written changes**: commits an agent writes are authored by
-its own bot identity — Fizz commits as
-`fizz-bot-bvn[bot] <324971095+fizz-bot-bvn[bot]@users.noreply.github.com>`, set with
-`git -c user.name=... -c user.email=... commit` — plus the model's `Co-Authored-By:` trailer.
-**Do not infer this from `git log`**: every non-Renovate commit before 2026-09-09 is authored
-`Derek Jacobs` because the bot account did not exist yet, not because human authorship is the
-convention. The point of the bot account is that what an agent commits is clearly separate from
-what Derek commits. Note that `git config user.name` inside a **worktree** writes to the shared
-`.git/config` and silently rewrites the human's repo-local identity — use the per-command `-c`
-flags instead.
+**Commit authorship for agent-written changes**: each agent commits under its
+own credential where one exists, so git history is the identity register.
+Agents on a shared bot credential (currently
+`bluevulpine-bot[bot] <188733095+bluevulpine-bot[bot]@users.noreply.github.com>`)
+MUST self-identify on every commit: author with per-command flags
+(`git -c user.name=... -c user.email=... commit` — **never** `git config`, which
+inside a worktree writes the shared `.git/config` and silently rewrites the
+human's repo-local identity), plus trailers naming the agent and its harness:
+
+```
+Co-Authored-By: Bosun <bosun@users.noreply.github.com>
+Agent-Harness: hermes-agent
+```
+
+Known agents: Fizz (`fizz-bot-bvn[bot]`, Buzz framework), Bosun
+(`bluevulpine-bot[bot]`, Hermes Agent harness). New agents should get their own
+GitHub App rather than silently joining a shared one.
+**Do not infer authorship convention from `git log`**: every non-Renovate commit
+before 2026-09-09 is authored `Derek Jacobs` because the bot account did not
+exist yet, not because human authorship is the convention. The point of bot
+accounts is that what an agent commits is clearly separate from what Derek
+commits.
 
 **Renovate version tracking**: annotate a version with `# renovate: datasource=...` when
 Renovate cannot detect it natively — a bare version string in `talos/talconfig.yaml`, a URL
