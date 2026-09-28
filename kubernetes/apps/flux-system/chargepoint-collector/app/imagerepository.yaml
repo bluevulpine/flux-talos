@@ -5,7 +5,12 @@ kind: ImageRepository
 metadata:
   name: &app chargepoint-collector
 spec:
-  image: gitea.derekjacobs.dev/bluevulpine/chargepoint-collector
+  # Under the bvn-homelab org, not the bluevulpine user namespace. Gitea cannot
+  # move a package between owners -- the API offers only GET, DELETE and
+  # link/unlink within one owner -- so the repo publishes to the org instead and
+  # the old path is retired. The gitea-registry-creds read token lists this
+  # repository's tags (200 on 15-a02e3b92, 2026-09-28).
+  image: gitea.derekjacobs.dev/bvn-homelab/chargepoint-collector
   interval: 5m
   secretRef:
     name: gitea-registry-creds
