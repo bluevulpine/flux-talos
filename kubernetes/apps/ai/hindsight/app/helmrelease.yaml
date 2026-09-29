@@ -270,10 +270,21 @@ spec:
               # Reflect is 4, not 1, because at 1 it was the only queue left:
               # after the cutover resume ~30 backlogged reflect calls ran one at a
               # time and the last waited 250s, while vLLM sat idle-ready. Reflect
-              # averages ~680 generated tokens a call (mostly hidden reasoning),
-              # ~15s alone and ~25-40s under load -- far inside LLM_TIMEOUT (600)
-              # and REFLECT_WALL_TIMEOUT. Going past ~8 total risks KV pressure:
-              # vLLM then preempts and recomputes, which is slower, not failing.
+              # averages ~680 generated tokens a call (mostly hidden reasoning):
+              # ~15s alone, ~25-40s with the box near this 8-in-flight budget.
+              #
+              # ⚠️ That load figure is AT OR PAST the 25s interactive cap, and the
+              # session-start reflect is a multi-call loop. So when the Spark is
+              # busy the hook WILL sometimes abort at 25s -- expected, and not a
+              # sign the backend is down. 4 is still the better trade: at 1 the
+              # same call queued behind any backlog for minutes and missed the cap
+              # every time; at 4 it misses only under sustained full load. The
+              # server-side limits (LLM_TIMEOUT 600, REFLECT_WALL_TIMEOUT) are
+              # nowhere near either. If hook aborts become routine, the lever is
+              # fewer retain/consolidation in flight, not a larger reflect share.
+              #
+              # Going past ~8 total risks KV pressure: vLLM then preempts and
+              # recomputes, which is slower, not failing.
               #
               # History, because it is why these are small. Under Ollama the caps
               # WERE the slot budget: retain 2 + consolidation 1 + reflect 1 = 4
