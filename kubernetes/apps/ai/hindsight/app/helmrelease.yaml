@@ -212,7 +212,8 @@ spec:
               # reasoning tokens; it reasons for open-ended work, not for grammar
               # -constrained output. The reasoning tax that justifies a
               # non-reasoning model elsewhere does not exist on this stage.
-              # qwen2.5 remains available as `spark-qwen25-14b` if this changes.
+              # qwen2.5 was available as `spark-qwen25-14b` until 2026-09-29, when
+              # it was removed, unused.
               HINDSIGHT_API_LLM_PROVIDER: openai
               HINDSIGHT_API_LLM_MODEL: spark-gpt-oss-20b
 
@@ -560,13 +561,14 @@ spec:
               # does not apply to this stage in practice.
               #
               # Historical: this stage once had a one-value swap to `spark-qwen25-14b`
-              # for missing the session-start hook's 25s cap. That no longer applies.
-              # `spark-qwen25-14b` routes to Ollama (32,768-token window),
-              # and REFLECT_MAX_CONTEXT_TOKENS below needs a ~92k+ window (reflect's
-              # backend has 131,072), so swapping the model alone reintroduces the
-              # silent truncation this change fixes. Lowering the cap to compensate is
-              # no answer either: a cap of 22000 dropped the knowledge pages and was
-              # reverted. A different reflect model needs a window of ~92k or more.
+              # for missing the session-start hook's 25s cap. That route was removed
+              # on 2026-09-29, and had stopped fitting anyway: it ran on Ollama's
+              # 32,768-token window, while REFLECT_MAX_CONTEXT_TOKENS below needs a
+              # ~92k+ window (reflect's backend has 131,072), so swapping the model
+              # alone would have reintroduced the silent truncation this fixes.
+              # Lowering the cap to compensate is no answer either: a cap of 22000
+              # dropped the knowledge pages and was reverted. A different reflect
+              # model needs a window of ~92k or more.
               # Reflect runs on spark-gpt-oss-20b-long: since 2026-09 the same vLLM
               # instance as every other stage (spark-setup roles/vllm, 131,072-token
               # window, no slot cap), before that a dedicated one-slot 98k ollama on
