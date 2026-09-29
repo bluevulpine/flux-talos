@@ -276,13 +276,16 @@ spec:
               # ALL stages hindsight can now have 5 in flight against LiteLLM, the
               # fifth being reflect on the other backend.
               #
-              # Raising retain or consolidation requires raising OLLAMA_NUM_PARALLEL
-              # first, and that lives in the spark-setup repo (group_vars/all.yml,
-              # ollama_num_parallel), NOT in this one. That gap is real — nothing
-              # here reconciles it. Reflect is bound elsewhere: by the dedicated
-              # instance's OLLAMA_NUM_PARALLEL=1 (spark-setup,
-              # roles/inference/tasks/reflect.yml), so raising
-              # REFLECT_LLM_MAX_CONCURRENT above 1 only queues at that instance.
+              # UPDATE 2026-09-29: both gpt-oss routes now go to ONE vLLM (spark-setup
+              # roles/vllm) with no slot cap, and the one-slot reflect ollama is gone.
+              # The numbers above no longer map to backend slots: they are hindsight's
+              # own concurrency caps, nothing more. Raising any of them -- reflect
+              # included -- no longer needs a spark-setup change first; vLLM batches
+              # whatever arrives, bounded by its KV cache (~573k tokens at bf16;
+              # logged retain prompts average ~4.6k tokens). Measure latency before
+              # raising them far: aggregate throughput at hindsight's prompt length
+              # is modest (62 -> 78-92 tok/s at 8 concurrent), so more in flight
+              # mostly means each call takes longer.
               # --- timeouts: raised for local inference ---
               # DEFAULT_LLM_TIMEOUT is 120s (config.py:1130), which was sized
               # against hosted APIs answering in seconds. It is too short here,
@@ -309,7 +312,7 @@ spec:
               # This deliberately covers reflect too. Reflect's interactive path
               # is capped client-side at 25s regardless, but refresh_mental_model ran
               # on the same reflect config until 2026-09-24 (its chain is pinned to
-              # the main instance now, see below), and is background and uncapped -- and
+              # spark-gpt-oss-20b now, see below), and is background and uncapped -- and
               # which accounts for 22,338 of the failed operations in the table.
               # Timing those out to protect a client cap that does not apply to
               # them is how that number got so large.
@@ -329,8 +332,8 @@ spec:
               # reflect is the uniquely tight one because its default assumes a
               # waiting caller. refresh_mental_model has no such caller, and its
               # reflect pass is bounded by this same REFLECT_WALL_TIMEOUT even
-              # though, since 2026-09-24, its LLM chain is separate (pinned to the
-              # main instance, see below) and no longer shares reflect's slot.
+              # though, since 2026-09-24, its LLM chain is separate (pinned to
+              # spark-gpt-oss-20b, see below) and no longer shares reflect's slot.
               # 1800 was still too low -- measured, not guessed. Over 8h of
               # local operation:
               #   refresh_mental_model  73 completed, avg 1884s, max 4346s
@@ -465,7 +468,7 @@ spec:
               # Automatic refresh (`refresh_mental_model` and
               # `mental_model_delta_ops`, both resolved through the refresh chain in
               # memory_engine) runs on the MENTAL_MODEL_REFRESH_LLM_* settings below,
-              # pinned to the main instance. What follows describes the stage before
+              # pinned to spark-gpt-oss-20b. What follows describes the stage before
               # that split, and is why the split was made.
               #
               # This slot was NOT just the user-invoked `reflect` tool. It also
@@ -546,15 +549,16 @@ spec:
               #
               # Historical: this stage once had a one-value swap to `spark-qwen25-14b`
               # for missing the session-start hook's 25s cap. That no longer applies.
-              # `spark-qwen25-14b` routes to the MAIN instance (32,768-token window),
-              # and REFLECT_MAX_CONTEXT_TOKENS below is sized to the dedicated
-              # instance's 98,304 window, so swapping the model alone reintroduces the
+              # `spark-qwen25-14b` routes to Ollama (32,768-token window),
+              # and REFLECT_MAX_CONTEXT_TOKENS below needs a ~92k+ window (reflect's
+              # backend has 131,072), so swapping the model alone reintroduces the
               # silent truncation this change fixes. Lowering the cap to compensate is
               # no answer either: a cap of 22000 dropped the knowledge pages and was
               # reverted. A different reflect model needs a window of ~92k or more.
-              # Reflect runs on the DEDICATED long-context ollama (:11435, one slot,
-              # 98,304-token window; spark-setup roles/inference/tasks/reflect.yml),
-              # not the main 8-slot instance. Reflect prompts on the flux-talos
+              # Reflect runs on spark-gpt-oss-20b-long: since 2026-09 the same vLLM
+              # instance as every other stage (spark-setup roles/vllm, 131,072-token
+              # window, no slot cap), before that a dedicated one-slot 98k ollama on
+              # :11435. Either way NOT a 32k window. Reflect prompts on the flux-talos
               # bank are 55-65k tokens -- `search_mental_models` returns whole
               # knowledge pages, ~43-48k tokens in a single result -- and the main
               # instance's 32k window silently keeps only the tail: they arrived as
@@ -565,8 +569,8 @@ spec:
               # The virtual key must allow this model_name before this deploys; see
               # the note above HINDSIGHT_API_LLM_API_KEY in the ExternalSecret.
               HINDSIGHT_API_REFLECT_LLM_MODEL: spark-gpt-oss-20b-long
-              # Sized to the 98,304 window, NOT to the default of 100,000, which is
-              # past it. The cap bounds the context reflect accumulates before it is
+              # Sized when reflect's window was 98,304 (it is 131,072 on vLLM now),
+              # NOT to the default of 100,000, which was past it. The cap bounds the context reflect accumulates before it is
               # forced to answer, and the final prompt's budget is cap x 0.8, so it
               # must clear the biggest single result: a pages result of ~45k tokens
               # is dropped WHOLE if it exceeds that budget (it is not one of the
@@ -578,7 +582,8 @@ spec:
               # today's ~45k for the pages to grow. Window arithmetic: 76,000 + ~8k
               # of the model's own output (a synthesis has reached 4.2k tokens and
               # output shares the window) + ~10% because Hindsight counts tokens
-              # with its own encoding, not the model's = ~92k, under 98,304.
+              # with its own encoding, not the model's = ~92k, under 131,072 (and
+              # under the old 98,304).
               #
               # ⚠️ Page size is the thing to watch. The pages are in delta mode, so
               # they only grow ("Key decisions and rationale" is ~31k tokens against a
@@ -587,11 +592,12 @@ spec:
               # fix it with this model: a dry-run regenerated a 12k-token page as a
               # 243-token stub.
               HINDSIGHT_API_REFLECT_MAX_CONTEXT_TOKENS: "76000"
-              # Keep automatic mental-model refreshes on the MAIN instance. Unset,
-              # the refresh chain inherits reflect's config (memory_engine, #4463),
-              # which would put them on the new one-slot instance: a daily refresh of
-              # 7 pages at ~10 minutes each would then hold the slot and queue every
-              # interactive reflect behind it. Their prompts have measured 3-25k
+              # Keep automatic mental-model refreshes on spark-gpt-oss-20b. Unset,
+              # the refresh chain inherits reflect's config (memory_engine, #4463).
+              # That mattered while -long was a one-slot ollama: a daily refresh of
+              # 7 pages at ~10 minutes each would have held the slot and queued every
+              # interactive reflect behind it. Since 2026-09-29 both routes are the
+              # same vLLM, so today it only keeps the two separable again. Their prompts have measured 3-25k
               # tokens, which fits the 32k window. Concurrency 1 keeps the main
               # instance's budget as it was (retain 2 + consolidation 1 + refresh 1),
               # since an unset value falls back to the default of 32.
