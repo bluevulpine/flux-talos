@@ -280,11 +280,10 @@ spec:
               # Reflect runs on spark-gpt-oss-20b-long (vLLM, 131,072-token
               # window) and its context cap is sized for a ~92k+ window. This
               # entry is served by Ollama, whose window is 32,768, so moving
-              # reflect here silently
-              # truncates its prompts again (they arrived as exactly 16,386
-              # tokens) and it answers from a fraction of the evidence. It remains
-              # a valid non-reasoning alternative for stages that run on the main
-              # instance.
+              # reflect here silently truncates its prompts again (they arrived
+              # as exactly 16,386 tokens) and it answers from a fraction of the
+              # evidence. It remains a valid non-reasoning alternative only for
+              # stages whose prompts fit 32k.
               #
               # Counter-intuitively it is also the SLOWER model at 26 tok/s
               # against gpt-oss's 63, despite being smaller: gpt-oss is MoE with
