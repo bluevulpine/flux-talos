@@ -261,7 +261,11 @@ spec:
               # requests, 43 vs 17 at ~27k-token prompts. 8 total is the point
               # that was benchmarked and kept (vLLM queue time: 0.39s summed over
               # the first 70 production requests). KV at this budget, worst case:
-              # 4 reflects at ~60k (the pages result) + 4 others at ~25k = ~340k.
+              # 4 reflects at up to ~92k (the 76000 REFLECT_MAX_CONTEXT_TOKENS cap +
+              # ~8k output + ~10% tokenizer skew, see that setting) + 4 others at
+              # ~25k = ~470k of ~573k -- about 100k spare. Typical is far less (a
+              # reflect usually peaks near the ~60k pages result), but size any
+              # raise against the CAP: reflect 6 would be ~600k, past the cache.
               #
               # Reflect gets the largest share because it is the stage that must
               # not queue: its interactive path has a hard 25s client cap, and a
