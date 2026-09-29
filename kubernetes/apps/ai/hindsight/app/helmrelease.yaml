@@ -250,42 +250,39 @@ spec:
               # Consolidation is the highest-volume stage by far (~700 of 997
               # calls on 2026-09-07), which makes that the likely one to do it.
               #
-              # Budget, against OLLAMA_NUM_PARALLEL=4 on the Spark:
-              #     retain 2 + consolidation 1 + reflect 1 = 4
+              # Budget, since 2026-09-29 (gpt-oss on vLLM, spark-setup roles/vllm):
+              #     retain 2 + consolidation 1 + reflect 4 + refresh 1 = 8 in flight
               #
-              # This was 6+2+2=10, sized from a synthetic sweep with a ~6k-token
-              # prompt that showed 10-way concurrency holding per-request latency
-              # under 24s. That measurement did not survive contact with the real
-              # workload: hindsight runs at 32k context, and at 10 slots actual
-              # requests took 2-6 MINUTES, blew their wall timeouts, and became
-              # PERMANENT failures. Fewer slots that finish beat more that do not.
-              # It sums to exactly the pool on purpose. Reflect is the stage that
-              # must never queue — it has a hard 25s client cap it cannot
-              # negotiate, and a slow queue there is indistinguishable from an
-              # outage — so it gets a reserved share rather than whatever is
-              # left over.
+              # These are hindsight's OWN caps now, not a share of backend slots:
+              # both gpt-oss routes go to one vLLM that batches whatever arrives,
+              # bounded only by its KV cache (~573k tokens at bf16). What limits
+              # concurrency is per-call speed, which falls as more run at once --
+              # measured on the Spark, 46 tok/s alone vs ~29 at 8 concurrent short
+              # requests, 43 vs 17 at ~27k-token prompts. 8 total is the point
+              # that was benchmarked and kept (vLLM queue time: 0.39s summed over
+              # the first 70 production requests). KV at this budget, worst case:
+              # 4 reflects at ~60k (the pages result) + 4 others at ~25k = ~340k.
               #
-              # UPDATE 2026-09-24: this block is the MAIN instance's budget, and it
-              # has moved on. OLLAMA_NUM_PARALLEL is now 8 (spark-setup: hindsight
-              # takes 4, leaving ~4 for interactive apps), and reflect no longer
-              # draws from this pool: it runs on the dedicated one-slot instance set
-              # below, so it queues behind nothing here. What holds the fourth slot
-              # in this pool now is mental-model refresh, pinned to the main instance
-              # explicitly below (it used to share reflect's slot by inheritance).
-              # Main pool: retain 2 + consolidation 1 + refresh 1 = 4 of 8. Across
-              # ALL stages hindsight can now have 5 in flight against LiteLLM, the
-              # fifth being reflect on the other backend.
+              # Reflect gets the largest share because it is the stage that must
+              # not queue: its interactive path has a hard 25s client cap, and a
+              # slow queue there is indistinguishable from an outage.
               #
-              # UPDATE 2026-09-29: both gpt-oss routes now go to ONE vLLM (spark-setup
-              # roles/vllm) with no slot cap, and the one-slot reflect ollama is gone.
-              # The numbers above no longer map to backend slots: they are hindsight's
-              # own concurrency caps, nothing more. Raising any of them -- reflect
-              # included -- no longer needs a spark-setup change first; vLLM batches
-              # whatever arrives, bounded by its KV cache (~573k tokens at bf16;
-              # logged retain prompts average ~4.6k tokens). Measure latency before
-              # raising them far: aggregate throughput at hindsight's prompt length
-              # is modest (62 -> 78-92 tok/s at 8 concurrent), so more in flight
-              # mostly means each call takes longer.
+              # Reflect is 4, not 1, because at 1 it was the only queue left:
+              # after the cutover resume ~30 backlogged reflect calls ran one at a
+              # time and the last waited 250s, while vLLM sat idle-ready. Reflect
+              # averages ~680 generated tokens a call (mostly hidden reasoning),
+              # ~15s alone and ~25-40s under load -- far inside LLM_TIMEOUT (600)
+              # and REFLECT_WALL_TIMEOUT. Going past ~8 total risks KV pressure:
+              # vLLM then preempts and recomputes, which is slower, not failing.
+              #
+              # History, because it is why these are small. Under Ollama the caps
+              # WERE the slot budget: retain 2 + consolidation 1 + reflect 1 = 4
+              # against OLLAMA_NUM_PARALLEL=4, later retain 2 + consolidation 1 +
+              # refresh 1 = 4 of 8 with reflect on a one-slot 98k instance. Before
+              # that it was 6+2+2=10, sized from a synthetic ~6k-token sweep; at the
+              # real 32k context those requests took 2-6 MINUTES, blew their wall
+              # timeouts, and became PERMANENT failures. Fewer in flight that finish
+              # beat more that do not -- re-measure before raising any of these.
               # --- timeouts: raised for local inference ---
               # DEFAULT_LLM_TIMEOUT is 120s (config.py:1130), which was sized
               # against hosted APIs answering in seconds. It is too short here,
@@ -376,7 +373,7 @@ spec:
 
               HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "2"
               HINDSIGHT_API_CONSOLIDATION_LLM_MAX_CONCURRENT: "1"
-              HINDSIGHT_API_REFLECT_LLM_MAX_CONCURRENT: "1"
+              HINDSIGHT_API_REFLECT_LLM_MAX_CONCURRENT: "4"
 
               # --- retain batching: OFF, and it has to be ---
               # This was "true" to buy Anthropic's Message Batches API discount:
@@ -570,8 +567,9 @@ spec:
               # the note above HINDSIGHT_API_LLM_API_KEY in the ExternalSecret.
               HINDSIGHT_API_REFLECT_LLM_MODEL: spark-gpt-oss-20b-long
               # Sized when reflect's window was 98,304 (it is 131,072 on vLLM now),
-              # NOT to the default of 100,000, which was past it. The cap bounds the context reflect accumulates before it is
-              # forced to answer, and the final prompt's budget is cap x 0.8, so it
+              # NOT to the default of 100,000, which was past it. The cap bounds the
+              # context reflect accumulates before it is forced to answer, and the
+              # final prompt's budget is cap x 0.8, so it
               # must clear the biggest single result: a pages result of ~45k tokens
               # is dropped WHOLE if it exceeds that budget (it is not one of the
               # keys reflect splits), and reflect then answers "no recorded
@@ -597,10 +595,10 @@ spec:
               # That mattered while -long was a one-slot ollama: a daily refresh of
               # 7 pages at ~10 minutes each would have held the slot and queued every
               # interactive reflect behind it. Since 2026-09-29 both routes are the
-              # same vLLM, so today it only keeps the two separable again. Their prompts have measured 3-25k
-              # tokens, which fits the 32k window. Concurrency 1 keeps the main
-              # instance's budget as it was (retain 2 + consolidation 1 + refresh 1),
-              # since an unset value falls back to the default of 32.
+              # same vLLM, so today it only keeps the two separable again. Their
+              # prompts have measured 3-25k tokens. Concurrency 1 is refresh's share
+              # of hindsight's total (see the budget above) -- set explicitly, since
+              # an unset value falls back to the default of 32.
               #
               # Refresh cannot hit the oversized-pages result that forced reflect off
               # this instance: every page's trigger has exclude_mental_models=true
