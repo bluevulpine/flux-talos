@@ -182,39 +182,42 @@ spec:
               # Switch back to the name once the A record is restored and
               # verified resolving FROM A POD, not just from the Spark — the
               # Spark resolves names the cluster cannot.
+              #
+              # Served by vLLM on :8000 (spark-setup, roles/vllm), not Ollama,
+              # since 2026-09. vLLM pages its KV cache per request instead of
+              # preallocating 8 fixed 32k slots, so there is no slot cap to
+              # queue behind: measured on an idle Spark, 226 vs 153 tok/s
+              # aggregate at 8 concurrent, and 385 at 16 where Ollama queued
+              # requests 26s for a slot. It is ~25% slower for a LONE request
+              # (46 vs 61 tok/s) -- the trade taken deliberately.
+              #
+              # Like Ollama, vLLM runs with no --api-key: the placeholder below
+              # is sent and ignored, and LiteLLM stays the auth boundary.
               - model_name: spark-gpt-oss-20b
                 litellm_params:
-                  model: openai/gpt-oss:20b
-                  api_base: http://10.0.10.237:11434/v1
-                  api_key: unused-ollama-accepts-any
+                  model: openai/gpt-oss-20b
+                  api_base: http://10.0.10.237:8000/v1
+                  api_key: unused-no-auth
 
-              # --- long-context backend for hindsight reflect ---
-              # The SAME model as above, served by a second, dedicated ollama on
-              # :11435 (spark-setup, roles/inference/tasks/reflect.yml): ONE slot
-              # and a 98,304-token window, against the main instance's 8 slots at
-              # 32k. It exists because reflect prompts on the flux-talos bank are
-              # 55-65k tokens and the main window silently keeps only the tail --
-              # they arrived as exactly 16,386 tokens, and reflect answered from a
-              # fraction of the evidence with fabricated detail.
+              # --- long-context alias for hindsight reflect ---
+              # The SAME vLLM instance as spark-gpt-oss-20b, kept as a separate
+              # model_name only so hindsight's reflect config and virtual key
+              # need no change. It used to be a second, hand-made ollama on
+              # :11435 (one slot, 98k window, ~17 GiB for a second copy of the
+              # weights), because reflect prompts on the flux-talos bank are
+              # 55-65k tokens and the main 32k window silently kept only the tail.
+              # vLLM's single instance serves the full 131,072-token window to
+              # any request: an ~87k-token prompt measured 18s to first token
+              # alongside short traffic.
               #
-              # Measured cost of the instance is ~17 GiB resident once loaded (a
-              # second copy of the weights plus ~1 GiB per 32k of window); it
-              # loads on the first reflect, not at boot. Nothing else should be
-              # pointed at this model_name: it has ONE slot, so a second consumer
-              # queues behind reflect's multi-minute calls.
-              #
-              # ⚠️ Hindsight's virtual key is restricted to spark-gpt-oss-20b and
-              # must be widened to include this model_name BEFORE the hindsight
-              # HelmRelease switches reflect to it, or reflect starts returning
-              # 403. See the note above HINDSIGHT_API_LLM_API_KEY in the hindsight
-              # ExternalSecret.
-              #
-              # Addressed by IP for the same reason as the entry above.
+              # It no longer has ONE slot, so the old "nothing else may point
+              # here" rule is gone -- but keep it reflect-only anyway, so the
+              # two can be split again without touching other consumers.
               - model_name: spark-gpt-oss-20b-long
                 litellm_params:
-                  model: openai/gpt-oss:20b
-                  api_base: http://10.0.10.237:11435/v1
-                  api_key: unused-ollama-accepts-any
+                  model: openai/gpt-oss-20b
+                  api_base: http://10.0.10.237:8000/v1
+                  api_key: unused-no-auth
 
               # --- audio (spark-setup `audio` role) ---
               # Two plain Docker containers on the Spark, NOT Ollama, so they use
