@@ -3,6 +3,27 @@
 Decide whether vLLM replaces or supplements Ollama as the inference backend
 behind LiteLLM. **Run this alongside the working Ollama, never in place of it.**
 
+> **2026-09-29: REVERSED — gpt-oss-20b now runs on vLLM** (spark-setup `roles/vllm`,
+> LiteLLM PR #1987). What changed the answer, and how each exit criterion was re-checked:
+>
+> - **The problem changed.** Queue wait came back once karakeep, n8n and the others shared the
+>   8 slots: at 16 concurrent short requests Ollama made requests wait up to 26s for a slot;
+>   vLLM has no slot cap. And the dedicated `:11435` reflect instance cost a second ~17 GiB
+>   copy of the weights; vLLM serves 131k to any request from one process.
+> - **Throughput at Hindsight's length is still modest**, as below: at ~27k-token prompts,
+>   62 → 78–92 tok/s aggregate at c=8. The win is queueing and memory, not raw speed.
+> - **Marlin garbage:** image `ghcr.io/spark-arena/dgx-vllm-eugr-nightly` 2026092802 (vLLM
+>   0.30.1rc1) does NOT carry the 128-thread patch, yet is clean by content: 75/75 exact at
+>   c=1/8/16, GSM8K 95.6% at c=8. Re-prove by content on every image bump.
+> - **Test 0:** `guidance` cannot be pinned on this build — it rejects every gpt-oss
+>   structured request (`Invalid grammar specification: 'triggers'`). xgrammar stays; the
+>   retain schema has no #858 shape (its 4 `anyOf` are nullable Optionals, none beside
+>   `properties`/`required`) and **180/180** replayed real retains validated against the full
+>   schema. Re-validate whenever Hindsight upgrades.
+> - **Reflect:** tool calls work; ~4.7% hit an intermittent harmony-header 500, absorbed by
+>   LiteLLM `num_retries: 2`.
+> - fp8 KV was rejected: it changed retain output beyond bf16 run-to-run noise.
+
 Status: **ROOT-CAUSED 2026-09-23.** Test 0 passed on both engines. Tests 1 and 2 ran
 head-to-head and vLLM produced garbage; a systematic RCA localised that to one Marlin
 kernel configuration and produced a two-line fix. Tests 1 and 2 then re-ran on the
@@ -115,7 +136,7 @@ continuous batching is a *decode*-phase advantage. vLLM-fixed is ~10–15% faste
 latency. That is not worth a second engine, a bind-mounted kernel patch on every image
 bump, or (the alternative) changing the production model to one vLLM serves unpatched.
 
-**Verdict: stay on Ollama for gpt-oss.** Revisit only if the workload becomes
+**Verdict (2026-09-23, since reversed — see the top): stay on Ollama for gpt-oss.** Revisit only if the workload becomes
 decode-heavy at short context (many concurrent short prompts), which is the regime where
 vLLM's batching would actually pay. The queue-wait problem that started this was fixed
 by `OLLAMA_NUM_PARALLEL` 4→8 (194s → 1.9s) and is unrelated to engine choice.

@@ -547,14 +547,15 @@ spec:
               # Historical: this stage once had a one-value swap to `spark-qwen25-14b`
               # for missing the session-start hook's 25s cap. That no longer applies.
               # `spark-qwen25-14b` routes to the MAIN instance (32,768-token window),
-              # and REFLECT_MAX_CONTEXT_TOKENS below is sized to the dedicated
-              # instance's 98,304 window, so swapping the model alone reintroduces the
+              # and REFLECT_MAX_CONTEXT_TOKENS below needs a ~92k+ window (reflect's
+              # backend has 131,072), so swapping the model alone reintroduces the
               # silent truncation this change fixes. Lowering the cap to compensate is
               # no answer either: a cap of 22000 dropped the knowledge pages and was
               # reverted. A different reflect model needs a window of ~92k or more.
-              # Reflect runs on the DEDICATED long-context ollama (:11435, one slot,
-              # 98,304-token window; spark-setup roles/inference/tasks/reflect.yml),
-              # not the main 8-slot instance. Reflect prompts on the flux-talos
+              # Reflect runs on spark-gpt-oss-20b-long: since 2026-09 the same vLLM
+              # instance as every other stage (spark-setup roles/vllm, 131,072-token
+              # window, no slot cap), before that a dedicated one-slot 98k ollama on
+              # :11435. Either way NOT a 32k window. Reflect prompts on the flux-talos
               # bank are 55-65k tokens -- `search_mental_models` returns whole
               # knowledge pages, ~43-48k tokens in a single result -- and the main
               # instance's 32k window silently keeps only the tail: they arrived as
@@ -565,8 +566,8 @@ spec:
               # The virtual key must allow this model_name before this deploys; see
               # the note above HINDSIGHT_API_LLM_API_KEY in the ExternalSecret.
               HINDSIGHT_API_REFLECT_LLM_MODEL: spark-gpt-oss-20b-long
-              # Sized to the 98,304 window, NOT to the default of 100,000, which is
-              # past it. The cap bounds the context reflect accumulates before it is
+              # Sized when reflect's window was 98,304 (it is 131,072 on vLLM now),
+              # NOT to the default of 100,000, which was past it. The cap bounds the context reflect accumulates before it is
               # forced to answer, and the final prompt's budget is cap x 0.8, so it
               # must clear the biggest single result: a pages result of ~45k tokens
               # is dropped WHOLE if it exceeds that budget (it is not one of the
@@ -578,7 +579,8 @@ spec:
               # today's ~45k for the pages to grow. Window arithmetic: 76,000 + ~8k
               # of the model's own output (a synthesis has reached 4.2k tokens and
               # output shares the window) + ~10% because Hindsight counts tokens
-              # with its own encoding, not the model's = ~92k, under 98,304.
+              # with its own encoding, not the model's = ~92k, under 131,072 (and
+              # under the old 98,304).
               #
               # ⚠️ Page size is the thing to watch. The pages are in delta mode, so
               # they only grow ("Key decisions and rationale" is ~31k tokens against a

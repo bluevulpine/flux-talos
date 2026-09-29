@@ -153,11 +153,12 @@ spec:
           config.yaml: |-
             model_list:
               # --- primary: DGX Spark (spark-ab23) over the LAN ---
-              # Ollama exposes an OpenAI-compatible surface at /v1 and ignores
-              # the bearer token entirely, so api_key is a placeholder, not a
-              # secret. LiteLLM is the authentication boundary in front of it:
-              # Ollama itself has no auth, and is reachable by anything on
-              # VLAN 10.
+              # Two engines on the Spark, both OpenAI-compatible at /v1 and both
+              # without auth of their own: vLLM (:8000) serves gpt-oss, Ollama
+              # (:11434) serves the vision and dense models. Each ignores the
+              # bearer token, so api_key is a placeholder, not a secret. LiteLLM
+              # is the authentication boundary in front of them; they are
+              # reachable by anything on VLAN 10.
               #
               # Addressed by IP, deliberately, after the name stopped resolving.
               #
@@ -193,11 +194,20 @@ spec:
               #
               # Like Ollama, vLLM runs with no --api-key: the placeholder below
               # is sent and ignored, and LiteLLM stays the auth boundary.
+              #
+              # num_retries: ~4.7% of replayed reflect tool calls (3/64) came back
+              # 500 "unexpected tokens remaining in message header" -- gpt-oss
+              # intermittently emits a malformed harmony tool-call header that
+              # vLLM's parser rejects. The same request succeeds on retry, and
+              # hindsight's own retries cover only its background worker jobs, so
+              # without this an interactive reflect surfaces the 500. Two retries
+              # take it to ~1 in 10,000.
               - model_name: spark-gpt-oss-20b
                 litellm_params:
                   model: openai/gpt-oss-20b
                   api_base: http://10.0.10.237:8000/v1
                   api_key: unused-no-auth
+                  num_retries: 2
 
               # --- long-context alias for hindsight reflect ---
               # The SAME vLLM instance as spark-gpt-oss-20b, kept as a separate
@@ -218,6 +228,8 @@ spec:
                   model: openai/gpt-oss-20b
                   api_base: http://10.0.10.237:8000/v1
                   api_key: unused-no-auth
+                  # Reflect is the tool-calling stage; see num_retries above.
+                  num_retries: 2
 
               # --- audio (spark-setup `audio` role) ---
               # Two plain Docker containers on the Spark, NOT Ollama, so they use
@@ -265,10 +277,10 @@ spec:
               # against 15.2s here, so gpt-oss won outright.
               #
               # As of 2026-09-24 it is NOT an escape hatch for reflect any more.
-              # Reflect runs on the dedicated long-context instance
-              # (spark-gpt-oss-20b-long, 98,304-token window) and its context cap
-              # is sized to that window. This entry is served by the MAIN
-              # instance, whose window is 32,768, so moving reflect here silently
+              # Reflect runs on spark-gpt-oss-20b-long (vLLM, 131,072-token
+              # window) and its context cap is sized for a ~92k+ window. This
+              # entry is served by Ollama, whose window is 32,768, so moving
+              # reflect here silently
               # truncates its prompts again (they arrived as exactly 16,386
               # tokens) and it answers from a fraction of the evidence. It remains
               # a valid non-reasoning alternative for stages that run on the main
@@ -294,6 +306,12 @@ spec:
               # entry check `ollama ps` and be ready to
               # `curl -d '{"model":"...","keep_alive":0}' /api/generate` to
               # evict whichever model you are not using.
+              #
+              # ⚠️ Worse since 2026-09: vLLM now holds a FIXED ~36 GiB for gpt-oss
+              # that it never releases. A dense-14B load on top no longer just
+              # slows the box -- it can take it to earlyoom, whose largest
+              # preferred target is vLLM, i.e. every hindsight and karakeep text
+              # call. Nothing uses this entry; consider removing it.
               - model_name: spark-qwen25-14b
                 litellm_params:
                   model: openai/qwen2.5:14b-instruct
@@ -313,7 +331,8 @@ spec:
               #
               # Measured on this box at OLLAMA_NUM_PARALLEL=8, not estimated:
               # 20 GiB resident alongside gpt-oss's 13 GiB (54 of 121 GiB used,
-              # 67 free), 17.6s cold including model load, then 1.3-2.7s warm.
+              # 67 free, when gpt-oss still ran in Ollama -- it is on vLLM now),
+              # 17.6s cold including model load, then 1.3-2.7s warm.
               # It read two lines of rendered text exactly, including a currency
               # amount, and identified two shapes and their colours.
               #
@@ -343,7 +362,8 @@ spec:
             # AuthenticationError.."), so an outage of the Spark reads as an
             # auth problem somewhere else. Failing cleanly against a single
             # backend is the honest behaviour, and reachability is alerted on
-            # separately by the `DGX Spark (Ollama)` gatus endpoint.
+            # separately by the `DGX Spark (vLLM)` (gpt-oss) and
+            # `DGX Spark (Ollama)` (vision, dense) gatus endpoints.
             #
             # To restore a fallback, add a second model_list member and a
             # router_settings.fallbacks block. Any OpenAI-compatible provider
