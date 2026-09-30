@@ -251,8 +251,19 @@ spec:
               # Consolidation is the highest-volume stage by far (~700 of 997
               # calls on 2026-09-07), which makes that the likely one to do it.
               #
-              # Budget, since 2026-09-29 (gpt-oss on vLLM, spark-setup roles/vllm):
-              #     retain 2 + consolidation 1 + reflect 4 + refresh 1 = 8 in flight
+              # Budget, since 2026-09-30 (gpt-oss on vLLM, spark-setup roles/vllm):
+              #     retain 4 + consolidation 2 + reflect 4 + refresh 2 = 12 in flight
+              #
+              # Raised from 8 (retain 2, consolidation 1, refresh 1) on evidence:
+              # hindsight's logged durations start BEFORE it takes a permit (see
+              # spark-setup tools/hindsight_trends.sh), and after the cutover its
+              # calls overlapped far past their caps -- retain 42 deep at cap 2,
+              # consolidation 5 deep at 1, delta ops 6 deep at 1 -- while vLLM
+              # summed 0.05s of queue time over 57 requests, none over 240s, KV 6%
+              # used. Consolidation's 849s median was ~20s of generation and the
+              # rest waiting for its single permit. Consolidation at 2 is safe:
+              # hindsight claims at most one per bank (_BANK_SERIALIZED_OPERATION_
+              # TYPES in engine/db/ops.py), so 2 means two banks, never one twice.
               #
               # These are hindsight's OWN caps now, not a share of backend slots:
               # both gpt-oss routes go to one vLLM that batches whatever arrives,
@@ -261,12 +272,17 @@ spec:
               # measured on the Spark, 46 tok/s alone vs ~29 at 8 concurrent short
               # requests, 43 vs 17 at ~27k-token prompts. 8 total is the point
               # that was benchmarked and kept (vLLM queue time: 0.39s summed over
-              # the first 70 production requests). KV at this budget, worst case:
-              # 4 reflects at up to ~92k (the 76000 REFLECT_MAX_CONTEXT_TOKENS cap +
-              # ~8k output + ~10% tokenizer skew, see that setting) + 4 others at
-              # ~25k = ~470k of ~573k -- about 100k spare. Typical is far less (a
-              # reflect usually peaks near the ~60k pages result), but size any
-              # raise against the CAP: reflect 6 would be ~600k, past the cache.
+              # the first 70 production requests). KV at this budget, worst case,
+              # from each stage's logged maximum prompt plus output:
+              #   4 reflects   x ~92k (76000 REFLECT_MAX_CONTEXT_TOKENS cap + ~8k
+              #                        output + ~10% tokenizer skew) = ~368k
+              #   4 retains    x ~14k (prompt <=6.7k, output <=7.3k)  =  ~56k
+              #   2 consolid.  x ~25k (prompt <=23.6k)                =  ~50k
+              #   2 refreshes  x ~25k (prompt <=20.6k + ~3k output)   =  ~50k
+              #                                                   total ~524k of ~573k
+              # About 50k spare. Typical is far less (a reflect usually peaks near
+              # the ~60k pages result), but size any raise against the CAPS:
+              # reflect 6, or retain 8 with reflect at its cap, would not fit.
               #
               # Reflect gets the largest share because it is the stage that must
               # not queue: its interactive path has a hard 25s client cap, and a
@@ -288,8 +304,9 @@ spec:
               # nowhere near either. If hook aborts become routine, the lever is
               # fewer retain/consolidation in flight, not a larger reflect share.
               #
-              # Going past ~8 total risks KV pressure: vLLM then preempts and
-              # recomputes, which is slower, not failing.
+              # Going past ~12 total risks KV pressure: vLLM then preempts and
+              # recomputes, which is slower, not failing. It also slows every call
+              # a little -- the reflect hook caveat above gets worse, not better.
               #
               # History, because it is why these are small. Under Ollama the caps
               # WERE the slot budget: retain 2 + consolidation 1 + reflect 1 = 4
@@ -387,8 +404,8 @@ spec:
               HINDSIGHT_API_RETAIN_WALL_TIMEOUT: "10800"
               HINDSIGHT_API_CONSOLIDATION_WALL_TIMEOUT: "21600"
 
-              HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "2"
-              HINDSIGHT_API_CONSOLIDATION_LLM_MAX_CONCURRENT: "1"
+              HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "4"
+              HINDSIGHT_API_CONSOLIDATION_LLM_MAX_CONCURRENT: "2"
               HINDSIGHT_API_REFLECT_LLM_MAX_CONCURRENT: "4"
 
               # --- retain batching: OFF, and it has to be ---
@@ -613,7 +630,7 @@ spec:
               # 7 pages at ~10 minutes each would have held the slot and queued every
               # interactive reflect behind it. Since 2026-09-29 both routes are the
               # same vLLM, so today it only keeps the two separable again. Their
-              # prompts have measured 3-25k tokens. Concurrency 1 is refresh's share
+              # prompts have measured 3-25k tokens. Concurrency 2 is refresh's share
               # of hindsight's total (see the budget above) -- set explicitly, since
               # an unset value falls back to the default of 32.
               #
@@ -631,7 +648,7 @@ spec:
               # note beside HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_BASE_URL.
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_PROVIDER: openai
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL: spark-gpt-oss-20b
-              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "1"
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "2"
               # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
               # floor at all — which is how 232 refreshes ran in ~2h on
               # 2026-09-07: every consolidation batch queued another with nothing
