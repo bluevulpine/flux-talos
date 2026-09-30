@@ -233,10 +233,10 @@ spec:
               # Anthropic's account rate limit; retain is 4 now, on the Spark --
               # see the budget below.)
               #
-              # NOTE this is the RATE limit, not the credit balance — the
-              # credit-exhaustion CronJob (cronjob.yaml) matches on the
-              # "credit balance is too low" message and correctly stays silent
-              # for a 429. Throughput exhaustion is currently unmonitored.
+              # NOTE this was the RATE limit, not the credit balance. The
+              # Anthropic credit/rate-limit CronJob that watched for both was
+              # removed on 2026-09-30: every stage runs on the Spark via LiteLLM
+              # now, and it had matched zero rows in the week before removal.
               #
               # 6 SURVIVES the move to the Spark, but the constraint behind it
               # changed completely: there is no account rate limit any more, only
