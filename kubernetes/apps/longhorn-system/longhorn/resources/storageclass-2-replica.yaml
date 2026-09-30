@@ -1,0 +1,27 @@
+---
+# Middle tier between longhorn-1-replica and the 3-replica 'longhorn' class.
+# Intended for stateful data that is NOT already replicated at the application
+# layer. Data that is (CloudNativePG, the Prometheus HA pair, Thanos) should stay
+# on 1 replica: a second storage-layer copy there only doubles the write load.
+# Deliberately not a default class -- only longhorn-1-replica carries that.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-2-replica
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/component: storage
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "2"
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  fsType: ext4
+  dataLocality: disabled
+  disableRevisionCounter: "true"
+  dataEngine: v1
+  backupTargetName: default
+  unmapMarkSnapChainRemoved: ignored
