@@ -1,0 +1,95 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/admissionregistration.k8s.io/validatingadmissionpolicy_v1.json
+# What the ops-console may make a Job DO.
+#
+# The console's Role is `create jobs` in `home`. RBAC cannot look inside the Job, and
+# `home` enforces Pod Security `privileged`, so that grant is really "run any pod in
+# this namespace as any ServiceAccount in it, mounting any Secret": a compromised
+# console could take an OpenBao-authenticated ServiceAccount, hostPath, or a
+# privileged container. This policy narrows it to the two Jobs the console exists
+# to run: a copy of kia-collector-cached or kia-trip-archiver.
+#
+# It applies ONLY to requests by the console's own ServiceAccount (matchCondition),
+# so nothing else that creates Jobs is affected, and failurePolicy: Fail cannot
+# break them. Verified 2026-09-28 by server-side dry-run as that user: the real
+# CronJob templates are admitted; each rule below rejects its counter-example.
+#
+# When a CronJob legitimately changes shape (a new Secret, another init image) this
+# policy must change with it, or the console's test run is refused with a message
+# naming the rule. That is deliberate friction.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: ops-console-jobs
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups:
+          - batch
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+        resources:
+          - jobs
+  matchConditions:
+    - name: created-by-the-console
+      expression: "request.userInfo.username == 'system:serviceaccount:home:ops-console'"
+  variables:
+    - name: pod
+      expression: object.spec.template.spec
+    - name: containers
+      expression: "variables.pod.containers + (has(variables.pod.initContainers) ? variables.pod.initContainers : [])"
+    - name: images
+      expression: >-
+        ['gitea.derekjacobs.dev/bvn-homelab/kia-collector:',
+         'gitea.derekjacobs.dev/bvn-homelab/kia-trip-archiver:',
+         'ghcr.io/home-operations/postgres-init:']
+    - name: secrets
+      expression: "['kia-collector-secret', 'kia-trip-archiver-secret']"
+    - name: configmaps
+      expression: "['kia-collector-config', 'kia-trip-archiver-config']"
+  validations:
+    - expression: has(variables.pod.serviceAccountName) && variables.pod.serviceAccountName in ['kia-collector', 'kia-trip-archiver']
+      message: a console Job must run as the kia-collector or kia-trip-archiver ServiceAccount
+    - expression: variables.containers.all(c, variables.images.exists(p, c.image.startsWith(p)))
+      message: a console Job may only run the kia-collector, kia-trip-archiver or postgres-init images
+    - expression: >-
+        (!has(variables.pod.hostNetwork) || !variables.pod.hostNetwork) &&
+        (!has(variables.pod.hostPID) || !variables.pod.hostPID) &&
+        (!has(variables.pod.hostIPC) || !variables.pod.hostIPC)
+      message: a console Job may not use the host's network, PID or IPC namespace
+    - expression: >-
+        variables.containers.all(c, !has(c.securityContext) ||
+        ((!has(c.securityContext.privileged) || !c.securityContext.privileged) &&
+        (!has(c.securityContext.capabilities) || !has(c.securityContext.capabilities.add) || size(c.securityContext.capabilities.add) == 0)))
+      message: a console Job may not run privileged or add capabilities
+    - expression: "!has(variables.pod.volumes) || variables.pod.volumes.all(v, has(v.emptyDir))"
+      message: a console Job may only use emptyDir volumes (no hostPath, Secret or projected volumes)
+    - expression: >-
+        variables.containers.all(c,
+        (!has(c.envFrom) || c.envFrom.all(e,
+        (!has(e.secretRef) || e.secretRef.name in variables.secrets) &&
+        (!has(e.configMapRef) || e.configMapRef.name in variables.configmaps))) &&
+        (!has(c.env) || c.env.all(e, !has(e.valueFrom) ||
+        ((!has(e.valueFrom.secretKeyRef) || e.valueFrom.secretKeyRef.name in variables.secrets) &&
+        (!has(e.valueFrom.configMapKeyRef) || e.valueFrom.configMapKeyRef.name in variables.configmaps) &&
+        !has(e.valueFrom.fieldRef) && !has(e.valueFrom.resourceFieldRef))))
+        )
+      message: a console Job may only read the two Kia Secrets and ConfigMaps
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/admissionregistration.k8s.io/validatingadmissionpolicybinding_v1.json
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: ops-console-jobs
+spec:
+  policyName: ops-console-jobs
+  validationActions:
+    - Deny
+    - Audit
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: home
