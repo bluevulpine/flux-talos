@@ -273,7 +273,8 @@ spec:
               # requests, 43 vs 17 at ~27k-token prompts. 8 total was the
               # benchmarked point (vLLM queue time: 0.39s summed over the first 70
               # production requests); 12 is a raise on production evidence (above),
-              # not a new benchmark -- tools/hindsight_trends.sh is how to check it. KV at this budget, worst case,
+              # not a new benchmark -- tools/hindsight_trends.sh is how to check it.
+              # KV at this budget, worst case,
               # from each stage's logged maximum prompt plus output:
               #   4 reflects   x ~92k (76000 REFLECT_MAX_CONTEXT_TOKENS cap + ~8k
               #                        output + ~10% tokenizer skew) = ~368k
