@@ -556,10 +556,12 @@ spec:
               # problem; gpt-4o removes the phase instead of shrinking it.
               #
               # LLM_TEMPERATURE_REFLECT and REFLECT_LLM_REASONING_EFFORT stay
-              # GONE from this block, and that still matters on the Spark:
-              #   - reasoning_effort is passed through VERBATIM, so leaving it
-              #     set would 400 every call against a backend that does not
-              #     accept it;
+              # GONE from this block:
+              #   - reasoning_effort is passed through VERBATIM. That would 400 on
+              #     a backend that rejects it (the gpt-4o era), but vLLM gpt-oss
+              #     accepts it -- retain, consolidation and refresh all send
+              #     `low`. Reflect stays unset on purpose: it is the stage where
+              #     reasoning pays, and vLLM's 16k default output cap bounds it;
               #   - temperature falls back to reflect's intended 0.9
               #     (config.py DEFAULT_LLM_TEMPERATURE_REFLECT), which is what
               #     the old `none` override existed to work around.
