@@ -22,6 +22,19 @@ spec:
     size: 50Gi
     storageClass: longhorn-1-replica-local
 
+  # Required (not CNPG's default preferred/soft) anti-affinity. With the soft rule,
+  # two instances once landed on the same node (brokkr03), and Longhorn's
+  # best-effort data locality then moved both instances' sole volume replicas
+  # there, so one node loss or reboot would have taken two of three members'
+  # storage offline. With `required` there is one instance per node, so locality
+  # keeps each volume next to its own pod and the replicas spread one per node.
+  # Trade-off: if a node is down for a long time its instance stays Pending rather
+  # than doubling up on another node; acceptable because the other two keep serving.
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+    podAntiAffinityType: required
+
   superuserSecret:
     name: &secretName cloudnative-pg-secret
   enableSuperuserAccess: true
