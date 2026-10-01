@@ -62,7 +62,7 @@
     {
       "type": "stat",
       "title": "API-equivalent spend over the selected range",
-      "description": "What the Spark's gpt-oss traffic would have cost on each metered API, summed over the dashboard time range. A floor: excludes vision/STT/TTS and any hour Prometheus missed. Ranges past 14 days need Thanos downsampled reads (flux-talos #2018).",
+      "description": "What the Spark's gpt-oss traffic would have cost on each metered API, summed over the dashboard time range. A floor: excludes vision/STT/TTS and any hour Prometheus missed. This is an instant query over the range, which Thanos answers from raw data only -- ranges past 14 days top out at ~14 days even with flux-talos #2018 (which covers range queries).",
       "id": 2,
       "datasource": {
         "type": "prometheus",
@@ -81,12 +81,11 @@
             "uid": "prometheus"
           },
           "refId": "A",
-          "expr": "sum by (comparison) (spark:llm_api_equivalent_usd:increase1h)",
+          "expr": "sum by (comparison) (sum_over_time(spark:llm_api_equivalent_usd:increase1h[$__range]))",
           "legendFormat": "{{comparison}}",
-          "range": true,
-          "instant": false,
-          "editorMode": "code",
-          "interval": "1h"
+          "range": false,
+          "instant": true,
+          "editorMode": "code"
         }
       ],
       "fieldConfig": {
@@ -173,7 +172,7 @@
       "options": {
         "reduceOptions": {
           "calcs": [
-            "sum"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -189,7 +188,7 @@
     {
       "type": "stat",
       "title": "Projected payback (trailing 7 days)",
-      "description": "Days to recover $hardware_cost at the last 7 days' average API-equivalent spend, net of $power_cost_per_day electricity. Blank if the 7-day average doesn't exceed power cost.",
+      "description": "Days to recover $hardware_cost at the average daily API-equivalent spend over up to the last 7 days (averaged over the hours actually recorded, so it is right from day one), net of $power_cost_per_day electricity. Blank if the average doesn't exceed power cost.",
       "id": 3,
       "datasource": {
         "type": "prometheus",
@@ -208,7 +207,7 @@
             "uid": "prometheus"
           },
           "refId": "A",
-          "expr": "$hardware_cost / ((sum by (comparison) (sum_over_time(spark:llm_api_equivalent_usd:increase1h[7d])) / 7) - $power_cost_per_day > 0)",
+          "expr": "$hardware_cost / ((sum by (comparison) (sum_over_time(spark:llm_api_equivalent_usd:increase1h[7d])) / (max by (comparison) (count_over_time(spark:llm_api_equivalent_usd:increase1h[7d])) / 24)) - $power_cost_per_day > 0)",
           "legendFormat": "{{comparison}}",
           "range": false,
           "instant": true,
@@ -334,12 +333,11 @@
             "uid": "prometheus"
           },
           "refId": "A",
-          "expr": "sum by (comparison) (spark:llm_api_equivalent_usd:increase1h) / $hardware_cost * 100",
+          "expr": "sum by (comparison) (sum_over_time(spark:llm_api_equivalent_usd:increase1h[$__range])) / $hardware_cost * 100",
           "legendFormat": "{{comparison}}",
-          "range": true,
-          "instant": false,
-          "editorMode": "code",
-          "interval": "1h"
+          "range": false,
+          "instant": true,
+          "editorMode": "code"
         }
       ],
       "fieldConfig": {
@@ -426,7 +424,7 @@
       "options": {
         "reduceOptions": {
           "calcs": [
-            "sum"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -606,7 +604,7 @@
             "uid": "prometheus"
           },
           "refId": "A",
-          "expr": "spark:vllm_prompt_tokens:increase1h - spark:vllm_cached_prompt_tokens:increase1h",
+          "expr": "last_over_time(spark:vllm_prompt_tokens:increase1h[1h]) - last_over_time(spark:vllm_cached_prompt_tokens:increase1h[1h])",
           "legendFormat": "prompt (uncached)",
           "range": true,
           "instant": false,
@@ -619,7 +617,7 @@
             "uid": "prometheus"
           },
           "refId": "B",
-          "expr": "spark:vllm_cached_prompt_tokens:increase1h",
+          "expr": "last_over_time(spark:vllm_cached_prompt_tokens:increase1h[1h])",
           "legendFormat": "prompt (cached)",
           "range": true,
           "instant": false,
@@ -632,7 +630,7 @@
             "uid": "prometheus"
           },
           "refId": "C",
-          "expr": "spark:vllm_generation_tokens:increase1h",
+          "expr": "last_over_time(spark:vllm_generation_tokens:increase1h[1h])",
           "legendFormat": "generated",
           "range": true,
           "instant": false,
