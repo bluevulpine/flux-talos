@@ -70,6 +70,19 @@ spec:
       replicas: 2
       extraArgs:
         - "--alert.query-url=https://thanos.${SECRET_DOMAIN}"
+        # Let range queries read downsampled blocks. Without it Query reads raw
+        # only (max_source_resolution=0s), and raw is deleted at 14d by the
+        # compactor above -- so any range past 14 days silently comes back short
+        # (a plausible, low number; no error), even though 5m/1h blocks exist to
+        # 30d/60d. With it, a request that names no resolution uses step/5: a
+        # query at step >= 25m may fall back to 5m/1h data where raw is gone,
+        # while fine-step and recent queries still read raw.
+        #
+        # Instant queries are NOT covered (this Thanos, 0.42, has no
+        # default-max-source-resolution flag for them): a [60d] instant query
+        # still tops out at 14d. Ask long windows as a range query with a coarse
+        # step, or pass max_source_resolution=1h explicitly.
+        - "--query.auto-downsampling"
     queryFrontend:
       enabled: true
       replicas: 2
@@ -81,6 +94,9 @@ spec:
               key: cache.yaml
       extraArgs:
         - "--query-range.response-cache-config=$(THANOS_CACHE_CONFIG)"
+        # Retry a range query against downsampled data when the raw answer is
+        # empty or incomplete -- the frontend half of --query.auto-downsampling.
+        - "--query-range.request-downsampled"
       ingress:
         enabled: false
       podAnnotations: &podAnnotations
