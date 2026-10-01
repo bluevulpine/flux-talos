@@ -27,7 +27,9 @@ spec:
       APP: *app
       NS: home
       VOLSYNC_CAPACITY: 10Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      # 2 replicas: the broker's retained messages and persistence file are lost if
+      # the one replica goes during a Talos drain; kopiur only restores hourly.
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
