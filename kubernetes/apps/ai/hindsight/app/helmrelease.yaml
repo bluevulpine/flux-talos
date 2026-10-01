@@ -461,10 +461,26 @@ spec:
               # spot-read new facts against their transcripts, and revert if it thins
               # the memory.
               #
-              # Scoped to retain on purpose. Retain resolves its own effort; reflect,
-              # consolidation and mental-model refresh are untouched (refresh falls
-              # back to reflect's, then the global one; neither is set).
+              # Retain resolves its own effort. Consolidation and mental-model refresh
+              # are set to low too (below, 2026-10-01); reflect is NOT -- it is the
+              # stage where reasoning pays, and vLLM's 16k default output cap
+              # (spark-setup roles/vllm) bounds it instead.
               HINDSIGHT_API_RETAIN_LLM_REASONING_EFFORT: low
+              # Consolidation and mental-model refresh (which also drives
+              # mental_model_delta_ops) at low, on the same evidence shape as retain.
+              # Unset, hindsight sends NO effort and gpt-oss defaults to medium; on
+              # vLLM's 131k window that let refresh calls reason past hindsight's
+              # 600s timeout. Real calls replayed against production, same prompts:
+              #   consolidation  default 3398 / 4077 / 500 tok   low 1470 / 2107 / 244
+              #                  (256 / 309 / 43s)                (117 / 164 / 25s)
+              #   delta ops      default 7736 / 2595 / 9718 tok  low 1226 / 649 / 914
+              #                  (538 / 191 / 636s)               (93 / 47 / 65s)
+              # All 12 stopped cleanly with valid JSON. Consolidation output was the
+              # same size; delta-op output was sometimes shorter (6.1k -> 4.2k chars,
+              # 4.0k -> 2.2k), so it may carry fewer page edits. Spot-read refreshed
+              # pages for thinning, and revert these two lines if it shows.
+              HINDSIGHT_API_CONSOLIDATION_LLM_REASONING_EFFORT: low
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_REASONING_EFFORT: low
 
               # A retain failover member to Azure was tried here on 2026-09-07
               # and REMOVED the same evening: it never worked, and it made
