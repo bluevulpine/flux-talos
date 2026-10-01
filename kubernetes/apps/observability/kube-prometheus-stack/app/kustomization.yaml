@@ -7,6 +7,7 @@ resources:
   - ./ocirepository.yaml
 
   - ./prometheusrule.yaml
+  - ./prometheusrule-spark-llm.yaml
   - ./scrapeconfig.yaml
   - ./alertmanagerconfig.yaml
   - ./externalsecret.yaml
