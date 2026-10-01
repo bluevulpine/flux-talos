@@ -125,3 +125,31 @@ spec:
     - action: replace
       targetLabel: job
       replacement: *name
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: &name vllm-spark
+spec:
+  staticConfigs:
+    # vLLM on the DGX Spark (spark-setup roles/vllm), serving gpt-oss-20b for
+    # every spark-gpt-oss-20b route in LiteLLM. Its /metrics is unauthenticated
+    # and bound to the LAN address, which pods already reach (LiteLLM calls the
+    # same host:port). Addressed by IP for the same reason as the LiteLLM
+    # api_base: the spark-ab23 name has not resolved reliably from pods.
+    #
+    # The token counters here are the only durable record of LLM volume:
+    # hindsight keeps one day of llm_requests, LiteLLM one hour of spend logs,
+    # and these counters reset whenever vLLM restarts (increase() handles that).
+    # The spark-llm recording rules turn them into hourly tokens and an
+    # API-equivalent cost.
+    - targets:
+        - 10.0.10.237:8000
+      labels:
+        instance: spark-ab23
+  metricsPath: /metrics
+  relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: *name

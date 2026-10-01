@@ -1,0 +1,75 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: spark-llm
+spec:
+  groups:
+    # What the Spark's LLM traffic would have cost on a metered API -- the
+    # running answer to "has the hardware paid for itself yet".
+    #
+    # HOURLY on purpose: each sample is one hour's total, so a day is
+    # sum_over_time(...[1d]) and a month sum_over_time(...[30d]), and the series
+    # survives Thanos's 1h downsampling (60d retention). Longer than that needs
+    # an export; the raw counters do not outlive it either.
+    #
+    # Token accounting follows vLLM's own counters, which include gpt-oss's
+    # hidden reasoning tokens -- a metered API bills those as output too, so
+    # they belong in the comparison (hindsight's llm_requests.output_tokens
+    # leaves them out and under-counts output ~4x). Prefix-cache hits are
+    # priced at each provider's cache-read rate, since a metered API would have
+    # cached the same repeated system prompts.
+    #
+    # Not covered: vision (qwen2.5vl on Ollama -- no metrics endpoint), speech-
+    # to-text and text-to-speech. So the cost series is a FLOOR.
+    #
+    # ⚠️ Quality is not equal across these. gpt-oss-20b is weaker than Sonnet
+    # or Haiku; the honest "saved" figure is against what you would otherwise
+    # have paid for output you'd accept -- see spark-setup's payoff notes. And
+    # free tokens get used more freely than metered ones would be.
+    - name: spark-llm
+      interval: 1h
+      rules:
+        - record: spark:vllm_prompt_tokens:increase1h
+          expr: sum(increase(vllm:prompt_tokens_total{job="vllm-spark"}[1h]))
+        - record: spark:vllm_cached_prompt_tokens:increase1h
+          expr: sum(increase(vllm:prefix_cache_hits_total{job="vllm-spark"}[1h]))
+        - record: spark:vllm_generation_tokens:increase1h
+          expr: sum(increase(vllm:generation_tokens_total{job="vllm-spark"}[1h]))
+        # API-equivalent USD per hour. Prices per million tokens as
+        # input / cache read / output, checked 2026-09-30 -- update them here
+        # when a provider changes its rates.
+        #   claude-sonnet-5-5  2.00 / 0.20  / 10.00  (Anthropic first-party)
+        #   claude-haiku-4-5   1.00 / 0.10  /  5.00  (cache read = 0.1x input)
+        #   gpt-5-mini         0.25 / 0.025 /  2.00  (what reflect/consolidation
+        #                                              ran on, on Azure)
+        #   gpt-oss-20b        0.075/ 0.075 /  0.30  (the same model hosted, Groq;
+        #                                              no cache discount assumed)
+        - record: spark:llm_api_equivalent_usd:increase1h
+          labels:
+            comparison: claude-sonnet-5-5
+          expr: >-
+            (spark:vllm_prompt_tokens:increase1h - spark:vllm_cached_prompt_tokens:increase1h) * 2.00e-6
+            + spark:vllm_cached_prompt_tokens:increase1h * 0.20e-6
+            + spark:vllm_generation_tokens:increase1h * 10.00e-6
+        - record: spark:llm_api_equivalent_usd:increase1h
+          labels:
+            comparison: claude-haiku-4-5
+          expr: >-
+            (spark:vllm_prompt_tokens:increase1h - spark:vllm_cached_prompt_tokens:increase1h) * 1.00e-6
+            + spark:vllm_cached_prompt_tokens:increase1h * 0.10e-6
+            + spark:vllm_generation_tokens:increase1h * 5.00e-6
+        - record: spark:llm_api_equivalent_usd:increase1h
+          labels:
+            comparison: gpt-5-mini
+          expr: >-
+            (spark:vllm_prompt_tokens:increase1h - spark:vllm_cached_prompt_tokens:increase1h) * 0.25e-6
+            + spark:vllm_cached_prompt_tokens:increase1h * 0.025e-6
+            + spark:vllm_generation_tokens:increase1h * 2.00e-6
+        - record: spark:llm_api_equivalent_usd:increase1h
+          labels:
+            comparison: gpt-oss-20b-hosted
+          expr: >-
+            spark:vllm_prompt_tokens:increase1h * 0.075e-6
+            + spark:vllm_generation_tokens:increase1h * 0.30e-6
