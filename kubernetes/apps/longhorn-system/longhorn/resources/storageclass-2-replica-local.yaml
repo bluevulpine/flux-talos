@@ -1,0 +1,31 @@
+---
+# longhorn-2-replica with dataLocality best-effort: Longhorn keeps ONE of the two
+# replicas on the node the volume is attached to (node-local reads) and puts the
+# other on a different node. Same trade as longhorn-1-replica-local -- best-effort,
+# not strict-local, so a Talos drain can move the pod and Longhorn rebuilds a
+# local replica instead of stranding it.
+# volumeBindingMode WaitForFirstConsumer for the same reason as the 1-replica
+# local class: replicas must be placed after the pod is scheduled, or the local
+# replica lands on a different node than the consumer.
+# For stateful data NOT already replicated at the app layer (see longhorn-2-replica).
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-2-replica-local
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/component: storage
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  numberOfReplicas: "2"
+  dataLocality: best-effort
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  fsType: ext4
+  disableRevisionCounter: "true"
+  dataEngine: v1
+  backupTargetName: default
+  unmapMarkSnapChainRemoved: ignored
