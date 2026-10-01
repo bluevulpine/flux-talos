@@ -4,6 +4,16 @@ apiVersion: tuppr.home-operations.com/v1alpha1
 kind: TalosUpgrade
 metadata:
   name: talos
+  annotations:
+    # Suspended until node drains are reworked: talosctl 1.13's built-in drain
+    # blocks forever on Longhorn's instance-manager PDB (node-drain-policy, see
+    # the longhorn helmrelease), so every run cordons a node, fails the drain,
+    # never reaches the reboot, and leaves the node cordoned. An imperative
+    # annotation on the live object did not survive; committing it here makes
+    # Flux own it. Prefer this over scaling tuppr to 0: both tuppr webhooks are
+    # failurePolicy=Fail, so a scaled-down tuppr rejects every write to this CR.
+    # Remove this annotation to resume upgrades.
+    tuppr.home-operations.com/suspend: "true"
 spec:
   talos:
     # renovate: datasource=docker depName=ghcr.io/siderolabs/installer

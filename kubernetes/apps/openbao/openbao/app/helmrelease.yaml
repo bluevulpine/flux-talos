@@ -84,17 +84,24 @@ spec:
       dataStorage:
         enabled: true
         size: 10Gi
-        # longhorn-1-replica: no storage-layer redundancy (Raft handles that),
-        # but pods can freely reschedule across nodes if their node is lost.
-        # Default longhorn (3 replicas) × 3 Raft pods = 9x redundancy — wasteful.
-        # openebs-hostpath would pin each pod to a specific node permanently.
-        storageClass: longhorn-1-replica
+        # 3-replica 'longhorn' class, not longhorn-1-replica: Raft replication does
+        # not help when the storage of two members is co-located. With 1 replica,
+        # two of the three volumes had their only copy on the same node, so a
+        # single node reboot could cost quorum. Longhorn's drain-policy blocks
+        # make node reboots a routine event here, so this was a matter of when.
+        # Spreading replicas one per node makes any single-node loss survivable.
+        #
+        # A PVC's storageClassName and a StatefulSet's volumeClaimTemplates are
+        # immutable, so the existing PVCs keep the old class NAME even though
+        # their live Longhorn volumes were already patched to 3 replicas
+        # (2026-09-29). This value only affects newly created PVCs.
+        storageClass: longhorn
         accessMode: ReadWriteOnce
 
       auditStorage:
         enabled: true
         size: 1Gi
-        storageClass: longhorn-1-replica
+        storageClass: longhorn
         accessMode: ReadWriteOnce
 
       securityContext:
