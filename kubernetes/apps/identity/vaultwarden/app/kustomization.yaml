@@ -11,3 +11,21 @@ components:
   - ../../../../components/volsync-claim
   - ../../../../components/volsync-backup
 
+patches:
+  # Target by KIND, not name: the component resources are named ${APP} at build
+  # time and only become "vaultwarden" after Flux postBuild substitution, so a
+  # name target matches nothing and kustomize silently drops it. Kind-only is
+  # safe ONLY while this app has exactly one PersistentVolumeClaim -- re-check
+  # if a second claim is ever added.
+  - target: {kind: PersistentVolumeClaim}
+    patch: |-
+      # Pre-bind the claim to the existing Longhorn volume. storageClassName is
+      # immutable on a bound PVC, so the move from longhorn-1-replica to
+      # longhorn-2-replica re-binds the SAME volume (already live-patched to 2
+      # replicas) instead of restoring from backup. Keep this for the life of
+      # the claim: kustomize-controller owns the field by server-side apply, and
+      # removing it later tries to unset an immutable field and stalls the
+      # Kustomization at dry-run.
+      - op: add
+        path: /spec/volumeName
+        value: pvc-7fca8ff0-5d55-47d2-bcc9-d17acd40a1f2

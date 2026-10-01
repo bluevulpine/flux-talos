@@ -28,7 +28,9 @@ spec:
       NS: identity
       GATUS_SUBDOMAIN: vaultwarden
       VOLSYNC_CAPACITY: 2Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      # 2 replicas: the vault is small but irreplaceable, and a single replica
+      # makes every Talos drain a data-loss risk until VolSync restores it.
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_CACHE_CLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
