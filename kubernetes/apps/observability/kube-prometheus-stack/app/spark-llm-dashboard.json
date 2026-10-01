@@ -188,7 +188,7 @@
     {
       "type": "stat",
       "title": "Projected payback (trailing 7 days)",
-      "description": "Days to recover $hardware_cost at the average daily API-equivalent spend over up to the last 7 days (averaged over the hours actually recorded, so it is right from day one), net of $power_cost_per_day electricity. Blank if the average doesn't exceed power cost.",
+      "description": "Days to recover $hardware_cost at the average daily API-equivalent spend over up to the last 7 days, net of $power_cost_per_day electricity. Averaged over CALENDAR time since the first sample (1 to 7 days), so downtime lowers the rate rather than being skipped, and the first day errs pessimistic. Blank if the average doesn't exceed power cost.",
       "id": 3,
       "datasource": {
         "type": "prometheus",
@@ -207,7 +207,7 @@
             "uid": "prometheus"
           },
           "refId": "A",
-          "expr": "$hardware_cost / ((sum by (comparison) (sum_over_time(spark:llm_api_equivalent_usd:increase1h[7d])) / (max by (comparison) (count_over_time(spark:llm_api_equivalent_usd:increase1h[7d])) / 24)) - $power_cost_per_day > 0)",
+          "expr": "$hardware_cost / ((sum by (comparison) (sum_over_time(spark:llm_api_equivalent_usd:increase1h[7d])) / clamp(((time() - min by (comparison) (min_over_time(timestamp(spark:llm_api_equivalent_usd:increase1h)[7d:1h]))) / 86400), 1, 7)) - $power_cost_per_day > 0)",
           "legendFormat": "{{comparison}}",
           "range": false,
           "instant": true,
@@ -1264,7 +1264,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "**API-equivalent cost is a floor, not a bill.** It prices vLLM's token counters (gpt-oss-20b on the DGX Spark) at each provider's rates, from the `spark-llm` recording rules in flux-talos (`kube-prometheus-stack/app/prometheusrule-spark-llm.yaml`, where the prices live). It excludes vision (Ollama), STT and TTS, and loses any hour Prometheus missed.\n\n**Quality is not equal.** gpt-oss-20b is weaker than Sonnet or Haiku; the fair comparison is what you would otherwise have paid for output you'd accept. Free tokens also get used more freely than metered ones.\n\n**History:** raw data is kept 14 days, 1h downsamples 60 days. Ranges past 14 days rely on Thanos downsampled reads (flux-talos #2018). Cost panels are hourly samples, so pick ranges of a day or more."
+        "content": "**API-equivalent cost is a floor, not a bill.** It prices vLLM's token counters (gpt-oss-20b on the DGX Spark) at each provider's rates, from the `spark-llm` recording rules in flux-talos (`kube-prometheus-stack/app/prometheusrule-spark-llm.yaml`, where the prices live). It excludes vision (Ollama), STT and TTS, and loses any hour Prometheus missed.\n\n**Quality is not equal.** gpt-oss-20b is weaker than Sonnet or Haiku; the fair comparison is what you would otherwise have paid for output you'd accept. Free tokens also get used more freely than metered ones.\n\n**History:** raw data is kept 14 days, 1h downsamples 60 days. The *time-series* panels reach past 14 days through Thanos downsampled reads (flux-talos #2018); the *stat tiles* sum over the range with an instant query, which Thanos answers from raw data only, so they top out at ~14 days. Cost data is hourly, so pick ranges of a day or more."
       }
     }
   ]
