@@ -207,7 +207,7 @@
             "uid": "prometheus"
           },
           "refId": "A",
-          "expr": "$hardware_cost / ((sum by (comparison) (sum_over_time(spark:llm_api_equivalent_usd:increase1h[7d])) / clamp(((time() - min by (comparison) (min_over_time(timestamp(spark:llm_api_equivalent_usd:increase1h)[7d:1h]))) / 86400), 1, 7)) - $power_cost_per_day > 0)",
+          "expr": "$hardware_cost / ((sum by (comparison) (sum_over_time(spark:llm_api_equivalent_usd:increase1h[7d])) / clamp(((time() - min by (comparison) (min_over_time(timestamp(last_over_time(spark:llm_api_equivalent_usd:increase1h[1h]))[7d:5m]))) / 86400), 1, 7)) - $power_cost_per_day > 0)",
           "legendFormat": "{{comparison}}",
           "range": false,
           "instant": true,
