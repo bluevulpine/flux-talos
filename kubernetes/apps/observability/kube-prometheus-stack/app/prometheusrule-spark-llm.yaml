@@ -14,6 +14,13 @@ spec:
     # survives Thanos's 1h downsampling (60d retention). Longer than that needs
     # an export; the raw counters do not outlive it either.
     #
+    # ⚠️ Beyond 14 days, Thanos Query must be ALLOWED to read downsampled data:
+    # raw blocks are deleted at 14d, and Query reads raw only by default
+    # (max_source_resolution=0s). Without it a [60d] query quietly tops out at
+    # ~14 days -- a plausible, low number and no error. Pass
+    # max_source_resolution=1h (Thanos UI "Max resolution", or the API param)
+    # until Query's default is changed for the cluster.
+    #
     # Two consequences of one sample per hour:
     #   - ALWAYS query through sum_over_time / last_over_time(...[1h]). A bare
     #     instant query or Grafana stat panel sees "No data" ~55 min of every
