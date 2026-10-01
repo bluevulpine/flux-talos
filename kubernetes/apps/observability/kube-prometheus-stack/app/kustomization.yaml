@@ -19,6 +19,14 @@ configMapGenerator:
   - name: garage-dashboard
     files:
       - garage-dashboard.json
+  # DGX Spark LLM usage & payback: reads the spark-llm recording rules and the
+  # vllm-spark scrape (both in this app).
+  - name: spark-llm-dashboard
+    files:
+      - spark-llm-dashboard.json
+    options:
+      annotations:
+        grafana_folder: DGX Spark
 generatorOptions:
   disableNameSuffixHash: true
   labels:
