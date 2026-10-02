@@ -35,7 +35,9 @@ spec:
       GATUS_PORT: "3000"
       GATUS_SERVICE: obsidian
       VOLSYNC_CAPACITY: 20Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      # 2 replicas: the vault lives only on this volume between the twice-hourly
+      # kopiur snapshots.
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
