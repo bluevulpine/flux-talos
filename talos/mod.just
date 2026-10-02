@@ -3,7 +3,8 @@ set shell := ['bash', '-euo', 'pipefail', '-c']
 
 scripts_dir := justfile_dir() + '/scripts'
 talos_dir := justfile_dir() + '/talos'
-controller := `talosctl config info -o yaml | yq -e '.endpoints[0]'`
+# First control-plane node, read from topf.yaml so the module loads with no talosconfig present.
+controller := shell('yq -e "$1" "$2"', '[.nodes[] | select(.role == "control-plane")][0].ip', talos_dir + '/topf.yaml')
 
 [private]
 default:
@@ -46,7 +47,7 @@ upgrade-node node:
     chmod 700 "$tmp"
     trap 'rm -rf "$tmp"' EXIT
     (cd "{{ talos_dir }}" && topf --nodes-filter "^{{ node }}\$" render -o "$tmp" >/dev/null)
-    image=$(yq -r 'select(.machine.install.image != null) | .machine.install.image' "$tmp/{{ node }}.yaml")
+    image=$(yq -e '.machine.install.image' "$tmp/{{ node }}.yaml")
     just log info "Upgrading {{ node }} ($ip) to $image"
     talosctl -n "$ip" upgrade -i "$image" -m powercycle --timeout=10m
 
@@ -63,11 +64,15 @@ gen-secrets:
     fi
     # talos/secrets.yaml is gitignored and is topf's default plaintext path; it never outlives this recipe.
     plain="{{ talos_dir }}/secrets.yaml"
-    trap 'rm -f "$plain"' EXIT
+    trap 'rm -f "$plain" "{{ talos_dir }}/secrets.sops.yaml.new"' EXIT
     talosctl gen secrets -o "$plain" --force
     sops --filename-override "{{ talos_dir }}/secrets.sops.yaml" --input-type yaml --output-type yaml -e "$plain" > "{{ talos_dir }}/secrets.sops.yaml.new"
     mv "{{ talos_dir }}/secrets.sops.yaml.new" "{{ talos_dir }}/secrets.sops.yaml"
     just log info "New PKI written to {{ talos_dir }}/secrets.sops.yaml"
+    # The old talosconfig holds an admin cert signed by the OLD CA; every talosctl call would fail mTLS.
+    # Redirect only: it contains the admin cert and key.
+    (umask 077 && cd "{{ talos_dir }}" && topf talosconfig > talosconfig.new && mv talosconfig.new talosconfig)
+    just log info "Regenerated talos/talosconfig against the new PKI"
     just log warn "Existing nodes still hold the OLD PKI; rebuild them (just talos rebuild) before applying."
     just log warn "Never run 'topf secrets': it can print or mint plaintext PKI."
 
@@ -86,12 +91,13 @@ reset-all:
     if ! gum confirm "This will RESET ALL CLUSTER NODES. This is destructive and cannot be undone. Continue?" --default="No"; then
         exit 0
     fi
-    nodes=$(talosctl config info -o yaml | yq -e '.nodes | .[]')
+    # topf.yaml is the node inventory; reset workers before control-plane nodes.
+    nodes=$(yq -e '(.nodes[] | select(.role != "control-plane") | .ip), (.nodes[] | select(.role == "control-plane") | .ip)' "{{ talos_dir }}/topf.yaml")
     for node in $nodes; do
         just talos reset-node "$node"
     done
 
-[doc('Bootstrap cluster from scratch using topf')]
+[doc('Bootstrap cluster from scratch using topf. Fails fast: one unreachable node aborts the apply step (the old flow skipped it)')]
 bootstrap-cluster:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -106,9 +112,16 @@ bootstrap-cluster:
     sleep 30
 
     just log info "Step 3: Bootstrapping Kubernetes on first control plane..."
-    controller=$(talosctl config info -o yaml | yq -e '.endpoints[0]')
-    until talosctl -n "$controller" bootstrap 2>&1 | grep -q "AlreadyExists"; do
-        just log info "Waiting for Kubernetes bootstrap to complete..."
+    controller="{{ controller }}"
+    # Succeeds once etcd bootstraps (exit 0) or already has (AlreadyExists); any other error is retried up to 30 times.
+    for attempt in $(seq 1 30); do
+        if out=$(talosctl -n "$controller" bootstrap 2>&1) || [[ "$out" == *AlreadyExists* ]]; then
+            break
+        fi
+        if [[ "$attempt" -eq 30 ]]; then
+            just log fatal "Kubernetes bootstrap did not succeed after 30 attempts" "last_error" "$out"
+        fi
+        just log info "Waiting for Kubernetes bootstrap to complete..." "attempt" "$attempt"
         sleep 10
     done
 

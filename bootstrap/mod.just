@@ -4,12 +4,12 @@ set shell := ['bash', '-euo', 'pipefail', '-c']
 
 bootstrap_dir := justfile_dir() + '/bootstrap'
 kubernetes_dir := justfile_dir() + '/kubernetes'
-controller := `talosctl config info -o yaml | yq -e '.endpoints[0]'`
+controller := shell('yq -e "$1" "$2"', '[.nodes[] | select(.role == "control-plane")][0].ip', justfile_dir() + '/talos/topf.yaml')
 
 [private]
 default: talos k8s (kubeconfig "node") wait namespaces sops-age resources crds apps kubeconfig
 
-[doc('Install Talos')]
+[doc('Install Talos (topf picks insecure or mTLS per node; any unreachable node aborts the stage)')]
 talos:
     just log info "Running stage..." "stage" "$0"
     if ! just talos apply-all; then \
