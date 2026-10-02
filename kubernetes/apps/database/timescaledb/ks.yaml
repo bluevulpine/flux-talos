@@ -29,7 +29,9 @@ spec:
       APP: *app
       NS: database
       VOLSYNC_CAPACITY: 20Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      # 2 replicas: a single replica makes every Talos drain a data-loss risk until
+      # a crash-consistent VolSync snapshot is restored (see VOLSYNC_COPYMETHOD).
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_CACHE_CLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
