@@ -30,7 +30,9 @@ spec:
       NS: database
       GATUS_SUBDOMAIN: couchdb
       VOLSYNC_CAPACITY: 5Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      # 2 replicas: the Obsidian LiveSync database lives only on this volume between
+      # the twice-hourly VolSync snapshots.
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_CACHE_CLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
