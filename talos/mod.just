@@ -3,7 +3,8 @@ set shell := ['bash', '-euo', 'pipefail', '-c']
 
 scripts_dir := justfile_dir() + '/scripts'
 talos_dir := justfile_dir() + '/talos'
-# First control-plane node, read from topf.yaml so the module loads with no talosconfig present.
+# First control-plane node listed in topf.yaml (the bootstrap target), read from there so the module
+# loads with no talosconfig present. Adding a second control-plane node does not change this unless it is listed first.
 controller := shell('yq -e "$1" "$2"', '[.nodes[] | select(.role == "control-plane")][0].ip', talos_dir + '/topf.yaml')
 
 [private]
@@ -20,18 +21,21 @@ download-image version schematic:
 
 [doc('Reboot a node')]
 reboot-node node:
-    gum confirm "Reboot node {{ node }}?" --default="No" && \
-        talosctl -n {{ node }} reboot -m powercycle || exit 0
+    if gum confirm "Reboot node {{ node }}?" --default="No"; then \
+        talosctl -n {{ node }} reboot -m powercycle; \
+    fi
 
 [doc('Reset a node')]
 reset-node node:
-    gum confirm "Reset node {{ node }}?" --default="No" && \
-        talosctl -n "{{ node }}" reset --graceful=false || exit 0
+    if gum confirm "Reset node {{ node }}?" --default="No"; then \
+        talosctl -n "{{ node }}" reset --graceful=false; \
+    fi
 
 [doc('Shutdown a node')]
 shutdown-node node:
-    gum confirm "Shutdown node {{ node }}?" --default="No" && \
-        talosctl -n "{{ node }}" shutdown --force || exit 0
+    if gum confirm "Shutdown node {{ node }}?" --default="No"; then \
+        talosctl -n "{{ node }}" shutdown --force; \
+    fi
 
 [doc('Upgrade Kubernetes version on the cluster')]
 upgrade-k8s version:
@@ -69,12 +73,18 @@ gen-secrets:
     sops --filename-override "{{ talos_dir }}/secrets.sops.yaml" --input-type yaml --output-type yaml -e "$plain" > "{{ talos_dir }}/secrets.sops.yaml.new"
     mv "{{ talos_dir }}/secrets.sops.yaml.new" "{{ talos_dir }}/secrets.sops.yaml"
     just log info "New PKI written to {{ talos_dir }}/secrets.sops.yaml"
-    # The old talosconfig holds an admin cert signed by the OLD CA; every talosctl call would fail mTLS.
-    # Redirect only: it contains the admin cert and key.
-    (umask 077 && cd "{{ talos_dir }}" && topf talosconfig > talosconfig.new && mv talosconfig.new talosconfig)
-    just log info "Regenerated talos/talosconfig against the new PKI"
-    just log warn "Existing nodes still hold the OLD PKI; rebuild them (just talos rebuild) before applying."
+    just log warn "Existing nodes still hold the OLD PKI and talos/talosconfig still matches it, so reset them first."
+    just log warn "bootstrap-cluster regenerates talos/talosconfig for the new PKI once the nodes are reset."
     just log warn "Never run 'topf secrets': it can print or mint plaintext PKI."
+
+[doc('Regenerate talos/talosconfig from topf.yaml and secrets.sops.yaml (run after the PKI changes and nodes are reset)')]
+regen-talosconfig:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    trap 'rm -f "{{ talos_dir }}/talosconfig.new"' EXIT
+    # Redirect only: topf talosconfig prints the admin cert and key.
+    (umask 077 && cd "{{ talos_dir }}" && topf talosconfig > talosconfig.new && mv talosconfig.new talosconfig)
+    just log info "Regenerated talos/talosconfig"
 
 [doc('Apply the topf config to one node by hostname (verify mTLS first: talosctl -n <ip> version)')]
 apply-node node *args:
@@ -104,6 +114,11 @@ bootstrap-cluster:
     if ! gum confirm "This will BOOTSTRAP A NEW CLUSTER. Ensure all nodes are reset. Continue?" --default="No"; then
         exit 0
     fi
+
+    # After a PKI rotation the existing talosconfig carries a cert from the OLD CA; this is the first
+    # point where nodes are reset, so the new cert is safe to use for every talosctl call below.
+    just log info "Step 0: Regenerating talosconfig..."
+    just talos regen-talosconfig
 
     just log info "Step 1: Applying Talos configs to all nodes..."
     just talos apply-all

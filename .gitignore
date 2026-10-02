@@ -28,7 +28,7 @@ wiki
 .bws_access_token
 
 # Talos client config (admin cert + key): written by `topf talosconfig`, never tracked
-**/talosconfig
+**/talosconfig*
 talos/*.iso
 
 # topf render writes PLAINTEXT machine configs (PKI included) to ./output by default.

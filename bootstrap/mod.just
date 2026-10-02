@@ -12,6 +12,9 @@ default: talos k8s (kubeconfig "node") wait namespaces sops-age resources crds a
 [doc('Install Talos (topf picks insecure or mTLS per node; any unreachable node aborts the stage)')]
 talos:
     just log info "Running stage..." "stage" "$0"
+    if ! just talos regen-talosconfig; then \
+        just log fatal "Failed to regenerate talosconfig" "stage" "$0"; \
+    fi
     if ! just talos apply-all; then \
         just log fatal "Failed to apply Talos configuration" "stage" "$0"; \
     fi
@@ -19,8 +22,14 @@ talos:
 [doc('Install Kubernetes')]
 k8s:
     just log info "Running stage..." "stage" "$0"
-    until op=$(talosctl -n "{{ controller }}" bootstrap 2>&1 || true) && [[ "$op" == *"AlreadyExists"* ]]; do \
-        just log info "Kubernetes bootstrap in progress. Retrying in 5 seconds..." "stage" "$0"; \
+    for attempt in $(seq 1 60); do \
+        if out=$(talosctl -n "{{ controller }}" bootstrap 2>&1) || [[ "$out" == *AlreadyExists* ]]; then \
+            break; \
+        fi; \
+        if [[ "$attempt" -eq 60 ]]; then \
+            just log fatal "Kubernetes bootstrap did not succeed after 60 attempts" "stage" "$0" "last_error" "$out"; \
+        fi; \
+        just log info "Kubernetes bootstrap in progress. Retrying in 5 seconds..." "stage" "$0" "attempt" "$attempt"; \
         sleep 5; \
     done
 
