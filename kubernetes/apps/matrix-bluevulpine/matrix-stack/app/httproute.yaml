@@ -5,6 +5,12 @@
 # matrix-stack tag pinned in ./ocirepository.yaml — re-diff them on chart upgrades.
 # Mirrors kubernetes/apps/matrix/matrix-stack/app/httproute.yaml for bluevulpine.net.
 #
+# NAMES ARE PREFIXED `bluevulpine-` ON PURPOSE: HTTPRoute names must be unique
+# CLUSTER-WIDE, not just per namespace. gatus-sidecar (--auto-httproute) names each
+# endpoint after the bare route name, no namespace, and Gatus panics on a duplicate
+# group+name — reusing kubernetes/apps/matrix's names would crash-loop Gatus for
+# every app in the cluster.
+#
 # Public hosts attach to `internal` (LAN A record via external-dns-unifi) and
 # `external-pangolin` (public CNAME from ./dnsendpoint.yaml). Pangolin, not the
 # Cloudflare tunnel: no 100MB body cap on media, and no Cloudflare bot challenges
@@ -13,14 +19,14 @@
 # Synapse client + federation API. Deliberately NARROWER than the chart's Ingress,
 # which exposes all of /_synapse: here only /_synapse/client is public, so the
 # admin API (/_synapse/admin) and MAS's Synapse endpoints (/_synapse/mas) are not
-# reachable from the internet. See matrix-synapse-lan below.
+# reachable from the internet. See bluevulpine-matrix-synapse-lan below.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: matrix-synapse
+  name: bluevulpine-matrix-synapse
   annotations:
     gatus.home-operations.com/endpoint: |
-      group: matrix
+      group: matrix-bluevulpine
       url: https://matrix.${SECRET_DOMAIN_BLOG}/_matrix/client/versions
 spec:
   hostnames:
@@ -96,7 +102,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: matrix-synapse-lan
+  name: bluevulpine-matrix-synapse-lan
 spec:
   hostnames:
     - "matrix.${SECRET_DOMAIN_BLOG}"
@@ -119,7 +125,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: matrix-account
+  name: bluevulpine-matrix-account
 spec:
   hostnames:
     - "account.${SECRET_DOMAIN_BLOG}"
@@ -138,13 +144,13 @@ spec:
 # Internet (Pangolin): the same host minus the MAS admin API. The chart puts the
 # `adminapi` resource on MAS's single public `web` listener, so it cannot be split
 # at the Service; it is refused here at the edge instead, matching the Synapse
-# admin API (matrix-synapse-lan). Gateway API has no "all except" match, hence a
+# admin API (bluevulpine-matrix-synapse-lan). Gateway API has no "all except" match, hence a
 # separate route per gateway: a second /api/admin rule on `internal` would tie on
 # prefix length with the one above and be resolved by creation time.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: matrix-account-public
+  name: bluevulpine-matrix-account-public
 spec:
   hostnames:
     - "account.${SECRET_DOMAIN_BLOG}"
@@ -197,7 +203,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: matrix-well-known
+  name: bluevulpine-matrix-well-known
 spec:
   hostnames:
     - "${SECRET_DOMAIN_BLOG}"
