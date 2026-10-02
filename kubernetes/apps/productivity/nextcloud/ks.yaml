@@ -35,7 +35,9 @@ spec:
       GATUS_PORT: "80"
       GATUS_SERVICE: nextcloud
       VOLSYNC_CAPACITY: 10Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      # 2 replicas: config.php, installed apps and instance secrets live only on
+      # this volume between the twice-hourly kopiur snapshots.
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's

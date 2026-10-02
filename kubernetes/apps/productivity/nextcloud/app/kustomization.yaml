@@ -13,3 +13,26 @@ components:
   # volsync-claim stays: it owns the PVC and its (now inert) dataSourceRef.
   - ../../../../components/kopiur
 
+patches:
+  # Target by NAME, not kind: unlike the other re-bound apps this one has a SECOND
+  # PersistentVolumeClaim (nextcloud-nfs in nfs.yaml, statically bound to a native
+  # NFS PV), and a kind-wide `add /spec/volumeName` would overwrite its
+  # volumeName with the Longhorn volume and break the data mount. The data claim
+  # is named `${APP}` at build time (Flux substitutes it afterwards), so the
+  # regex escapes the literal `${APP}`.
+  - target:
+      kind: PersistentVolumeClaim
+      name: \$\{APP\}
+    patch: |-
+      # Pre-bind the claim to the existing Longhorn volume. storageClassName is
+      # immutable on a bound PVC, so the move from longhorn-1-replica to
+      # longhorn-2-replica re-binds the SAME volume (already live-patched to 2
+      # replicas) instead of restoring from backup. TEMPORARY: do not just delete
+      # it (kustomize-controller owns the field by SSA; unsetting an immutable
+      # field stalls the Kustomization at dry-run) and do not leave it forever (on
+      # a rebuilt cluster it names a PV that no longer exists, so the claim stays
+      # Pending). Retire it with the `ssa: IfNotPresent` strategic-merge patch in
+      # docs/runbooks/volsync-app-namespace-move.md, "Retiring the permanent pin".
+      - op: add
+        path: /spec/volumeName
+        value: pvc-f5e6caaa-ee36-4781-8cdd-388990b1a4e7
