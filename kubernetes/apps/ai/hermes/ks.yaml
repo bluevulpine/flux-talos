@@ -38,10 +38,13 @@ spec:
       # components/volsync/r2.yaml only spaces R2 from R2, which is how #1736
       # ended up clearing eleven exact collisions. Minute 29 is free of both.
       VOLSYNC_R2_SCHEDULE: "29 6 * * *"
-      # Node-local single replica: dataLocality best-effort keeps the replica on
-      # the pod's node without the hard pin of strict-local, so a Talos drain can
-      # still move the agent and rebuild locally. VolSync provides the redundancy.
-      VOLSYNC_STORAGECLASS: longhorn-1-replica-local
+      # Two replicas, node-local best-effort: dataLocality best-effort keeps ONE
+      # replica on the pod's node without the hard pin of strict-local, so a Talos
+      # drain can still move the agent and rebuild locally; the second replica sits
+      # on another node. VolSync is still the backup, but a drain no longer leaves
+      # the agent's only live copy on a single disk. Clone/cache stay 1-replica
+      # (throwaway mover volumes).
+      VOLSYNC_STORAGECLASS: longhorn-2-replica-local
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
       # RWO + Snapshot: the mover cannot co-mount an RWO volume the agent holds,
