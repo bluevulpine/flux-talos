@@ -2,8 +2,10 @@
 #
 # matrix-generate-secrets.sh
 #
-# Populates OpenBao secret/matrix with every secret the ESS matrix-stack chart
-# needs (kubernetes/apps/matrix/matrix-stack). The chart's own initSecrets
+# Populates an OpenBao KV path (default secret/matrix) with every secret the ESS
+# matrix-stack chart needs. One path per homeserver: secret/matrix for
+# kubernetes/apps/matrix/matrix-stack, secret/matrix-bluevulpine for
+# kubernetes/apps/matrix-bluevulpine/matrix-stack. The chart's own initSecrets
 # generator is disabled so that these live in OpenBao, not only in-cluster.
 #
 # Idempotent: a field that already exists is NEVER overwritten, so re-running is
@@ -21,13 +23,28 @@
 # the ed25519 signing key needs `genpkey -algorithm ed25519`).
 #
 # Usage:
-#   ./scripts/matrix-generate-secrets.sh [--dry-run]
+#   ./scripts/matrix-generate-secrets.sh [--dry-run] [path]
+#   ./scripts/matrix-generate-secrets.sh --dry-run secret/matrix-bluevulpine
 
 set -euo pipefail
 
-readonly BAO_PATH="secret/matrix"
+# [--dry-run] [path], in either order. path defaults to secret/matrix, so the
+# original single-homeserver usage is unchanged. Each homeserver has its own key
+# (secret/matrix, secret/matrix-bluevulpine): never point two at one key, or they
+# share a signing key.
 DRY_RUN=false
-[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
+BAO_PATH="secret/matrix"
+for arg in "$@"; do
+    case "${arg}" in
+        --dry-run) DRY_RUN=true ;;
+        -*)
+            echo "ERROR: unknown option ${arg}" >&2
+            exit 1
+            ;;
+        *) BAO_PATH="${arg}" ;;
+    esac
+done
+readonly BAO_PATH DRY_RUN
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "${tmp}"' EXIT
