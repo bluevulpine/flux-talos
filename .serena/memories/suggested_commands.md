@@ -1,6 +1,6 @@
 # Suggested Commands — flux-talos
 
-All commands assume `.envrc` is sourced (direnv) or `.mise.toml` env is active.
+All commands assume `.envrc` is sourced (direnv).
 
 ## Just task runner (top-level)
 
@@ -16,8 +16,9 @@ just kube prune-pods             # delete Failed/Pending/Succeeded pods
 just kube node-shell <node>      # debug shell on a node via kubectl debug
 just kube browse-pvc <ns> <pvc>  # browse PVC contents
 
-just talos gen-config            # regenerate talhelper machine configs
-just talos upgrade-node <node>   # upgrade Talos on a node (powercycle)
+just talos apply-node <host>    # topf apply to one node (add --dry-run first)
+just talos apply-all             # topf apply to every node
+just talos upgrade-node <host>   # upgrade Talos on a node by hostname (powercycle)
 just talos upgrade-k8s <version> # upgrade Kubernetes version
 just talos reboot-node <node>    # reboot a node
 just talos download-image <ver> <schematic>

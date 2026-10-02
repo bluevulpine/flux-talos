@@ -27,9 +27,7 @@ wiki
 # Bitwarden Secrets Manager (local dev only)
 .bws_access_token
 
-# Talos generated files (defense in depth - talhelper regenerates clusterconfig/.gitignore)
-talos/clusterconfig/*.yaml
-talos/clusterconfig/talosconfig
+# Talos client config (admin cert + key): written by `topf talosconfig`, never tracked
 **/talosconfig
 talos/*.iso
 

@@ -202,40 +202,33 @@ for that schematic.
 
 ## Phase 3 — join the VM as a fourth control plane
 
-In `talos/talconfig.yaml`, add the node alongside the Pis:
+Add the node to topf (at the time this was `talos/talconfig.yaml`, retired with talhelper):
 
-```yaml
-  - hostname: "<cp-vm>"
-    ipAddress: "<cp-ip>"
-    installDisk: "/dev/vda"
-    controlPlane: true
-    networkInterfaces:
-      - deviceSelector:
-          hardwareAddr: "<vm-mac>"
-        dhcp: true
-        mtu: 1500
-        vip:
-          ip: "10.0.10.30"
-    schematic: &vmschematic
-      customization:
-        extraKernelArgs: [...]   # as above
-        systemExtensions:
-          officialExtensions:
-            - siderolabs/qemu-guest-agent
-            - siderolabs/tailscale
-            - siderolabs/util-linux-tools
-    extensionServices: *extensionServices
-```
+1. `talos/topf.yaml`: a `nodes:` entry `{host: <cp-vm>, ip: <cp-ip>, role: control-plane,
+   schematicId: '@schematics/<cp-vm>.yaml'}`.
+2. `talos/schematics/<cp-vm>.yaml`: the VM schematic (`extraKernelArgs` as above;
+   `officialExtensions`: `siderolabs/qemu-guest-agent`, `siderolabs/tailscale`,
+   `siderolabs/util-linux-tools`). Do not hand-edit it afterwards: the Image Factory ID
+   depends on the exact content.
+3. `talos/patches/all/00-guard.yaml.tpl`: add `"<cp-vm>" "control-plane"` to `$nodes`.
+   Without it the render fails on the unknown hostname.
+4. `talos/patches/node/<cp-vm>/`: install disk `/dev/vda`, and the NIC selected by
+   `<vm-mac>` (`LinkAliasConfig` + `LinkConfig` mtu 1500 + `DHCPv4Config`), plus a
+   `Layer2VIPConfig` for `10.0.10.30` on that link. See `node/freyja01/` for the shape.
 
-Leave `allowSchedulingOnMasters: false`. Unlike the brokkr plan, this node should stay
-**CP-only**: isolation from workload memory pressure is the property being bought.
+`patches/control-plane/` already sets `allowSchedulingOnMasters: false`; leave it. Unlike
+the brokkr plan, this node should stay **CP-only**: isolation from workload memory
+pressure is the property being bought.
 
 ```bash
-just talos gen-config            # never hand-edit talos/clusterconfig/
 # boot the VM from the ISO into maintenance mode, then:
-talosctl apply-config --insecure --nodes <cp-ip> \
-  --file talos/clusterconfig/home-kubernetes-<cp-vm>.yaml
+talosctl -n <cp-ip> version --insecure   # answers only in maintenance mode; verify before topf applies (it can fall back to insecure TLS silently)
+just talos apply-node <cp-vm> --dry-run
+just talos apply-node <cp-vm>    # topf handles the maintenance-mode (insecure) node itself
 ```
+
+(At the time: talhelper `just talos gen-config` then
+`talosctl apply-config --insecure --nodes <cp-ip> --file talos/clusterconfig/home-kubernetes-<cp-vm>.yaml`.)
 
 **Gate — do not continue until all of these hold:**
 
@@ -284,23 +277,28 @@ were unaffected. It is not worth avoiding; just don't mistake it for a failure.
 After `etcd leave`, a Pi still has a control-plane config with etcd stopped. **Do not
 reboot it until it is converted**: on boot it would try to join etcd again.
 
-`talconfig.yaml` sets j1–j3 to `controlPlane: false`, with jormungandr4's
-`node.kubernetes.io/low-power` taint and patch (`&lowpowerpatch`). Regenerate, then
-for each Pi, one at a time:
+In topf, j1–j3 are `role: worker` in `talos/topf.yaml` (at the time: `controlPlane: false`
+in `talconfig.yaml`), with the `node.kubernetes.io/low-power` taint coming from
+`patches/worker/02-low-power.yaml.tpl`. The guard's `$nodes` map in
+`patches/all/00-guard.yaml.tpl` must say `"worker"` for each, or the render fails. Merge that
+PR first, then for each Pi, one at a time:
 
 ```bash
-cd ~/Repositories/flux-talos && just talos gen-config   # after the talconfig PR merges
+cd ~/Repositories/flux-talos && (cd talos && topf talosconfig > talosconfig)   # regenerate the client config; never print or paste it
 
 kubectl drain jormungandrN --ignore-daemonsets --delete-emptydir-data
 talosctl -n 10.0.10.3N reset --graceful=false --reboot \
   --system-labels-to-wipe STATE --system-labels-to-wipe EPHEMERAL
 #   comes back in maintenance mode (no config)
 kubectl delete node jormungandrN
-talosctl apply-config --insecure -n 10.0.10.3N \
-  --file talos/clusterconfig/home-kubernetes-jormungandrN.yaml
+talosctl -n 10.0.10.3N version --insecure   # answers only in maintenance mode; verify before topf applies
+just talos apply-node jormungandrN
 kubectl get node jormungandrN \
   -o jsonpath='{.metadata.labels}{"\n"}{.spec.taints}{"\n"}'   # no node-role label; low-power taint
 ```
+
+(At the time: `just talos gen-config`, then `talosctl apply-config --insecure -n 10.0.10.3N
+--file talos/clusterconfig/home-kubernetes-jormungandrN.yaml`.)
 
 **Run this with the regenerated talosconfig** (endpoint `10.0.10.35` only). With the
 old one, whose endpoints are the Pis, talosctl may route through a Pi that is already
@@ -324,18 +322,29 @@ Things that hard-code the Pi control plane and will quietly break:
 | `kubernetes/apps/observability/kube-prometheus-stack/app/helmrelease.yaml` `kubeEtcd.endpoints` | `10.0.10.31–33` | `<cp-ip>`. Without this, etcd metrics — including the fsync histogram this plan relies on — go dark |
 | `docs/runbooks/vault-nas-maintenance.md` | vault restart procedure | **a vault restart is now an API outage.** Shutdown: quiesce workloads, then the VM (guest agent / ACPI). Startup: the VM autostarts after the pools import |
 | `.serena/memories/core.md` | node table lists jormungandr1–3 as control-plane | update the topology |
-| `talosconfig` | endpoints | regenerated by `just talos gen-config`; confirm `talosctl` talks to `<cp-ip>` |
+| `talos/talosconfig` | endpoints | regenerate with `topf talosconfig > talos/talosconfig` (the admin cert and key go to the file, never the terminal); confirm `talosctl` talks to `<cp-ip>` |
 
-Unchanged, because the VM holds the VIP: `talconfig.yaml` `endpoint`,
-`additionalApiServerCertSans`, and the Tailscale exit-node route to `10.0.10.30/32`.
+Unchanged, because the VM holds the VIP: `clusterEndpoint` in `talos/topf.yaml`,
+the cert SANs in `patches/all/03-cert-sans.yaml.tpl`, and the Tailscale exit-node route to `10.0.10.30/32`.
 
 **tuppr upgrades** now take the API down for the CP reboot. That is expected; plan
 upgrades for a quiet window rather than letting them surprise anyone.
 
 ## If vault dies
 
-1. Pick a Pi (they are workers now). Set it back to `controlPlane: true` in `talconfig.yaml`,
-   regenerate, `talosctl reset` it, and apply the CP config.
+1. Pick a Pi (they are workers now). Flip it to a control plane in topf:
+   `role: control-plane` in `talos/topf.yaml`, and the matching `"control-plane"` in the
+   `$nodes` map of `patches/all/00-guard.yaml.tpl` (the render fails on a mismatch).
+   Then fit its patches: `patches/worker/` no longer applies, so the Pi loses the install
+   disk (`/dev/sda`) and NIC config it got from there. Add them under
+   `patches/node/<pi>/` (see `worker/03-install-disk.yaml.tpl`,
+   `worker/04-pi-hwaddr-network.yaml.tpl`), plus a `Layer2VIPConfig` for `10.0.10.30` if
+   it should hold the VIP. Check `jormungandr4` first: it already has its own
+   `node/jormungandr4/` network patch. Verify with
+   `topf --nodes-filter '^<pi>$' render -o "$(mktemp -d)"` (plaintext PKI: delete the
+   directory after, never inside the repo), then `talosctl reset` it and
+   `just talos apply-node <pi>`. Confirm with `talosctl -n <pi-ip> version --insecure` that the
+   Pi is in maintenance mode first.
 2. `talosctl -n <pi-ip> bootstrap --recover-from=./<snapshot>.snap`, using the newest
    off-vault snapshot (pinas, else the offsite copy).
 3. It is the Pi problem again, on a clock: days, not weeks. Rebuild the VM when vault
@@ -353,12 +362,12 @@ Likewise PV bindings. Hourly snapshots are what keep that window small.
 | Phase 0–2 | anything | nothing in the cluster has changed; delete the VM |
 | Phase 3, VM won't join or sync | config, network, disk | `talosctl -n <cp-ip> etcd leave` (or `remove-member` from a Pi), delete the VM. The three Pis are untouched |
 | Phase 3, SIGILL DaemonSets | x86-64-v3 images | fix or pin those images first, or abandon: remove the VM from etcd as above |
-| Phase 4, after the first Pi leaves | etcd trouble at 3 members | re-add a Pi as CP (reset + apply CP config); restore from the Phase 1 snapshot only if the cluster is damaged |
+| Phase 4, after the first Pi leaves | etcd trouble at 3 members | re-add a Pi as CP (flip its role in topf, reset, `just talos apply-node`); restore from the Phase 1 snapshot only if the cluster is damaged |
 | Phase 4, at 2 members | a member fails | quorum lost — restore from the Phase 1 snapshot onto the VM with `bootstrap --recover-from` |
 
 ## Honest cost
 
-No hardware. About an afternoon: a VM, one config regeneration, four etcd membership
+No hardware. About an afternoon: a VM, one topf apply, four etcd membership
 changes, and three Pi resets that hold no data. The risk is concentrated in two places:
 the two-member window in Phase 4, and discovering a v3-only DaemonSet in Phase 3 —
 which is why Phase 3 gates on it before anything is removed.

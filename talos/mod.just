@@ -36,56 +36,48 @@ shutdown-node node:
 upgrade-k8s version:
     talosctl -n "{{ controller }}" upgrade-k8s --to {{ version }}
 
-[doc('Upgrade Talos version on a node (requires gen-config to have been run)')]
+[doc('Upgrade Talos on a node by hostname, using the installer image topf renders for it')]
 upgrade-node node:
     #!/usr/bin/env bash
     set -euo pipefail
-    config_file="{{ talos_dir }}/clusterconfig/home-kubernetes-{{ node }}.yaml"
-    if [[ ! -f "$config_file" ]]; then
-        just log fatal "Config file not found: $config_file. Run 'just talos gen-config' first."
-    fi
-    image=$(yq -r '.machine.install.image' "$config_file")
-    talosctl -n "{{ node }}" upgrade -i "$image" -m powercycle --timeout=10m
+    ip=$(NODE="{{ node }}" yq -e '.nodes[] | select(.host == strenv(NODE)) | .ip' "{{ talos_dir }}/topf.yaml")
+    # The rendered config holds the cluster PKI in plaintext: private dir, always removed.
+    tmp=$(mktemp -d)
+    chmod 700 "$tmp"
+    trap 'rm -rf "$tmp"' EXIT
+    (cd "{{ talos_dir }}" && topf --nodes-filter "^{{ node }}\$" render -o "$tmp" >/dev/null)
+    image=$(yq -r 'select(.machine.install.image != null) | .machine.install.image' "$tmp/{{ node }}.yaml")
+    just log info "Upgrading {{ node }} ($ip) to $image"
+    talosctl -n "$ip" upgrade -i "$image" -m powercycle --timeout=10m
 
 # =============================================================================
 # Cluster Rebuild Recipes
 # =============================================================================
 
-[doc('Generate new Talos secrets (DESTRUCTIVE - creates new secrets file)')]
+[doc('Generate a new Talos PKI bundle into secrets.sops.yaml (DESTRUCTIVE - every node must be rebuilt)')]
 gen-secrets:
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! gum confirm "This will GENERATE NEW TALOS SECRETS. The new file will be created as talsecret.sops.yaml.new for review. Continue?" --default="No"; then
+    if ! gum confirm "This will GENERATE A NEW TALOS PKI and overwrite talos/secrets.sops.yaml. Continue?" --default="No"; then
         exit 0
     fi
-    just log info "Generating new Talos secrets..."
-    talhelper gensecret > "{{ talos_dir }}/talsecret.sops.yaml.new"
-    just log info "New secrets generated at {{ talos_dir }}/talsecret.sops.yaml.new"
-    just log warn "To use the new secrets:"
-    just log warn "  1. Review the file: cat {{ talos_dir }}/talsecret.sops.yaml.new"
-    just log warn "  2. Encrypt with SOPS: sops -e -i {{ talos_dir }}/talsecret.sops.yaml.new"
-    just log warn "  3. Replace old secrets: mv {{ talos_dir }}/talsecret.sops.yaml.new {{ talos_dir }}/talsecret.sops.yaml"
-    just log warn "  4. Regenerate configs: just talos gen-config"
-    just log warn "  5. topf ALSO reads talos/secrets.sops.yaml (a copy of talsecret.sops.yaml) until the"
-    just log warn "     talhelper->topf migration is finished: copy the new bundle there in the same change,"
-    just log warn "     or CI (SOPS Check) will fail and topf will keep using the old PKI."
+    # talos/secrets.yaml is gitignored and is topf's default plaintext path; it never outlives this recipe.
+    plain="{{ talos_dir }}/secrets.yaml"
+    trap 'rm -f "$plain"' EXIT
+    talosctl gen secrets -o "$plain" --force
+    sops --filename-override "{{ talos_dir }}/secrets.sops.yaml" --input-type yaml --output-type yaml -e "$plain" > "{{ talos_dir }}/secrets.sops.yaml.new"
+    mv "{{ talos_dir }}/secrets.sops.yaml.new" "{{ talos_dir }}/secrets.sops.yaml"
+    just log info "New PKI written to {{ talos_dir }}/secrets.sops.yaml"
+    just log warn "Existing nodes still hold the OLD PKI; rebuild them (just talos rebuild) before applying."
+    just log warn "Never run 'topf secrets': it can print or mint plaintext PKI."
 
-[doc('Generate Talos machine configs from talconfig.yaml using talhelper')]
-gen-config:
-    just log info "Generating Talos machine configs with talhelper..."
-    talhelper genconfig -c "{{ talos_dir }}/talconfig.yaml" -o "{{ talos_dir }}/clusterconfig"
-    just log info "Machine configs generated in {{ talos_dir }}/clusterconfig/"
+[doc('Apply the topf config to one node by hostname (verify mTLS first: talosctl -n <ip> version)')]
+apply-node node *args:
+    cd "{{ talos_dir }}" && topf --nodes-filter "^{{ node }}\$" apply {{ args }}
 
-[doc('Apply generated config to a node (uses talhelper-generated configs)')]
-apply-generated node *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    config_file="{{ talos_dir }}/clusterconfig/home-kubernetes-{{ node }}.yaml"
-    if [[ ! -f "$config_file" ]]; then
-        just log fatal "Config file not found: $config_file. Run 'just talos gen-config' first."
-    fi
-    just log info "Applying config to {{ node }}..."
-    talosctl -n "{{ node }}" apply-config -f "$config_file" {{ args }}
+[doc('Apply the topf config to every node in talos/topf.yaml')]
+apply-all *args:
+    cd "{{ talos_dir }}" && topf apply {{ args }}
 
 [doc('Reset all nodes (DESTRUCTIVE - requires confirmation for each node)')]
 reset-all:
@@ -99,24 +91,16 @@ reset-all:
         just talos reset-node "$node"
     done
 
-[doc('Bootstrap cluster from scratch using talhelper-generated configs')]
+[doc('Bootstrap cluster from scratch using topf')]
 bootstrap-cluster:
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! gum confirm "This will BOOTSTRAP A NEW CLUSTER. Ensure all nodes are reset and configs are generated. Continue?" --default="No"; then
+    if ! gum confirm "This will BOOTSTRAP A NEW CLUSTER. Ensure all nodes are reset. Continue?" --default="No"; then
         exit 0
     fi
 
     just log info "Step 1: Applying Talos configs to all nodes..."
-    nodes=$(talosctl config info -o yaml | yq -e '.nodes | .[]')
-    for node in $nodes; do
-        config_file="{{ talos_dir }}/clusterconfig/home-kubernetes-${node}.yaml"
-        if [[ ! -f "$config_file" ]]; then
-            just log fatal "Config file not found: $config_file. Run 'just talos gen-config' first."
-        fi
-        just log info "Applying config to $node..."
-        talosctl -n "$node" apply-config -f "$config_file" --insecure || true
-    done
+    just talos apply-all
 
     just log info "Step 2: Waiting for nodes to be ready..."
     sleep 30
@@ -146,9 +130,8 @@ rebuild:
     echo "╠══════════════════════════════════════════════════════════════════╣"
     echo "║ This will perform a FULL CLUSTER REBUILD with the following:     ║"
     echo "║   1. Generate new Talos secrets (optional)                        ║"
-    echo "║   2. Generate machine configs                                     ║"
-    echo "║   3. Reset all nodes                                              ║"
-    echo "║   4. Bootstrap the cluster                                        ║"
+    echo "║   2. Reset all nodes                                              ║"
+    echo "║   3. Bootstrap the cluster                                        ║"
     echo "║                                                                    ║"
     echo "║ ⚠️  THIS IS DESTRUCTIVE AND CANNOT BE UNDONE                      ║"
     echo "╚══════════════════════════════════════════════════════════════════╝"
@@ -161,13 +144,10 @@ rebuild:
     if gum confirm "Do you want to generate NEW secrets? (Required for security incident rotation)" --default="No"; then
         just talos gen-secrets
         echo ""
-        if ! gum confirm "Have you encrypted and moved the new secrets file? (See instructions above)" --default="No"; then
+        if ! gum confirm "Is the new secrets.sops.yaml committed or otherwise safe? (Nodes are about to be reset)" --default="No"; then
             just log fatal "Please complete the secrets rotation before continuing."
         fi
     fi
-
-    just log info "Generating machine configs..."
-    just talos gen-config
 
     just log info "Resetting all nodes..."
     just talos reset-all

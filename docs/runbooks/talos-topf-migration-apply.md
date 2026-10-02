@@ -3,10 +3,17 @@
 **Audience:** the operator (Derek). **Design and rationale:**
 [`docs/superpowers/specs/2026-08-31-talhelper-to-topf-design.md`](../superpowers/specs/2026-08-31-talhelper-to-topf-design.md).
 
-> **Status: COMPLETE (2026-09-25).** All 8 nodes applied and verified healthy. See
-> [Results](#results-2026-09-25) below for what actually happened; keep the rest of this
-> document as the reference procedure for the next time a patch-tree change needs a
-> re-apply.
+> **Status: COMPLETE (2026-09-25). HISTORICAL since Phase 7 (2026-10-01).** All 8 nodes
+> applied and verified healthy. See [Results](#results-2026-09-25) below for what actually
+> happened.
+>
+> **The commands below no longer work as written.** Phase 7 deleted `talos/talconfig.yaml`,
+> `talenv.sops.yaml`, `talsecret.sops.yaml`, `talos/tools/` (incl. `verify-real.sh`) and the
+> generated `talos/clusterconfig/`, so every step that diffs against talhelper output or
+> reads `clusterconfig/` is dead. For routine re-applies use `just talos apply-node <host>`
+> (add `--dry-run` first) / `just talos apply-all`; the client config is `talos/talosconfig`
+> (`topf talosconfig > talos/talosconfig`). The per-node ordering, the stop conditions in the
+> diff tables and the Tailscale-key and LUKS cautions are still the right checklist.
 
 ## Results (2026-09-25)
 
