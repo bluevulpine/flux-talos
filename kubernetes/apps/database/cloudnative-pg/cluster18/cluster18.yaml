@@ -52,6 +52,10 @@ spec:
       memory: 4Gi
   monitoring:
     enablePodMonitor: true
+    # Added to the default queries, not replacing them. See the ConfigMap.
+    customQueriesConfigMap:
+      - name: postgres18-monitoring-hindsight
+        key: queries
 
   # Backups via the Barman Cloud Plugin — the in-tree spec.backup.barmanObjectStore
   # no longer works on 18.x (the image dropped the in-image barman-cloud tools). WAL
