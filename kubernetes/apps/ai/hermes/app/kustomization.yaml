@@ -11,28 +11,25 @@ resources:
 components:
   - ../../../../components/volsync-claim
   - ../../../../components/volsync-backup
+
 patches:
-  # Moved here from `develop` (see the VolSync namespace-move runbook).
-  # Target by KIND, not name. The component resources are named ${APP} and
-  # ${APP:=temp}-dst-local at build time; the names only become hermes /
-  # hermes-dst-local after Flux postBuild substitution, so a name target matches
-  # nothing and kustomize silently drops it. Kind-only is safe ONLY while this
-  # app has exactly one PersistentVolumeClaim and one ReplicationDestination —
-  # re-check if a second claim is ever added.
+  # The data claim is created IfNotPresent: on a fresh cluster Flux creates it from
+  # the manifest, so it restores from backup (the DR path rehearsed in
+  # docs/runbooks/volsync-app-namespace-move.md, "Retiring the permanent pin"); on
+  # this cluster Flux skips it because it already exists. This replaces the
+  # temporary `volumeName` pin used to move the claim to its current StorageClass.
+  # Consequences -- read before editing:
+  #  1. NEVER remove this annotation while the claim exists: Flux owns
+  #     f:volumeName, so the next apply without it stalls on the immutable field.
+  #  2. Claim edits in git (VOLSYNC_CAPACITY, storageClassName, labels) are silently
+  #     ignored. Expand by hand and keep git equal:
+  #     kubectl -n <ns> patch pvc hermes -p '{"spec":{"resources":{"requests":{"storage":"<size>"}}}}'
+  #  3. Drift is silent: a changed desired class/volumeName raises no event.
   - target: {kind: PersistentVolumeClaim}
     patch: |-
-      # Pre-bind the claim to the volume that came with the app from `develop`.
-      # Keep this for the life of the claim: kustomize-controller owns the field
-      # by server-side apply, and removing it later tries to unset an immutable
-      # field and stalls the Kustomization at dry-run.
-      - op: add
-        path: /spec/volumeName
-        value: pvc-12f54114-9e99-442b-bae4-53a9cb239d69
-  - target: {kind: ReplicationDestination}
-    patch: |-
-      # NOT inert: the RD runs a restore on creation. Without this it asks for
-      # hermes@ai, which has no snapshots, and "restores" an empty volume with
-      # result Successful. The pre-move snapshots are hermes@develop.
-      - op: add
-        path: /spec/kopia/sourceIdentity/sourceNamespace
-        value: develop
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: not-used
+        annotations:
+          kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
