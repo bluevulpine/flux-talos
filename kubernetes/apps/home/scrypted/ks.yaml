@@ -26,7 +26,10 @@ spec:
       NS: home
       VOLSYNC_CAPACITY: 10Gi
       VOLSYNC_CACHE_CAPACITY: 10Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica-local
+      # 2 replicas, node-local best-effort (longhorn-2-replica-local): one replica
+      # follows the pod's node, the other sits on a different node. The clone and
+      # cache classes below stay 1-replica -- they are throwaway mover volumes.
+      VOLSYNC_STORAGECLASS: longhorn-2-replica-local
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica-local
       VOLSYNC_CACHE_CLASS: longhorn-1-replica-local
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
