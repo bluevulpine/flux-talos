@@ -13,22 +13,26 @@ components:
   - ../../../../components/externalsecret-refresh
 
 patches:
-  # Target by KIND, not name: the component resources are named ${APP} at build
-  # time and only become "influxdb" after Flux postBuild substitution, so a name
-  # target matches nothing and kustomize silently drops it. Kind-only is safe
-  # ONLY while this app has exactly one PersistentVolumeClaim -- re-check if a
-  # second claim is ever added (nextcloud has two and needs a by-name target).
+  # The data claim is created IfNotPresent: on a fresh cluster Flux creates it from
+  # the manifest, so it restores from backup (the DR path rehearsed in
+  # docs/runbooks/volsync-app-namespace-move.md, "Retiring the permanent pin"); on
+  # this cluster Flux skips it because it already exists. This replaces the
+  # temporary `volumeName` pin used to move the claim to its current StorageClass.
+  # Consequences -- read before editing:
+  #  1. NEVER remove this annotation while the claim exists: Flux owns
+  #     f:volumeName, so the next apply without it stalls on the immutable field.
+  #  2. Claim edits in git (VOLSYNC_CAPACITY, storageClassName, labels) are silently
+  #     ignored. Expand by hand and keep git equal:
+  #     kubectl -n <ns> patch pvc influxdb -p '{"spec":{"resources":{"requests":{"storage":"<size>"}}}}'
+  #  3. Drift is silent: a changed desired class/volumeName raises no event.
+  # The kind-only target is safe ONLY while this app has exactly one
+  # PersistentVolumeClaim -- a second claim would silently get IfNotPresent too
+  # (nextcloud has two and targets the data claim by name).
   - target: {kind: PersistentVolumeClaim}
     patch: |-
-      # Pre-bind the claim to the existing Longhorn volume. storageClassName is
-      # immutable on a bound PVC, so the move from longhorn-1-replica to
-      # longhorn-2-replica re-binds the SAME volume (already live-patched to 2
-      # replicas) instead of restoring from backup. TEMPORARY: do not just delete
-      # it (kustomize-controller owns the field by SSA; unsetting an immutable
-      # field stalls the Kustomization at dry-run) and do not leave it forever (on
-      # a rebuilt cluster it names a PV that no longer exists, so the claim stays
-      # Pending). Retire it with the `ssa: IfNotPresent` strategic-merge patch in
-      # docs/runbooks/volsync-app-namespace-move.md, "Retiring the permanent pin".
-      - op: add
-        path: /spec/volumeName
-        value: pvc-707a3014-fa48-4ccb-ab0e-879ab8094fda
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: not-used
+        annotations:
+          kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
