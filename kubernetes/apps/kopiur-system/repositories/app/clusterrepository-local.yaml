@@ -52,6 +52,7 @@ spec:
       - games
       - home
       - identity
+      - matrix-bluevulpine
       - media
       - productivity
   # DELIBERATELY ABSENT: spec.parameters.epoch.
