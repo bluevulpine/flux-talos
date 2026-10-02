@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/configmap_v1.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.36.2-standalone-strict/configmap-v1.json
 # Custom CNPG exporter query for hindsight's job queue, read by the
 # HindsightOperationStuck alert (kubernetes/apps/ai/hindsight/app/prometheusrule.yaml).
 #
