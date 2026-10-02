@@ -26,6 +26,9 @@ patches:
   #     ignored. Expand by hand and keep git equal:
   #     kubectl -n <ns> patch pvc nextcloud -p '{"spec":{"resources":{"requests":{"storage":"<size>"}}}}'
   #  3. Drift is silent: a changed desired class/volumeName raises no event.
+  # kopiur app: the claim's dataSourceRef points at a VolSync RD that is no longer
+  # deployed (inert), so a rebuild restores via kopiur, NOT the VolSync DR path above
+  # (docs/runbooks/kopiur-migration.md).
   - target:
       kind: PersistentVolumeClaim
       # By NAME, not kind: nextcloud also has the nextcloud-nfs claim (statically

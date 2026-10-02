@@ -653,7 +653,7 @@ After the smoke test, the review, the rehearsal **and the real move (2026-09-24)
 ## Real-move results (2026-09-24)
 
 `develop/hermes` → `ai/hermes`, approach B (the Longhorn volume retained, released and re-claimed). **Full record: `docs/rehearsal/hermes-move/results.md`.** Summary (UTC): quiesce 16:29:26 → PR 1 merged 16:38:56 → PV re-pointed 16:40:10 → content verified identical → PR 2 merged 16:46:01 → pod Ready ~16:47; **~17.5 min downtime**, ~5 min of it operator latency. Both `hermes-local` and `hermes-r2` wrote a final `hermes@develop` snapshot first; the new series `hermes@ai` was written by both new sources. Gatus `ai_hermes` was 200 immediately, no hermes alert fired, the human confirmed the dashboard login and the old sessions.
-Deviations and new traps are 16–20 above ([Hm-2], [Hm-4], [Hm-7]); what stayed open is **Known untested** 3, 4, 6, 7, 9, 10. Follow-ups still pending: B10, the cleanup PR (drop the RD `sourceNamespace` patch, the deferred comment-only updates, `spec.timeout: 15m`, retire the volume pin — **decided by the pin-fix rehearsal: `ssa: IfNotPresent`, see "Retiring the permanent pin"**), the `develop` orphans after B10, and re-targeting of the held Renovate bump.
+Deviations and new traps are 16–20 above ([Hm-2], [Hm-4], [Hm-7]); what stayed open is **Known untested** 3, 4, 6, 7, 9, 10. Follow-ups still pending: B10, the cleanup PR (**done for hermes in #2033, 2026-10-02**: RD `sourceNamespace` patch dropped and the pin retired; still open: the deferred comment-only updates, `spec.timeout: 15m`, retire the volume pin — **decided by the pin-fix rehearsal: `ssa: IfNotPresent`, see "Retiring the permanent pin"**), the `develop` orphans after B10, and re-targeting of the held Renovate bump.
 
 ## Rehearsal (done)
 
@@ -726,7 +726,7 @@ Gate: `flux build` shows `ssa: IfNotPresent` once and **no** `volumeName`/`sourc
 - A Kustomization deleted while **not** suspended prunes its inventory except `prune: disabled` objects; the parent must be suspended first or it recreates the child at once.
 - Guard tooling used (`kn` allow-list, gated push, silence/window interlocks) is in `docs/rehearsal/pin-fix/tools/`; the reusable `kn-guard.sh` is vendored at `.claude/move-workload/guards/`.
 
-**Not covered:** the old-namespace prune / `Released` race (rehearsed earlier [Rh-2, Rh-3]), the HTTPRoute, hermes' real size and timing, kopiur, and the cleanup PR itself (still to be written; `hermes@ai` must exist in the local repo first).
+**Not covered:** the old-namespace prune / `Released` race (rehearsed earlier [Rh-2, Rh-3]), the HTTPRoute, hermes' real size and timing, kopiur, and kopiur. The cleanup PR itself landed in #2033 (2026-10-02) for hermes and the nine other `longhorn-2-replica` moves, after `hermes@ai` was confirmed in the local repo.
 
 ## Procedure hygiene for the hermes move [Rh-F, Rh-B2]
 

@@ -24,6 +24,9 @@ patches:
   #     ignored. Expand by hand and keep git equal:
   #     kubectl -n <ns> patch pvc timescaledb -p '{"spec":{"resources":{"requests":{"storage":"<size>"}}}}'
   #  3. Drift is silent: a changed desired class/volumeName raises no event.
+  # The kind-only target is safe ONLY while this app has exactly one
+  # PersistentVolumeClaim -- a second claim would silently get IfNotPresent too
+  # (nextcloud has two and targets the data claim by name).
   - target: {kind: PersistentVolumeClaim}
     patch: |-
       apiVersion: v1
