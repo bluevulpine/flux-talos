@@ -30,7 +30,9 @@ spec:
       NS: database
       GATUS_SUBDOMAIN: influxdb
       VOLSYNC_CAPACITY: 20Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      # 2 replicas: years of Home Assistant and collector history live only on this
+      # volume between the twice-hourly VolSync snapshots.
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_CACHE_CLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
