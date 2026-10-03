@@ -133,10 +133,13 @@ spec:
             summary: >-
               cnpg_hindsight_async_ops_oldest_age_seconds is missing, so
               HindsightOperationStuck cannot fire. Check the postgres18 primary's
-              instance-manager log for the hindsight_async_ops query error and
-              compare the query in
-              database/cloudnative-pg/cluster18/monitoring-hindsight.yaml with
-              hindsight's current async_operations schema.
+              instance-manager log for the hindsight_async_ops query error.
+              "permission denied" means the column grant to
+              cnpg_metrics_exporter is gone (table recreated by a hindsight
+              migration) -- re-apply it from the comment in
+              database/cloudnative-pg/cluster18/monitoring-hindsight.yaml.
+              Otherwise compare that query with hindsight's current
+              async_operations schema.
           expr: |
             absent(cnpg_hindsight_async_ops_oldest_age_seconds{namespace="database", status="processing"})
           for: 1h

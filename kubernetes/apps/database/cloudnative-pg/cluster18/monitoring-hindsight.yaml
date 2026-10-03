@@ -11,6 +11,20 @@
 # everything else for that bank queued behind them for ~40h. Only 14 jobs were
 # waiting, far under HindsightRetainBacklog's > 50.
 #
+# ⚠️ NEEDS A GRANT THAT LIVES IN THE DATABASE, NOT HERE. CNPG runs custom
+# queries as cnpg_metrics_exporter (pg_monitor), not the superuser, and
+# async_operations is owned by `hindsight`; without the grant every scrape logs
+# "permission denied for table async_operations" and the series never appear.
+# Column-limited on purpose -- task_payload and result_metadata hold memory
+# content. Applied by hand on 2026-10-03, on the primary (replicas get it via
+# replication):
+#   kubectl -n database exec "$(kubectl -n database get pod -o name \
+#     -l cnpg.io/cluster=postgres18,cnpg.io/instanceRole=primary)" -c postgres -- \
+#     psql -U postgres -d hindsight -c "grant select (operation_id, status,
+#     claimed_at, created_at) on public.async_operations to cnpg_metrics_exporter"
+# A hindsight migration that recreates the table drops it; then
+# HindsightOperationAgeMetricMissing fires and this is the fix.
+#
 # One row per status, always (the VALUES join), so the series exist at 0 and
 # never go absent when the queue is empty. ~12 ms on ~20k rows; primary only.
 # Exported as cnpg_hindsight_async_ops_{count,oldest_age_seconds}{status=...}.
