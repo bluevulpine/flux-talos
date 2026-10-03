@@ -63,7 +63,17 @@ spec:
               readOnly: true
           resources:
             requests: {cpu: 10m, memory: 48Mi}
-            limits: {cpu: 200m, memory: 128Mi}
+            # The memory limit must cover telegraf's BINARY, not just its heap:
+            # the telegraf:1.40 image ships a 286 MB /usr/bin/telegraf, and the
+            # file pages it executes are charged to this cgroup. At 128Mi a cold
+            # page cache (e.g. right after a node reboot) meant the binary could
+            # never stay resident: the kernel spent ~95% of the 200m CPU quota
+            # reclaiming and re-faulting it (pgscan ~540k, system time 25x user),
+            # the Go runtime never finished initialising, no log line or health
+            # port ever appeared, and the liveness probe crash-looped it
+            # (2026-10-03, after the Talos v1.13.11 roll). It had only worked
+            # because those pages happened to be cached from before.
+            limits: {cpu: 500m, memory: 512Mi}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
