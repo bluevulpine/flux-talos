@@ -12,7 +12,7 @@
 > generated `talos/clusterconfig/`, so every step that diffs against talhelper output or
 > reads `clusterconfig/` is dead. For routine re-applies use `just talos apply-node <host>`
 > (add `--dry-run` first) / `just talos apply-all`; the client config is `talos/talosconfig`
-> (`topf talosconfig > talos/talosconfig`). The per-node ordering, the stop conditions in the
+> (`just talos regen-talosconfig`). The per-node ordering, the stop conditions in the
 > diff tables and the Tailscale-key and LUKS cautions are still the right checklist.
 
 ## Results (2026-09-25)

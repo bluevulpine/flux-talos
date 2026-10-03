@@ -177,9 +177,10 @@ nowhere to grow into, landing right back at ~54GB after reboot. This matches
 a prior real-world attempt at this exact fix that silently didn't work.
 
 ```bash
-# talos/talosconfig is gitignored; if missing, regenerate it. The command prints
-# the admin cert + key to stdout, so always redirect it, never paste it.
-#   (cd talos && topf talosconfig > talosconfig)
+# talos/talosconfig is gitignored; if missing, regenerate it with the recipe below.
+# Bare `topf talosconfig` prints the admin cert + key to stdout, so never run it
+# without a redirect; the recipe writes the file mode 0600 and never prints it.
+#   just talos regen-talosconfig
 export TALOSCONFIG=./talos/talosconfig
 
 talosctl reset -n 10.0.10.40 \

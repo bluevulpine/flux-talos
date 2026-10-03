@@ -25,10 +25,12 @@ reboot-node node:
         talosctl -n {{ node }} reboot -m powercycle; \
     fi
 
-[doc('Reset a node')]
+# --reboot: talosctl's default is to SHUT DOWN after reset, which would leave bootstrap-cluster
+# applying to powered-off nodes. With --reboot, --wait also confirms the node is back in maintenance mode.
+[doc('Reset a node (wipes it and reboots into maintenance mode)')]
 reset-node node:
     if gum confirm "Reset node {{ node }}?" --default="No"; then \
-        talosctl -n "{{ node }}" reset --graceful=false; \
+        talosctl -n "{{ node }}" reset --graceful=false --reboot; \
     fi
 
 [doc('Shutdown a node')]

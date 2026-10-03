@@ -155,8 +155,8 @@ rm -rf "$tmp"
 ### 1d. Wipe and reinstall
 
 `talosctl` reads `talos/talosconfig` (gitignored; `.envrc` exports `TALOSCONFIG`).
-If it is missing: `(cd talos && topf talosconfig > talosconfig)`. It holds the admin
-cert and key, so redirect it and never paste or log it.
+If it is missing: `just talos regen-talosconfig`. It holds the admin cert and key; the
+recipe writes it mode 0600 straight to the file, so it never reaches the terminal.
 
 ```bash
 # confirm mTLS works against the node before wiping it (topf can silently fall

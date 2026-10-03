@@ -9,7 +9,7 @@ controller := shell('yq -e "$1" "$2"', '[.nodes[] | select(.role == "control-pla
 [private]
 default: talos k8s (kubeconfig "node") wait namespaces sops-age resources crds apps kubeconfig
 
-[doc('Install Talos (topf picks insecure or mTLS per node; any unreachable node aborts the stage)')]
+[doc('Install Talos (regenerates talos/talosconfig each run, overwriting local edits; topf picks insecure or mTLS per node; any unreachable node aborts the stage)')]
 talos:
     just log info "Running stage..." "stage" "$0"
     if ! just talos regen-talosconfig; then \

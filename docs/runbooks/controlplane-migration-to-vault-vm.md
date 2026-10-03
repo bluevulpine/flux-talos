@@ -284,7 +284,7 @@ in `talconfig.yaml`), with the `node.kubernetes.io/low-power` taint coming from
 PR first, then for each Pi, one at a time:
 
 ```bash
-cd ~/Repositories/flux-talos && (cd talos && topf talosconfig > talosconfig)   # regenerate the client config; never print or paste it
+cd ~/Repositories/flux-talos && just talos regen-talosconfig   # regenerate the client config (mode 0600, never printed)
 
 kubectl drain jormungandrN --ignore-daemonsets --delete-emptydir-data
 talosctl -n 10.0.10.3N reset --graceful=false --reboot \
@@ -322,7 +322,7 @@ Things that hard-code the Pi control plane and will quietly break:
 | `kubernetes/apps/observability/kube-prometheus-stack/app/helmrelease.yaml` `kubeEtcd.endpoints` | `10.0.10.31–33` | `<cp-ip>`. Without this, etcd metrics — including the fsync histogram this plan relies on — go dark |
 | `docs/runbooks/vault-nas-maintenance.md` | vault restart procedure | **a vault restart is now an API outage.** Shutdown: quiesce workloads, then the VM (guest agent / ACPI). Startup: the VM autostarts after the pools import |
 | `.serena/memories/core.md` | node table lists jormungandr1–3 as control-plane | update the topology |
-| `talos/talosconfig` | endpoints | regenerate with `topf talosconfig > talos/talosconfig` (the admin cert and key go to the file, never the terminal); confirm `talosctl` talks to `<cp-ip>` |
+| `talos/talosconfig` | endpoints | regenerate with `just talos regen-talosconfig` (the admin cert and key go to the file, mode 0600, never the terminal); confirm `talosctl` talks to `<cp-ip>` |
 
 Unchanged, because the VM holds the VIP: `clusterEndpoint` in `talos/topf.yaml`,
 the cert SANs in `patches/all/03-cert-sans.yaml.tpl`, and the Tailscale exit-node route to `10.0.10.30/32`.
