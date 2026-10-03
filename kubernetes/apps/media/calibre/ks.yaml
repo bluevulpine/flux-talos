@@ -32,7 +32,7 @@ spec:
       GATUS_SERVICE: calibre
       VOLSYNC_CAPACITY: 2Gi
       # Low criticality: ebook library config - backup every hour
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's

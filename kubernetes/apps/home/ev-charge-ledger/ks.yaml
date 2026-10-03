@@ -36,7 +36,7 @@ spec:
       NS: home
       # One SQLite file of a few hundred KB.
       VOLSYNC_CAPACITY: 1Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       # ReadWriteOnce + Snapshot (KOPIUR_COPYMETHOD) for a single SQLite file,
       # for the reasons spelled out in home/ev-charge-tracker/ks.yaml.
       VOLSYNC_ACCESSMODES: ReadWriteOnce

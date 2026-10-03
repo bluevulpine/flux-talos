@@ -33,7 +33,7 @@ spec:
       # "Four apps set no NS" trap).
       NS: download
       VOLSYNC_CAPACITY: 1Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       # Low criticality: config + cache, easily rebuilt - backup every 4 hours
       # kopiur (components/kopiur). H picks a minute per schedule; the hours are
