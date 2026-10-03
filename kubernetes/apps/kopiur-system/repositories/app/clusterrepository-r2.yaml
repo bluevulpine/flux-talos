@@ -36,6 +36,7 @@ spec:
       - games
       - home
       - identity
+      - matrix-bluevulpine
       - media
       - productivity
   # NO spec.parameters.epoch here, and unlike kopia-local this one does not

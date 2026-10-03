@@ -1,0 +1,19 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.36.2-standalone-strict/namespace-v1.json
+# Second Matrix homeserver (bluevulpine.net). Separate from `matrix` so each
+# identity keeps its own secrets, policies and blast radius.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: matrix-bluevulpine
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/warn: privileged
+    pod-security.kubernetes.io/audit: privileged
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+    volsync.backube/privileged-movers: "true"
+    # kopiur refuses movers with added capabilities (components/kopiur always adds
+    # DAC_OVERRIDE) unless the namespace opts in, and NOTHING alerts: Snapshots sit
+    # Pending (PrivilegedMoverNotPermitted) forever. docs/runbooks/kopiur-migration.md
+    kopiur.home-operations.com/privileged-movers: "true"
