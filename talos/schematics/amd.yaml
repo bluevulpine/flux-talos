@@ -1,7 +1,7 @@
 ---
 # AMD mini-PC workers (brokkr01-03). Expected ID b915cd2395b3…056a.
-# Extracted from talos/talconfig.yaml (brokkr01's schematic, anchors resolved) so topf and talhelper
-# compute the same Image Factory ID. Do not hand-edit: the ID depends on the exact content.
+# Extracted from the retired talos/talconfig.yaml (brokkr01's schematic, anchors resolved) so the
+# Image Factory ID stayed identical across the talhelper->topf move. Do not hand-edit: the ID depends on the exact content.
 customization:
   extraKernelArgs:
     - -init_on_alloc

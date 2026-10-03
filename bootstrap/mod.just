@@ -1,33 +1,35 @@
-set positional-arguments := true
-set quiet := true
+set positional-arguments
+set quiet
 set shell := ['bash', '-euo', 'pipefail', '-c']
 
 bootstrap_dir := justfile_dir() + '/bootstrap'
 kubernetes_dir := justfile_dir() + '/kubernetes'
-controller := `talosctl config info -o yaml | yq -e '.endpoints[0]'`
-nodes := `talosctl config info -o yaml | yq -e '.nodes | join (" ")'`
+controller := shell('yq -e "$1" "$2"', '[.nodes[] | select(.role == "control-plane")][0].ip', justfile_dir() + '/talos/topf.yaml')
 
 [private]
 default: talos k8s (kubeconfig "node") wait namespaces sops-age resources crds apps kubeconfig
 
-[doc('Install Talos')]
+[doc('Install Talos (regenerates talos/talosconfig each run, overwriting local edits; topf picks insecure or mTLS per node; any unreachable node aborts the stage)')]
 talos:
     just log info "Running stage..." "stage" "$0"
-    for n in {{ nodes }}; do \
-        if ! op=$(just talos apply-generated "$n" --insecure 2>&1); then \
-            if [[ "$op" == *"certificate required"* ]]; then \
-                just log info "Talos already configured, skipping apply of config" "stage" "$0" "node" "$n"; \
-                continue; \
-            fi; \
-            just log fatal "Failed to apply Talos configuration" "stage" "$0" "node" "$n" "output" "$op"; \
-        fi; \
-    done
+    if ! just talos regen-talosconfig; then \
+        just log fatal "Failed to regenerate talosconfig" "stage" "$0"; \
+    fi
+    if ! just talos apply-all; then \
+        just log fatal "Failed to apply Talos configuration" "stage" "$0"; \
+    fi
 
 [doc('Install Kubernetes')]
 k8s:
     just log info "Running stage..." "stage" "$0"
-    until op=$(talosctl -n "{{ controller }}" bootstrap 2>&1 || true) && [[ "$op" == *"AlreadyExists"* ]]; do \
-        just log info "Kubernetes bootstrap in progress. Retrying in 5 seconds..." "stage" "$0"; \
+    for attempt in $(seq 1 60); do \
+        if out=$(talosctl -n "{{ controller }}" bootstrap 2>&1) || [[ "$out" == *AlreadyExists* ]]; then \
+            break; \
+        fi; \
+        if [[ "$attempt" -eq 60 ]]; then \
+            just log fatal "Kubernetes bootstrap did not succeed after 60 attempts" "stage" "$0" "last_error" "$out"; \
+        fi; \
+        just log info "Kubernetes bootstrap in progress. Retrying in 5 seconds..." "stage" "$0" "attempt" "$attempt"; \
         sleep 5; \
     done
 

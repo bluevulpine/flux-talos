@@ -1,7 +1,7 @@
 ---
 creation_rules:
   # topf's cluster config is partially encrypted: only `data:` (the secrets that
-  # replace talenv.sops.yaml) is ciphertext, so talosVersion / kubernetesVersion stay
+  # replaced the old talhelper talenv.sops.yaml) is ciphertext, so talosVersion / kubernetesVersion stay
   # readable. It is deliberately NOT named *.sops.yaml: .renovaterc.json5 ignores
   # `**/*.sops.*`, which would hide those versions from Renovate again. topf's default
   # config name is topf.yaml, so no --topfconfig flag is needed either.

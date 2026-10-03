@@ -15,7 +15,7 @@ spec:
         #
         # This is mitigated by the Spegel -> Nexus -> upstream pull-through mirror
         # chain configured in Talos (machine.registries.mirrors in
-        # talos/talconfig.yaml): docker.io pulls are served from the in-cluster
+        # talos/patches/all/12-registry-mirrors.yaml.tpl): docker.io pulls are served from the in-cluster
         # Nexus cache and Spegel's peer-to-peer layer sharing, NOT Docker Hub.
         #
         # The previous expr counted docker.io image refs (> 100) as a proxy for

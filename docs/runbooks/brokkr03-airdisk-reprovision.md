@@ -3,8 +3,9 @@
 Fixes a first-boot partitioning artifact on brokkr03: its AirDisk 1TB SSD split
 `EPHEMERAL` and `u-data-1` unevenly compared to its siblings, leaving
 `EPHEMERAL` half the size it should be and chronically short on headroom for
-container images. `talos/talconfig.yaml` is not wrong — all three brokkr nodes
-declare identical `maxSize: 100GiB` / `grow: false` for `EPHEMERAL`. This is
+container images. The config is not wrong — `talos/patches/worker/07-brokkr-volumes.yaml.tpl`
+gives all brokkr nodes an identical `maxSize: 100GiB` / `grow: false` for
+`EPHEMERAL`. This is
 partition-table drift from the node's original provisioning, not a config bug.
 
 **Status: executed successfully on 2026-07-14.** `EPHEMERAL` went from 54GB →
@@ -176,7 +177,11 @@ nowhere to grow into, landing right back at ~54GB after reboot. This matches
 a prior real-world attempt at this exact fix that silently didn't work.
 
 ```bash
-export TALOSCONFIG=./talos/clusterconfig/talosconfig
+# talos/talosconfig is gitignored; if missing, regenerate it with the recipe below.
+# Bare `topf talosconfig` prints the admin cert + key to stdout, so never run it
+# without a redirect; the recipe writes the file mode 0600 and never prints it.
+#   just talos regen-talosconfig
+export TALOSCONFIG=./talos/talosconfig
 
 talosctl reset -n 10.0.10.40 \
   --system-labels-to-wipe=EPHEMERAL \
@@ -234,8 +239,9 @@ talosctl -n 10.0.10.40 get volumestatus | grep -E "EPHEMERAL|u-data-1"
 
 Expect `EPHEMERAL` at (or near) `100 GB` this time, `u-data-1` correspondingly
 smaller (~870GB) — matching the intended `maxSize: 100GiB` from
-`talos/talconfig.yaml`. No YAML changes are needed for this — the config
-already declared the right sizes; the disk just needed to actually reprovision
+`talos/patches/worker/07-brokkr-volumes.yaml.tpl`. No config changes or
+`just talos apply-node` are needed for this — the config already declared
+the right sizes; the disk just needed to actually reprovision
 against it. **Confirmed on the 2026-07-14 run:** `EPHEMERAL` came back at
 `107 GB`, `u-data-1` at `916 GB` — an exact match for brokkr01's split.
 

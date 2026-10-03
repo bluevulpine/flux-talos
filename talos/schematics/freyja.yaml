@@ -1,7 +1,7 @@
 ---
 # freyja01, the control-plane VM on vault. Expected ID 647d4118dd02…4066.
-# Extracted from talos/talconfig.yaml (freyja01's schematic, anchors resolved) so topf and talhelper
-# compute the same Image Factory ID. Do not hand-edit: the ID depends on the exact content.
+# Extracted from the retired talos/talconfig.yaml (freyja01's schematic, anchors resolved) so the
+# Image Factory ID stayed identical across the talhelper->topf move. Do not hand-edit: the ID depends on the exact content.
 customization:
   extraKernelArgs:
     - -init_on_alloc

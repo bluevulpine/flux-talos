@@ -20,7 +20,7 @@ spec:
       - "172.16.8.0/24" # Cluster LoadBalancer pool (BGP advertised)
       - "10.25.52.0/22" # Additional subnet
       - "10.0.10.30/32" # VIP route
-      # Talos nodes, one /32 each (keep in sync with talos/talconfig.yaml nodes[]).
+      # Talos nodes, one /32 each (keep in sync with talos/topf.yaml nodes[]).
       # Through the VIP alone, apid on the control plane already proxies
       # `talosctl -e 10.0.10.30 -n <node>` to any node. What these add: reaching
       # freyja01 -- the ONLY control plane -- when the VIP is gone (its own

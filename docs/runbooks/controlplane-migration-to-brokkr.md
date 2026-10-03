@@ -72,11 +72,14 @@ kubectl -n longhorn-system get nodes.longhorn.io -o custom-columns=\
 ```
 
 Also decide up front: **the brokkr CP nodes must still run workloads.**
-`talos/talconfig.yaml` line 587 currently has `allowSchedulingOnMasters: false`,
-which is what puts the `node-role.kubernetes.io/control-plane:NoSchedule` taint
-on the Pis today. Flip it to `true` **before** the first node is rebuilt, or
-brokkr01 comes back as a control plane that schedules nothing — and you will
-have wiped a third of your worker capacity to gain an idle node.
+`talos/patches/control-plane/01-cluster.yaml` has `allowSchedulingOnMasters: false`
+(Talos still names the field after "masters"), which is what puts the
+`node-role.kubernetes.io/control-plane:NoSchedule` taint on control-plane nodes
+today. That patch applies to **every** control plane, freyja01 included. Flip it
+to `true` **before** the first node is rebuilt, or brokkr01 comes back as a
+control plane that schedules nothing — and you will have wiped a third of your
+worker capacity to gain an idle node. To leave freyja01 tainted, set it in a
+`talos/patches/node/brokkr0N/` patch instead (verify the render).
 
 ## Phase 1 — per-node loop
 
@@ -118,23 +121,51 @@ kubectl cordon brokkr0N
 kubectl drain brokkr0N --ignore-daemonsets --delete-emptydir-data --timeout=15m
 ```
 
-### 1c. Flip the node to control plane and regenerate config
+### 1c. Flip the node to control plane and re-render
 
-In `talos/talconfig.yaml`, for that node: `controlPlane: false` → `true`.
-Then regenerate (per CLAUDE.md, `talos/clusterconfig/` is gitignored and
-generated — never hand-edit it):
+Config is rendered by topf from `talos/topf.yaml` + `talos/patches/`; there is no
+generated directory to edit. Flipping a role takes **three** edits, and the render
+fails (by design) if any is missing:
+
+1. `talos/topf.yaml`: that node's `role: worker` → `role: control-plane`.
+2. `talos/patches/all/00-guard.yaml.tpl`: that host's `$nodes` entry
+   `"worker"` → `"control-plane"`. The guard rejects a role that differs from
+   its map.
+3. **Re-home the brokkr hardware config.** `patches/worker/` applies to workers
+   only, so a control-plane brokkr silently loses everything it gives one: the
+   `nvme_tcp` module (`01`), the AirDisk install disk (`03`, brokkr branch),
+   hugepages and `vfio_pci`/`uio_pci_generic` (`05`), the bond0 DHCP + VLANs
+   10/30/50 (`06`), and the capped EPHEMERAL/IMAGECACHE plus LUKS2 `data-1`
+   volumes (`07`). Only `node/brokkr0N/` (bond members, `data-2`) still applies.
+   Without this the node comes up with no VLANs, no install disk match and no
+   volumes. Move or duplicate those brokkr-gated documents into `all/` (they
+   gate on the hostname prefix, not the role) or `control-plane/`, and keep the
+   `worker/` copies in step so the not-yet-flipped nodes are unchanged.
+
+Check the render, writing PLAINTEXT config (PKI included) to a temp dir, never
+into the tree:
 
 ```bash
-just talos gen-config
+tmp=$(mktemp -d)
+(cd talos && topf --nodes-filter '^brokkr0N$' render -o "$tmp")
+grep -l 'name: bond0' "$tmp"/*    # spot-check the hardware documents; do not cat the files
+rm -rf "$tmp"
 ```
 
 ### 1d. Wipe and reinstall
 
+`talosctl` reads `talos/talosconfig` (gitignored; `.envrc` exports `TALOSCONFIG`).
+If it is missing: `just talos regen-talosconfig`. It holds the admin cert and key; the
+recipe writes it mode 0600 straight to the file, so it never reaches the terminal.
+
 ```bash
+# confirm mTLS works against the node before wiping it (topf can silently fall
+# back to insecure TLS if :50000 does not demand mTLS)
+talosctl -n <brokkr0N-ip> version
 talosctl -n <brokkr0N-ip> reset --graceful=false --reboot --wipe-mode all
-# node reboots into maintenance mode, then:
-talosctl apply-config --insecure --nodes <brokkr0N-ip> \
-  --file talos/clusterconfig/<cluster>-brokkr0N.yaml
+# node reboots into maintenance mode; topf handles that itself (no --insecure):
+just talos apply-node brokkr0N --dry-run
+just talos apply-node brokkr0N
 ```
 
 ### 1e. Verify it joined as a control plane
@@ -155,9 +186,10 @@ talosctl -n <pi-ip> etcd forfeit-leadership
 talosctl -n <pi-ip> etcd remove-member <member-id>
 ```
 
-Then set that Pi to `controlPlane: false` in `talconfig.yaml`, regenerate,
-reset and reinstall it as a **worker** — it keeps driving the rack LCD via
-`rackpanel-agent`, alongside j4.
+Then flip that Pi to a **worker**: `role: worker` in `talos/topf.yaml` and its
+`"worker"` entry in `00-guard.yaml.tpl`, then reset and
+`just talos apply-node <pi-host>` (dry-run first). It keeps driving the rack LCD
+via `rackpanel-agent`, alongside j4.
 
 ### 1g. Return the node to service
 
@@ -175,7 +207,7 @@ the next node.
 | Stage | If it fails | Recovery |
 | --- | --- | --- |
 | Before 1d (wipe) | Anything | Re-enable Longhorn scheduling, uncordon. Zero damage — nothing destructive has happened yet |
-| After wipe, node won't join as CP | Config or hardware | Flip `controlPlane` back to `false`, regenerate, reinstall as a worker. Cluster is unchanged; you have lost only that node's local data |
+| After wipe, node won't join as CP | Config or hardware | Revert `role:` in `topf.yaml` **and** the node's `$nodes` entry in `00-guard.yaml.tpl` (the render fails if they disagree), then `just talos apply-node brokkr0N` to reinstall as a worker. Cluster is unchanged; you have lost only that node's local data |
 | etcd member won't sync | etcd corruption | `etcd remove-member` the new node, rebuild it as a worker, restore from the Phase 0 snapshot if the cluster is damaged |
 | Longhorn volume lost | Eviction missed a replica | VolSync restore from `*-local` (NAS) or `*-r2` |
 

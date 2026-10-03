@@ -1,3 +1,4 @@
+---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -82,8 +83,8 @@ spec:
           # The four Pis are the only arm64 nodes. This selects the wrong
           # property (architecture, not "has a panel") but avoids a
           # machine-config apply across all four for a cosmetic gain. If a
-          # non-panel arm64 node is ever added, add nodeLabels to
-          # talconfig.yaml and switch this selector.
+          # non-panel arm64 node is ever added, add a node label via
+          # a talos/patches/ patch and switch this selector.
           nodeSelector:
             kubernetes.io/arch: arm64
           tolerations:

@@ -54,8 +54,8 @@ no prefix-squeezing. This removes the ugliest part of most homelab IPv6 designs.
 
 | Thing | Value | Where |
 | --- | --- | --- |
-| Pod CIDR | `10.69.0.0/16` | `talos/talconfig.yaml` → `clusterPodNets` |
-| Service CIDR | `10.96.0.0/16` | `talos/talconfig.yaml` → `clusterSvcNets` |
+| Pod CIDR | `10.69.0.0/16` | `talos/patches/all/02-cluster-network.yaml` → `cluster.network.podSubnets` |
+| Service CIDR | `10.96.0.0/16` | `talos/patches/all/02-cluster-network.yaml` → `cluster.network.serviceSubnets` |
 | `kubernetes` Service | `ipFamilies: [IPv4]`, `ipFamilyPolicy: SingleStack` | live |
 | CNI | Cilium (Talos `cniConfig.name: none`) | |
 
@@ -119,18 +119,27 @@ use (`b20b:1`, `:2`, `:4`). Suggested layout:
 
 ### Stage 1 — Talos control plane (the risky one)
 
-Append the v6 CIDRs in `talos/talconfig.yaml`:
+Append the v6 CIDRs in `talos/patches/all/02-cluster-network.yaml` (plain Talos
+machine config, applied to every node):
 
 ```yaml
-clusterPodNets:
-  - "10.69.0.0/16"
-  - "2604:8500:b20b:1000::/56"
-clusterSvcNets:
-  - "10.96.0.0/16"
-  - "fd00:96::/108"
+cluster:
+  network:
+    cni:
+      name: none
+    podSubnets:
+      - 10.69.0.0/16
+      - 2604:8500:b20b:1000::/56
+    serviceSubnets:
+      - 10.96.0.0/16
+      - fd00:96::/108
 ```
 
-Then `just talos gen-config` and apply. This changes kube-apiserver
+Then review with `just talos apply-all --dry-run`, and apply with
+`just talos apply-all` (or per node: `just talos apply-node <host>`; both pass
+extra flags to `topf apply`, e.g. `--mode`). Before applying, verify each node
+still demands mTLS with `talosctl -n <ip> version` — topf can silently fall back
+to insecure TLS if :50000 does not. This changes kube-apiserver
 (`--service-cluster-ip-range`), kube-controller-manager (`--cluster-cidr`,
 `--node-cidr-mask-size-ipv6`) and kubelet.
 
@@ -213,4 +222,4 @@ them. Treat Stage 1 as the point of no return and have a rebuild path ready.
 
 - `docs/runbooks/pangolin-vps-setup.md` — the edge already does IPv6 today
 - `kubernetes/apps/kube-system/cilium/app/networking.yaml` — BGP + LB pool
-- `talos/talconfig.yaml` — `clusterPodNets` / `clusterSvcNets`
+- `talos/patches/all/02-cluster-network.yaml` — `podSubnets` / `serviceSubnets`
