@@ -20,14 +20,14 @@ patches:
   # is immutable on a bound PVC, so the claim is deleted (PV on Retain) and Flux
   # re-creates it pre-bound to the SAME Longhorn volume (already live-patched to 2
   # replicas). Procedure: docs/runbooks/volsync-app-namespace-move.md.
-  #  - `ssa: IfNotPresent`: Flux skips the claim while it exists, so merging this
-  #    before the swap changes nothing live. NEVER remove it while the claim exists
+  #  - `ssa: IfNotPresent`: Flux skips the claim while it exists, so git changes to
+  #    it never reach the live claim. NEVER remove it while the claim exists
   #    (Flux owns f:volumeName -> immutable stall). Claim edits in git (capacity,
   #    class, labels) are then silently ignored; expand by hand and keep git equal:
   #    kubectl -n download patch pvc qbittorrent -p '{"spec":{"resources":{"requests":{"storage":"<size>"}}}}'
-  #  - `volumeName`: TEMPORARY, only for the re-create. Drop it in the batch
-  #    follow-up PR once the swap is done; left in, a rebuilt cluster would wait
-  #    forever for a PV that no longer exists.
+  #  - The temporary `volumeName` pin used for the re-create was dropped once the
+  #    swap was done (2026-10-03); a rebuilt cluster now re-creates the claim
+  #    unpinned.
   # Targeted by NAME (the data claim is literally `${APP}` at build time) so any
   # other claim in this app (media NFS, caches) is left alone.
   - target:
@@ -40,5 +40,3 @@ patches:
         name: not-used
         annotations:
           kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
-      spec:
-        volumeName: pvc-609c11bd-d528-4691-a822-4be27af421d6
