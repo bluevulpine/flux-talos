@@ -20,3 +20,16 @@ spec:
       - "172.16.8.0/24" # Cluster LoadBalancer pool (BGP advertised)
       - "10.25.52.0/22" # Additional subnet
       - "10.0.10.30/32" # VIP route
+      # Talos nodes, one /32 each (NOT the whole of VLAN 10, for the bulk-TCP
+      # reason above): talosctl needs each node's own apid on :50000 to read
+      # config, stream logs and run upgrades. Without these, a tailnet client can
+      # reach only the VIP, which is enough for kubectl but not for talosctl
+      # against a single node (found 2026-10-03 during the v1.13.11 roll).
+      - "10.0.10.31/32" # jormungandr1
+      - "10.0.10.32/32" # jormungandr2
+      - "10.0.10.33/32" # jormungandr3
+      - "10.0.10.34/32" # jormungandr4
+      - "10.0.10.35/32" # freyja01 (control plane)
+      - "10.0.10.38/32" # brokkr01
+      - "10.0.10.39/32" # brokkr02
+      - "10.0.10.40/32" # brokkr03
