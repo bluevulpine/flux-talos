@@ -20,3 +20,20 @@ spec:
       - "172.16.8.0/24" # Cluster LoadBalancer pool (BGP advertised)
       - "10.25.52.0/22" # Additional subnet
       - "10.0.10.30/32" # VIP route
+      # Talos nodes, one /32 each (keep in sync with talos/topf.yaml nodes[]).
+      # Through the VIP alone, apid on the control plane already proxies
+      # `talosctl -e 10.0.10.30 -n <node>` to any node. What these add: reaching
+      # freyja01 -- the ONLY control plane -- when the VIP is gone (its own
+      # upgrade/reboot, or etcd unhealthy), and direct `-e <node>` access, which
+      # Talos recommends over a VIP endpoint. Do not drop them as redundant.
+      # Still /32s rather than the /24 (least privilege), although the MSS clamp
+      # in mss-clamp-cronjob.yaml (2026-09-28) now addresses the 2026-08-31
+      # bulk-TCP drops described above.
+      - "10.0.10.31/32" # jormungandr1
+      - "10.0.10.32/32" # jormungandr2
+      - "10.0.10.33/32" # jormungandr3
+      - "10.0.10.34/32" # jormungandr4
+      - "10.0.10.35/32" # freyja01 (control plane)
+      - "10.0.10.38/32" # brokkr01
+      - "10.0.10.39/32" # brokkr02
+      - "10.0.10.40/32" # brokkr03

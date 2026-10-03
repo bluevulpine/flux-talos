@@ -32,7 +32,7 @@ spec:
       GATUS_SERVICE: sabnzbd
       VOLSYNC_CAPACITY: 4Gi
       VOLSYNC_ACCESSMODES: ReadWriteOnce
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_CACHE_CLASS: longhorn-1-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass

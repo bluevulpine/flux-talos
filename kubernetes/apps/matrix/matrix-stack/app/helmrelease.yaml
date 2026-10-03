@@ -64,6 +64,35 @@ spec:
                 name: matrix-stack-matrix-authentication-service
                 annotations:
                   secret.reloader.stakater.com/reload: matrix-stack-secret
+          # Serve chat.${SECRET_DOMAIN_BLOG} from this Element Web with its own
+          # default homeserver (./element-web-bluevulpine.yaml). Strategic merge adds
+          # a volume and a subPath mount next to the chart's config.json; Reloader
+          # restarts the pod on ConfigMap edits, which is the only way they apply,
+          # because the entrypoint copies /app/config*.json once at start.
+          - target:
+              kind: Deployment
+              name: matrix-stack-element-web
+            patch: |-
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: matrix-stack-element-web
+                annotations:
+                  configmap.reloader.stakater.com/reload: element-web-bluevulpine
+              spec:
+                template:
+                  spec:
+                    volumes:
+                      - name: config-bluevulpine
+                        configMap:
+                          name: element-web-bluevulpine
+                    containers:
+                      - name: element-web
+                        volumeMounts:
+                          - name: config-bluevulpine
+                            mountPath: /app/config.chat.${SECRET_DOMAIN_BLOG}.json
+                            subPath: config.chat.${SECRET_DOMAIN_BLOG}.json
+                            readOnly: true
   values:
     # PERMANENT. Embedded in every user ID (@user:<serverName>) and room ID; per
     # the chart it "can not change after the initial deployment". The apex, delegated to

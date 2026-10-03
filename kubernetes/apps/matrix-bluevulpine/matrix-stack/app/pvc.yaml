@@ -1,0 +1,23 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.36.2-standalone-strict/persistentvolumeclaim-v1.json
+# Synapse media. A PLAIN claim, deliberately not components/volsync-claim: that
+# component pins a dataSourceRef to a VolSync ReplicationDestination
+# (${APP}-dst-local) which a kopiur-only app never creates. It exists to keep
+# MIGRATING PVCs byte-identical, and this one has nothing to migrate.
+#
+# Consequence: delete-and-recreate comes up EMPTY. Recovery is a manual kopiur
+# Restore (README). The planned components/kopiur-claim is the eventual fix.
+#
+# longhorn-2-replica: chosen at creation, where it is free; changing it later
+# means the re-bind procedure (reference_longhorn_sc_rebind_no_restore).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: synapse-media
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: longhorn-2-replica

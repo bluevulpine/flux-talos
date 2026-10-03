@@ -1,0 +1,86 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
+# Second homeserver, bluevulpine.net. Same two-step shape as
+# kubernetes/apps/matrix/matrix-stack: the databases exist (and pass the C
+# collation assertion) before Synapse/MAS start. Design:
+# docs/superpowers/specs/2026-10-02-matrix-bluevulpine-design.md
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app matrix-stack-db
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: matrix-stack
+  dependsOn:
+    # NOTE the `18` suffix — there is no `cloudnative-pg-cluster` Kustomization, and
+    # Flux parks silently on a missing dependsOn target.
+    - name: cloudnative-pg-cluster18
+      namespace: database
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+  path: ./kubernetes/apps/matrix-bluevulpine/matrix-stack/db
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: matrix-bluevulpine
+  # wait: the Job is health-checked, so this is Ready only once the databases exist.
+  wait: true
+  # The Job deletes itself and every reconcile recreates it, re-syncing role passwords.
+  interval: 1h
+  retryInterval: 2m
+  timeout: 5m
+  postBuild:
+    substitute:
+      APP: *app
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app matrix-stack
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    - name: matrix-stack-db
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed webhook
+    # until the ClusterRepositories (and their allowedNamespaces) exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
+  path: ./kubernetes/apps/matrix-bluevulpine/matrix-stack/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: matrix-bluevulpine
+  wait: false
+  interval: 30m
+  retryInterval: 1m
+  timeout: 10m
+  postBuild:
+    substitute:
+      # APP names the media PVC and its kopiur policies (components/kopiur), which
+      # is why it is not the Kustomization name.
+      APP: synapse-media
+      # NS is kopiur's snapshot identity hostname (synapse-media@matrix-bluevulpine:/data).
+      # It has no default, so it must be set.
+      NS: matrix-bluevulpine
+      # Synapse holds the RWO volume, so the mover cannot co-mount it: snapshot it.
+      KOPIUR_COPYMETHOD: Snapshot
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
+      # Mover runs as Synapse's own uid/gid (chart default 10091), not root.
+      # (VOLSYNC_RUN_AS_* in the derekjacobs.dev instance do nothing for kopiur.)
+      KOPIUR_RUN_AS_USER: "10091"
+      KOPIUR_RUN_AS_GROUP: "10091"
+      KOPIUR_FS_GROUP: "10091"
+      # H picks the minute per schedule. R2 hour 6 is one of the two least-used
+      # H hours, and the derekjacobs.dev instance's hour.
+      KOPIUR_LOCAL_CRON: "H */2 * * *"
+      KOPIUR_R2_CRON: "H 6 * * *"

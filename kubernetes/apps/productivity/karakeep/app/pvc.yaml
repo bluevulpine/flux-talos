@@ -3,11 +3,17 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: karakeep-meili
+  annotations:
+    # Same move as the data claim (see app/kustomization.yaml): IfNotPresent so
+    # this re-created claim is never re-applied; NEVER remove it while the claim
+    # exists. The temporary volumeName pin used for the re-create was dropped
+    # once the swap was done (2026-10-02).
+    kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 5Gi
-  storageClassName: longhorn-1-replica
+  storageClassName: longhorn-2-replica
 

@@ -148,13 +148,16 @@ spec:
         - --store.enable-index-header-lazy-reader
       persistence: *persistence
       podAnnotations: *podAnnotations
-      # Reverted to the original 512Mi/1Gi: the earlier 2Gi limit only gave the
-      # reclaimable index-header page cache more room to expand into and caused
-      # the OOM-imminent alert. With the lazy reader above, 1Gi is comfortable
-      # (these replicas ran at ~400Mi working_set under a 1Gi limit for months).
+      # 1.5Gi limit. The lazy reader above fixed the eager-mmap page-cache problem,
+      # but a single replica now serves all store-API load and it OOMKilled
+      # repeatedly 2026-09-26..10-01: working_set peaked at 0.96GiB against the
+      # old 1Gi limit (Thanos, kube_pod_container_status_last_terminated_reason).
+      # The earlier "~400Mi for months" figure was likely the two-replica era.
+      # A 2Gi limit was tried before and just gave reclaimable index-header page
+      # cache room to grow into (OOM-imminent alert), so step to 1.5Gi and watch.
       resources:
         requests:
           cpu: 10m
           memory: 512Mi
         limits:
-          memory: 1Gi
+          memory: 1536Mi

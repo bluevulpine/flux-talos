@@ -194,6 +194,9 @@ metadata:
 spec:
   hostnames:
     - "chat.${SECRET_DOMAIN}"
+    # Same Element Web, defaulting to the bluevulpine.net homeserver via
+    # ./element-web-bluevulpine.yaml.
+    - "chat.${SECRET_DOMAIN_BLOG}"
   parentRefs:
     - name: internal
       namespace: network

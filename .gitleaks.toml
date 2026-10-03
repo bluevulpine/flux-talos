@@ -19,3 +19,15 @@ the guard's refusal messages never echo manifest content; it is not a credential
 Allowlisted by path so re-vendoring stays clean.
 """
 paths = ['''\.claude/move-workload/guards/kn-guard\.test\.sh''']
+
+[[allowlists]]
+description = """
+Element Web's own public MapTiler key, shipped as the ESS matrix-stack chart's
+default map_style_url and copied verbatim into the per-host Element config
+(kubernetes/apps/matrix/matrix-stack/app/element-web-bluevulpine.yaml). It is
+Element's key, served to every browser that loads Element; not a credential of
+ours. Allowlisted by the exact URL, NOT by path, so a real secret added to that
+file is still caught. If the chart changes the key, update both.
+"""
+regexTarget = "line"
+regexes = ['''api\.maptiler\.com/maps/streets/style\.json\?key=fU3vlMsMn4Jb6dnEIFsx''']

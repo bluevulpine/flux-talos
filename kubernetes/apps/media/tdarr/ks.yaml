@@ -42,7 +42,7 @@ spec:
       # in 3h. That held from the external node AND from inside the pod on
       # 0.0.0.0, so it was not the network, and the server CPU sat idle. Same failure and same fix as jellyfin (#1703). RWO specifically:
       # Longhorn RWX is itself NFS, via a share-manager pod.
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
       VOLSYNC_ACCESSMODES: ReadWriteOnce

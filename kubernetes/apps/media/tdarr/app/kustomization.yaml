@@ -12,3 +12,28 @@ components:
   - ../../../../components/volsync-claim
   - ../../../../components/volsync-backup
 
+patches:
+  # Moving the data claim to longhorn-2-replica WITHOUT a restore: storageClassName
+  # is immutable on a bound PVC, so the claim is deleted (PV on Retain) and Flux
+  # re-creates it pre-bound to the SAME Longhorn volume (already live-patched to 2
+  # replicas). Procedure: docs/runbooks/volsync-app-namespace-move.md.
+  #  - `ssa: IfNotPresent`: Flux skips the claim while it exists, so git changes to
+  #    it never reach the live claim. NEVER remove it while the claim exists
+  #    (Flux owns f:volumeName -> immutable stall). Claim edits in git (capacity,
+  #    class, labels) are then silently ignored; expand by hand and keep git equal:
+  #    kubectl -n media patch pvc tdarr -p '{"spec":{"resources":{"requests":{"storage":"<size>"}}}}'
+  #  - The temporary `volumeName` pin used for the re-create was dropped once the
+  #    swap was done (2026-10-03); a rebuilt cluster now re-creates the claim
+  #    unpinned.
+  # Targeted by NAME (the data claim is literally `${APP}` at build time) so any
+  # other claim in this app (media NFS, caches) is left alone.
+  - target:
+      kind: PersistentVolumeClaim
+      name: \$\{APP\}
+    patch: |-
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: not-used
+        annotations:
+          kustomize.toolkit.fluxcd.io/ssa: IfNotPresent

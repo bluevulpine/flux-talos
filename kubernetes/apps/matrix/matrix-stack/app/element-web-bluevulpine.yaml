@@ -1,0 +1,48 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.36.2-standalone-strict/configmap-v1.json
+# Per-hostname Element Web config: the one Element Web serves chat.${SECRET_DOMAIN_BLOG}
+# too, defaulting it to the bluevulpine.net homeserver
+# (kubernetes/apps/matrix-bluevulpine). Element loads config.<window.location.hostname>.json
+# and falls back to config.json on 404. It does NOT merge the two: this file
+# REPLACES config.json for that host.
+#
+# DRIFT: a copy of the chart-rendered config.json (chart 26.9.4) with only
+# default_server_config changed. On chart upgrades, re-diff it against
+#   kubectl -n matrix get cm matrix-stack-element-web -o jsonpath='{.data.config\.json}'
+# the same way the HTTPRoute paths are re-diffed.
+#
+# map_style_url carries Element's own public MapTiler key, shipped as a chart
+# default; it is not a credential of ours.
+#
+# Mounted by the 4th postRenderer patch in ./helmrelease.yaml, which also adds the
+# Reloader annotation. Element's entrypoint copies /app/config*.json once at start,
+# so an edit here takes effect only through that restart.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: element-web-bluevulpine
+data:
+  config.chat.${SECRET_DOMAIN_BLOG}.json: |-
+    {
+      "bug_report_endpoint_url": "https://rageshakes.element.io/api/submit",
+      "default_server_config": {
+        "m.homeserver": {
+          "base_url": "https://matrix.${SECRET_DOMAIN_BLOG}",
+          "server_name": "${SECRET_DOMAIN_BLOG}"
+        }
+      },
+      "embedded_pages": {
+        "login_for_welcome": true
+      },
+      "map_style_url": "https://api.maptiler.com/maps/streets/style.json?key=fU3vlMsMn4Jb6dnEIFsx",
+      "mobile_guide_app_variant": "element",
+      "setting_defaults": {
+        "UIFeature.deactivate": false,
+        "UIFeature.passwordReset": false,
+        "UIFeature.registration": false,
+        "urlPreviewsEnabled": true
+      },
+      "sso_redirect_options": {
+        "immediate": false
+      }
+    }

@@ -8,3 +8,28 @@ resources:
 components:
   - ../../../../components/volsync-claim
   - ../../../../components/volsync-backup
+
+patches:
+  # The data claim is created IfNotPresent: on a fresh cluster Flux creates it from
+  # the manifest, so it restores from backup (the DR path rehearsed in
+  # docs/runbooks/volsync-app-namespace-move.md, "Retiring the permanent pin"); on
+  # this cluster Flux skips it because it already exists. This replaces the
+  # temporary `volumeName` pin used to move the claim to its current StorageClass.
+  # Consequences -- read before editing:
+  #  1. NEVER remove this annotation while the claim exists: Flux owns
+  #     f:volumeName, so the next apply without it stalls on the immutable field.
+  #  2. Claim edits in git (VOLSYNC_CAPACITY, storageClassName, labels) are silently
+  #     ignored. Expand by hand and keep git equal:
+  #     kubectl -n <ns> patch pvc scrypted -p '{"spec":{"resources":{"requests":{"storage":"<size>"}}}}'
+  #  3. Drift is silent: a changed desired class/volumeName raises no event.
+  # The kind-only target is safe ONLY while this app has exactly one
+  # PersistentVolumeClaim -- a second claim would silently get IfNotPresent too
+  # (nextcloud has two and targets the data claim by name).
+  - target: {kind: PersistentVolumeClaim}
+    patch: |-
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: not-used
+        annotations:
+          kustomize.toolkit.fluxcd.io/ssa: IfNotPresent

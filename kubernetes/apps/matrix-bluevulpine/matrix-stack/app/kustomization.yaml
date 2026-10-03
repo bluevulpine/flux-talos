@@ -1,0 +1,26 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ./ocirepository.yaml
+  - ./externalsecret.yaml
+  - ./helmrelease.yaml
+  - ./pvc.yaml
+  - ./httproute.yaml
+  - ./dnsendpoint.yaml
+components:
+  # Backups only. The PVC is ./pvc.yaml, not components/volsync-claim (see there).
+  - ../../../../components/kopiur
+patches:
+  # Stage snapshot restores on 1 replica. Staged PVCs otherwise inherit the source
+  # class, and every local run (~12/day) would clone a 20Gi 2-REPLICA volume only
+  # to read it once and delete it ("replica churn on a throwaway volume",
+  # components/kopiur/local.yaml).
+  - target:
+      group: kopiur.home-operations.com
+      kind: SnapshotPolicy
+    patch: |-
+      - op: add
+        path: /spec/staging/storageClassName
+        value: longhorn-1-replica
