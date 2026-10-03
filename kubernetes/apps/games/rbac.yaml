@@ -1,0 +1,66 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/master-standalone/role-rbac-v1.json
+# Namespaced operator access for the hermes agent (SA hermes/ai) in `games`.
+# Granted so Bosun can archive, reset and restart game-server saves (valheim
+# world reset) without a human running kubectl. Deliberately namespaced: the
+# cluster-wide hermes-agent-reader role stays read-only. Secrets are NOT
+# included. Widen per namespace as concrete needs appear.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hermes-agent-operator
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - "pods/exec"
+    verbs:
+      - "create"
+  - apiGroups:
+      - ""
+    resources:
+      - "pods"
+    verbs:
+      - "delete"
+  - apiGroups:
+      - "apps"
+    resources:
+      - "deployments"
+    verbs:
+      - "patch"
+  - apiGroups:
+      - "apps"
+    resources:
+      - "deployments/scale"
+    verbs:
+      - "get"
+      - "patch"
+      - "update"
+  - apiGroups:
+      - "batch"
+    resources:
+      - "jobs"
+    verbs:
+      - "create"
+      - "delete"
+  - apiGroups:
+      - "volsync.backube"
+    resources:
+      - "replicationsources"
+      - "replicationdestinations"
+    verbs:
+      - "patch"
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/master-standalone/rolebinding-rbac-v1.json
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hermes-agent-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: hermes-agent-operator
+subjects:
+  - kind: ServiceAccount
+    name: hermes
+    namespace: ai
