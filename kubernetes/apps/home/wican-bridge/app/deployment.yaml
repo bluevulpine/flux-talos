@@ -62,9 +62,12 @@ spec:
               subPath: telegraf.conf
               readOnly: true
           resources:
-            requests: {cpu: 10m, memory: 48Mi}
+            # ~130 MB is the real working set (mostly the executed binary, see below),
+            # so request it: at 48Mi this pod looked cheap to the scheduler and was
+            # first in line for kubelet memory-pressure eviction on the Pis.
+            requests: {cpu: 10m, memory: 160Mi}
             # The memory limit must cover telegraf's BINARY, not just its heap:
-            # the telegraf:1.40 image ships a 286 MB /usr/bin/telegraf, and the
+            # the telegraf:1.40-alpine image ships a 286 MB /usr/bin/telegraf, and the
             # file pages it executes are charged to this cgroup. At 128Mi a cold
             # page cache (e.g. right after a node reboot) meant the binary could
             # never stay resident: the kernel spent ~95% of the 200m CPU quota
