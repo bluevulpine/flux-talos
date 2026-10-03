@@ -27,8 +27,7 @@ patches:
   # kopiur app: the claim's dataSourceRef RD is inert; a rebuild restores via
   # kopiur (docs/runbooks/kopiur-migration.md).
   # The kind-only target is safe ONLY while this app has exactly one
-  # PersistentVolumeClaim -- a second claim would silently get the pin and
-  # IfNotPresent too.
+  # PersistentVolumeClaim -- a second claim would silently get IfNotPresent too.
   - target: {kind: PersistentVolumeClaim}
     patch: |-
       apiVersion: v1
