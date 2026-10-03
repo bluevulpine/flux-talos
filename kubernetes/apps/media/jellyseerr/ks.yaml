@@ -30,7 +30,7 @@ spec:
       NS: media
       GATUS_SUBDOMAIN: requests
       VOLSYNC_CAPACITY: 4Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       # Low criticality: request queue, not critical - backup every 2 hours
       # kopiur (components/kopiur). H picks a minute per schedule; the hours are

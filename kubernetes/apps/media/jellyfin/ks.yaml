@@ -27,7 +27,7 @@ spec:
       GATUS_PORT: "8096"
       GATUS_SERVICE: jellyfin
       VOLSYNC_CAPACITY: 32Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
       VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
       VOLSYNC_ACCESSMODES: ReadWriteOnce

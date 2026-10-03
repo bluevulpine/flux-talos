@@ -35,7 +35,7 @@ spec:
       GATUS_PORT: "7654"
       GATUS_SERVICE: ev-charge-tracker
       VOLSYNC_CAPACITY: 2Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       # ReadWriteOnce + Snapshot (KOPIUR_COPYMETHOD), not the RWX + Direct default that
       # identity/vaultwarden uses. RWX on Longhorn is served by a
       # share-manager NFS export, and this app puts its single SQLite file

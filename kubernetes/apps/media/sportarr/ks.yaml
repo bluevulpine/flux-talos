@@ -56,7 +56,7 @@ spec:
       # datasets behind Bound PVs; docs/runbooks/volsync-mover-stuck.md). An
       # empty hour and a forbidden one look the same in a census of slots.
       VOLSYNC_CAPACITY: 4Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       # kopiur (components/kopiur). H picks a minute per schedule; the hours are
       # the ones VolSync used before the cutover.

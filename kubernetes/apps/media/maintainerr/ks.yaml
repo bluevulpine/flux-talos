@@ -43,7 +43,7 @@ spec:
       # all: losing it does not just lose configuration, it removes the record
       # of which media was deliberately protected from deletion.
       VOLSYNC_CAPACITY: 4Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       # `USER node` in Maintainerr's Dockerfile. Read out of the pinned image
       # layer rather than inferred from the base image's convention:

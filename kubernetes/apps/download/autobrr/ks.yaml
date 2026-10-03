@@ -33,7 +33,7 @@ spec:
       GATUS_PORT: "7474"
       GATUS_SERVICE: autobrr
       VOLSYNC_CAPACITY: 1Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       # Low criticality: config-only - backup every 4 hours
       # kopiur (components/kopiur). H picks a minute per schedule; the hours are
