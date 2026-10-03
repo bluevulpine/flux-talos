@@ -18,9 +18,10 @@
 # Column-limited on purpose -- task_payload and result_metadata hold memory
 # content. Applied by hand on 2026-10-03, on the primary (replicas get it via
 # replication):
-#   kubectl -n database exec <primary> -c postgres -- psql -U postgres -d hindsight -c \
-#     "grant select (operation_id, status, claimed_at, created_at)
-#      on public.async_operations to cnpg_metrics_exporter"
+#   kubectl -n database exec "$(kubectl -n database get pod -o name \
+#     -l cnpg.io/cluster=postgres18,cnpg.io/instanceRole=primary)" -c postgres -- \
+#     psql -U postgres -d hindsight -c "grant select (operation_id, status,
+#     claimed_at, created_at) on public.async_operations to cnpg_metrics_exporter"
 # A hindsight migration that recreates the table drops it; then
 # HindsightOperationAgeMetricMissing fires and this is the fix.
 #
