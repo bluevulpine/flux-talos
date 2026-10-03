@@ -35,7 +35,7 @@ spec:
       GATUS_PORT: "80"
       GATUS_SERVICE: grocy
       VOLSYNC_CAPACITY: 2Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
       # Low criticality: inventory, infrequent changes - backup every 2 hours
       # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's

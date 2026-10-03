@@ -13,3 +13,31 @@ components:
   # volsync-claim stays: it owns the PVC and its (now inert) dataSourceRef.
   - ../../../../components/kopiur
 
+patches:
+  # Moving the data claim to longhorn-2-replica WITHOUT a restore: storageClassName
+  # is immutable on a bound PVC, so the claim is deleted (PV on Retain) and Flux
+  # re-creates it pre-bound to the SAME Longhorn volume (already live-patched to 2
+  # replicas). See reference procedure in docs/runbooks/volsync-app-namespace-move.md.
+  #  - `ssa: IfNotPresent`: Flux skips the claim while it exists, so merging this
+  #    before the swap changes nothing live. NEVER remove it while the claim exists
+  #    (Flux owns f:volumeName -> immutable stall). Claim edits in git (capacity,
+  #    class, labels) are then silently ignored; expand by hand and keep git equal:
+  #    kubectl -n productivity patch pvc mealie -p '{"spec":{"resources":{"requests":{"storage":"<size>"}}}}'
+  #  - `volumeName`: TEMPORARY, only for the re-create. Drop it in the batch
+  #    follow-up PR once the swap is done; left in, a rebuilt cluster would wait
+  #    forever for a PV that no longer exists.
+  # kopiur app: the claim's dataSourceRef RD is inert; a rebuild restores via
+  # kopiur (docs/runbooks/kopiur-migration.md).
+  # The kind-only target is safe ONLY while this app has exactly one
+  # PersistentVolumeClaim -- a second claim would silently get the pin and
+  # IfNotPresent too.
+  - target: {kind: PersistentVolumeClaim}
+    patch: |-
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: not-used
+        annotations:
+          kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
+      spec:
+        volumeName: pvc-e826c1bc-01cf-4f86-9347-5e34569d633b
