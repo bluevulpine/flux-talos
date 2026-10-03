@@ -87,6 +87,62 @@ spec:
           labels:
             severity: warning
 
+        # A job claimed by a worker that will never finish it. If hindsight loses
+        # its DB connection while a job's LLM call is in flight, the job fails
+        # but cannot record that, so the row stays `processing` with no worker
+        # behind it; hindsight never reclaims it, and every later job for that
+        # bank (or conversation) is serialised behind it. Seen 2026-10-01: two
+        # spark-setup jobs, ~40h, 12 jobs blocked -- invisible to
+        # HindsightRetainBacklog (> 50) because the rest of the queue drained.
+        #
+        # Metric: CNPG custom query in
+        # database/cloudnative-pg/cluster18/monitoring-hindsight.yaml (primary
+        # only, so max() across instances). 3h: a legitimate job is one or a
+        # few LLM calls capped at 16k output tokens, minutes each, and the
+        # longest consolidation seen after the cap was well under an hour.
+        - alert: HindsightOperationStuck
+          annotations:
+            summary: >-
+              A hindsight job has been `processing` for
+              {{ $value | humanizeDuration }} -- almost certainly orphaned (its
+              worker lost the DB mid-job), and every later job for that bank is
+              queued behind it. Find it:
+              `select operation_id, bank_id, operation_type, claimed_at from
+              async_operations where status='processing' order by claimed_at`
+              (database hindsight on the postgres18 primary). Check
+              `kubectl -n ai logs deploy/hindsight -c api | grep <operation_id>`
+              ends in DB errors rather than live WORKER_TASK lines, then
+              requeue it: `update async_operations set status='pending',
+              worker_id=null, claimed_at=null, updated_at=now() where
+              operation_id='<id>' and status='processing'`.
+          expr: |
+            max(cnpg_hindsight_async_ops_oldest_age_seconds{namespace="database", status="processing"}) > 3 * 3600
+          for: 15m
+          labels:
+            severity: warning
+
+        # HindsightOperationStuck reads a series that only exists while the CNPG
+        # custom query succeeds. A hindsight upgrade that renames
+        # async_operations, status or claimed_at, or a move of the hindsight
+        # database, would make it vanish and the alert above go quietly blind --
+        # the original failure all over again. The VALUES join keeps the series
+        # present at 0 on an empty queue, so absence means the query is broken.
+        # 1h rides out a primary failover.
+        - alert: HindsightOperationAgeMetricMissing
+          annotations:
+            summary: >-
+              cnpg_hindsight_async_ops_oldest_age_seconds is missing, so
+              HindsightOperationStuck cannot fire. Check the postgres18 primary's
+              instance-manager log for the hindsight_async_ops query error and
+              compare the query in
+              database/cloudnative-pg/cluster18/monitoring-hindsight.yaml with
+              hindsight's current async_operations schema.
+          expr: |
+            absent(cnpg_hindsight_async_ops_oldest_age_seconds{namespace="database", status="processing"})
+          for: 1h
+          labels:
+            severity: warning
+
         # Consolidation fires after every retain and dedups against the whole
         # bank. Permanent failures are recoverable via the consolidation recovery
         # endpoint, but nothing retries them on its own beyond the 300s reconcile

@@ -1,0 +1,45 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.36.2-standalone-strict/configmap-v1.json
+# Custom CNPG exporter query for hindsight's job queue, read by the
+# HindsightOperationStuck alert (kubernetes/apps/ai/hindsight/app/prometheusrule.yaml).
+#
+# Why SQL and not hindsight's own /metrics: hindsight_async_operations exports
+# counts by status but no age, and a stuck job looks exactly like a busy one by
+# count. On 2026-10-01 a few seconds of DB connection errors (PermissionError
+# on pool acquire, cause not pinned down) left two spark-setup jobs marked
+# `processing` with no worker behind them; hindsight never reclaims those, and
+# everything else for that bank queued behind them for ~40h. Only 14 jobs were
+# waiting, far under HindsightRetainBacklog's > 50.
+#
+# One row per status, always (the VALUES join), so the series exist at 0 and
+# never go absent when the queue is empty. ~12 ms on ~20k rows; primary only.
+# Exported as cnpg_hindsight_async_ops_{count,oldest_age_seconds}{status=...}.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres18-monitoring-hindsight
+  labels:
+    # Instances pick up edits without `kubectl cnpg reload`.
+    cnpg.io/reload: "true"
+data:
+  queries: |-
+    hindsight_async_ops:
+      primary: true
+      target_databases: ["hindsight"]
+      query: |
+        SELECT s.status,
+               count(o.operation_id) AS count,
+               coalesce(extract(epoch FROM now() - min(coalesce(o.claimed_at, o.created_at))), 0) AS oldest_age_seconds
+        FROM (VALUES ('pending'), ('processing')) AS s(status)
+        LEFT JOIN async_operations o ON o.status = s.status
+        GROUP BY s.status
+      metrics:
+        - status:
+            usage: LABEL
+            description: hindsight async_operations status
+        - count:
+            usage: GAUGE
+            description: Number of hindsight operations in this status
+        - oldest_age_seconds:
+            usage: GAUGE
+            description: Seconds since the oldest operation in this status was claimed (processing) or created (pending); 0 when none
