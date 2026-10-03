@@ -1,121 +1,154 @@
-# Hermes on Matrix — Bosun pilot and per-profile secret pattern
+# Hermes on Matrix: Bosun pilot and the per-profile secret pattern
 
-**Status:** approved design (2026-10-03)  
-**Follows:** [2026-10-02-matrix-bluevulpine-design.md](2026-10-02-matrix-bluevulpine-design.md). That spec made derekjacobs.dev the agent space and bluevulpine.net Derek's external identity, and it deferred "bots and agents on the homeservers" to a later piece of work. This is that work.
+**Status:** approved design (2026-10-03), revised after an adversarial review against the live pod's source.
+
+**Follows:** [2026-10-02-matrix-bluevulpine-design.md](2026-10-02-matrix-bluevulpine-design.md). That spec made derekjacobs.dev the agent space and bluevulpine.net Derek's external identity, and deferred "bots and agents on the homeservers". This spec picks that up.
 
 ## Intent
 
-Derek's agents should be reachable on Matrix, and be able to speak there. Five agents are in scope, all expected to run as **Hermes profiles**:
+Derek's agents should be reachable on Matrix, and able to speak there. Five agents are expected to run as **Hermes profiles**:
 
-- **Bosun**, which runs on Hermes today.
-- **Fizz, Pollen, Honey and Wasp**, which run in the Buzz harness today and will move to Hermes later ("probably not forever" on Buzz).
+- **Bosun** runs on Hermes today.
+- **Fizz, Pollen, Honey and Wasp** run in the Buzz harness today and will move to Hermes later ("probably not forever" on Buzz).
 
-Before onboarding four agents, two things need to be settled and proven once, on real infrastructure:
+Two questions should be settled once, on real infrastructure, before onboarding four agents:
 
-1. **Topology:** one Hermes container serving several profiles, or one container per agent.
-2. **Plumbing:** how a profile gets its own Matrix identity and credentials, with encryption working end to end.
+1. **Topology:** one Hermes container serving several profiles, or one container per agent?
+2. **Plumbing:** how does a profile get its own Matrix identity and credentials, with encryption working end to end?
 
-This spec is the pilot that settles both. It does **not** onboard Fizz, Pollen, Honey or Wasp; that comes afterwards, by following the pattern this pilot proves.
+This spec is the pilot that answers both. It does **not** onboard Fizz, Pollen, Honey or Wasp; they follow the pattern it proves.
 
-## Decisions (settled before this spec)
+**Source of truth for behaviour claims:** the source **in the running image** (`/opt/hermes`, Hermes v0.21.4 / 2026.9.21). The image ships no `website/docs`. A newer local checkout behaves differently in ways that matter, notably the multiplex default on s6 hosts and per-profile parking. Every claim below cites pod source.
+
+## Decisions
 
 | Decision | Choice | Why |
 |---|---|---|
-| Harness for agents on Matrix | **Hermes' built-in Matrix gateway** (`plugins/platforms/matrix`, mautrix) | Already ships E2EE, a stable device ID, cross-signing, mention gating and allowlists. Agents can be woken from Matrix out of the box, with no custom MCP server or bridge to build. A Buzz-specific bridge would be thrown away when the agents move. |
-| Topology | **One `ai/hermes` multiplexer, one profile per agent** | Hermes ≥ 2026.9 makes multiplexing the default (`gateway.multiplex_profiles`), and per-profile gateways are being retired: a named profile's `gateway install` exits 78. Each profile keeps its own secrets, `state.db`, memory, SOUL and adapters. Verified in the live pod: v0.21.4 (2026.9.21) has `gateway_multiplex_mode.py` and `secret_scope.py`. |
-| Matrix identity | **One MAS account per agent, one device per process** | `mas-cli manage register-user` plus `issue-compatibility-token <user> <DEVICE_ID>`. No Authentik user is needed, and Authentik is browser-only anyway. Naming devices per process means adding a second consumer later only takes a second token for the same account. |
-| Encryption | **E2EE required** | Element encrypts DMs by default, and Derek will talk to the agents from `@bluevulpine:bluevulpine.net`. Without encryption, every agent conversation would need a workaround. The image already has mautrix 0.21.1 and python-olm. |
-| Pilot subject | **Bosun**, plus a **throwaway named profile `canary`** | Bosun is the default profile, so its secrets come in as process env. Named profiles **cannot** use process env under multiplexing (see below). `canary` exercises the mechanism the four agents will actually depend on, before the first of them does. |
+| How agents get onto Matrix | **Hermes' built-in Matrix gateway** (`plugins/platforms/matrix`, mautrix 0.21.1) | It already does E2EE, a stable device ID, cross-signing bootstrap, mention gating and allowlists, so agents can be woken from Matrix with nothing custom built. A Buzz-specific bridge would be thrown away when the agents move. |
+| Topology | **One `ai/hermes` multiplexer, one profile per agent, multiplexing set *explicitly*** | Per-profile isolation (secret scope, `state.db`, memory, SOUL, adapters) is real in v0.21.4. The *implicit* default does **not** turn multiplexing on in this pod: `implicit_multiplex_blocker()` calls `_host_supports_migration()`, which refuses on s6 hosts, and PID 1 here is `s6-svscan`. An explicit `GATEWAY_MULTIPLEX_PROFILES=true` bypasses that check (`gateway_multiplex_mode.py`: `if current: return MultiplexDecision(True, "config")`). |
+| Matrix identity | **One MAS account per agent, one device per process** | Created with `mas-cli manage register-user` and `issue-compatibility-token <user> <DEVICE_ID>`. The adapter uses the token through `whoami()` and never logs in itself. An `MATRIX_DEVICE_ID` that matches the token's device is accepted; if they differ, the token's device wins and an error is logged (`adapter.py:1124-1145`). |
+| Encryption | **E2EE required** | Element encrypts DMs by default, and Derek will talk to the agents from `@bluevulpine:bluevulpine.net`. `olm`, `aiosqlite` and the mautrix crypto store all import cleanly in the pod. |
+| Pilot subjects | **Bosun** (the default profile) and a throwaway named profile, **`canary`** | Named profiles cannot borrow the launch scope (`secret_scope.py:159-164`). `canary` exercises the mechanism the four agents will depend on, before the first of them does. |
 
-## How Hermes resolves a profile's secrets (the constraint that shapes this design)
+## How a profile's secrets resolve (verified in `/opt/hermes`)
 
-From `website/docs/developer-guide/multiplexing-gateway.md` and `agent/secret_scope.py` in the running version:
-
-- Under multiplexing, each turn and each adapter runs inside a secret scope built from **that profile's** `.env` and its configured secret sources. Nothing is ever written to `os.environ`.
-- The process environment is frozen as the **launch (default) profile's** credentials. A named profile resolves from its own files only. A secret it lacks is **absent**; it is never borrowed from the default profile.
-- Today every credential reaches the pod through `envFrom: hermes-secret`, which is process env. That works for Bosun and **cannot** work for a named profile.
-
-So a named profile needs its credentials delivered as a file it owns, or through a secret source.
+- **Default (launch) profile:** under multiplexing its scope is the frozen process environment **plus `/opt/data/.env`, and `.env` wins on conflict** (`tui_gateway/launch_profile_policy.py:129-145`).
+  - The `envFrom: hermes-secret` Secret holds only `API_SERVER_KEY` and `HERMES_DASHBOARD_OIDC_CLIENT_ID`. Bosun's provider credentials live in `/opt/data/.env` and `auth.json` on the PVC.
+  - This design makes OpenBao the source of truth **for the Matrix keys only**. `/opt/data/.env` must never gain `MATRIX_*` entries, because a copy there would shadow OpenBao. It has none today.
+- **Named profile:** its scope comes from **its own** `.env` and its configured secret sources, and never from the process environment.
+  - A `secrets.command` source in the profile's own `config.yaml` runs **per profile and scoped to it**. It is loaded lazily when that profile's config is first loaded, latched per profile home on success and retried on failure (`run_adapters.py:958-961`, `env_loader.py:114-176`).
+  - It runs **once per process lifetime**, so a changed file is only picked up after a restart.
+  - `override_existing` is set per source and defaults to `false` (`command.py:165`).
+- **The Matrix adapter** reads every credential and identity value through the scoped reader, never `os.environ` (`adapter.py:48, 842-848`). Within a scope, a missing value falls back to the adapter's default, never to another profile's value.
 
 ## Design
 
 ### 1. Matrix identities (derekjacobs.dev, namespace `matrix`)
 
-| Profile | Matrix user | Device | Admin |
-|---|---|---|---|
-| Bosun (default) | `@bosun:derekjacobs.dev` | `BOSUN-HERMES` | no |
-| canary (throwaway) | `@canary:derekjacobs.dev` | `CANARY-HERMES` | no |
+| Profile | Matrix user | Device ID |
+|---|---|---|
+| Bosun (default profile) | `@bosun:derekjacobs.dev` | `BOSUNHERMES` |
+| canary (throwaway) | `@canary:derekjacobs.dev` | `CANARYHERMES` |
 
-Create them with `mas-cli manage register-user -y -d <Display> <user>`, then `mas-cli manage issue-compatibility-token <user> <DEVICE>`. **Never** pass `--yes-i-want-to-grant-synapse-admin-privileges`.
-
-**Derek runs the token step.** The agent's session is not allowed to write generated credentials into OpenBao. The token is piped straight into `bao kv patch` and never printed.
+- Device IDs are plain alphanumeric. Whether MAS 1.26 accepts hyphens is unverified, and nothing is gained by finding out.
+- Commands: `mas-cli manage register-user -y -d <Display> <user>`, then `mas-cli manage issue-compatibility-token <user> <DEVICE>`.
+- **Never** pass `--yes-i-want-to-grant-synapse-admin-privileges`.
+- **Derek runs the token step.** It pipes straight into `bao kv patch` and never prints the token. The agent's session is not permitted to write generated credentials into OpenBao.
 
 ### 2. Secret delivery
 
 | | Bosun (default profile) | canary (named profile) |
 |---|---|---|
-| OpenBao | `secret/hermes`, new fields `Hermes__Matrix__AccessToken`, `Hermes__Matrix__RecoveryKey` | `secret/hermes-canary`, same field names |
-| ExternalSecret | existing `hermes-secret`, with `MATRIX_ACCESS_TOKEN` and `MATRIX_RECOVERY_KEY` added to the template | new `hermes-profile-canary`, rendering **one key**, `profile.env`, which holds the profile's `KEY=VALUE` lines |
-| In the pod | `envFrom` (unchanged) | Secret mounted read-only **as a directory** at `/run/hermes-profiles/canary/`. Not `subPath`: a subPath mount never receives Secret updates. |
-| How Hermes reads it | process env | the profile's `config.yaml`: `secrets.command.enabled: true`, `command: "cat /run/hermes-profiles/canary/profile.env"`, `override_existing: true` |
-| Rotation | Reloader restarts the pod (`reloader.stakater.com/auto: "true"` is already on the controller) | the same. The command source runs **once at startup**, so the restart is what applies a new value. |
+| OpenBao | `secret/hermes`: `Hermes__Matrix__AccessToken`, `Hermes__Matrix__RecoveryKey` | `secret/hermes-canary`: the same two fields, plus a provider key (see below) |
+| ExternalSecret | the existing `hermes-secret` template gains `MATRIX_ACCESS_TOKEN`, `MATRIX_RECOVERY_KEY`, `MATRIX_RECOVERY_KEY_OUTPUT_FILE` | new `hermes-profile-canary`, which renders **one key**, `profile.env` (`KEY=VALUE` lines) |
+| In the pod | `envFrom` (unchanged mechanism) | mounted read-only **as a directory** at `/run/hermes-profiles/canary/` with `defaultMode: 0440`, **not** with `subPath`, which never receives Secret updates |
+| How Hermes reads it | launch scope (process env) | canary's `config.yaml`: `secrets.command: {enabled: true, command: "cat /run/hermes-profiles/canary/profile.env", override_existing: true}` |
+| Rotation | Reloader rolls the pod (`reloader.stakater.com/auto: "true"` is already set) | the same; the source reads once per process, so the roll is what applies the change |
 
-**Why not mount into the profile's `.env`:**
-- Hermes writes to its own `.env` (`save_env_value`, `/pair`, setup flows), so a read-only mount there breaks those writes.
-- A copy written onto the PVC would drift from OpenBao.
+- **Why `/run` and `0440` work:**
+  - The root filesystem is a writable overlay, and `/run` is not a tmpfs.
+  - The service-account token already mounts under `/run/secrets` and survives s6, which only uses `/run/s6*` and `/run/service`.
+  - The gateway runs as uid/gid 10000 with group 10000 (`fsGroup`) and no capabilities, so a group-readable `0440` file is readable and nothing more is granted.
+- **Why not mount into the profile's `.env`:**
+  - Hermes writes its own `.env` (`save_env_value`, `/pair`, setup), so a read-only mount breaks those writes.
+  - A copy on the PVC would drift from OpenBao.
+- **canary needs its own model credential.** Named profiles never borrow the launch scope, so without one canary would connect to Matrix but fail every turn. Its `profile.env` carries a provider key; a dedicated LiteLLM virtual key, low budget, is preferred.
+- **Values that are secret-reader-only go in the secret files, not `config.yaml`:**
+  - `MATRIX_RECOVERY_KEY` and `MATRIX_RECOVERY_KEY_OUTPUT_FILE` are read **only** through the scoped secret reader (`adapter.py:543-545, 610-611`). Placed in `config.yaml` they are silently ignored.
+  - Each profile gets a **distinct** output path. An existing file aborts the bootstrap with "exists", because the adapter opens it with `O_EXCL` (`adapter.py:549-573`).
+- **Trust boundary:** the Hermes process can read every mounted profile file, so isolation between profiles is Hermes's logical isolation, not a kernel boundary. The per-profile `.env` files already sharing one PVC work the same way. This suits a family of Derek's own agents. An agent that needs a hard boundary gets its own pod (see "Escape hatch").
 
-The command source keeps OpenBao as the single source of truth (`override_existing: true`), keeps credentials out of `.env`, and needs nothing on the PVC except the one-line command in config.
+### 3. Hermes configuration
 
-**Trust boundary, stated plainly:** the Hermes process can read every mounted profile file. Isolation between profiles is Hermes's own logical isolation (secret scopes), not a kernel boundary. The same is true of the per-profile `.env` files that already share one PVC. This suits a family of Derek's own agents. An agent that needs a hard boundary gets its own pod; see "Escape hatch".
+**Pod (in git, HelmRelease env):** `GATEWAY_MULTIPLEX_PROFILES: "true"`.
+- Required, because the implicit default refuses on s6.
+- Harmless while only Bosun exists.
+- Keeps the behaviour stable across Renovate bumps; a newer Hermes changes the s6 rule.
 
-### 3. Hermes configuration (non-secret)
+**Per profile, non-secret,** in `platforms.matrix` of each profile's `config.yaml`. The adapter reads these extra-first (`adapter.py:842-848, 908`), and untyped keys become `extra` (`gateway/config.py:460`):
 
-Set per profile, in that profile's own config. The default profile is `/opt/data`; canary is `/opt/data/profiles/canary`.
-
-| Setting | Value | Note |
+| Key | Value | Note |
 |---|---|---|
-| `MATRIX_HOMESERVER` | `https://matrix.derekjacobs.dev` | Verified from namespace `ai`: in-cluster DNS resolves it to the **internal** gateway (172.16.8.2), so traffic stays on the LAN and never goes through Pangolin. The haproxy Service only exposes 8405 (stats), so the public hostname is the correct choice, not just the convenient one. |
-| `MATRIX_E2EE_MODE` | `required` | Fails closed: the adapter refuses to run without working crypto rather than silently going plaintext. |
-| `MATRIX_DEVICE_ID` | `BOSUN-HERMES` / `CANARY-HERMES` | Must equal the device the compatibility token was issued for. |
-| `MATRIX_ALLOWED_USERS` | `@bluevulpine:bluevulpine.net` | Closed by default: only Derek can wake a pilot agent. The adapter source says DMs are exempt from `MATRIX_ALLOWED_ROOMS`; that `MATRIX_ALLOWED_USERS` **does** still gate DMs is an inference. The plan verifies it with a DM from a non-allowed account. |
-| `MATRIX_RECOVERY_KEY_OUTPUT_FILE` | a 0600 path on the PVC, used for the **first boot only** | Hermes writes the bootstrapped cross-signing recovery key there once. Derek moves it into OpenBao (`…__RecoveryKey`) and the file is deleted. |
+| `homeserver` | `https://matrix.derekjacobs.dev` | From namespace `ai`, cluster DNS resolves this to the **internal** gateway (172.16.8.2), so agent traffic stays on the LAN and never goes through Pangolin. The haproxy Service only exposes 8405 (stats). |
+| `e2ee_mode` | `required` | Fails closed: no silent plaintext. |
+| `device_id` | `BOSUNHERMES` / `CANARYHERMES` | Must equal the device the token was issued for. |
+| `allowed_users` | `@bluevulpine:bluevulpine.net` | Closed by default. Verified: the gateway's `_principal_authorized` applies the platform allowlist to DMs too (`authz_mixin.py:648-700`). `MATRIX_ALLOWED_ROOMS` is the only list that exempts DMs. Caveats: an approved pairing is granted *in addition to* the list, and `MATRIX_ALLOW_ALL_USERS` overrides it. Neither is to be set. |
 
-`canary` is created in the pod with `hermes profile create canary`, and its `config.yaml` is written there too. This matches how Bosun's own config lives on the PVC today. Only the **secret plumbing** goes in git: the ExternalSecret, the mount, and the README pattern.
+The `canary` profile (`hermes profile create canary`, without `--clone`, so it copies no credentials: `profiles.py:1096-1122`) and its `config.yaml` are created in the pod, onto the PVC, matching how Bosun's config lives today. Only the **secret plumbing and the multiplex flag** go in git.
 
-### 4. Pass/fail criteria
+### 4. Ordering
+
+The multiplex decision is made once, at boot (`run.py:3484-3490`). The 30-second profile rescan only runs inside a multiplexer.
+
+1. **Merge:** `GATEWAY_MULTIPLEX_PROFILES`, Bosun's `MATRIX_*` env, canary's ExternalSecret and mount.
+2. **P0:** the boot log says the gateway is **serving every profile**, not "single-profile" or "stays standalone".
+3. Bosun's Matrix adapter comes up: P1, P2.
+4. Create `canary` and write its config. A running multiplexer picks it up on rescan (`run_profile_reconcile.py`, which rescans when a profile's `config.yaml`/`.env` changes). Then P3, P4, P5.
+5. P6, then cleanup.
+
+### 5. Pass/fail criteria
 
 | # | Proves | Check |
 |---|---|---|
-| P1 | Matrix + E2EE + federation | Derek sends an **encrypted** DM from `@bluevulpine:bluevulpine.net` to `@bosun:derekjacobs.dev`, Bosun replies, and the reply decrypts in Element. |
-| P2 | Cross-signing behind MAS | The recovery key is written to the output file and stored in OpenBao, and Bosun's device shows as **verified by its owner** in Element. If MAS refuses the upload, see Risks. |
-| P3 | Per-profile identity | `canary` connects as `@canary` using **only** its mounted file. Hermes status shows two Matrix adapters, each with its own user ID. No `duplicate_credential`. |
-| P4 | Secret isolation | Bosun's turn cannot resolve canary's token and canary's turn cannot resolve Bosun's. Checked through Hermes's own status and logs, never by printing a token. |
-| P5 | Per-profile lifecycle | `hermes -p canary gateway stop`, then `start`, parks and unparks canary while Bosun stays connected throughout. |
-| P6 | Rotation | Issue canary a new token, `bao kv patch` it, and see the ExternalSecret sync, Reloader roll the pod, and canary reconnect on the new device token. The old token is revoked (`kill-sessions`). |
+| P0 | Topology | After the env flag is merged, the boot log reports a multiplexer serving every profile. **Not** "single-profile install" (acceptable only before canary exists) and **never** "stays standalone". Once canary exists there is exactly **one** gateway process in the pod. |
+| P1 | Matrix + E2EE + federation | Derek sends an **encrypted** DM from `@bluevulpine:bluevulpine.net` to `@bosun:derekjacobs.dev`. Bosun replies and the reply decrypts in Element. |
+| P2 | Cross-signing behind MAS | The recovery key is written once to its output file, moved into OpenBao (`…__RecoveryKey`), and the file is deleted. Bosun's device shows as verified by its owner. Expected to pass: Synapse 1.162 with MAS only demands approval `if is_cross_signing_setup`, so the **first** upload needs no UIA (`keys.py:536-544`), and mautrix uploads with `auth=None`. |
+| P3 | Per-profile identity | canary connects as `@canary`, from **its own** mounted file only. Status shows two Matrix adapters with distinct user IDs. No `duplicate_credential`. |
+| P4 | Secret isolation | Neither profile's turns can resolve the other's token, and canary answers using **its own** provider key. Checked through Hermes status and logs, never by printing a token. |
+| P5 | Live add and remove | v0.21.4 has **no** per-profile park/unpark; `hermes -p canary gateway stop` exits 78 under a multiplexer. So the test is: canary is **hot-added** by the rescan without a restart, and later **removed** by `hermes profile delete canary`. Bosun's Matrix connection stays up throughout. |
+| P6 | Rotation | `mas-cli manage kill-sessions canary` **first** (it revokes every session for the user), then `issue-compatibility-token canary CANARYHERMES` for the **same** device ID (a different device would reset the crypto store: `adapter.py:990-1006`), then `bao kv patch`. ExternalSecret sync → Reloader roll → canary reconnects with its crypto state intact. A short canary outage is expected and accepted. |
 
-### 5. Cleanup (part of the pilot, not optional)
+### 6. Cleanup (part of the pilot, not optional)
 
-- `hermes profile delete canary`.
-- In MAS: `kill-sessions canary`, then `lock-user canary`.
-- Remove `hermes-profile-canary` (the ExternalSecret and the mount) from git. Delete `secret/hermes-canary`.
-- Write the proven pattern into `kubernetes/apps/ai/hermes/README.md` under "Adding an agent profile": the identity commands, the OpenBao key layout, the ExternalSecret and mount, the profile config, and the pass checks. Fizz, Pollen, Honey and Wasp are then onboarded by following it.
+- `hermes profile delete canary`. In MAS: `kill-sessions canary`, then `lock-user canary`.
+- Remove canary's ExternalSecret and mount from git, and delete `secret/hermes-canary`. Revoke canary's LiteLLM key.
+- Write the proven pattern into `kubernetes/apps/ai/hermes/README.md` under "Adding an agent profile":
+  - the identity commands
+  - the OpenBao layout
+  - the ExternalSecret and mount
+  - the profile config
+  - the order of steps
+  - the pass checks
+  
+  Fizz, Pollen, Honey and Wasp are then onboarded by following it.
 
-Bosun stays on Matrix after the pilot.
+Bosun stays on Matrix.
 
 ## Risks
 
-- **Cross-signing upload under MAS (MSC3861).** This is the genuine unknown. Synapse with delegated auth normally allows the *first* cross-signing upload without UIA, but that hasn't been proven here. **Fallback:** E2EE without cross-signing still encrypts; Element shows the device as unverified. P2 then becomes a recorded limitation, not a blocker for onboarding the other agents.
-- **Shared blast radius.** One process means one crash or restart drops every agent briefly, and one runaway turn can starve the others. Current use is 853Mi out of a 6Gi limit. Watch it as profiles are added.
-- **Process-global state the docs list as not yet profile-scoped:** MCP tool discovery (upstream #67605), the built-in tool registry, `TERMINAL_*` sandbox env. This is acceptable for agents with equal trust. It is a reason to move a differently trusted agent to its own pod.
-- **Hermes upgrades.** Multiplexing and secret scoping are recent and still changing upstream (`gateway.standalone` is a "temporary shim"). Renovate bumps of `hermes-agent` should be smoke-tested against P3 and P5.
+- **Losing the crypto store after cross-signing exists.** Once cross-signing is set up, Synapse requires MAS approval to replace it (`SigningKeyUploadServlet`). The bootstrap's failure is non-fatal, so the device would quietly stay unverified. The crypto store lives on the PVC, per profile, at `<HERMES_HOME>/platforms/matrix/store/crypto.db` (`adapter.py:396-399, 822-830`), and the recovery key goes into OpenBao. Together these cover it. Never delete a store without the recovery key in hand.
+- **Shared blast radius.** One process means one crash or restart drops every agent briefly, and one runaway turn can starve the rest. Bosun alone uses 853Mi of a 6Gi limit today; watch memory as profiles are added.
+- **Process-global state in the multiplexer:** MCP tool discovery, the built-in tool registry and `TERMINAL_*` sandbox env. Acceptable for agents of equal trust. For an agent with different trust, this is a reason to give it its own pod.
+- **Hermes upgrades.** Multiplexing is changing fast upstream; a newer build changes the s6 rule and adds parking. Renovate bumps of `hermes-agent` must be smoke-tested against P0, P3 and P5. The explicit env flag protects P0.
+- **Compatibility-token lifetime is unverified.** If CLI-issued tokens expire, an agent would go deaf with no refresh path in the adapter. The plan checks the expiry of the first issued token before relying on it.
 
 ## Escape hatch
 
-An agent that needs harder isolation runs as its own Deployment: same image, its own PVC, its profile as that pod's default profile. Its ExternalSecret then becomes `envFrom`. The Matrix identity, the device and the OpenBao key layout are unchanged, so moving out costs no re-provisioning.
+An agent that needs harder isolation runs as its own Deployment: same image, its own PVC, with its profile as that pod's default profile. Its ExternalSecret then moves to `envFrom`. The Matrix identity, device and OpenBao layout stay the same, so moving it costs no re-provisioning.
 
 ## Out of scope
 
-- Onboarding Fizz, Pollen, Honey and Wasp. That follows the README pattern once the pilot passes.
-- Matrix application services and namespaced ghost users. Revisit only if agents become numerous or short-lived.
+- Onboarding Fizz, Pollen, Honey and Wasp. They follow the README pattern once the pilot passes.
+- Matrix application services and namespaced ghost users.
 - Agents on the bluevulpine.net homeserver. Agents live on derekjacobs.dev and reach bluevulpine.net through federation.
-- Tightening `MATRIX_ALLOWED_USERS` beyond Derek, and agent-to-agent rooms. Both are policy decisions for after onboarding.
+- Wider `allowed_users`, and agent-to-agent rooms. These are policy decisions for after onboarding.
