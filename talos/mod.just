@@ -100,8 +100,10 @@ apply-all *args:
 reset-all:
     #!/usr/bin/env bash
     set -euo pipefail
+    # Declining must fail, not succeed: `rebuild` runs this under set -e and would otherwise carry on
+    # to bootstrap-cluster (and a talosconfig regen for a new PKI) against nodes that were never reset.
     if ! gum confirm "This will RESET ALL CLUSTER NODES. This is destructive and cannot be undone. Continue?" --default="No"; then
-        exit 0
+        just log fatal "Declined: nodes were not reset"
     fi
     # topf.yaml is the node inventory; reset workers before control-plane nodes.
     nodes=$(yq -e '(.nodes[] | select(.role != "control-plane") | .ip), (.nodes[] | select(.role == "control-plane") | .ip)' "{{ talos_dir }}/topf.yaml")
