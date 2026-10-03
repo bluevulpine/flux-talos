@@ -6,11 +6,10 @@ metadata:
   annotations:
     # Same move as the data claim (see app/kustomization.yaml): IfNotPresent so
     # this re-created claim is never re-applied; NEVER remove it while the claim
-    # exists. volumeName is TEMPORARY (re-bind to the existing 2-replica volume);
-    # drop it in the batch follow-up PR.
+    # exists. The temporary volumeName pin used for the re-create was dropped
+    # once the swap was done (2026-10-02).
     kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
 spec:
-  volumeName: pvc-236c8263-70e9-4e2b-bf2a-21440c20d033
   accessModes:
     - ReadWriteOnce
   resources:
