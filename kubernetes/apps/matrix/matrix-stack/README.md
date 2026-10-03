@@ -18,7 +18,7 @@ not Tuwunel / Continuwuity / Dendrite: `docs/briefs/2026-09-24-matrix-homeserver
 | `matrix.` `/_synapse/admin` etc. | Synapse admin API, `/_synapse/mas` | **LAN / tailnet only** |
 | `account.` | MAS — login, account management, Authentik callback | LAN + internet (Pangolin) |
 | `account.` `/api/admin` | MAS admin API | **LAN / tailnet only** (404 at the Pangolin edge) |
-| `chat.` | Element Web | LAN + internet (Pangolin) |
+| `chat.` | Element Web — also serves `chat.bluevulpine.net` (bluevulpine.net homeserver), see `app/element-web-bluevulpine.yaml` | LAN + internet (Pangolin) |
 | `matrix-admin.` | Element Admin | **LAN / tailnet only** |
 
 Deliberate departures from the chart defaults, each explained where it is set:
