@@ -3,8 +3,11 @@
 # Namespaced operator access for the hermes agent (SA hermes/ai) in `games`.
 # Granted so Bosun can archive, reset and restart game-server saves (valheim
 # world reset) without a human running kubectl. Deliberately namespaced: the
-# cluster-wide hermes-agent-reader role stays read-only. Secrets are NOT
-# included. Widen per namespace as concrete needs appear.
+# cluster-wide hermes-agent-reader role stays read-only. No Secret verbs are
+# granted directly, BUT jobs/create and pods/exec can still reach Secrets in
+# this namespace (a Job's pod spec can mount any Secret and pick any SA in
+# `games`; exec into a pod shows its env). Treat this role as able to read
+# `games` secrets. Widen per namespace as concrete needs appear.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -15,7 +18,10 @@ rules:
     resources:
       - "pods/exec"
     verbs:
+      # kubectl exec upgrades over WebSocket (GET) and, since 1.35, also
+      # requires create -- both verbs are needed on this cluster.
       - "create"
+      - "get"
   - apiGroups:
       - ""
     resources:
