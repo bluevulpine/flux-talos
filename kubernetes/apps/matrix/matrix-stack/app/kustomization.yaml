@@ -43,4 +43,3 @@ patches:
           kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
       spec:
         volumeName: pvc-300bab6e-65ba-4134-8eb1-605a6b7c8d7e
-
