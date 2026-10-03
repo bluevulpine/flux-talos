@@ -29,6 +29,22 @@
       allowedVersions: "/^v?1\\.13\\./",
     },
     {
+      // Talos 1.13 runs Kubernetes up to 1.36.x only: kubernetesVersion v1.37.0 was rejected by
+      // the config generator ("version of Kubernetes 1.37.0 is too new to be used with Talos
+      // 1.13.9") and reverted in cadc45e3. Renovate's github-releases/docker datasources know
+      // nothing about the Talos support matrix, so without this cap it keeps proposing 1.37
+      // (#1678 sat open for weeks) -- and the tuppr KubernetesUpgrade is NOT suspended, so a
+      // merged kubelet bump would start an unsupported upgrade on its own.
+      // These two names are the only places the cluster's Kubernetes version is set:
+      // kubernetesVersion in talos/{talconfig,topf}.yaml and the KubernetesUpgrade CR.
+      // TO MOVE TO 1.37: only after the nodes are on Talos 1.14 (see the Talos rule above);
+      // then change the regex to 1\.37 together with the Talos one.
+      description: "Kubernetes: hold at 1.36.x while Talos is held at 1.13.x",
+      matchDatasources: ["docker", "github-releases"],
+      matchPackageNames: ["kubernetes/kubernetes", "ghcr.io/siderolabs/kubelet"],
+      allowedVersions: "/^v?1\\.36\\./",
+    },
+    {
       description: "Calibre-Web: Only allow 0.x versions (5.x is a different versioning scheme)",
       matchDatasources: ["docker"],
       matchPackageNames: ["ghcr.io/linuxserver/calibre-web"],
