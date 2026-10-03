@@ -6,6 +6,7 @@ resources:
   - ./ocirepository.yaml
   - ./externalsecret.yaml
   - ./helmrelease.yaml
+  - ./element-web-bluevulpine.yaml
   - ./httproute.yaml
   - ./dnsendpoint.yaml
 components:

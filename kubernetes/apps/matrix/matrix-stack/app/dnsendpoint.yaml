@@ -37,3 +37,11 @@ spec:
       providerSpecific:
         - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
           value: "false"
+    # chat.${SECRET_DOMAIN_BLOG}: the shared Element Web (see ./element-web-bluevulpine.yaml).
+    - dnsName: "chat.${SECRET_DOMAIN_BLOG}"
+      recordType: CNAME
+      targets:
+        - "pangolin.${SECRET_DOMAIN_BLOG}"
+      providerSpecific:
+        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+          value: "false"
