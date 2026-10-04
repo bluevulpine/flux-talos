@@ -54,6 +54,38 @@ spec:
                 name: matrix-stack-synapse-main
                 annotations:
                   secret.reloader.stakater.com/reload: matrix-stack-secret
+          # LAN federation with our other homeserver (kubernetes/apps/matrix-bluevulpine).
+          # In-cluster DNS is split-horizon: both matrix.* hosts resolve to the
+          # INTERNAL Envoy gateway (172.16.8.2), which Synapse's SSRF blacklist
+          # refuses, so the two servers could not federate ("Blocked 172.16.8.2").
+          # Do NOT fix that with ip_range_whitelist: .2 fronts ~68 LAN-only routes
+          # under a wildcard cert, and the whitelist also governs pushers and 3PID
+          # key checks, so it would open Synapse's outbound clients to all of them
+          # (rejected in #2059). Instead pin just these two names, for Synapse only,
+          # to the public Pangolin VPS (SECRET_PANGOLIN_IP, cluster-secrets): the
+          # same path the rest of the world uses, with the SSRF guard untouched.
+          # Discovery of bluevulpine.net first fetches its APEX .well-known; the
+          # apex (the blog) used to resolve to .2 in-cluster too. CoreDNS now
+          # answers the bluevulpine.net zone from public DNS
+          # (kubernetes/apps/kube-system/coredns), the same way the derekjacobs.dev
+          # apex already resolved. An SRV fallback can NOT do this job: Synapse
+          # keeps Host/SNI = the server_name on the SRV path (rejected in #2059).
+          - target:
+              kind: StatefulSet
+              name: matrix-stack-synapse-main
+            patch: |-
+              apiVersion: apps/v1
+              kind: StatefulSet
+              metadata:
+                name: matrix-stack-synapse-main
+              spec:
+                template:
+                  spec:
+                    hostAliases:
+                      - ip: "${SECRET_PANGOLIN_IP}"
+                        hostnames:
+                          - "matrix.${SECRET_DOMAIN}"
+                          - "matrix.${SECRET_DOMAIN_BLOG}"
           - target:
               kind: Deployment
               name: matrix-stack-matrix-authentication-service

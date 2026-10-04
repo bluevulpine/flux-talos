@@ -56,6 +56,34 @@ spec:
                 name: matrix-stack-synapse-main
                 annotations:
                   secret.reloader.stakater.com/reload: matrix-stack-secret
+          # LAN federation with our other homeserver (kubernetes/apps/matrix).
+          # In-cluster DNS is split-horizon: matrix.derekjacobs.dev resolves to the
+          # INTERNAL Envoy gateway (172.16.8.2), which Synapse's SSRF blacklist
+          # refuses, so the two servers could not federate ("Blocked 172.16.8.2").
+          # (matrix.bluevulpine.net now resolves publicly via CoreDNS anyway; its
+          # entry here is kept as a guard against DNS changes.)
+          # Do NOT fix that with ip_range_whitelist: .2 fronts ~68 LAN-only routes
+          # under a wildcard cert, and the whitelist also governs pushers and 3PID
+          # key checks, so it would open Synapse's outbound clients to all of them
+          # (rejected in #2059). Instead pin just these two names, for Synapse only,
+          # to the public Pangolin VPS (SECRET_PANGOLIN_IP, cluster-secrets): the
+          # same path the rest of the world uses, with the SSRF guard untouched.
+          - target:
+              kind: StatefulSet
+              name: matrix-stack-synapse-main
+            patch: |-
+              apiVersion: apps/v1
+              kind: StatefulSet
+              metadata:
+                name: matrix-stack-synapse-main
+              spec:
+                template:
+                  spec:
+                    hostAliases:
+                      - ip: "${SECRET_PANGOLIN_IP}"
+                        hostnames:
+                          - "matrix.${SECRET_DOMAIN}"
+                          - "matrix.${SECRET_DOMAIN_BLOG}"
           - target:
               kind: Deployment
               name: matrix-stack-matrix-authentication-service
