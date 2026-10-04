@@ -317,7 +317,7 @@ repositories themselves are unchanged.
 
 Waves go from cheapest-to-lose to hardest: W0 pilots → config volumes → live embedded DBs →
 *arrs → databases + vaultwarden → large volumes → node-local class → tns-csi-nfs →
-tns-csi-nvmeof. `games/valheim-syncthing` is **out of scope** (Syncthing, not kopia).
+tns-csi-nvmeof. `games/valheim-syncthing` was out of scope (Syncthing, not kopia); it was removed 2026-10-04.
 
 **W0** also retires the pilots (done 2026-09-24). Both were removed in one change, because
 `jellyseerr-kopiur-pilot` depends on recyclarr's `pilot-local` Repository and ExternalSecret.
@@ -481,7 +481,7 @@ has re-planned it; moving it to an earlier wave is fine.
   per-policy staging-class override` — `SnapshotPolicy.spec.staging.storageClassName`
   exists in 0.10.8. Only `develop/hermes` is affected (see table). Worth an upstream issue.
 - **The translator aborts a whole namespace** on one non-kopia source:
-  `games/valheim-syncthing` makes `migrate volsync -n games` emit nothing, so
+  `games/valheim-syncthing` (since removed) made `migrate volsync -n games` emit nothing, so
   `satisfactory` and `valheim` never translate. Second upstream issue.
 - **40 of 46 apps inherit `externalsecret-refresh`** from the backup component rather than
   listing it; `components/kopiur` nests it for that reason. Keep it nested.

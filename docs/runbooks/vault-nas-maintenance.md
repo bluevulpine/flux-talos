@@ -170,7 +170,6 @@ These are non-negotiable.
 | --- | --- | --- | --- |
 | `games` | `Deployment/valheim` | NVMe-oF | 1 |
 | `games` | `StatefulSet/satisfactory` | NVMe-oF | 1 |
-| `games` | `Deployment/volsync-valheim-syncthing` | NVMe-oF | 1 |
 | `home` | `Deployment/esphome` | NVMe-oF (+ NFS) | 1 |
 
 > No workload currently uses `tns-csi-iscsi`, though the StorageClass is enabled.
@@ -296,9 +295,9 @@ kc -n flux-system patch kustomization cluster-apps --type=merge -p '{"spec":{"su
 ### 4.3 Suspend the scheduled work (Tier 3)
 
 ```bash
-# Pause every LOCAL VolSync source plus the syncthing mover; leave *-r2 alone.
+# Pause every LOCAL VolSync source; leave *-r2 alone.
 kc get replicationsources -A --no-headers -o custom-columns=NS:.metadata.namespace,N:.metadata.name \
-  | awk '$2 ~ /-local$/ || $2 == "valheim-syncthing" {print $1, $2}' \
+  | awk '$2 ~ /-local$/ {print $1, $2}' \
   | while read -r ns name; do
       kc -n "$ns" patch replicationsource "$name" --type=merge -p '{"spec":{"paused":true}}'
     done
@@ -312,7 +311,7 @@ done
 kc -n database patch scheduledbackup postgres18 --type=merge -p '{"spec":{"suspend":true}}'
 ```
 
-Expect ~44 ReplicationSources paused (43 `*-local` + `valheim-syncthing`).
+Expect ~43 ReplicationSources paused (every `*-local`).
 
 ### 4.4 Scale down — Tier 2 first, then Tier 1
 
@@ -334,37 +333,12 @@ kc -n games scale statefulset satisfactory --replicas=0
 kc -n home  scale deploy esphome --replicas=0
 ```
 
-#### 4.4a `volsync-valheim-syncthing` needs the VolSync controller stopped
-
-This one does **not** respond to the steps above and is easy to declare done
-prematurely. The syncthing mover is a *continuous* mover, so `spec.paused: true`
-does not stop it — VolSync's controller recreates the Deployment within seconds
-of any scale-to-0. It mounts **two** NVMe-oF PVCs (`valheim` and
-`volsync-valheim-syncthing-config`), so leaving it up keeps block sessions open
-and defeats the whole window.
-
-> 🔴 **Do NOT "just delete the ReplicationSource".** The obvious fix is wrong and
-> destructive: `games/volsync-valheim-syncthing-config` is owned by the RS with
-> `blockOwnerDeletion: true`, so deleting the RS garbage-collects the syncthing
-> **config PVC** — losing the syncthing device identity and peer config.
-> Verified 2026-09-03: `kc -n games get pvc volsync-valheim-syncthing-config -o jsonpath='{.metadata.ownerReferences}'`
-
-Stop the controller instead — reversible, and harmless because every other
-VolSync source is already paused:
-
-```bash
-kc -n volsync-system patch hr volsync --type=merge -p '{"spec":{"suspend":true}}'
-kc -n volsync-system scale deploy volsync-volsync-perfectra1n --replicas=0
-sleep 8
-kc -n games scale deploy volsync-valheim-syncthing --replicas=0
-```
-
 ### 4.5 Verify quiesced — do not skip
 
 `kubectl scale` returning success only means the API accepted it. **Re-run the §2
 discovery script; the "RUNNING WORKLOADS" section must be completely empty.**
-That is the single authoritative check — it catches exactly the syncthing-mover
-class of miss, which a per-app spot-check does not.
+That is the single authoritative check — it catches workloads a per-app
+spot-check misses.
 
 ```bash
 kc get pv -o json > /tmp/pvs.json
@@ -396,7 +370,7 @@ until curl -sf -m3 -o /dev/null -w '%{http_code}' http://10.0.10.10:30188/ | gre
   echo "waiting for Garage on vault..."; sleep 10
 done
 
-# VolSync controller first (it owns the syncthing mover)
+# VolSync controller first
 kc -n volsync-system scale deploy volsync-volsync-perfectra1n --replicas=1
 kc -n volsync-system patch hr volsync --type=merge -p '{"spec":{"suspend":false}}'
 
@@ -407,7 +381,7 @@ kc -n home  scale deploy esphome --replicas=1
 
 # Resume the scheduled work — STAGGERED, see below
 kc get replicationsources -A --no-headers -o custom-columns=NS:.metadata.namespace,N:.metadata.name \
-  | awk '$2 ~ /-local$/ || $2 == "valheim-syncthing" {print $1, $2}' \
+  | awk '$2 ~ /-local$/ {print $1, $2}' \
   | while read -r ns name; do
       kc -n "$ns" patch replicationsource "$name" --type=merge -p '{"spec":{"paused":false}}'
       sleep 20
@@ -515,9 +489,7 @@ Watch for stuck VolSync movers on the first post-restart cycle — see
   chart bump reaches helm-controller without touching a Kustomization at all.
 - **`kubectl scale` success ≠ quiesced.** Re-run the §2 script and require an
   empty "RUNNING WORKLOADS" section. A terminating pod still holds its NVMe-oF
-  session, and the syncthing mover actively fights being scaled down.
-- **Never delete a VolSync syncthing ReplicationSource to stop its mover** — it
-  owns its config PVC via `blockOwnerDeletion` and takes it with it (§4.4a).
+  session.
 - **Scaling `develop/gitea` to 0 takes down the first-party container registry.**
   `gitea.derekjacobs.dev` serves every first-party image, so any pod that needs to
   *pull* one mid-window gets `503 Service Unavailable` → `ImagePullBackOff`. Hit

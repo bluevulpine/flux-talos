@@ -3,37 +3,7 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: valheim-syncthing-secret
-  labels:
-    # Exclude from global substituteFrom patch - this kustomization creates the secret
-    substitution.flux.home.arpa/disabled: "true"
-spec:
-  commonMetadata:
-    labels:
-      app.kubernetes.io/name: valheim
-  dependsOn:
-    - name: external-secrets-openbao-store
-      namespace: external-secrets
-  path: ./kubernetes/apps/games/valheim/syncthing-secret
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: home-kubernetes
-    namespace: flux-system
-  targetNamespace: games
-  wait: true
-  interval: 30m
-  retryInterval: 1m
-  timeout: 5m
----
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
   name: &app valheim
-  labels:
-    # Exclude from global substituteFrom patch - we define our own with syncthing secret
-    substitution.flux.home.arpa/disabled: "true"
 spec:
   commonMetadata:
     labels:
@@ -41,7 +11,6 @@ spec:
   dependsOn:
     - name: external-secrets-openbao-store
       namespace: external-secrets
-    - name: valheim-syncthing-secret
   path: ./kubernetes/apps/games/valheim/app
   prune: true
   sourceRef:
@@ -53,9 +22,6 @@ spec:
   interval: 30m
   retryInterval: 1m
   timeout: 5m
-  # provider: sops is still needed; secretRef omitted — controller flag reads flux-system/sops-age
-  decryption:
-    provider: sops
   postBuild:
     substitute:
       APP: *app
@@ -90,14 +56,3 @@ spec:
       VOLSYNC_FS_GROUP: "1000"
       VOLSYNC_LOCAL_SCHEDULE: "58 * * * *"
       VOLSYNC_R2_SCHEDULE: "41 5 * * *"
-      # Syncthing: expose files for player editing
-      SYNCTHING_SERVICE_TYPE: LoadBalancer
-      # Keep config off tns-csi-nvmeof; it was wiped by the storage migration
-      SYNCTHING_CONFIG_STORAGECLASS: longhorn
-    substituteFrom:
-      - kind: ConfigMap
-        name: cluster-settings
-      - kind: Secret
-        name: cluster-secrets
-      - kind: Secret
-        name: valheim-volsync-syncthing-secret
