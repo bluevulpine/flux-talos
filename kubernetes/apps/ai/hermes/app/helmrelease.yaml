@@ -167,16 +167,26 @@ spec:
         type: emptyDir
         globalMounts:
           - path: /tmp
-      # canary's credentials (throwaway pilot profile; removed after the pilot).
-      # A named profile cannot read process env under multiplexing, so its
-      # secrets arrive as one KEY=VALUE file read by the profile's own
-      # secrets.command source. Directory mount, NOT subPath: a subPath mount
-      # never receives Secret updates. 0440 + fsGroup 10000 is exactly what
-      # the gateway (uid/gid 10000, no caps) needs to read it.
+      # Per-profile secret files (one entry per named Hermes profile). A named
+      # profile cannot read process env under multiplexing, so its secrets
+      # arrive as one KEY=VALUE file read by the profile's own secrets.command
+      # source. Directory mount, NOT subPath: a subPath mount never receives
+      # Secret updates. 0440 + fsGroup 10000 is exactly what the gateway
+      # (uid/gid 10000, no caps) needs to read it.
+      #
+      # canary: throwaway pilot profile; removed after the pilot.
       canary-secrets:
         type: secret
         name: hermes-profile-canary
         defaultMode: 0440
         globalMounts:
           - path: /run/hermes-profiles/canary
+            readOnly: true
+      # wasp: Buzz code reviewer. See externalsecret-profile-wasp.yaml.
+      wasp-secrets:
+        type: secret
+        name: hermes-profile-wasp
+        defaultMode: 0440
+        globalMounts:
+          - path: /run/hermes-profiles/wasp
             readOnly: true
