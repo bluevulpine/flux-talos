@@ -153,6 +153,19 @@ spec:
           tmp:
             sizeLimit: 2Gi
             medium: ""
+      additional:
+        00-lan-federation:
+          # Split-horizon DNS resolves our own matrix.* hosts (this server's and
+          # bluevulpine.net's, kubernetes/apps/matrix-bluevulpine) to the internal
+          # Envoy gateway, 172.16.8.2. Synapse's default SSRF blacklist refuses
+          # private ranges, so federation between our two homeservers failed with
+          # "Blocked 172.16.8.2 from DNS resolution". Allow exactly that address:
+          # Envoy routes by Host, so a hostile server pointing its DNS here gets a
+          # 404, not our internal services. Every other private range (incl. the
+          # external gateway .3, nodes, pod/service CIDRs) stays blocked.
+          config: |
+            ip_range_whitelist:
+              - 172.16.8.2/32
 
     matrixAuthenticationService:
       postgres:
