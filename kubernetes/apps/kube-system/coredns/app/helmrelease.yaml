@@ -142,7 +142,8 @@ spec:
       limits:
         cpu: 100m
         memory: 192Mi
-    # One replica on the control plane, one on a worker, never both on one node.
+    # Never two replicas on one node; prefer the control plane (a preference only:
+    # after a rollout both may sit on brokkr until something reschedules them).
     # This was a REQUIRED control-plane pin, which with a single control plane
     # (freyja01) put both replicas on it: draining freyja01 for the v1.13.11
     # upgrade left them Pending and cluster DNS was down ~5.5 min (2026-10-03),
@@ -151,7 +152,8 @@ spec:
     # Cilium keeps routing the kube-dns VIP, so the worker replica covers a
     # control-plane reboot. All nodes forward upstream to the same resolver
     # (10.0.10.1), so placement does not change answers.
-    # amd64 (brokkr) is preferred over the Pis, which reboot more and have less memory.
+    # Eligible nodes: freyja01 + brokkr01-03. The Pis are excluded by their
+    # node.kubernetes.io/low-power NoSchedule taint, which CoreDNS does not tolerate.
     affinity:
       nodeAffinity:
         preferredDuringSchedulingIgnoredDuringExecution:
@@ -160,13 +162,6 @@ spec:
               matchExpressions:
                 - key: node-role.kubernetes.io/control-plane
                   operator: Exists
-          - weight: 50
-            preference:
-              matchExpressions:
-                - key: kubernetes.io/arch
-                  operator: In
-                  values:
-                    - amd64
       podAntiAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
           - topologyKey: kubernetes.io/hostname
