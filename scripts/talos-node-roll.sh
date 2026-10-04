@@ -28,7 +28,7 @@ readonly S=${ROLL_STATE_DIR:-$HOME/.local/state/talos-node-roll}
 # A shell that loaded the pre-#2026 .envrc still exports the deleted talos/clusterconfig/
 # path, and a worktree has no talos/talosconfig (gitignored): use the main checkout's.
 if [[ ! -s "${TALOSCONFIG:-}" ]]; then
-  TALOSCONFIG="$(cd "$(git -C "$(dirname "$0")" rev-parse --git-common-dir)/.." && pwd)/talos/talosconfig"
+  TALOSCONFIG="$(dirname "$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-common-dir)")/talos/talosconfig"
   [[ -s "$TALOSCONFIG" ]] || { echo "no talosconfig at $TALOSCONFIG: run 'topf talosconfig > talos/talosconfig'" >&2; exit 1; }
 fi
 export TALOSCONFIG
@@ -158,7 +158,9 @@ prep)
   # while one still holds a sole-replica volume: avoiding that is the point of scaling.
   left=1
   for _ in $(seq 1 60); do
-    left=$(workloads_on_node | grep -c '^SCALE' || true); echo "$(date +%T) workloads still holding volumes on $node: $left"
+    # A failed listing must not read as "none left": that would drain early.
+    out=$(workloads_on_node) || { echo "$(date +%T) listing workloads on $node failed; retrying" >&2; left=unknown; sleep 5; continue; }
+    left=$(grep -c '^SCALE' <<<"$out" || true); echo "$(date +%T) workloads still holding volumes on $node: $left"
     [[ "$left" == 0 ]] && break; sleep 5
   done
   [[ "$left" == 0 ]] || { echo "$left workloads still hold sole-replica volumes on $node after 5m; not draining. Run restore to scale back" >&2; exit 9; }
