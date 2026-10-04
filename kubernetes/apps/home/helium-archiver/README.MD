@@ -87,9 +87,9 @@ CREATE INDEX IF NOT EXISTS helium_messages_received_idx  ON helium_messages (rec
 
 This is a **first-party image** built automatically by Drone CI (Kaniko) on
 every push to `main` of the source repo:
-[gitea.derekjacobs.dev/bluevulpine/helium-archiver](https://gitea.derekjacobs.dev/bluevulpine/helium-archiver)
+[gitea.derekjacobs.dev/bvn-homelab/helium-archiver](https://gitea.derekjacobs.dev/bvn-homelab/helium-archiver)
 
-It is pushed as `gitea.derekjacobs.dev/bluevulpine/helium-archiver:latest`
+It is pushed as `gitea.derekjacobs.dev/bvn-homelab/helium-archiver:latest`
 (and tagged with the short commit SHA). The HelmRelease tracks `latest`.
 
 ## OpenBao secrets to create first

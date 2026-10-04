@@ -46,10 +46,10 @@ spec:
         containers:
           app:
             # First-party image — built by Drone CI from
-            # https://gitea.derekjacobs.dev/bluevulpine/rackpanel
+            # https://gitea.derekjacobs.dev/bvn-homelab/rackpanel
             image:
-              repository: gitea.derekjacobs.dev/bluevulpine/rackpanel
-              tag: 11-2b495c72 # {"$imagepolicy": "flux-system:rackpanel:tag"}
+              repository: gitea.derekjacobs.dev/bvn-homelab/rackpanel
+              tag: 12-80ee3b86 # {"$imagepolicy": "flux-system:rackpanel:tag"}
             env:
               TZ: "${TIMEZONE}"
               RACKPANEL_NODES: jormungandr1,jormungandr2,jormungandr3,jormungandr4
@@ -112,8 +112,8 @@ spec:
             # `:tag` suffix (the opposite of a combined `image: repo:tag`
             # scalar). See docs/runbooks/flux-image-automation.md.
             image:
-              repository: gitea.derekjacobs.dev/bluevulpine/rackpanel-agent
-              tag: 11-2b495c72 # {"$imagepolicy": "flux-system:rackpanel-agent:tag"}
+              repository: gitea.derekjacobs.dev/bvn-homelab/rackpanel-agent
+              tag: 12-80ee3b86 # {"$imagepolicy": "flux-system:rackpanel-agent:tag"}
             env:
               TZ: "${TIMEZONE}"
               NODE_NAME:

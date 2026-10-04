@@ -5,7 +5,7 @@ kind: ImageRepository
 metadata:
   name: &app rackpanel
 spec:
-  image: gitea.derekjacobs.dev/bluevulpine/rackpanel
+  image: gitea.derekjacobs.dev/bvn-homelab/rackpanel
   interval: 5m
   secretRef:
     name: gitea-registry-creds

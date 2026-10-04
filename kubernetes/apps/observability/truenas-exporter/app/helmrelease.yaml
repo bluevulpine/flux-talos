@@ -28,15 +28,15 @@ spec:
         containers:
           app:
             # First-party image — built by Drone CI from
-            # https://gitea.derekjacobs.dev/bluevulpine/truenas-exporter
+            # https://gitea.derekjacobs.dev/bvn-homelab/truenas-exporter
             #
             # Pinned by hand for now. Flux image automation is the eventual
             # pattern here, but a bad $imagepolicy marker fails SILENTLY and
             # cost a 14h kia-collector outage once; adding it is a separate,
             # verifiable change rather than a rider on first deployment.
             image:
-              repository: gitea.derekjacobs.dev/bluevulpine/truenas-exporter
-              tag: 1-68f917fb
+              repository: gitea.derekjacobs.dev/bvn-homelab/truenas-exporter
+              tag: 2-db3dc24b
             env:
               TZ: "${TIMEZONE}"
               # /api/current follows whatever the appliance runs, so a TrueNAS
