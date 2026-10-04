@@ -130,6 +130,50 @@ spec:
           - name: log
             configBlock: |-
               class error
+      # bluevulpine.net is answered from PUBLIC DNS inside the cluster, not from the
+      # UniFi split horizon. Why: our two Matrix homeservers federate with each other
+      # (kubernetes/apps/matrix, kubernetes/apps/matrix-bluevulpine), and discovering
+      # bluevulpine.net starts with its APEX /.well-known/matrix/server. UniFi answers
+      # the apex (the blog) with the internal gateway 172.16.8.2, which Synapse's SSRF
+      # blacklist refuses, so derekjacobs.dev could not federate to bluevulpine.net.
+      # The derekjacobs.dev apex already resolves publicly, so this makes the two
+      # zones behave the same. Safe for the whole zone: every *.bluevulpine.net host
+      # is public (Cloudflare or Pangolin); LAN clients still use UniFi, unaffected.
+      # Rejected alternatives (#2059): Synapse ip_range_whitelist for .2 (opens the
+      # whole internal gateway to Synapse's outbound clients, pushers included), an
+      # SRV fallback (Synapse keeps Host/SNI = server_name, so it hits the blog),
+      # pinning the apex to a Cloudflare edge IP (brittle).
+      #
+      # The zone is a LITERAL, not ${SECRET_DOMAIN_BLOG}: bootstrap/helmfile.d reads
+      # these values raw (no Flux substitution), and an unrendered placeholder in a
+      # Corefile zone could stop cluster DNS from starting during a rebuild. The
+      # domain is public anyway (it is the blog).
+      #
+      # forward appears once per server block, hence a block of its own. It repeats
+      # the AAAA suppression above, absolute SOA names included (see the outage note
+      # there); without it this zone would hand pods Cloudflare's IPv6 answers.
+      - zones:
+          - zone: bluevulpine.net.
+            scheme: dns://
+            use_tcp: true
+        port: 53
+        plugins:
+          - name: errors
+          - name: template
+            parameters: ANY AAAA
+            configBlock: |-
+              rcode NOERROR
+              authority "{{ .Zone }} 300 IN SOA ns.dns. hostmaster.dns. (1 300 300 300 300)"
+          - name: forward
+            parameters: . 1.1.1.1 1.0.0.1
+          - name: cache
+            configBlock: |-
+              prefetch 20
+              serve_stale
+          - name: loop
+          - name: log
+            configBlock: |-
+              class error
     # Memory: requests = limits (Guaranteed QoS). The 66.6 MiB coredns binary's
     # executed pages are charged to the container's memory cgroup on top of ~20 MiB
     # RSS: measured 91.6 MiB working set (2026-10-03) against the old 128Mi limit,

@@ -34,16 +34,6 @@ spec:
       - --gateway-namespace=network
       - --gateway-name=external
     policy: sync
-    # The chart default is A/AAAA/CNAME only. SRV is added for the bluevulpine.net
-    # Matrix federation fallback (_matrix-fed._tcp, see
-    # kubernetes/apps/matrix-bluevulpine/matrix-stack/app/dnsendpoint.yaml). Ownership
-    # is still scoped by the k8s. TXT registry, so only SRV records external-dns
-    # created itself are ever updated or deleted.
-    managedRecordTypes:
-      - A
-      - AAAA
-      - CNAME
-      - SRV
     # v0.22.0 (bundled in this chart bump) drops the external-dns.alpha.kubernetes.io/
     # fallback and makes the annotation prefix a required, no-default setting — the
     # release notes warn the change "can delete all your DNS records". The `crd`

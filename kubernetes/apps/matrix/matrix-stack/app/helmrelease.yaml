@@ -64,9 +64,12 @@ spec:
           # (rejected in #2059). Instead pin just these two names, for Synapse only,
           # to the public Pangolin VPS (SECRET_PANGOLIN_IP, cluster-secrets): the
           # same path the rest of the world uses, with the SSRF guard untouched.
-          # The bluevulpine.net apex also resolves to .2 in-cluster, so its
-          # .well-known stays blocked here; Synapse then falls back to the
-          # _matrix-fed._tcp SRV record (kubernetes/apps/matrix-bluevulpine/.../dnsendpoint.yaml).
+          # Discovery of bluevulpine.net first fetches its APEX .well-known; the
+          # apex (the blog) used to resolve to .2 in-cluster too. CoreDNS now
+          # answers the bluevulpine.net zone from public DNS
+          # (kubernetes/apps/kube-system/coredns), the same way the derekjacobs.dev
+          # apex already resolved. An SRV fallback can NOT do this job: Synapse
+          # keeps Host/SNI = the server_name on the SRV path (rejected in #2059).
           - target:
               kind: StatefulSet
               name: matrix-stack-synapse-main
