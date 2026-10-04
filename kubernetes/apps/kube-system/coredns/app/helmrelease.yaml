@@ -130,13 +130,48 @@ spec:
           - name: log
             configBlock: |-
               class error
+    # Memory: requests = limits (Guaranteed QoS). The 66.6 MiB coredns binary's
+    # executed pages are charged to the container's memory cgroup on top of ~20 MiB
+    # RSS: measured 91.6 MiB working set (2026-10-03) against the old 128Mi limit,
+    # so only ~36 MiB headroom for cache + service growth. A limit near the binary
+    # size thrashes page cache and wedges startup, see wican-bridge in #2045.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 192Mi
+      limits:
+        cpu: 100m
+        memory: 192Mi
+    # Never two replicas on one node; prefer the control plane (a preference only:
+    # after a rollout both may sit on brokkr until something reschedules them).
+    # This was a REQUIRED control-plane pin, which with a single control plane
+    # (freyja01) put both replicas on it: draining freyja01 for the v1.13.11
+    # upgrade left them Pending and cluster DNS was down ~5.5 min (2026-10-03),
+    # crashlooping Flux, authentik, envoy-gateway and others. A running replica
+    # keeps answering from its in-memory service list while the API is down, and
+    # Cilium keeps routing the kube-dns VIP, so the worker replica covers a
+    # control-plane reboot. All nodes forward upstream to the same resolver
+    # (10.0.10.1), so placement does not change answers.
+    # Eligible nodes: freyja01 + brokkr01-03. The Pis are excluded by their
+    # node.kubernetes.io/low-power NoSchedule taint, which CoreDNS does not tolerate.
     affinity:
       nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-            - matchExpressions:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
                 - key: node-role.kubernetes.io/control-plane
                   operator: Exists
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/instance: coredns
+                k8s-app: kube-dns
+    # A drain (e.g. a Talos node roll) may take down only one replica at a time.
+    podDisruptionBudget:
+      maxUnavailable: 1
     tolerations:
       - key: CriticalAddonsOnly
         operator: Exists
