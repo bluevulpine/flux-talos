@@ -31,14 +31,9 @@ spec:
       GATUS_PORT: "6767"
       GATUS_SERVICE: bazarr
       VOLSYNC_CAPACITY: 4Gi
-      # Low criticality: subtitle automation, easily re-synced - backup every 2 hours (staggered +5min)
-      VOLSYNC_LOCAL_SCHEDULE: "5 */2 * * *"
-      VOLSYNC_R2_SCHEDULE: "19 0 * * *"
+      # Low criticality: subtitle automation, easily re-synced - backup every 2 hours
       VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
       VOLSYNC_ACCESSMODES: ReadWriteOnce
-      VOLSYNC_COPYMETHOD: Snapshot
       # kopiur (components/kopiur), W3. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).

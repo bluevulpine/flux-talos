@@ -1,10 +1,10 @@
 # Runbook: VolSync → kopiur backup migration
 
-**Status (2026-10-01): repositories landed; step 4 (epoch) skipped on evidence; W0
+**Status (2026-10-03): repositories landed; step 4 (epoch) skipped on evidence; W0
 (jellyseerr, recyclarr, #1934) and W1 (8 apps, #1941) are cut over: kopiur is their only
 backup, and the fork's path-scope retention is cleared in both repositories (all six `keep-*`
-inherited). W2 (11 apps, #1959) is cut over too. W3 (10 apps) is in its parallel run,
-with its `KOPIUR_*` vars landed one PR earlier (#1974); W4–W8 not started.** Every restore needs added capabilities (see
+inherited). W2 (11 apps, #1959) is cut over too. W3 (10 apps) is cut over too. W4–W8 not
+started.** Every restore needs added capabilities (see
 "Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
@@ -14,7 +14,7 @@ evidence.
 | Pilots (`media/recyclarr-kopiur-pilot`, `media/jellyseerr-kopiur-pilot`) | passed 4/4 and 5/5; **retired 2026-09-24** after W0 passed its gates. Their READMEs (verdicts, the SQLite integrity method) are at `b625ac57:kubernetes/apps/media/{recyclarr,jellyseerr}-kopiur-pilot/README.md` |
 | PR #1870 — component split + `components/kopiur` | **merged** 2026-09-22 (eab49e12); verified inert live: all Kustomizations Ready on it, all 93 ReplicationSources intact. No app includes `components/kopiur` yet |
 | Two `ClusterRepository` + 18 `ExternalSecret` | **landed** 2026-09-22 (#1879, e4539596), plus the `kopiur-system` Pod Security fix (#1880). Both `Ready`, all 18 secrets synced; catalog scanned 2026-09-23. See "The repositories" |
-| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 cut over 2026-09-25** (#1941, 17:00Z): autobrr, cross-seed, ev-charge-ledger, ev-charge-tracker, calibre-web, notifiarr, sportarr and tautulli are backed up by kopiur only; path-scope retention cleared in both repositories, 16/16 legs PASS. Parallel run from 2026-09-24 (#1936); per-app gates 1–4 (cross-seed-r2 via a manual Snapshot) and the restore gate (calibre-web) passed (#1939). **W2 cut over 2026-09-26** (#1959, 06:52Z): 11 apps on kopiur only; path-scope retention cleared, 22/22 legs PASS. Parallel run from 2026-09-25 (#1953), vars landed one PR earlier (#1950), so no schedule race; the first local runs failed PermissionDenied until #1957 gave the mover `DAC_OVERRIDE`; gates 11/11 and the restore gate (grocy) passed. **W3 parallel run** from 2026-10-01 (#2017): 10 apps with `components/kopiur` beside `volsync-backup`, vars landed first (#1974), which also added kometa's missing `NS`. W4–W8 not started |
+| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 cut over 2026-09-25** (#1941, 17:00Z): autobrr, cross-seed, ev-charge-ledger, ev-charge-tracker, calibre-web, notifiarr, sportarr and tautulli are backed up by kopiur only; path-scope retention cleared in both repositories, 16/16 legs PASS. Parallel run from 2026-09-24 (#1936); per-app gates 1–4 (cross-seed-r2 via a manual Snapshot) and the restore gate (calibre-web) passed (#1939). **W2 cut over 2026-09-26** (#1959, 06:52Z): 11 apps on kopiur only; path-scope retention cleared, 22/22 legs PASS. Parallel run from 2026-09-25 (#1953), vars landed one PR earlier (#1950), so no schedule race; the first local runs failed PermissionDenied until #1957 gave the mover `DAC_OVERRIDE`; gates 11/11 and the restore gate (grocy) passed. **W3 cut over 2026-10-03**: 10 apps on kopiur only (parallel run from 2026-10-01, #2017; vars first, #1974, which also added kometa's missing `NS`); gates 10/10 and two restore gates passed (bazarr on `longhorn-2-replica`, kometa on `longhorn-1-replica`). W4–W8 not started |
 
 ## Why kopiur
 
@@ -273,6 +273,24 @@ SQLite on the volume) because it is SQLite-backed and copies `Direct`, the riski
 Kit variant: grocy's PVC is ReadWriteMany, so no `nodeName`; its image has no `sqlite3`, so
 the pinned calibre-web image served as the compare pod's toolbox.
 
+**W3 results (2026-10-03, two classes, so two gates).** Kits in `.handoff/w3-restore-*`
+(git-excluded); both PASS.
+- **bazarr (`longhorn-2-replica`, SQLite + WAL):** `bazarr-local-20261003005505` and
+  `bazarr-r2-20261003001015`. local vs R2 identical in every field; live vs each 0 differing
+  lines outside the writers. The first comparison FAILED only on log rotation: bazarr
+  restarted at 12:23Z when its claim was re-bound (after both snapshots) and rotated
+  `bazarr.log` → `bazarr.log.2026-09-29`, dropping the oldest. Confirmed, not assumed: the
+  restored `bazarr.log` is byte-identical to live's `bazarr.log.2026-09-29`. `integrity_check`
+  `ok` (17 tables) on a copy of the DB **with its `-wal` replayed** (the kit now copies the DB
+  and WAL to `/tmp` and opens it read-write; `immutable=1` on the read-only mount checks the
+  main file only).
+- **kometa (`longhorn-1-replica`, a 05:00Z CronJob):** both sources pre-date the daily run
+  (`kometa-r2-20261003011357`, `kometa-local-20261003044359`). local vs R2 strictly identical
+  (1,224 entries, incl. 10 root-owned). Against live a **post-snapshot rule** replaces a
+  writer list: every differing path must have been modified after the snapshot, or deleted
+  from a directory that was; 18/18 were, 0 unexplained. `config.cache` (SQLite)
+  `integrity_check` `ok` on both legs.
+
 #### Restores need capabilities, not just root
 
 ```yaml
@@ -350,22 +368,22 @@ the `kopiur-pilot` Garage bucket and the OpenBao key `kopiur-pilot` by hand.
 | W2 | productivity/nextcloud | `4,34 * * * *` → `9,39 * * * *` ¹ | `33 2 * * *` → `5 2 * * *` ² | Snapshot | longhorn-1-replica |  |
 | W2 | productivity/node-red | `8,38 * * * *` → `13,43 * * * *` ¹ | `41 2 * * *` → `0 2 * * *` ² | Snapshot | longhorn-1-replica | uid/gid/fsGroup 1000 |
 | W2 | productivity/obsidian | `12,42 * * * *` → `17,47 * * * *` ¹ | `57 2 * * *` → `35 2 * * *` ² | Direct | longhorn-1-replica |  |
-| W3 | download/qbittorrent | `0 */2 * * *` → `H */2 * * *` | `19 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica |  |
-| W3 | download/sabnzbd | `0 */4 * * *` → `H */4 * * *` | `57 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica |  |
-| W3 | media/audiobookshelf | `40 * * * *` → `H * * * *` | `3 0 * * *` → `H 0 * * *` | Snapshot | longhorn-1-replica |  |
-| W3 | media/bazarr | `5 */2 * * *` → `H */2 * * *` | `19 0 * * *` → `H 0 * * *` | Snapshot | longhorn-1-replica |  |
+| W3 | download/qbittorrent | `0 */2 * * *` → `H */2 * * *` | `19 4 * * *` → `H 4 * * *` | Snapshot | longhorn-2-replica ⁶ |  |
+| W3 | download/sabnzbd | `0 */4 * * *` → `H */4 * * *` | `57 4 * * *` → `H 4 * * *` | Snapshot | longhorn-2-replica ⁶ |  |
+| W3 | media/audiobookshelf | `40 * * * *` → `H * * * *` | `3 0 * * *` → `H 0 * * *` | Snapshot | longhorn-2-replica ⁶ |  |
+| W3 | media/bazarr | `5 */2 * * *` → `H */2 * * *` | `19 0 * * *` → `H 0 * * *` | Snapshot | longhorn-2-replica ⁶ |  |
 | W3 | media/kometa | `25 */4 * * *` → `H */4 * * *` | `57 1 * * *` → `H 1 * * *` | Snapshot | longhorn-1-replica | **`NS: media`** ³ |
-| W3 | media/lidarr | `10 * * * *` → `H * * * *` | `3 2 * * *` → `20 2 * * *` ² | Snapshot | longhorn-1-replica |  |
-| W3 | media/prowlarr | `15 * * * *` → `H * * * *` | `11 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica |  |
-| W3 | media/radarr | `5 * * * *` → `H * * * *` | `27 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica |  |
-| W3 | media/sonarr | `0 * * * *` → `H * * * *` | `19 5 * * *` → `H 5 * * *` | Snapshot | longhorn-1-replica |  |
-| W3 | media/tracearr | `24,54 * * * *` → `29,59 * * * *` ¹ | `17 2 * * *` → `38 2 * * *` ² | Snapshot | longhorn-1-replica | uid/gid/fsGroup 1001 |
+| W3 | media/lidarr | `10 * * * *` → `H * * * *` | `3 2 * * *` → `20 2 * * *` ² | Snapshot | longhorn-2-replica ⁶ |  |
+| W3 | media/prowlarr | `15 * * * *` → `H * * * *` | `11 4 * * *` → `H 4 * * *` | Snapshot | longhorn-2-replica ⁶ |  |
+| W3 | media/radarr | `5 * * * *` → `H * * * *` | `27 4 * * *` → `H 4 * * *` | Snapshot | longhorn-2-replica ⁶ |  |
+| W3 | media/sonarr | `0 * * * *` → `H * * * *` | `19 5 * * *` → `H 5 * * *` | Snapshot | longhorn-2-replica ⁶ |  |
+| W3 | media/tracearr | `24,54 * * * *` → `29,59 * * * *` ¹ | `17 2 * * *` → `38 2 * * *` ² | Snapshot | longhorn-2-replica ⁶ | uid/gid/fsGroup 1001 |
 | W4 | database/couchdb | `14,44 * * * *` → `19,49 * * * *` ¹ | `41 0 * * *` → `H 0 * * *` | Direct | longhorn-1-replica |  |
 | W4 | database/influxdb | `16,46 * * * *` → `21,51 * * * *` ¹ | `27 1 * * *` → `H 1 * * *` | Direct | longhorn-1-replica | uid/gid/fsGroup 1000 |
 | W4 | database/timescaledb | `22,52 * * * *` → `27,57 * * * *` ¹ | `13 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica | uid/gid/fsGroup 1000 |
 | W4 | identity/vaultwarden | `2,32 * * * *` → `7,37 * * * *` ¹ | `49 5 * * *` → `H 5 * * *` | Direct | longhorn-1-replica |  |
-| W5 | media/jellyfin | `35 * * * *` → `H * * * *` | `33 1 * * *` → `H 1 * * *` | Snapshot | longhorn-1-replica |  |
-| W5 | media/plex | `20,50 * * * *` → `25,55 * * * *` ¹ | `3 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica | cache 30Gi, **`NS: media`** ³ |
+| W5 | media/jellyfin | `35 * * * *` → `H * * * *` | `33 1 * * *` → `H 1 * * *` | Snapshot | longhorn-1-replica | **`KOPIUR_STAGING_TIMEOUT: 30m`** ⁵ |
+| W5 | media/plex | `20,50 * * * *` → `25,55 * * * *` ¹ | `3 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica | cache 30Gi, **`NS: media`** ³, **`KOPIUR_STAGING_TIMEOUT: 30m`** ⁵ |
 | W6 | develop/hermes | `23 * * * *` → `H * * * *` | `29 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica-local | **staging.storageClassName: longhorn-1-replica patch** |
 | W6 | home/scrypted | `45 * * * *` → `H * * * *` | `11 5 * * *` → `H 5 * * *` | Snapshot | longhorn-1-replica-local | cache 10Gi |
 | W7 | develop/gitea | `18,48 * * * *` → `23,53 * * * *` ¹ | `3 1 * * *` → `H 1 * * *` | Direct | tns-csi-nfs |  |
@@ -392,8 +410,8 @@ against the same repository. So hour-02 R2 crons use an **explicit minute ≤ :3
 `H 2`: `H` hides its minute and the jitter is re-derived for every slot, so one reading of
 `status.nextSchedule.at` proves nothing about the next. A pinned slot can legitimately land
 anywhere up to 02:59 (pin + jitter); only a slot **in hour 03** is wrong.
-`notifiarr-r2` (W1, on `H 2`) read 02:59:19Z, so its `H` is at least :39, and it is pinned to `10 2`. Also keep
-each app's own VolSync R2 minute outside `[pin, pin+20m)`, so the two engines don't write the
+`notifiarr-r2` (W1, on `H 2`) read 02:59:19Z, so its `H` is at least :39, and it is pinned
+to `10 2`. Also keep each app's own VolSync R2 minute outside `[pin, pin+20m)`, so the two engines don't write the
 same identity together during the parallel run (W2's pins were chosen that way).
 A cron change does not re-pin a pending slot (see the traps), so the old slot still fires
 once.
@@ -401,6 +419,19 @@ once.
 ⁴ **tdarr left `tns-csi-nfs` on 2026-09-25** (SQLite on NFS stalled the server), so it is
 now a Longhorn RWO config volume like the W1/W2 apps. It stays in W7 only because nothing
 has re-planned it; moving it to an earlier wave is fine.
+⁵ **Raise the staging timeout for plex and jellyfin.** Their VolSync movers sit in
+`ContainerCreating` for 10–20 min on most runs while Longhorn clones the 100Gi / 32Gi volume
+(~25 such episodes in 3 days, 2026-09-28..10-01), and jellyfin-local stalled ~2 h on
+2026-10-01 (04:36–06:40Z, around a VolSync operator restart and a node cordon). kopiur's
+staging bound defaults to 10m (`KOPIUR_STAGING_TIMEOUT:-10m` in `components/kopiur`), so set
+`30m` in W5's vars PR or those runs fail `StagingTimedOut`. This is the "measure, do not
+assume" the component's comment asks for.
+⁶ **The StorageClass column is the class at planning time.** A separate 2-replica wave
+(#2035, #2039 and follow-ups, 2026-10-02/03) re-bound most claims to `longhorn-2-replica` by
+re-creating each PVC on the same Longhorn volume (no restore; same data and identity, so
+kopiur is unaffected). W3's rows are updated; later waves' are not. Read the live class
+(`kubectl get pvc`) before a wave's restore gate: W3 ended up spanning two classes and needed
+two gates.
 
 ## Traps found so far (each one produced a plausible wrong answer)
 
@@ -466,7 +497,7 @@ has re-planned it; moving it to an earlier wave is fine.
   path-scope clear hands retention to kopiur. `components/kopiur` now states them. Compare
   against `kopia policy show`, never against `retain:`.
 - **Five apps set no `NS`** (`recyclarr`, `cross-seed`, `ev-charge-ledger`, `plex`, and
-  `kometa`, which this list missed until the W3 vars PR, 2026-09-27). VolSync
+  `kometa`, which this list missed until the W3 vars PR, 2026-09-28). VolSync
   never needed it, because the fork takes the hostname from the namespace implicitly.
   `components/kopiur` pins `hostname: "${NS}"`, and unset it becomes `""`. The webhook
   **admits** that: the empty field drops out and kopiur falls back to its default hostname

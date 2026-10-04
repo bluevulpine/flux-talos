@@ -33,13 +33,7 @@ spec:
       VOLSYNC_CAPACITY: 4Gi
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_CACHE_CLASS: longhorn-1-replica
-      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
-      VOLSYNC_COPYMETHOD: Snapshot
       # Low criticality: config-only, easily rebuilt - backup every 4 hours
-      VOLSYNC_LOCAL_SCHEDULE: "0 */4 * * *"
-      VOLSYNC_R2_SCHEDULE: "57 4 * * *"
       # kopiur (components/kopiur), W3. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
