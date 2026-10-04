@@ -54,6 +54,35 @@ spec:
                 name: matrix-stack-synapse-main
                 annotations:
                   secret.reloader.stakater.com/reload: matrix-stack-secret
+          # LAN federation with our other homeserver (kubernetes/apps/matrix-bluevulpine).
+          # In-cluster DNS is split-horizon: both matrix.* hosts resolve to the
+          # INTERNAL Envoy gateway (172.16.8.2), which Synapse's SSRF blacklist
+          # refuses, so the two servers could not federate ("Blocked 172.16.8.2").
+          # Do NOT fix that with ip_range_whitelist: .2 fronts ~68 LAN-only routes
+          # under a wildcard cert, and the whitelist also governs pushers and 3PID
+          # key checks, so it would open Synapse's outbound clients to all of them
+          # (rejected in #2059). Instead pin just these two names, for Synapse only,
+          # to the public Pangolin VPS (SECRET_PANGOLIN_IP, cluster-secrets): the
+          # same path the rest of the world uses, with the SSRF guard untouched.
+          # The bluevulpine.net apex also resolves to .2 in-cluster, so its
+          # .well-known stays blocked here; Synapse then falls back to the
+          # _matrix-fed._tcp SRV record (kubernetes/apps/matrix-bluevulpine/.../dnsendpoint.yaml).
+          - target:
+              kind: StatefulSet
+              name: matrix-stack-synapse-main
+            patch: |-
+              apiVersion: apps/v1
+              kind: StatefulSet
+              metadata:
+                name: matrix-stack-synapse-main
+              spec:
+                template:
+                  spec:
+                    hostAliases:
+                      - ip: "${SECRET_PANGOLIN_IP}"
+                        hostnames:
+                          - "matrix.${SECRET_DOMAIN}"
+                          - "matrix.${SECRET_DOMAIN_BLOG}"
           - target:
               kind: Deployment
               name: matrix-stack-matrix-authentication-service
@@ -153,19 +182,6 @@ spec:
           tmp:
             sizeLimit: 2Gi
             medium: ""
-      additional:
-        00-lan-federation:
-          # Split-horizon DNS resolves our own matrix.* hosts (this server's and
-          # bluevulpine.net's, kubernetes/apps/matrix-bluevulpine) to the internal
-          # Envoy gateway, 172.16.8.2. Synapse's default SSRF blacklist refuses
-          # private ranges, so federation between our two homeservers failed with
-          # "Blocked 172.16.8.2 from DNS resolution". Allow exactly that address:
-          # Envoy routes by Host, so a hostile server pointing its DNS here gets a
-          # 404, not our internal services. Every other private range (incl. the
-          # external gateway .3, nodes, pod/service CIDRs) stays blocked.
-          config: |
-            ip_range_whitelist:
-              - 172.16.8.2/32
 
     matrixAuthenticationService:
       postgres:

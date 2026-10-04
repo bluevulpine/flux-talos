@@ -34,3 +34,18 @@ spec:
       providerSpecific:
         - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
           value: "false"
+    # Federation fallback for servers that cannot fetch the apex .well-known.
+    # The apex is the blog, and in-cluster DNS resolves it to the internal gateway,
+    # which our OTHER homeserver's Synapse (kubernetes/apps/matrix) refuses as a
+    # private IP. Per the server-discovery spec, a failed .well-known fetch falls
+    # back to this SRV, which lands on matrix.<blog> -- pinned to the Pangolin VPS
+    # by that Synapse's hostAliases. Everyone else still uses the .well-known
+    # first, so this changes nothing for the outside world.
+    # Format "priority weight port target"; SRV can never be proxied.
+    - dnsName: "_matrix-fed._tcp.${SECRET_DOMAIN_BLOG}"
+      recordType: SRV
+      targets:
+        - "10 0 443 matrix.${SECRET_DOMAIN_BLOG}"
+      providerSpecific:
+        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+          value: "false"
