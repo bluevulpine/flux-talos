@@ -4,10 +4,10 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 components:
   - ../../../../components/volsync-claim
-  - ../../../../components/volsync-backup
-  # kopiur parallel run (W3, docs/runbooks/kopiur-migration.md): both engines
-  # back up this PVC under the same kopia identity until the per-app gates
-  # pass, then volsync-backup is removed. volsync-claim stays: it owns the PVC.
+  # kopiur backs this PVC up (W3 cutover, docs/runbooks/kopiur-migration.md).
+  # volsync-claim stays: it owns the PVC and its (now inert) dataSourceRef.
+  # A rebuild restores via kopiur: the claim's dataSourceRef points at a VolSync
+  # RD that is no longer deployed, so the VolSync DR path does not apply.
   - ../../../../components/kopiur
 
 resources:
