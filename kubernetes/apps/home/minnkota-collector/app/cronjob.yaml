@@ -46,7 +46,7 @@ spec:
               # image:repo:tag scalar, so Flux must write the whole ref. A
               # ":tag" suffix would overwrite the scalar with the bare tag and
               # produce ImagePullBackOff.
-              image: gitea.derekjacobs.dev/bluevulpine/minnkota-collector:3-a0c21fd1 # {"$imagepolicy": "flux-system:minnkota-collector"}
+              image: gitea.derekjacobs.dev/bvn-homelab/minnkota-collector:6-727ea6d5 # {"$imagepolicy": "flux-system:minnkota-collector"}
               imagePullPolicy: Always
               envFrom:
                 - configMapRef:
@@ -125,7 +125,7 @@ spec:
           containers:
             - name: collector
               # See the marker note on the incremental job above.
-              image: gitea.derekjacobs.dev/bluevulpine/minnkota-collector:3-a0c21fd1 # {"$imagepolicy": "flux-system:minnkota-collector"}
+              image: gitea.derekjacobs.dev/bvn-homelab/minnkota-collector:6-727ea6d5 # {"$imagepolicy": "flux-system:minnkota-collector"}
               imagePullPolicy: Always
               env:
                 - name: AUDIT_MODE
