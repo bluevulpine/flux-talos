@@ -18,7 +18,8 @@ just kube browse-pvc <ns> <pvc>  # browse PVC contents
 
 just talos apply-node <host>    # topf apply to one node (add --dry-run first)
 just talos apply-all             # topf apply to every node
-just talos upgrade-node <host>   # upgrade Talos on a node by hostname (powercycle)
+just talos upgrade-node-plan <host>       # read-only: gates + what would be scaled down
+just talos upgrade-node <host> <version>  # gate, drain, upgrade, restore (scripts/talos-node-roll.sh)
 just talos upgrade-k8s <version> # upgrade Kubernetes version
 just talos reboot-node <node>    # reboot a node
 just talos download-image <ver> <schematic>

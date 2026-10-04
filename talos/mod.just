@@ -43,19 +43,20 @@ shutdown-node node:
 upgrade-k8s version:
     talosctl -n "{{ controller }}" upgrade-k8s --to {{ version }}
 
-[doc('Upgrade Talos on a node by hostname, using the installer image topf renders for it')]
-upgrade-node node:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    ip=$(NODE="{{ node }}" yq -e '.nodes[] | select(.host == strenv(NODE)) | .ip' "{{ talos_dir }}/topf.yaml")
-    # The rendered config holds the cluster PKI in plaintext: private dir, always removed.
-    tmp=$(mktemp -d)
-    chmod 700 "$tmp"
-    trap 'rm -rf "$tmp"' EXIT
-    (cd "{{ talos_dir }}" && topf --nodes-filter "^{{ node }}\$" render -o "$tmp" >/dev/null)
-    image=$(yq -e '.machine.install.image' "$tmp/{{ node }}.yaml")
-    just log info "Upgrading {{ node }} ($ip) to $image"
-    talosctl -n "$ip" upgrade -i "$image" -m powercycle --timeout=10m
+# Gate on volume health and the CNPG primary, scale down sole-replica workloads, drain,
+# upgrade, restore. A bare `talosctl upgrade` reboots with every pod still running;
+# that crashed brokkr01 undrained on 2026-10-03. Env knobs: scripts/talos-node-roll.sh.
+[doc('Upgrade Talos on a node by hostname: gate, drain, upgrade, restore')]
+upgrade-node node version:
+    "{{ scripts_dir }}/talos-node-roll.sh" roll "{{ node }}" "{{ version }}"
+
+[doc('Show what upgrade-node would scale down and whether its gates pass (read-only)')]
+upgrade-node-plan node:
+    "{{ scripts_dir }}/talos-node-roll.sh" plan "{{ node }}"
+
+[doc('Recover an aborted upgrade-node: uncordon and scale back up from the recorded replicas')]
+upgrade-node-restore node:
+    "{{ scripts_dir }}/talos-node-roll.sh" restore "{{ node }}"
 
 # =============================================================================
 # Cluster Rebuild Recipes
