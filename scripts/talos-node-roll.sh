@@ -2,33 +2,57 @@
 # Manual Talos node upgrade. tuppr's TalosUpgrade is suspended because talosctl's
 # built-in drain hangs on Longhorn's instance-manager PDB, so the drain is done here
 # instead. Used for the v1.13.11 roll of every worker (2026-10-03).
-#   plan    <node>                      read-only: what would be scaled, CNPG primary, movers, gate
-#   prep    <node>                      gate, scale down workloads whose volume has no healthy replica elsewhere, drain
-#   upgrade <node> <version>            talosctl upgrade --drain=false (+ powercycle on brokkr)
-#   restore <node>                      uncordon, scale back to recorded replicas, wait for volumes healthy
-#   roll    <node> <version>            prep, upgrade, restore -- stops at the first phase that fails
+#   plan      <node>                    read-only: what would be scaled, CNPG primary, movers, gate
+#   preflight <node> <version>          read-only: talosctl client minor matches, installer image readable
+#   prep      <node>                    gate, scale down workloads whose volume has no healthy replica elsewhere, drain
+#   upgrade   <node> <version>          talosctl upgrade --drain=false (+ powercycle on brokkr); fails unless Ready on <version>
+#   restore   <node>                    uncordon, scale back to recorded replicas, wait for volumes healthy
+#   roll      <node> <version>          preflight, prep, upgrade, restore -- stops at the first phase that fails
 # Order: Pi workers, then brokkr (CNPG primary last), then the control plane.
+#
+# The scale-down record roll-<node>.scaled is written by prep and consumed by restore
+# (renamed to .restored). prep refuses to run while an unconsumed record exists: a
+# fresh prep would overwrite it and the scaled-down apps would never come back.
 #
 # Env:
 #   TALOSCTL        talosctl on the NODES' minor version (Homebrew can be a minor ahead); default: talosctl
-#   TALOS_ENDPOINT  talosctl endpoint; default 10.0.10.30 (VIP). For the control plane use its own IP:
-#                   the VIP disappears while it reboots.
+#   TALOS_ENDPOINT  talosctl endpoint; default the node's own IP. Not the VIP: it disappears while the
+#                   control plane reboots, and node IPs are routed over Tailscale too (#2044).
 #   ROLL_STATE_DIR  where the scale-down record and API snapshots live; default ~/.local/state/talos-node-roll.
-#                   Keep roll-<node>.scaled until restore has run: re-running prep truncates it.
 # bash 3.2 safe (macOS /bin/bash).
 set -euo pipefail
 
 readonly C=admin@home-kubernetes
-readonly EP=${TALOS_ENDPOINT:-10.0.10.30}
 readonly TALOSCTL=${TALOSCTL:-talosctl}
 readonly S=${ROLL_STATE_DIR:-$HOME/.local/state/talos-node-roll}
-export TALOSCONFIG=${TALOSCONFIG:-$(cd "$(dirname "$0")/.." && pwd)/talos/talosconfig}
+# A shell that loaded the pre-#2026 .envrc still exports the deleted talos/clusterconfig/
+# path, and a worktree has no talos/talosconfig (gitignored): use the main checkout's.
+if [[ ! -s "${TALOSCONFIG:-}" ]]; then
+  TALOSCONFIG="$(cd "$(git -C "$(dirname "$0")" rev-parse --git-common-dir)/.." && pwd)/talos/talosconfig"
+  [[ -s "$TALOSCONFIG" ]] || { echo "no talosconfig at $TALOSCONFIG: run 'topf talosconfig > talos/talosconfig'" >&2; exit 1; }
+fi
+export TALOSCONFIG
 mkdir -p "$S"
 k() { kubectl --context "$C" "$@"; }
 
 phase=${1:?usage: $0 plan|prep|upgrade|restore|roll <node> [version]}; node=${2:?node}
 ip=$(k get node "$node" -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
 [[ -n "$ip" ]] || { echo "no InternalIP for $node" >&2; exit 1; }
+readonly EP=${TALOS_ENDPOINT:-$ip}
+readonly REC="$S/roll-$node.scaled"
+
+# Installer image for <version>: the node's current factory image with the tag swapped.
+# Every failure path prints why (|| true keeps set -e from exiting silently).
+installer_image() {
+  local ver=$1 cv img
+  [[ "$ver" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version must look like v1.13.11, got '$ver'" >&2; return 1; }
+  # A client a minor ahead of the nodes is what Homebrew silently installs; refuse it.
+  cv=$("$TALOSCTL" version --client --short 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+' | head -1 || true)
+  [[ "$cv" == "${ver%.*}" ]] || { echo "talosctl is '${cv:-unknown}', target is $ver: set TALOSCTL to a matching client" >&2; return 1; }
+  img=$("$TALOSCTL" -n "$ip" -e "$EP" get machineconfig -o yaml 2>/dev/null | awk '/^ +image: factory\.talos\.dev/ {print $2; exit}' || true)
+  [[ -n "$img" ]] || { echo "could not read installer image from $node machineconfig via $EP" >&2; return 1; }
+  echo "${img%:*}:$ver"
+}
 
 gate() { # attached Longhorn volumes that are not healthy
   k -n longhorn-system get volumes.longhorn.io -o json | python3 -c '
@@ -112,47 +136,60 @@ plan)
   echo "-- running backup movers: $(k get pods -A --no-headers | grep -E 'volsync-(src|dst)|-(local|r2)-[0-9]{14}' | grep -cv -E 'Completed|Error' || true)"
   workloads_on_node
   ;;
+preflight)
+  img=$(installer_image "${3:?version}") || exit 7
+  echo "preflight ok: $node ($ip) via $EP -> $img"
+  ;;
 prep)
+  [[ ! -s "$REC" ]] || { echo "unrestored scale record $REC: run '$0 restore $node' first" >&2; exit 8; }
   read -r bad names < <(gate); [[ "$bad" == 0 ]] || { echo "GATE: $bad attached volumes not healthy: $names" >&2; exit 2; }
   primary=$(k -n database get cluster postgres18 -o jsonpath='{.status.currentPrimary}')
   [[ "$(k -n database get pod "$primary" -o jsonpath='{.spec.nodeName}')" != "$node" ]] || { echo "CNPG primary $primary is on $node: switch over first" >&2; exit 3; }
-  : > "$S/roll-$node.scaled"
+  : > "$REC"
+  # From here on, any failure leaves a record: recover with restore, not another prep.
   workloads_on_node | while read -r tag ns kind name; do
     [[ "$tag" == SCALE ]] || { echo "  $tag $ns $kind $name"; continue; }
     r=$(k -n "$ns" get "$kind" "$name" -o jsonpath='{.spec.replicas}')
-    echo "$ns $kind $name $r" >> "$S/roll-$node.scaled"
-    k -n "$ns" scale "$kind" "$name" --replicas=0 >/dev/null && echo "  scaled $ns/$kind/$name $r -> 0"
+    echo "$ns $kind $name $r" >> "$REC"
+    k -n "$ns" scale "$kind" "$name" --replicas=0 >/dev/null || { echo "scale-down of $ns/$kind/$name failed; run restore" >&2; exit 9; }
+    echo "  scaled $ns/$kind/$name $r -> 0"
   done
-  # wait for those pods to be gone (graceful shutdown before the drain)
+  # Wait for those pods to be gone (graceful shutdown before the drain). Never drain
+  # while one still holds a sole-replica volume: avoiding that is the point of scaling.
+  left=1
   for _ in $(seq 1 60); do
     left=$(workloads_on_node | grep -c '^SCALE' || true); echo "$(date +%T) workloads still holding volumes on $node: $left"
     [[ "$left" == 0 ]] && break; sleep 5
   done
+  [[ "$left" == 0 ]] || { echo "$left workloads still hold sole-replica volumes on $node after 5m; not draining. Run restore to scale back" >&2; exit 9; }
   k drain "$node" --ignore-daemonsets --delete-emptydir-data --force \
-    --pod-selector='longhorn.io/component!=instance-manager' --timeout=600s || { echo "drain of $node failed" >&2; exit 6; }
+    --pod-selector='longhorn.io/component!=instance-manager' --timeout=600s || { echo "drain of $node failed; run restore" >&2; exit 6; }
   [[ "$(k get node "$node" -o jsonpath='{.spec.unschedulable}')" == true ]] || { echo "node $node is not cordoned after drain" >&2; exit 5; }
   echo "$(date +%T) PREP DONE for $node"
   ;;
 upgrade)
   ver=${3:?version}
-  # A client a minor ahead of the nodes is what Homebrew silently installs; refuse it.
-  cv=$("$TALOSCTL" version --client --short 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+' | head -1)
-  [[ "$cv" == "$(echo "$ver" | grep -oE '^v[0-9]+\.[0-9]+')" ]] || { echo "talosctl is $cv, target is $ver: set TALOSCTL to a matching client" >&2; exit 7; }
-  img=$("$TALOSCTL" -n "$ip" -e "$EP" get machineconfig -o yaml 2>/dev/null | awk '/^ +image: factory\.talos\.dev/ {print $2; exit}')
-  [[ -n "$img" ]] || { echo "could not read installer image from $node machineconfig" >&2; exit 4; }
-  img="${img%:*}:$ver"
+  img=$(installer_image "$ver") || exit 7
   extra=(); [[ "$node" == brokkr* ]] && extra=(--reboot-mode=powercycle)
-  echo "$(date +%T) upgrading $node ($ip) to $img ${extra[*]+"${extra[*]}"}"
-  "$TALOSCTL" -n "$ip" -e "$EP" upgrade --image "$img" --drain=false ${extra[@]+"${extra[@]}"} --wait --timeout 25m0s 2>&1 | grep -v -E "WARNING|^\s*$" | tail -8
+  echo "$(date +%T) upgrading $node ($ip) via $EP to $img ${extra[*]+"${extra[*]}"}"
+  # Exit status is talosctl's (pipefail); the filter only trims noise and must not fail on its own.
+  "$TALOSCTL" -n "$ip" -e "$EP" upgrade --image "$img" --drain=false ${extra[@]+"${extra[@]}"} --wait --timeout 25m0s 2>&1 \
+    | { grep -v -E "WARNING|^\s*$" || true; } | tail -8
+  v=
   for _ in $(seq 1 60); do
     v=$(k get node "$node" -o jsonpath='{.status.nodeInfo.osImage}{" "}{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)
-    echo "$(date +%T) $node: $v"; [[ "$v" == *"$ver"*True ]] && break; sleep 10
+    echo "$(date +%T) $node: $v"; [[ "$v" == *"($ver)"*True ]] && break; sleep 10
   done
+  [[ "$v" == *"($ver)"*True ]] || { echo "$node is not Ready on $ver after 10m (last: '$v')" >&2; exit 12; }
   ;;
 restore)
   k uncordon "$node" >/dev/null && echo "uncordoned $node"
-  if [[ -s "$S/roll-$node.scaled" ]]; then
-    while read -r ns kind name r; do k -n "$ns" scale "$kind" "$name" --replicas="$r" >/dev/null && echo "  scaled $ns/$kind/$name -> $r"; done < "$S/roll-$node.scaled"
+  if [[ -s "$REC" ]]; then
+    while read -r ns kind name r; do
+      k -n "$ns" scale "$kind" "$name" --replicas="$r" >/dev/null || { echo "scale-up of $ns/$kind/$name to $r failed; record kept at $REC" >&2; exit 9; }
+      echo "  scaled $ns/$kind/$name -> $r"
+    done < "$REC"
+    mv "$REC" "$REC.restored"
   fi
   for _ in $(seq 1 90); do
     read -r bad names < <(gate); echo "$(date +%T) attached-unhealthy volumes: $bad $names"
@@ -162,14 +199,16 @@ restore)
   echo "$(date +%T) RESTORE DONE for $node"
   ;;
 roll)
-  # The ONLY supported way to run the three phases together. Each phase is a
-  # separate process and its exit status is checked directly -- never pipe a
-  # phase into grep/tail: the pipeline returns the filter's status, which once
-  # let a failed prep (gate tripped, nothing drained) fall through to an
-  # undrained power-cycle of brokkr01 (2026-10-03).
+  # The ONLY supported way to run the phases together. Each phase is a separate
+  # process and its exit status is checked directly -- never pipe a phase into
+  # grep/tail: the pipeline returns the filter's status, which once let a failed
+  # prep (gate tripped, nothing drained) fall through to an undrained power-cycle
+  # of brokkr01 (2026-10-03). preflight runs first so a bad client or version
+  # aborts before anything is scaled down or drained.
   ver=${3:?version}
-  "$0" prep "$node" || { echo "ROLL ABORTED: prep failed for $node; node NOT upgraded" >&2; exit 10; }
-  "$0" upgrade "$node" "$ver" || { echo "ROLL ABORTED: upgrade failed for $node; restore by hand" >&2; exit 11; }
+  "$0" preflight "$node" "$ver" || { echo "ROLL ABORTED: preflight failed for $node; nothing changed" >&2; exit 10; }
+  "$0" prep "$node" || { echo "ROLL ABORTED: prep failed for $node; node NOT upgraded. Run restore if anything was scaled or cordoned" >&2; exit 10; }
+  "$0" upgrade "$node" "$ver" || { echo "ROLL ABORTED: upgrade failed for $node; check the node, then run restore" >&2; exit 11; }
   "$0" restore "$node"
   ;;
 *) echo "unknown phase" >&2; exit 1 ;;

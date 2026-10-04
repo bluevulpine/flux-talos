@@ -54,6 +54,10 @@ upgrade-node node version:
 upgrade-node-plan node:
     "{{ scripts_dir }}/talos-node-roll.sh" plan "{{ node }}"
 
+[doc('Recover an aborted upgrade-node: uncordon and scale back up from the recorded replicas')]
+upgrade-node-restore node:
+    "{{ scripts_dir }}/talos-node-roll.sh" restore "{{ node }}"
+
 # =============================================================================
 # Cluster Rebuild Recipes
 # =============================================================================
