@@ -39,6 +39,17 @@ exist yet, not because human authorship is the convention. The point of bot
 accounts is that what an agent commits is clearly separate from what Derek
 commits.
 
+**Commit messages use Scoped Commits, never Conventional Commits**: the subject
+is `<scope>: <description>` where the scope is the app, component or area
+changed (the directory name, e.g. `thanos`, `tailscale`, `actions-runner-controller`)
+and the description is lowercase and says what changed. Several scopes are
+comma-separated (`litellm, hindsight, docs: ...`). No `feat:`/`fix:`/`chore:`/`docs:`
+type prefix and no `(scope)` parentheses. This applies to PR titles too, since
+PRs are merged with merge commits and the title becomes the subject on `main`.
+The automated `chore(images):` commits from Flux image automation are the only
+exception. Do not infer this from `git log` either: those bot commits and older
+history use other styles.
+
 **Renovate version tracking**: annotate a version with `# renovate: datasource=...` when
 Renovate cannot detect it natively — a bare version string in `talos/topf.yaml`, a URL
 containing a version, a tool pinned in a script. See `talos/topf.yaml` for the pattern.
