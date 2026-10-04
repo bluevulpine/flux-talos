@@ -137,8 +137,14 @@ spec:
       # the apex (the blog) with the internal gateway 172.16.8.2, which Synapse's SSRF
       # blacklist refuses, so derekjacobs.dev could not federate to bluevulpine.net.
       # The derekjacobs.dev apex already resolves publicly, so this makes the two
-      # zones behave the same. Safe for the whole zone: every *.bluevulpine.net host
-      # is public (Cloudflare or Pangolin); LAN clients still use UniFi, unaffected.
+      # zones behave the same. Every *.bluevulpine.net HOST is public (Cloudflare or
+      # Pangolin), so nothing in-cluster loses a name; LAN clients still use UniFi,
+      # unaffected. But in-cluster clients now take the PUBLIC path, so paths routed
+      # only on the `internal` gateway are unreachable from pods: matrix.bluevulpine.net
+      # /_synapse/admin, /_synapse/mas, /_synapse/ess and account.bluevulpine.net
+      # /api/admin (404 at the Pangolin edge). Nothing in-cluster calls them today; an
+      # in-cluster admin job for that server must use the Service, not the hostname.
+      # Gatus checks of bluevulpine.net routes likewise go via Cloudflare/Pangolin.
       # Rejected alternatives (#2059): Synapse ip_range_whitelist for .2 (opens the
       # whole internal gateway to Synapse's outbound clients, pushers included), an
       # SRV fallback (Synapse keeps Host/SNI = server_name, so it hits the blog),
@@ -171,6 +177,10 @@ spec:
               prefetch 20
               serve_stale
           - name: loop
+          # Metrics are per server block; without this the zone's queries never reach
+          # coredns_dns_requests_total. The same address in several blocks is supported.
+          - name: prometheus
+            parameters: 0.0.0.0:9153
           - name: log
             configBlock: |-
               class error

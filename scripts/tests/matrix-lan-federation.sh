@@ -39,6 +39,7 @@ blk=$(printf '%s\n' "$cf" | awk '/^dns:\/\/bluevulpine\.net\.:53 /{f=1} f{print}
 check "coredns bluevulpine block present" "$([ -n "$blk" ] && echo yes)" "yes"
 check "coredns block forwards public" "$(printf '%s\n' "$blk" | grep -c -E '^\s*forward \. 1\.1\.1\.1 1\.0\.0\.1')" "1"
 check "coredns block suppresses AAAA" "$(printf '%s\n' "$blk" | grep -c -E '^\s*template ANY AAAA')" "1"
+check "coredns block has metrics" "$(printf '%s\n' "$blk" | grep -c -E '^\s*prometheus 0\.0\.0\.0:9153')" "1"
 check "coredns block SOA absolute" "$(printf '%s\n' "$blk" | grep -c 'ns.dns. hostmaster.dns.')" "1"
 check "coredns main block unchanged forward" "$(printf '%s\n' "$cf" | grep -c -E '^\s*forward \. /etc/resolv\.conf')" "1"
 # Bootstrap safety: bootstrap/helmfile.d reads these values raw, so no Flux placeholder may appear

@@ -57,9 +57,11 @@ spec:
                 annotations:
                   secret.reloader.stakater.com/reload: matrix-stack-secret
           # LAN federation with our other homeserver (kubernetes/apps/matrix).
-          # In-cluster DNS is split-horizon: both matrix.* hosts resolve to the
+          # In-cluster DNS is split-horizon: matrix.derekjacobs.dev resolves to the
           # INTERNAL Envoy gateway (172.16.8.2), which Synapse's SSRF blacklist
           # refuses, so the two servers could not federate ("Blocked 172.16.8.2").
+          # (matrix.bluevulpine.net now resolves publicly via CoreDNS anyway; its
+          # entry here is kept as a guard against DNS changes.)
           # Do NOT fix that with ip_range_whitelist: .2 fronts ~68 LAN-only routes
           # under a wildcard cert, and the whitelist also governs pushers and 3PID
           # key checks, so it would open Synapse's outbound clients to all of them
