@@ -378,10 +378,10 @@ the `kopiur-pilot` Garage bucket and the OpenBao key `kopiur-pilot` by hand.
 | W3 | media/radarr | `5 * * * *` → `H * * * *` | `27 4 * * *` → `H 4 * * *` | Snapshot | longhorn-2-replica ⁶ |  |
 | W3 | media/sonarr | `0 * * * *` → `H * * * *` | `19 5 * * *` → `H 5 * * *` | Snapshot | longhorn-2-replica ⁶ |  |
 | W3 | media/tracearr | `24,54 * * * *` → `29,59 * * * *` ¹ | `17 2 * * *` → `38 2 * * *` ² | Snapshot | longhorn-2-replica ⁶ | uid/gid/fsGroup 1001 |
-| W4 | database/couchdb | `14,44 * * * *` → `19,49 * * * *` ¹ | `41 0 * * *` → `H 0 * * *` | Direct | longhorn-1-replica |  |
-| W4 | database/influxdb | `16,46 * * * *` → `21,51 * * * *` ¹ | `27 1 * * *` → `H 1 * * *` | Direct | longhorn-1-replica | uid/gid/fsGroup 1000 |
-| W4 | database/timescaledb | `22,52 * * * *` → `27,57 * * * *` ¹ | `13 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica | uid/gid/fsGroup 1000 |
-| W4 | identity/vaultwarden | `2,32 * * * *` → `7,37 * * * *` ¹ | `49 5 * * *` → `H 5 * * *` | Direct | longhorn-1-replica |  |
+| W4 | database/couchdb | `14,44 * * * *` → `19,49 * * * *` ¹ | `41 0 * * *` → `H 0 * * *` | Direct | longhorn-2-replica ⁶ |  |
+| W4 | database/influxdb | `16,46 * * * *` → `21,51 * * * *` ¹ | `27 1 * * *` → `H 1 * * *` | Direct | longhorn-2-replica ⁶ | uid/gid/fsGroup 1000 |
+| W4 | database/timescaledb | `22,52 * * * *` → `27,57 * * * *` ¹ | `13 6 * * *` → `H 6 * * *` | Snapshot | longhorn-2-replica ⁶ | uid/gid/fsGroup 1000 |
+| W4 | identity/vaultwarden | `2,32 * * * *` → `7,37 * * * *` ¹ | `49 5 * * *` → `H 5 * * *` | Direct | longhorn-2-replica ⁶ |  |
 | W5 | media/jellyfin | `35 * * * *` → `H * * * *` | `33 1 * * *` → `H 1 * * *` | Snapshot | longhorn-1-replica | **`KOPIUR_STAGING_TIMEOUT: 30m`** ⁵ |
 | W5 | media/plex | `20,50 * * * *` → `25,55 * * * *` ¹ | `3 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica | cache 30Gi, **`NS: media`** ³, **`KOPIUR_STAGING_TIMEOUT: 30m`** ⁵ |
 | W6 | develop/hermes | `23 * * * *` → `H * * * *` | `29 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica-local | **staging.storageClassName: longhorn-1-replica patch** |
@@ -429,7 +429,7 @@ assume" the component's comment asks for.
 ⁶ **The StorageClass column is the class at planning time.** A separate 2-replica wave
 (#2035, #2039 and follow-ups, 2026-10-02/03) re-bound most claims to `longhorn-2-replica` by
 re-creating each PVC on the same Longhorn volume (no restore; same data and identity, so
-kopiur is unaffected). W3's rows are updated; later waves' are not. Read the live class
+kopiur is unaffected). W3's and W4's rows are updated (checked live); later waves' are not. Read the live class
 (`kubectl get pvc`) before a wave's restore gate: W3 ended up spanning two classes and needed
 two gates.
 
