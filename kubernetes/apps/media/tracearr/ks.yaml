@@ -44,8 +44,6 @@ spec:
       VOLSYNC_CAPACITY: 10Gi
       VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
-      # Upstream Dockerfile user is 1001:1001 (tracearr:nodejs) - NOT the 1000
-      # timescaledb uses. A root mover would restore root-owned dumps.
       # kopiur (components/kopiur), W3. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
@@ -59,7 +57,8 @@ spec:
       # live (Pollen caught exactly this missing on timescaledb, 2026-09-01).
       KOPIUR_COPYMETHOD: Snapshot
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
-      # Mover runs as tracearr's uid/gid (1001), so restores come back owned by it.
+      # Upstream Dockerfile user is 1001:1001 (tracearr:nodejs) - NOT the 1000
+      # timescaledb uses. A root mover would restore root-owned dumps.
       KOPIUR_RUN_AS_USER: "1001"
       KOPIUR_RUN_AS_GROUP: "1001"
       KOPIUR_FS_GROUP: "1001"

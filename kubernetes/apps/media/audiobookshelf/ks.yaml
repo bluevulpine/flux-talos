@@ -30,9 +30,9 @@ spec:
       GATUS_PORT: "80"
       GATUS_SERVICE: audiobookshelf
       VOLSYNC_CAPACITY: 5Gi
-      # Medium criticality: audiobook config - backup every hour
       VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
+      # Medium criticality: audiobook config - backup every hour
       # kopiur (components/kopiur), W3. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).

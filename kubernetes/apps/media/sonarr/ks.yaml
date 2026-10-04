@@ -33,9 +33,9 @@ spec:
       GATUS_PORT: "8989"
       GATUS_SERVICE: sonarr
       VOLSYNC_CAPACITY: 4Gi
-      # High criticality: TV library DB - backup every hour
       VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
+      # High criticality: TV library DB - backup every hour
       # kopiur (components/kopiur), W3. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).

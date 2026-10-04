@@ -95,9 +95,9 @@ spec:
       # "apps set no NS" trap); kometa had none.
       NS: media
       VOLSYNC_CAPACITY: 10Gi
-      # Low criticality: Plex metadata manager, regenerates - backup every 4 hours
       VOLSYNC_STORAGECLASS: longhorn-1-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
+      # Low criticality: Plex metadata manager, regenerates - backup every 4 hours
       # kopiur (components/kopiur), W3. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
