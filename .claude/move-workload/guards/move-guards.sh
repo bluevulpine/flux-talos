@@ -98,7 +98,7 @@ GIT() { git -C "$R" -c 'user.name=fizz-bot-bvn[bot]' -c 'user.email=324971095+fi
 COMMIT() {
   local trailers
   [ $# -eq 1 ] || { echo 'usage: COMMIT "<subject>"' >&2; return 1; }
-  # N15: Scoped Commits (~/.claude/CLAUDE.md): "<scope>: <description>", never a Conventional Commits type prefix.
+  # N15: Scoped Commits (CLAUDE.md, "Commit messages use Scoped Commits"): "<scope>: <description>", never a Conventional Commits type prefix.
   [[ $1 =~ ^(feat|fix|docs|chore|refactor|test|tests|ci|build|perf|style|revert)(\([^\)]*\))?!?:[[:space:]] ]] && { echo "REFUSE: [$1] uses a Conventional Commits type prefix; use '<scope>: <description>' (Scoped Commits)" >&2; return 1; }
   [[ $1 =~ ^[A-Za-z0-9._/-]+(,[[:space:]][A-Za-z0-9._/-]+)*:[[:space:]]+[^[:space:]] ]] || { echo "REFUSE: subject [$1] must look like '<scope>: <description>'" >&2; return 1; }
   [ -n "${MOVE_COAUTHOR:-}" ] || { echo "REFUSE: set MOVE_COAUTHOR to the model's Co-Authored-By value (e.g. 'Claude <model> <noreply@anthropic.com>')" >&2; return 1; }
