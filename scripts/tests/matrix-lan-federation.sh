@@ -28,6 +28,10 @@ for ns in matrix matrix-bluevulpine; do
   sts='select(.kind=="StatefulSet" and .metadata.name=="matrix-stack-synapse-main")'
   ha=$(printf '%s\n' "$out" | yq -o=json "$sts | .spec.template.spec.hostAliases" | jq -c '[.[]? | {ip, hostnames: (.hostnames|sort)}]')
   check "$ns hostAliases" "$ha" '[{"ip":"203.0.113.10","hostnames":["matrix.bluevulpine.net","matrix.derekjacobs.dev"]}]'
+  # ndots:1 so dotted names are tried ABSOLUTE first: with the default ndots:5 the search walk is
+  # done server-side by CoreDNS autopath inside the "." block, which forwards to UniFi and returns
+  # the internal 172.16.8.2 for bluevulpine.net -- never reaching the bluevulpine.net. zone block.
+  check "$ns dnsConfig ndots:1" "$(printf '%s\n' "$out" | yq -o=json "$sts | .spec.template.spec.dnsConfig.options" | jq -c '[.[]? | select(.name=="ndots") | .value]')" '["1"]'
   check "$ns no-ip_range_whitelist" "$(printf '%s\n' "$out" | grep -c -E '^[[:space:]]*ip_range_whitelist:')" "0"
   check "$ns reload-annotation-kept" "$(printf '%s\n' "$out" | yq "$sts | .metadata.annotations[\"secret.reloader.stakater.com/reload\"]")" "matrix-stack-secret"
   check "$ns ingresses-deleted" "$(printf '%s\n' "$out" | yq 'select(.kind=="Ingress") | .metadata.name' | grep -c -v -E '^(---)?$')" "0"

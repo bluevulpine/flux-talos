@@ -84,6 +84,15 @@ spec:
                         hostnames:
                           - "matrix.${SECRET_DOMAIN}"
                           - "matrix.${SECRET_DOMAIN_BLOG}"
+                    # ndots:1 so dotted names are tried ABSOLUTE first; with the default
+                    # ndots:5 CoreDNS autopath resolves them inside its "." block (UniFi,
+                    # internal answers) and bypasses the bluevulpine.net. zone block.
+                    # Kept symmetric with kubernetes/apps/matrix; single-label names still
+                    # use the search path.
+                    dnsConfig:
+                      options:
+                        - name: ndots
+                          value: "1"
           - target:
               kind: Deployment
               name: matrix-stack-matrix-authentication-service
