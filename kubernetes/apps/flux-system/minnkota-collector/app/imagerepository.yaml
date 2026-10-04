@@ -5,7 +5,7 @@ kind: ImageRepository
 metadata:
   name: &app minnkota-collector
 spec:
-  image: gitea.derekjacobs.dev/bluevulpine/minnkota-collector
+  image: gitea.derekjacobs.dev/bvn-homelab/minnkota-collector
   interval: 5m
   secretRef:
     name: gitea-registry-creds
