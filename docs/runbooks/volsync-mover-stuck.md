@@ -256,8 +256,7 @@ kubectl get volumesnapshotcontent -o jsonpath='{range .items[?(@.spec.volumeSnap
 # while leaving the mover in place. A mover pod's actual labels are:
 #   app.kubernetes.io/created-by=volsync
 #   job-name=volsync-src-<app>-<dest>        (plus the batch.kubernetes.io/ equivalents)
-# Scope by job-name, not by created-by alone -- the latter also matches the long-lived
-# Syncthing mover Deployment in `games`.
+# Scope by job-name, not by created-by alone.
 kubectl -n <ns> delete pod -l job-name=volsync-src-<app>-local --force --grace-period=0
 kubectl -n <ns> delete pvc volsync-<app>-local-src
 
@@ -406,9 +405,3 @@ kubectl -n <ns> get replicationsource <app>-local \
 # Confirm which snapshot/clone it is mounting:
 kubectl -n <ns> get pvc,volumesnapshot | grep 'volsync-<app>-local-src'
 ```
-
-## Note: `valheim-syncthing` is NOT this
-
-`valheim-syncthing` is a VolSync **Syncthing** continuous mover; it never reports
-`lastSyncTime`, so `VolSyncVolumeOutOfSync` false-fires for it perpetually. That
-is a separate monitoring gap, not a stuck mount — do not treat it as this issue.

@@ -22,9 +22,6 @@ spec:
   interval: 30m
   retryInterval: 1m
   timeout: 5m
-  # provider: sops is still needed; secretRef omitted — controller flag reads flux-system/sops-age
-  decryption:
-    provider: sops
   postBuild:
     substitute:
       APP: *app
