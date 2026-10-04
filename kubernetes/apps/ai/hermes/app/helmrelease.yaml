@@ -180,3 +180,12 @@ spec:
         globalMounts:
           - path: /run/hermes-profiles/canary
             readOnly: true
+      # Wasp (Buzz code reviewer), same shape as canary. See
+      # externalsecret-profile-wasp.yaml for what is in the file and why.
+      wasp-secrets:
+        type: secret
+        name: hermes-profile-wasp
+        defaultMode: 0440
+        globalMounts:
+          - path: /run/hermes-profiles/wasp
+            readOnly: true
