@@ -72,10 +72,11 @@ print(len(bad), " ".join(bad))'
 # Workloads (ns kind name) owning pods on $node that mount a Longhorn volume attached on $node.
 # Skips operator/HA-managed workloads that the drain evicts under their own PDBs.
 workloads_on_node() {
-  k -n longhorn-system get volumes.longhorn.io -o json > "$S/roll-vols.json"
-  k get pods -A -o json --field-selector "spec.nodeName=$node" > "$S/roll-pods.json"
-  k get rs -A -o json > "$S/roll-rs.json"
-  k -n longhorn-system get replicas.longhorn.io -o json > "$S/roll-reps.json"
+  # Chained: set -e is off when this runs left of `||`, and a failed fetch must fail the listing.
+  k -n longhorn-system get volumes.longhorn.io -o json > "$S/roll-vols.json" &&
+    k get pods -A -o json --field-selector "spec.nodeName=$node" > "$S/roll-pods.json" &&
+    k get rs -A -o json > "$S/roll-rs.json" &&
+    k -n longhorn-system get replicas.longhorn.io -o json > "$S/roll-reps.json" || return 1
   python3 - "$node" "$S" <<'PY'
 import json, sys
 node, S = sys.argv[1], sys.argv[2]
@@ -194,7 +195,8 @@ restore)
     mv "$REC" "$REC.restored"
   fi
   for _ in $(seq 1 90); do
-    read -r bad names < <(gate); echo "$(date +%T) attached-unhealthy volumes: $bad $names"
+    read -r bad names < <(gate) || bad=unknown   # API blip right after a control-plane reboot: keep polling
+    echo "$(date +%T) attached-unhealthy volumes: $bad ${names:-}"
     [[ "$bad" == 0 ]] && break; sleep 20
   done
   echo "-- not-ready pods cluster-wide:"; k get pods -A --no-headers | grep -v -E "Running|Completed" | awk '{print "   "$1"/"$2,$4}' | head -12
