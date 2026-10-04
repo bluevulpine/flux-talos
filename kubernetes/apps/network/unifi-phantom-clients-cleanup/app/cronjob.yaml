@@ -12,10 +12,11 @@ spec:
         spec:
           containers:
             - name: unifi-phantom-clients-cleanup
-              # renovate: datasource=docker depName=gitea.derekjacobs.dev/bluevulpine/unifi-phantom-clients-cleanup
-              image: gitea.derekjacobs.dev/bluevulpine/unifi-phantom-clients-cleanup:latest
+              # renovate: datasource=docker depName=gitea.derekjacobs.dev/bvn-homelab/unifi-phantom-clients-cleanup
+              image: gitea.derekjacobs.dev/bvn-homelab/unifi-phantom-clients-cleanup:latest
               imagePullPolicy: Always
-              args: ["-verbose"]
+              args:
+                - "-verbose"
               envFrom:
                 - secretRef:
                     name: unifi-phantom-clients-cleanup-secret
@@ -24,7 +25,8 @@ spec:
                 readOnlyRootFilesystem: true
                 runAsNonRoot: true
                 capabilities:
-                  drop: [ALL]
+                  drop:
+                    - ALL
                 seccompProfile:
                   type: RuntimeDefault
               resources:
