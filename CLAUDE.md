@@ -42,7 +42,7 @@ commits.
 **Commit messages use Scoped Commits, never Conventional Commits**: the subject
 is `<scope>: <description>` where the scope is the app, component or area
 changed (the directory name, e.g. `thanos`, `tailscale`, `actions-runner-controller`)
-and the description is lowercase and says what changed. Several scopes are
+and the description starts lowercase and says what changed. Several scopes are
 comma-separated (`litellm, hindsight: ...`). No `feat:`/`fix:`/`chore:`/`docs:`/`ci:`
 type prefix and no `(scope)` parentheses, even when the word names a directory.
 For a change that only touches documentation, use the specific area as the
