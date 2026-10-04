@@ -5,7 +5,7 @@ kind: ImageRepository
 metadata:
   name: rackpanel-agent
 spec:
-  image: gitea.derekjacobs.dev/bluevulpine/rackpanel-agent
+  image: gitea.derekjacobs.dev/bvn-homelab/rackpanel-agent
   interval: 5m
   secretRef:
     name: gitea-registry-creds

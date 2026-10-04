@@ -1,0 +1,44 @@
+---
+# Valheim's /home/steam/backups on the NAS (was a subPath of the longhorn
+# gamedata PVC, i.e. stuck in the cluster). Tuned NFS mount shared with the
+# other NAS consumers (see esphome/app/nfs.yaml). The directory must exist and
+# be owned 111:1000 on the export before the pod starts -- NFS does not create
+# it. reclaimPolicy: Retain.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: valheim-backups-nfs
+  labels:
+    app.kubernetes.io/name: valheim
+    app.kubernetes.io/component: backups
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - "ReadWriteMany"
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - nfsvers=4.2
+    - hard
+    - noresvport
+    - noatime
+    - nconnect=8
+    - rsize=1048576
+    - wsize=1048576
+  nfs:
+    server: "${SECRET_NFS_SERVER}"
+    path: /mnt/apps/kubernetes/valheim-backups
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: valheim-backups-nfs
+spec:
+  accessModes:
+    - "ReadWriteMany"
+  storageClassName: ""
+  volumeName: valheim-backups-nfs
+  resources:
+    requests:
+      storage: 50Gi

@@ -5,7 +5,7 @@ kind: ImageRepository
 metadata:
   name: &app helium-archiver
 spec:
-  image: gitea.derekjacobs.dev/bluevulpine/helium-archiver
+  image: gitea.derekjacobs.dev/bvn-homelab/helium-archiver
   interval: 5m
   secretRef:
     name: gitea-registry-creds

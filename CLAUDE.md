@@ -10,7 +10,7 @@ Serena is configured for this repo. At session start, activate the project and r
 
 **SOPS-encrypted files** (`*.sops.yaml`): never write decrypted content to disk. Use `sops -d <file>` to view and `sops <file>` to open the editor. Plaintext secrets must not appear in any file tracked by git (gitleaks runs on every pre-commit).
 
-**`talos/clusterconfig/`** is gitignored and contains generated machine configs. Do not edit these files directly; the source of truth is `talos/talconfig.yaml`. Regenerate with `just talos gen-config`.
+**Talos machine config** is rendered by topf from `talos/topf.yaml` + `talos/patches/` + `talos/schematics/` + the PKI in `talos/secrets.sops.yaml`; there is no generated directory to edit. `topf render -o <dir>` writes PLAINTEXT configs (PKI included): render into a `mktemp -d`, never into the tree, and delete it. `talos/talosconfig` (client admin cert + key, gitignored) comes from `topf talosconfig > talos/talosconfig`. Apply with `just talos apply-node <host>` / `apply-all`.
 
 **YAML formatting**: all `.yaml` files except `*.sops.yaml` and `talos/topf.yaml` (partially SOPS-encrypted; yamlfmt would reformat the ciphertext) must pass `yamlfmt`. Block-style arrays, `---` document start, LF line endings. Lefthook enforces this on pre-commit — do not skip hooks.
 
@@ -39,9 +39,25 @@ exist yet, not because human authorship is the convention. The point of bot
 accounts is that what an agent commits is clearly separate from what Derek
 commits.
 
+**Commit messages use Scoped Commits, never Conventional Commits**: the subject
+is `<scope>: <description>` where the scope is the app, component or area
+changed (the directory name, e.g. `thanos`, `tailscale`, `actions-runner-controller`)
+and the description starts lowercase and says what changed. Several scopes are
+comma-separated (`litellm, hindsight: ...`). No `feat:`/`fix:`/`chore:`/`docs:`/`ci:`
+type prefix and no `(scope)` parentheses, even when the word names a directory.
+For a change that only touches documentation, use the specific area as the
+scope (`CLAUDE.md: ...`, `runbooks: ...`), not `docs:`. This applies to PR titles
+too: PRs are merged with merge commits, so the title is what appears in `main`'s
+history (on the merge commit's second line).
+Automated commits keep their own format and are the exceptions: Renovate
+(`:semanticCommits`, `.renovate/semanticCommits.json5`) and Flux image automation
+(`chore(images):`). Do not retitle their PRs or change their templates to match.
+Do not infer the rule from `git log` either: automated commits and older history
+use other styles.
+
 **Renovate version tracking**: annotate a version with `# renovate: datasource=...` when
-Renovate cannot detect it natively — a bare version string in `talos/talconfig.yaml`, a URL
-containing a version, a tool pinned in a script. See `talos/talconfig.yaml` for the pattern.
+Renovate cannot detect it natively — a bare version string in `talos/topf.yaml`, a URL
+containing a version, a tool pinned in a script. See `talos/topf.yaml` for the pattern.
 The annotation goes on the line *directly above* the value (`#1715` fixed one that was
 misplaced).
 

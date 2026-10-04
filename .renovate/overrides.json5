@@ -36,7 +36,7 @@
       // (#1678 sat open for weeks) -- and the tuppr KubernetesUpgrade is NOT suspended, so a
       // merged kubelet bump would start an unsupported upgrade on its own.
       // These two names are the only places the cluster's Kubernetes version is set:
-      // kubernetesVersion in talos/{talconfig,topf}.yaml and the KubernetesUpgrade CR.
+      // kubernetesVersion in talos/topf.yaml and the KubernetesUpgrade CR.
       // TO MOVE TO 1.37: only after the nodes are on Talos 1.14 (see the Talos rule above);
       // then change the regex to 1\.37 together with the Talos one.
       description: "Kubernetes: hold at 1.36.x while Talos is held at 1.13.x",

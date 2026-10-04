@@ -82,7 +82,7 @@ needs upgrading first).
 ## Always skip in an automated sweep (flag for maintenance window)
 
 - **talos** / **kubernetes** version bumps — node OS / control-plane upgrades driven
-  by talhelper + a controlled rollout, not Flux.
+  by topf/tuppr + a controlled rollout, not Flux.
 - **Longhorn** (and any no-downgrade storage) minors.
 - **Major (`!`)** bumps that need app-side migration (node-red 4→5, homebox-companion
   3.x, etc.).

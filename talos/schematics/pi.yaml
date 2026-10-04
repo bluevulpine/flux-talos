@@ -1,7 +1,7 @@
 ---
 # Raspberry Pi workers (jormungandr1-4). Expected ID a6c707bf3d72…b184.
-# Extracted from talos/talconfig.yaml (jormungandr1's schematic, anchors resolved) so topf and talhelper
-# compute the same Image Factory ID. Do not hand-edit: the ID depends on the exact content.
+# Extracted from the retired talos/talconfig.yaml (jormungandr1's schematic, anchors resolved) so the
+# Image Factory ID stayed identical across the talhelper->topf move. Do not hand-edit: the ID depends on the exact content.
 customization:
   extraKernelArgs:
     - -init_on_alloc

@@ -1,3 +1,4 @@
+---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -45,10 +46,10 @@ spec:
         containers:
           app:
             # First-party image — built by Drone CI from
-            # https://gitea.derekjacobs.dev/bluevulpine/rackpanel
+            # https://gitea.derekjacobs.dev/bvn-homelab/rackpanel
             image:
-              repository: gitea.derekjacobs.dev/bluevulpine/rackpanel
-              tag: 11-2b495c72 # {"$imagepolicy": "flux-system:rackpanel:tag"}
+              repository: gitea.derekjacobs.dev/bvn-homelab/rackpanel
+              tag: 12-80ee3b86 # {"$imagepolicy": "flux-system:rackpanel:tag"}
             env:
               TZ: "${TIMEZONE}"
               RACKPANEL_NODES: jormungandr1,jormungandr2,jormungandr3,jormungandr4
@@ -82,8 +83,8 @@ spec:
           # The four Pis are the only arm64 nodes. This selects the wrong
           # property (architecture, not "has a panel") but avoids a
           # machine-config apply across all four for a cosmetic gain. If a
-          # non-panel arm64 node is ever added, add nodeLabels to
-          # talconfig.yaml and switch this selector.
+          # non-panel arm64 node is ever added, add a node label via
+          # a talos/patches/ patch and switch this selector.
           nodeSelector:
             kubernetes.io/arch: arm64
           tolerations:
@@ -111,8 +112,8 @@ spec:
             # `:tag` suffix (the opposite of a combined `image: repo:tag`
             # scalar). See docs/runbooks/flux-image-automation.md.
             image:
-              repository: gitea.derekjacobs.dev/bluevulpine/rackpanel-agent
-              tag: 11-2b495c72 # {"$imagepolicy": "flux-system:rackpanel-agent:tag"}
+              repository: gitea.derekjacobs.dev/bvn-homelab/rackpanel-agent
+              tag: 12-80ee3b86 # {"$imagepolicy": "flux-system:rackpanel-agent:tag"}
             env:
               TZ: "${TIMEZONE}"
               NODE_NAME:

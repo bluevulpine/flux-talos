@@ -85,7 +85,7 @@ spec:
 
       # ── NVMe-oF ──────────────────────────────────────────────────────────────
       # High-performance block storage over TCP. nvme_tcp kernel module is already
-      # loaded on all Talos nodes (confirmed in talconfig.yaml).
+      # loaded on all Talos nodes (talos/patches/worker/01-nvme-tcp.yaml).
       #
       # TrueNAS-side prerequisites before enabling workloads here (verified 2026-06-21):
       #   1. Enable the NVMe-oF target service in TrueNAS SCALE

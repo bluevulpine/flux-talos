@@ -5,7 +5,7 @@ kind: ImageRepository
 metadata:
   name: &app beestat-collector
 spec:
-  image: gitea.derekjacobs.dev/bluevulpine/beestat-collector
+  image: gitea.derekjacobs.dev/bvn-homelab/beestat-collector
   interval: 5m
   secretRef:
     name: gitea-registry-creds

@@ -63,7 +63,7 @@ it as a helpful accelerator only — this command must work fully without it.
 
 ## Hard guardrails
 
-- Never edit `talos/clusterconfig/` (generated) or write decrypted `*.sops.yaml` to disk.
+- Never write decrypted `*.sops.yaml` to disk, and never `topf render` into the tree (plaintext PKI).
 - Merge only when the PR's own CI is green AND the workload is healthy.
 - Do NOT auto-merge in the sweep: major (`!`) version bumps, talos/kubernetes node or
   control-plane upgrades, or no-downgrade storage bumps (e.g. Longhorn minors). Flag

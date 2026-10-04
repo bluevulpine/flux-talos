@@ -46,7 +46,7 @@ spec:
 
 ## Renovate
 
-- Semantic commits enforced (`.renovate/semanticCommits.json5`)
+- Renovate uses semantic commits (`.renovate/semanticCommits.json5`); human and agent commits use Scoped Commits (`<scope>: <description>`, see CLAUDE.md)
 - Patch updates auto-merge; major updates open PRs
 - Ignore paths: `**/*.sops.*`, `**/resources/**`
 - Chart versions tracked in HelmRelease via `# renovate:` comments or standard Helm datasource

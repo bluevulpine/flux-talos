@@ -31,7 +31,7 @@ is Flux GitOps on a 7-node Talos cluster; merges to `main` trigger Flux via webh
 - **No foreground `sleep`** — it's blocked. To wait on a condition use an
   `until <check>; do sleep N; done` loop (optionally `run_in_background: true`). Don't
   chain short sleeps.
-- **Dev tooling lives under mise/Homebrew, not always on PATH.** `lefthook`, `yamlfmt`
+- **Dev tooling lives under Homebrew (and `.bin/`), not always on PATH.** `lefthook`, `yamlfmt`
   may be absent in the non-interactive shell. Homebrew is at `/opt/homebrew/bin` and
   provides **`yq`** and **`kubeconform`** — use them to validate manifests:
   ```

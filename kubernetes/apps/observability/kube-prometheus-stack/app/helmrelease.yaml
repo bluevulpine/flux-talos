@@ -90,7 +90,7 @@ spec:
     kubeControllerManager:
       enabled: false
     # Enabled 2026-08-20. Talos already exposes etcd metrics on every control
-    # plane node -- talconfig.yaml sets
+    # plane node -- talos/patches/control-plane/02-etcd.yaml sets
     # `cluster.etcd.extraArgs.listen-metrics-urls: http://0.0.0.0:2381` -- and
     # all three answer HTTP 200 on :2381/metrics. Only the scraper was off, so
     # this is a scraper change, not a cluster change.

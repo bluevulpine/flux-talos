@@ -4,7 +4,7 @@
 
 - **Talos Linux** v1.13.2 — immutable, API-driven OS on all nodes
 - **Kubernetes** v1.36.1
-- Versions are Renovate-tracked via `# renovate: datasource=github-releases` comments in `talos/talconfig.yaml`
+- Versions are Renovate-tracked via `# renovate: datasource=github-releases` comments in `talos/topf.yaml`
 
 ## GitOps
 
@@ -30,12 +30,12 @@
 | spegel | Local OCI registry mirror |
 | actions-runner-controller | Self-hosted GitHub runners |
 
-## Toolchain (managed via mise)
+## Toolchain (Homebrew; topf pinned in `.bin/`; env via direnv `.envrc`)
 
 - `uv` — Python venv / package management
 - `pipx:flux-local` — local Flux plan/diff validation
 - `just` — task runner (modules: `bootstrap`, `kube`, `talos`)
-- `talosctl`, `talhelper` — Talos management
+- `talosctl`, `topf` (`.bin/topf`, PostFinance) — Talos management
 - `kubectl`, `flux` — Kubernetes/FluxCD CLI
 - `sops`, `age` — secret encryption
 - `minijinja-cli` — template rendering
@@ -45,6 +45,5 @@
 
 ## Config files
 
-- `.mise.toml` — tool versions + env vars
 - `.envrc` — direnv environment (KUBECONFIG, SOPS_AGE_KEY_FILE, TALOSCONFIG, Python venv)
 - `.minijinja.toml` — template config

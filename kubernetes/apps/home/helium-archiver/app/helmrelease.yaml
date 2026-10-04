@@ -1,3 +1,4 @@
+---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -30,11 +31,11 @@ spec:
         containers:
           app:
             # First-party image — built by Drone CI from
-            # https://gitea.derekjacobs.dev/bluevulpine/helium-archiver
+            # https://gitea.derekjacobs.dev/bvn-homelab/helium-archiver
             # Pushed to the Gitea container registry on every merge to main.
             image:
-              repository: gitea.derekjacobs.dev/bluevulpine/helium-archiver
-              tag: 2-c8294d3e # {"$imagepolicy": "flux-system:helium-archiver:tag"}
+              repository: gitea.derekjacobs.dev/bvn-homelab/helium-archiver
+              tag: 3-fb762320 # {"$imagepolicy": "flux-system:helium-archiver:tag"}
             env:
               TZ: "${TIMEZONE}"
               MQTT_HOST: mosquitto.home.svc.cluster.local

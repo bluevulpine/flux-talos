@@ -4,7 +4,6 @@ kind: Kustomization
 components:
   - ../../../../components/volsync-claim
   - ../../../../components/volsync-backup
-  - ../../../../components/volsync-syncthing
 
 resources:
   - ocirepository.yaml
@@ -12,3 +11,4 @@ resources:
   - helmrelease.yaml
   - dnsendpoint.yaml
   - externalsecret.yaml
+  - nfs.yaml
