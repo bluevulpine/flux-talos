@@ -13,17 +13,11 @@ metadata:
 spec:
   instances: 3
   # Tracked by the "CloudNativePG Cluster imageName" custom manager in
-  # .renovate/customManagers.json5, NOT by a `# renovate:` annotation. One sat
-  # here from the pg18 cutover on and never produced a PR: the generic annotated
-  # -dependency regex reads its value from the line directly below the annotation,
-  # which was a NOTE comment, and even placed correctly it would capture the whole
-  # `repo:tag` reference as the version. So this stayed on 18.2 for seven months,
-  # through 18.3's fix for a substring()/LEFT() regression ("invalid byte sequence
-  # for encoding UTF8" on TOASTed non-ASCII text) that was 500ing hindsight's
-  # knowledge-page search.
-  #
-  # 18.x uses the flavor tag format (18.6-standard-trixie), not the old
-  # <ver>-<build> ("16.2-16") scheme; the manager's versioning pins the flavor.
+  # .renovate/customManagers.json5. Do NOT add a `# renovate:` annotation: the
+  # annotated-dependency regex would capture the whole `repo:tag` as the version
+  # (and one that sat here matched a comment line instead, so nothing was ever
+  # offered). 18.x tags use the flavor format (18.6-standard-trixie); the
+  # manager's versioning pins the flavor, and majors need dashboard approval.
   imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie
   primaryUpdateStrategy: unsupervised
 

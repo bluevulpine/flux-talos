@@ -103,5 +103,15 @@
       matchPackageNames: ["/gitea\\/gitea$/"],
       enabled: false,
     },
+    {
+      // A CNPG imageName bump across a MAJOR (18.x -> 19.x) is not a rolling
+      // restart: the operator runs an in-place pg_upgrade of every database on
+      // the cluster. It would arrive looking like any other image PR, so it is
+      // held on the Dependency Dashboard until someone ticks it deliberately.
+      description: "CloudNativePG Postgres: major versions need dashboard approval",
+      matchPackageNames: ["ghcr.io/cloudnative-pg/postgresql"],
+      matchUpdateTypes: ["major"],
+      dependencyDashboardApproval: true,
+    },
   ],
 }
