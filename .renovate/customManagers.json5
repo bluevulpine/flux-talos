@@ -23,5 +23,24 @@
       ],
       datasourceTemplate: "{{#if datasource}}{{{datasource}}}{{else}}github-releases{{/if}}",
     },
+    {
+      customType: "regex",
+      description: "CloudNativePG Cluster imageName",
+      // A CNPG Cluster names its image in `spec.imageName`, which no built-in
+      // manager reads (kubernetes/flux only look at `image:` keys), and the
+      // annotated-dependency manager above cannot take it either: it captures
+      // everything after `key: ` as the version, i.e. the whole `repo:tag`.
+      managerFilePatterns: ["/kubernetes/.+\\.yaml$/"],
+      matchStrings: [
+        // imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie
+        "imageName:\\s*(?<depName>ghcr\\.io/cloudnative-pg/postgresql):(?<currentValue>\\S+)",
+      ],
+      datasourceTemplate: "docker",
+      // <major>.<minor>-<flavor>. Anchored, so the dated rebuild tags
+      // (18.6-202609281634-standard-trixie) and other flavors (minimal, bookworm)
+      // are not candidates; the flavor is a compatibility group, so an update
+      // never crosses from one to another.
+      versioningTemplate: "regex:^(?<major>\\d+)\\.(?<minor>\\d+)-(?<compatibility>standard-trixie)$",
+    },
   ],
 }
