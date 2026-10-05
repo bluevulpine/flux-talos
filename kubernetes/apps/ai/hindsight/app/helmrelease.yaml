@@ -296,6 +296,26 @@ spec:
               # non-reasoning model elsewhere does not exist on this stage.
               # qwen2.5 was available as `spark-qwen25-14b` until 2026-09-29, when
               # it was removed, unused.
+              #
+              # ⚠️ 2026-10-05: `spark-gpt-oss-20b` and `spark-gpt-oss-20b-long` are
+              # now Qwen3.6-35B-A3B behind LiteLLM, not gpt-oss (the route names are
+              # historical; see the litellm HelmRelease). So in this file:
+              #  - everything measured about gpt-oss's speed, reasoning tokens and
+              #    harmony 500s describes the previous model;
+              #  - the three *_REASONING_EFFORT: low settings are REMOVED, and must
+              #    stay out. On Qwen any reasoning_effort other than "none" switches
+              #    thinking ON, overriding the server default of off -- "low" meant
+              #    118s retains instead of 13s. Unset, hindsight sends no effort at
+              #    all and the server default applies;
+              #  - the "omits every OPTIONAL field" gap is closed: on 50 replayed
+              #    retains Qwen filled `entities` on all 189 facts;
+              #  - the KV budget arithmetic carries over: the Spark pins Qwen's KV
+              #    cache at 14 GiB, ~590k tokens against gpt-oss's ~573k.
+              # What to watch instead: retraction ops. Asked to remove page content
+              # resting on retracted facts, gpt-oss almost never did (0.9 ops a
+              # call, usually none); Qwen does what the prompt says (7.5 ops a
+              # call on the same 15 inputs). Pages that only ever grew will now
+              # also shrink. Spot-read a refreshed page for over-removal.
               HINDSIGHT_API_LLM_PROVIDER: openai
               HINDSIGHT_API_LLM_MODEL: spark-gpt-oss-20b
 
@@ -557,7 +577,9 @@ spec:
               # are set to low too (below, 2026-10-01); reflect is NOT -- it is the
               # stage where reasoning pays, and vLLM's 16k default output cap
               # (spark-setup roles/vllm) bounds it instead.
-              HINDSIGHT_API_RETAIN_LLM_REASONING_EFFORT: low
+              # (That was gpt-oss. The setting is gone for Qwen -- see the note above
+              # HINDSIGHT_API_LLM_PROVIDER. Rolling back to gpt-oss means restoring
+              # `HINDSIGHT_API_RETAIN_LLM_REASONING_EFFORT: low` here.)
               # Consolidation and mental-model refresh (which also drives
               # mental_model_delta_ops) at low, on the same evidence shape as retain.
               # Unset, hindsight sends NO effort and gpt-oss defaults to medium; on
@@ -571,8 +593,9 @@ spec:
               # same size; delta-op output was sometimes shorter (6.1k -> 4.2k chars,
               # 4.0k -> 2.2k), so it may carry fewer page edits. Spot-read refreshed
               # pages for thinning, and revert these two lines if it shows.
-              HINDSIGHT_API_CONSOLIDATION_LLM_REASONING_EFFORT: low
-              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_REASONING_EFFORT: low
+              # (Also gpt-oss, also removed for Qwen. A rollback restores
+              # HINDSIGHT_API_CONSOLIDATION_LLM_REASONING_EFFORT: low and
+              # HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_REASONING_EFFORT: low.)
 
               # A retain failover member to Azure was tried here on 2026-09-07
               # and REMOVED the same evening: it never worked, and it made
@@ -649,11 +672,14 @@ spec:
               #
               # LLM_TEMPERATURE_REFLECT and REFLECT_LLM_REASONING_EFFORT stay
               # GONE from this block:
-              #   - reasoning_effort is passed through VERBATIM. That would 400 on
-              #     a backend that rejects it (the gpt-4o era), but vLLM gpt-oss
-              #     accepts it -- retain, consolidation and refresh all send
-              #     `low`. Reflect stays unset on purpose: it is the stage where
-              #     reasoning pays, and vLLM's 16k default output cap bounds it;
+              #   - reasoning_effort is passed through VERBATIM, and since
+              #     2026-10-05 NO stage sends it. On Qwen, unset means thinking
+              #     off, for reflect too. That was not chosen for reflect on
+              #     quality grounds: its tool turns were 12/12 either way, but its
+              #     synthesis with thinking off is unmeasured. If reflect answers
+              #     look shallow, `HINDSIGHT_API_REFLECT_LLM_REASONING_EFFORT: low`
+              #     turns thinking on for reflect alone (vLLM's 16k default output
+              #     cap bounds it); expect it to be several times slower;
               #   - temperature falls back to reflect's intended 0.9
               #     (config.py DEFAULT_LLM_TEMPERATURE_REFLECT), which is what
               #     the old `none` override existed to work around.
