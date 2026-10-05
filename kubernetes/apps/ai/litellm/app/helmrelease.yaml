@@ -202,9 +202,34 @@ spec:
               # hindsight's own retries cover only its background worker jobs, so
               # without this an interactive reflect surfaces the 500. Two retries
               # take it to ~1 in 10,000.
+              #
+              # ⚠️ THE NAME IS HISTORICAL. Since 2026-10-05 the model behind
+              # `spark-gpt-oss-20b` is Qwen3.6-35B-A3B (spark-setup
+              # group_vars: vllm_model), not gpt-oss-20b. The route name was kept
+              # because every consumer and every virtual key is bound to it
+              # (hindsight, karakeep, homebox-companion, mealie's database
+              # settings, n8n and node-red flows); renaming it is a key update
+              # per consumer and can be done at leisure. Everything above about
+              # vLLM versus Ollama still holds; the gpt-oss harmony-header note
+              # does not apply to Qwen, and num_retries stays as cheap insurance.
+              #
+              # Why the model changed: replaying real hindsight calls, gpt-oss
+              # returned {"facts": []} on 24 of 50 retains where Qwen returned
+              # facts on all 50, and production showed the same (268 of 831
+              # successful retains in 72h stored nothing). Numbers are in
+              # spark-setup group_vars/all.yml.
+              #
+              # Thinking is OFF by default on the server
+              # (--default-chat-template-kwargs). With it on, the same retain took
+              # 118s instead of 13s. ⚠️ `reasoning_effort` OVERRIDES that default:
+              # any value but "none" turns thinking on for that request ("low"
+              # produced 508 reasoning tokens for a one-sentence answer, "none"
+              # produced 0). So a consumer tuned for gpt-oss with
+              # reasoning_effort: low is asking Qwen to think. An explicit
+              # `chat_template_kwargs: {"enable_thinking": false}` wins over both.
               - model_name: spark-gpt-oss-20b
                 litellm_params:
-                  model: openai/gpt-oss-20b
+                  model: openai/qwen3.6-35b-a3b
                   api_base: http://10.0.10.237:8000/v1
                   api_key: unused-no-auth
                   num_retries: 2
@@ -225,7 +250,7 @@ spec:
               # two can be split again without touching other consumers.
               - model_name: spark-gpt-oss-20b-long
                 litellm_params:
-                  model: openai/gpt-oss-20b
+                  model: openai/qwen3.6-35b-a3b
                   api_base: http://10.0.10.237:8000/v1
                   api_key: unused-no-auth
                   # Reflect is the tool-calling stage; see num_retries above.
@@ -307,11 +332,25 @@ spec:
               # as unsupported -- so a consumer that passes a link instead of
               # bytes gets a failure that looks like a model problem. Verified
               # working here through this exact OpenAI-compatible shape.
+              #
+              # ⚠️ ALSO A HISTORICAL NAME since 2026-10-05: this route now goes to
+              # the same Qwen3.6 on vLLM as the text routes, which reads images
+              # itself. Checked side by side with qwen2.5vl on five images: same
+              # or better tags, and a rendered receipt transcribed exactly. Images
+              # are capped at ~1 MP and two per request on the server
+              # (spark-setup vllm_extra_args). vLLM, unlike Ollama, will fetch an
+              # http(s) image URL, so the base64-only warning above no longer
+              # binds -- but consumers already send bytes.
+              #
+              # Ollama and qwen2.5vl:7b are still installed on the Spark as the
+              # rollback: point this back at
+              #   model: openai/qwen2.5vl:7b, api_base: http://10.0.10.237:11434/v1
               - model_name: spark-qwen25-vl-7b
                 litellm_params:
-                  model: openai/qwen2.5vl:7b
-                  api_base: http://10.0.10.237:11434/v1
-                  api_key: unused-ollama-accepts-any
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.237:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
 
             # There is deliberately NO fallback entry here, and no
             # router_settings.fallbacks block.
