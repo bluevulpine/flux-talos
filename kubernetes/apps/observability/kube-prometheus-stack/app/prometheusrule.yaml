@@ -175,7 +175,8 @@ spec:
               ends an active hang but frees just a few points (84→80% on 08-13,
               86→81% on 10-05) and does not clear this alert, because swapped
               pages stay resident. For a durable fix, reduce what the box is
-              holding — the Protect stack and the Network stack are each ~950 MB of the 3.9 GB total.
+              holding — the Protect stack and the Network stack are each
+              ~950 MB of the 3.9 GB total.
               Runbook: docs/runbooks/unifi-network-app-hang.md
           expr: avg by (name) (avg_over_time(unpoller_device_memory_utilization_ratio{name="Morpheus"}[6h])) > 0.80
           for: 30m
@@ -186,7 +187,9 @@ spec:
             summary: >-
               UniFi gateway {{ $labels.name }} has averaged {{ $value | humanizePercentage }}
               memory over 6h — inside the band where the Network application hung
-              on 2026-08-13. Restart it before it wedges.
+              on 2026-08-13. Reboot the gateway to reset the floor
+              (`systemctl restart unifi` only ends an active hang).
+              Runbook: docs/runbooks/unifi-network-app-hang.md
           expr: avg by (name) (avg_over_time(unpoller_device_memory_utilization_ratio{name="Morpheus"}[6h])) > 0.83
           for: 30m
           labels:

@@ -101,8 +101,8 @@ Only **new or changed** internal hostnames fail to publish while it is down.
 ## Predicting it
 
 `unpoller_device_memory_utilization_ratio{name="Morpheus"}` is a sawtooth over
-60 days of Thanos history: it climbs, a restart or reboot resets it, it climbs
-again. Daily averages:
+60 days of Thanos history: it climbs, a reboot resets it (a service restart
+only shaves a few points, see below), it climbs again. Daily averages:
 
 ```
 normal band ....... 68–78%
