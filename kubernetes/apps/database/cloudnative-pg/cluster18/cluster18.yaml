@@ -12,10 +12,19 @@ metadata:
   name: postgres18
 spec:
   instances: 3
-  # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql
-  # NOTE: 18.x uses the flavor tag format (e.g. 18.2-standard-trixie), not the old
-  # <ver>-<build> ("16.2-16") scheme — confirm the renovate versioning strategy.
-  imageName: ghcr.io/cloudnative-pg/postgresql:18.2-standard-trixie
+  # Tracked by the "CloudNativePG Cluster imageName" custom manager in
+  # .renovate/customManagers.json5, NOT by a `# renovate:` annotation. One sat
+  # here from the pg18 cutover on and never produced a PR: the generic annotated
+  # -dependency regex reads its value from the line directly below the annotation,
+  # which was a NOTE comment, and even placed correctly it would capture the whole
+  # `repo:tag` reference as the version. So this stayed on 18.2 for seven months,
+  # through 18.3's fix for a substring()/LEFT() regression ("invalid byte sequence
+  # for encoding UTF8" on TOASTed non-ASCII text) that was 500ing hindsight's
+  # knowledge-page search.
+  #
+  # 18.x uses the flavor tag format (18.6-standard-trixie), not the old
+  # <ver>-<build> ("16.2-16") scheme; the manager's versioning pins the flavor.
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie
   primaryUpdateStrategy: unsupervised
 
   storage:
