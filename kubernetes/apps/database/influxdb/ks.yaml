@@ -35,29 +35,21 @@ spec:
       GATUS_SUBDOMAIN: influxdb
       VOLSYNC_CAPACITY: 20Gi
       # 2 replicas: years of Home Assistant and collector history live only on this
-      # volume between the twice-hourly VolSync snapshots.
+      # volume between the twice-hourly kopiur snapshots.
       VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_CACHE_CLASS: longhorn-1-replica
-      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
-      # InfluxDB runs as influxdb user (UID 1000)
-      VOLSYNC_RUN_AS_USER: "1000"
-      VOLSYNC_RUN_AS_GROUP: "1000"
-      VOLSYNC_FS_GROUP: "1000"
-      VOLSYNC_LOCAL_SCHEDULE: "16,46 * * * *"
-      VOLSYNC_R2_SCHEDULE: "27 1 * * *"
       # kopiur (components/kopiur), W4. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # Twice-hourly: explicit minutes (kopiur has no stepped H), VolSync's +5,
-      # which keeps VolSync's slots outside the 20m forward jitter window.
+      # Twice-hourly: explicit minutes (kopiur has no stepped H), chosen as
+      # VolSync's +5 so the two engines stayed apart during the parallel run.
       KOPIUR_LOCAL_CRON: "21,51 * * * *"
-      # H picks a minute; the hour matches VolSync's R2 run.
+      # H picks a minute; the hour matches VolSync's old R2 run.
       KOPIUR_R2_CRON: "H 1 * * *"
-      # Direct, matching VolSync (no VOLSYNC_COPYMETHOD set, so its default).
+      # Direct, as VolSync was (its default); a switch to Snapshot is a
+      # post-migration follow-up (docs/runbooks/kopiur-migration.md).
       KOPIUR_COPYMETHOD: Direct
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
-      # Mirrors VOLSYNC_RUN_AS_* / VOLSYNC_FS_GROUP.
+      # InfluxDB runs as the influxdb user, uid/gid 1000.
       KOPIUR_RUN_AS_USER: "1000"
       KOPIUR_RUN_AS_GROUP: "1000"
       KOPIUR_FS_GROUP: "1000"
