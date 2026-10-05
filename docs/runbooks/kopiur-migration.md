@@ -402,8 +402,8 @@ the `kopiur-pilot` Garage bucket and the OpenBao key `kopiur-pilot` by hand.
 | W4 | database/influxdb | `16,46 * * * *` → `21,51 * * * *` ¹ | `27 1 * * *` → `H 1 * * *` | Direct | longhorn-2-replica ⁶ | uid/gid/fsGroup 1000 |
 | W4 | database/timescaledb | `22,52 * * * *` → `27,57 * * * *` ¹ | `13 6 * * *` → `H 6 * * *` | Snapshot | longhorn-2-replica ⁶ | uid/gid/fsGroup 1000 |
 | W4 | identity/vaultwarden | `2,32 * * * *` → `7,37 * * * *` ¹ | `49 5 * * *` → `H 5 * * *` | Direct | longhorn-2-replica ⁶ |  |
-| W5 | media/jellyfin | `35 * * * *` → `H * * * *` | `33 1 * * *` → `H 1 * * *` | Snapshot | longhorn-2-replica ⁶ | **`KOPIUR_STAGING_TIMEOUT: 30m`** ⁵ |
-| W5 | media/plex | `20,50 * * * *` → `25,55 * * * *` ¹ | `3 4 * * *` → `H 4 * * *` | Snapshot | longhorn-2-replica ⁶ | cache 30Gi, **`NS: media`** ³, **`KOPIUR_STAGING_TIMEOUT: 30m`** ⁵ |
+| W5 | media/jellyfin | `35 * * * *` → `H * * * *` | `33 1 * * *` → `H 1 * * *` | Snapshot | longhorn-2-replica ⁶ | **`KOPIUR_STAGING_TIMEOUT: 30m`** ⁵, **staging.storageClassName: longhorn-1-replica patch** ⁶ |
+| W5 | media/plex | `20,50 * * * *` → `25,55 * * * *` ¹ | `3 4 * * *` → `H 4 * * *` | Snapshot | longhorn-2-replica ⁶ | cache 30Gi, **`NS: media`** ³, **`KOPIUR_STAGING_TIMEOUT: 30m`** ⁵, **staging.storageClassName: longhorn-1-replica patch** ⁶ |
 | W6 | develop/hermes | `23 * * * *` → `H * * * *` | `29 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica-local | **staging.storageClassName: longhorn-1-replica patch** |
 | W6 | home/scrypted | `45 * * * *` → `H * * * *` | `11 5 * * *` → `H 5 * * *` | Snapshot | longhorn-1-replica-local | cache 10Gi |
 | W7 | develop/gitea | `18,48 * * * *` → `23,53 * * * *` ¹ | `3 1 * * *` → `H 1 * * *` | Direct | tns-csi-nfs |  |
@@ -452,6 +452,17 @@ re-creating each PVC on the same Longhorn volume (no restore; same data and iden
 kopiur is unaffected). W3's, W4's and W5's rows are updated (checked live); later waves' are not. Read the live class
 (`kubectl get pvc`) before a wave's restore gate: W3 ended up spanning two classes and needed
 two gates.
+**It also changes the staging class.** `components/kopiur` leaves `staging.storageClassName`
+unset, so a staged clone takes the *source* class: every re-bound app with `Snapshot` copy
+now stages a 2-replica clone, where VolSync staged on `VOLSYNC_CLONE_STORAGECLASS:
+longhorn-1-replica`. Measured 2026-10-05 over 2,705 kopiur Snapshot runs: 2-replica staging
+p50 124 s / p90 153 s / max 538 s vs 1-replica p50 114 s / p90 141 s, and no failures, so
+the small W3/W4 volumes are left as they are. plex (100Gi, 48 runs a day) and jellyfin
+(32Gi) get the app-level patch in their component PR, as hermes does and
+`matrix-bluevulpine/matrix-stack/app/kustomization.yaml` already does for a 20Gi volume.
+Footnote ⁵'s 10–20 min was measured on VolSync's 1-replica clones, so the patch also keeps
+the 30m timeout measured rather than guessed. Check each later wave the same way: live PVC
+class vs `VOLSYNC_CLONE_STORAGECLASS`.
 
 ## Traps found so far (each one produced a plausible wrong answer)
 
@@ -530,7 +541,7 @@ two gates.
 - **`policySelector` does not spread** (per-schedule jitter). One schedule per policy.
 - **The translator's reason string is wrong**: `UNMAPPABLE spec.kopia.storageClassName: … no
   per-policy staging-class override` — `SnapshotPolicy.spec.staging.storageClassName`
-  exists in 0.10.8. Only `develop/hermes` is affected (see table). Worth an upstream issue.
+  exists in 0.10.8. `develop/hermes`, plex and jellyfin need it (see table, footnote ⁶). Worth an upstream issue.
 - **The translator aborts a whole namespace** on one non-kopia source:
   `games/valheim-syncthing` (since removed) made `migrate volsync -n games` emit nothing, so
   `satisfactory` and `valheim` never translate. Second upstream issue.
