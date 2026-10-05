@@ -362,27 +362,60 @@ spec:
                   # Kept as cheap insurance, as on the text routes.
                   num_retries: 2
 
-            # There is deliberately NO fallback entry here, and no
-            # router_settings.fallbacks block.
-            #
-            # An Azure `gpt-5-mini` member was configured initially, but both
-            # the Azure and Anthropic credit pools are exhausted, so it returned
-            # 401 on every call. A fallback pointing at a dead credential is
-            # worse than no fallback at all: LiteLLM spends a failed round-trip
-            # on it and then buries the real cause inside a nested error
-            # ("Connection error.. Error doing the fallback:
-            # AuthenticationError.."), so an outage of the Spark reads as an
-            # auth problem somewhere else. Failing cleanly against a single
-            # backend is the honest behaviour, and reachability is alerted on
-            # separately by the `DGX Spark (vLLM)` gatus endpoint (text and
-            # vision; it is the only engine).
-            #
-            # To restore a fallback, add a second model_list member and a
-            # router_settings.fallbacks block. Any OpenAI-compatible provider
-            # works -- OpenRouter's free tier is the likely candidate -- and it
-            # needs exactly one new OpenBao field wired through the
-            # ExternalSecret. Do not re-add a member without first confirming
-            # its credential actually authenticates.
+              # --- fallback: the SAME model, hosted (Nous Portal) ---
+              # Used only when the Spark fails a request after its retries; see
+              # router_settings.fallbacks below. It is the same Qwen3.6-35B-A3B
+              # the Spark serves, so a fallback answer comes from the same model
+              # and prompt behaviour, not a stand-in.
+              #
+              # Why it exists: with one backend, a Spark restart, image bump or
+              # engine crash failed every hindsight call in flight, and hindsight
+              # retries a job a bounded number of times before failing it for
+              # good. The engine restarted itself five times on 2026-10-05 alone.
+              #
+              # ⚠️ PRIVACY. A request that falls back LEAVES THE HOUSE: Nous
+              # resells OpenRouter capacity (its usage block reports
+              # `cost_details.source: openrouter_list`), so the prompt goes to
+              # whichever upstream provider serves it. That applies to EVERY
+              # consumer of the two text routes, not only hindsight:
+              #   hindsight   session transcripts, commit diffs, knowledge pages
+              #   karakeep    bookmark text being summarised/tagged
+              #   mealie      recipe text (its settings live in its database)
+              #   n8n, node-red   whatever a flow sends (none use it today)
+              # homebox-companion is not affected: it uses the vision route for
+              # everything, and vision does not fall back. This is the price of
+              # not losing the memory, taken deliberately; the only off switch is
+              # the fallbacks block, and it is all-or-nothing. To keep the others
+              # local, give hindsight its own route name and fall back only that.
+              #
+              # `reasoning: {enabled: false}` is NOT optional. Hosted, the model
+              # thinks by default: a one-word reply spent its whole 200-token cap
+              # reasoning and returned empty content, and retains ran 26-142s with
+              # one of three failing the schema. Off, 16 of 17 replayed retains
+              # were schema-valid at 8s p50 (hosted, at 4 concurrent -- not
+              # comparable to the Spark's 13s at 8). (The Spark's own switch,
+              # chat_template_kwargs, is ignored here; `reasoning` is OpenRouter's.)
+              #
+              # Cost, measured: 17 retains for $0.026, so ~$0.0015 a call, on the
+              # Nous subscription's included credits ($0.05 / $0.70 per million
+              # tokens). All of hindsight for a month would be roughly $25; as a
+              # fallback it is cents.
+              #
+              # Known gap: 1 of 17 came back as a malformed object despite
+              # strict json_schema, so upstream enforcement is not as tight as
+              # vLLM's grammar. Hindsight validates and retries, so it costs a
+              # retry, not a bad memory.
+              #
+              # Not listed in any virtual key: it is reached only as a fallback,
+              # never by name.
+              - model_name: nous-qwen36-fallback
+                litellm_params:
+                  model: openai/qwen/qwen3.6-35b-a3b
+                  api_base: https://inference-api.nousresearch.com/v1
+                  api_key: os.environ/NOUS_API_KEY
+                  extra_body:
+                    reasoning:
+                      enabled: false
 
             litellm_settings:
               drop_params: true
@@ -453,6 +486,31 @@ spec:
             router_settings:
               redis_host: dragonfly.database.svc.cluster.local
               redis_port: 6379
+              # Text routes only. A fallback fires after the route's own
+              # num_retries are spent on errors that come back FAST: connection
+              # refused, 5xx. That covers the Spark being down, restarting or its
+              # engine having crashed. It does NOT cover an engine that accepts
+              # the connection and then hangs: no route sets a timeout, so
+              # LiteLLM's 600s default applies to each of three attempts and
+              # hindsight's own 600s gives up first. Slow is not a fallback either.
+              #
+              # Vision (spark-qwen25-vl-7b) is deliberately NOT here: its callers
+              # are interactive (karakeep tagging, homebox photos), a failed tag
+              # is retried by the app, and photos are a different thing to send
+              # out than text. Add it only on purpose.
+              #
+              # ⚠️ A fallback pointing at a dead credential is worse than none:
+              # LiteLLM spends a failed round-trip and then buries the real cause
+              # in a nested error ("Connection error.. Error doing the fallback:
+              # AuthenticationError.."), so a Spark outage reads as an auth
+              # problem somewhere else. That is what an exhausted Azure member did
+              # here in 2026-09. If the Nous key or credits lapse, remove this
+              # block rather than leave it.
+              fallbacks:
+                - spark-gpt-oss-20b:
+                    - nous-qwen36-fallback
+                - spark-gpt-oss-20b-long:
+                    - nous-qwen36-fallback
     persistence:
       config:
         type: configMap
