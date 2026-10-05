@@ -251,8 +251,10 @@ spec:
               # Consolidation is the highest-volume stage by far (~700 of 997
               # calls on 2026-09-07), which makes that the likely one to do it.
               #
-              # Budget, since 2026-09-30 (gpt-oss on vLLM, spark-setup roles/vllm):
-              #     retain 4 + consolidation 2 + reflect 4 + refresh 2 = 12 in flight
+              # Budget (gpt-oss on vLLM, spark-setup roles/vllm):
+              #     retain 4 + consolidation 2 + reflect 3 + refresh 2 = 11 in flight
+              # (12, with reflect at 4, from 2026-09-30 to 2026-10-05; reflect dropped
+              # to 3 when REFLECT_MAX_CONTEXT_TOKENS went 76000 -> 100000.)
               #
               # Raised from 8 (retain 2, consolidation 1, refresh 1) on evidence:
               # hindsight's logged durations start BEFORE it takes a permit (see
@@ -276,21 +278,25 @@ spec:
               # not a new benchmark -- tools/hindsight_trends.sh is how to check it.
               # KV at this budget, worst case,
               # from each stage's logged maximum prompt plus output:
-              #   4 reflects   x ~92k (76000 REFLECT_MAX_CONTEXT_TOKENS cap + ~8k
-              #                        output + ~10% tokenizer skew) = ~368k
+              #   3 reflects   x ~119k (100000 REFLECT_MAX_CONTEXT_TOKENS cap + ~8k
+              #                         output + ~10% tokenizer skew) = ~357k
               #   4 retains    x ~14k (prompt <=6.7k, output <=7.3k)  =  ~56k
               #   2 consolid.  x ~25k (prompt <=23.6k)                =  ~50k
               #   2 refreshes  x ~25k (prompt <=20.6k + ~3k output)   =  ~50k
-              #                                                   total ~524k of ~573k
-              # About 50k spare. Typical is far less (a reflect usually peaks near
-              # the ~60k pages result), but size any raise against the CAPS:
-              # reflect 6, or retain 8 with reflect at its cap, would not fit.
+              #                                                   total ~513k of ~573k
+              # About 60k spare. ~8k is the largest reflect output observed, not a
+              # limit: reflect sets no reasoning effort, so only vLLM's 16k default
+              # output cap bounds it. At 16k a reflect is (100k + 16k) x 1.1 = ~128k,
+              # three are ~383k and the total ~539k -- still inside the cache.
+              # Typical is far less (a reflect usually peaks near the ~60k pages
+              # result), but size any raise against the CAPS: a fourth reflect at its
+              # cap (~632k total), or retain 8, would not fit.
               #
               # Reflect gets the largest share because it is the stage that must
               # not queue: its interactive path has a hard 25s client cap, and a
               # slow queue there is indistinguishable from an outage.
               #
-              # Reflect is 4, not 1, because at 1 it was the only queue left:
+              # Reflect is 3, not 1, because at 1 it was the only queue left:
               # after the cutover resume ~30 backlogged reflect calls ran one at a
               # time and the last waited 250s, while vLLM sat idle-ready. Reflect
               # averages ~680 generated tokens a call (mostly hidden reasoning):
@@ -300,9 +306,9 @@ spec:
               # ⚠️ That load figure is AT OR PAST the 25s interactive cap, and the
               # session-start reflect is a multi-call loop. So when the Spark is
               # busy the hook WILL sometimes abort at 25s -- expected, and not a
-              # sign the backend is down. 4 is still the better trade: at 1 the
+              # sign the backend is down. 3 is still the better trade: at 1 the
               # same call queued behind any backlog for minutes and missed the cap
-              # every time; at 4 it misses only under sustained full load. The
+              # every time; at 3 it misses only under sustained load. The
               # server-side limits (LLM_TIMEOUT 600, REFLECT_WALL_TIMEOUT) are
               # nowhere near either. If hook aborts become routine, the lever is
               # fewer retain/consolidation in flight, not a larger reflect share.
@@ -409,7 +415,11 @@ spec:
 
               HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "4"
               HINDSIGHT_API_CONSOLIDATION_LLM_MAX_CONCURRENT: "2"
-              HINDSIGHT_API_REFLECT_LLM_MAX_CONCURRENT: "4"
+              # 3: see the budget above. Reflect ran 38 times in the 72h before the
+              # drop from 4, which does not prove four never overlapped (session-start
+              # reflects cluster when several sessions open together) -- if hook aborts
+              # at 25s get more frequent, look here first.
+              HINDSIGHT_API_REFLECT_LLM_MAX_CONCURRENT: "3"
 
               # --- retain batching: OFF, and it has to be ---
               # This was "true" to buy Anthropic's Message Batches API discount:
@@ -602,11 +612,11 @@ spec:
               # for missing the session-start hook's 25s cap. That route was removed
               # on 2026-09-29, and had stopped fitting anyway: it ran on Ollama's
               # 32,768-token window, while REFLECT_MAX_CONTEXT_TOKENS below needs a
-              # ~92k+ window (reflect's backend has 131,072), so swapping the model
+              # ~119k+ window (reflect's backend has 131,072), so swapping the model
               # alone would have reintroduced the silent truncation this fixes.
               # Lowering the cap to compensate is no answer either: a cap of 22000
               # dropped the knowledge pages and was reverted. A different reflect
-              # model needs a window of ~92k or more.
+              # model needs a window of ~119k or more (~128k if it can emit 16k).
               # Reflect runs on spark-gpt-oss-20b-long: since 2026-09 the same vLLM
               # instance as every other stage (spark-setup roles/vllm, 131,072-token
               # window, no slot cap), before that a dedicated one-slot 98k ollama on
@@ -644,7 +654,18 @@ spec:
               # reflect silently falls back to the failure above. Full mode does not
               # fix it with this model: a dry-run regenerated a 12k-token page as a
               # 243-token stub.
-              HINDSIGHT_API_REFLECT_MAX_CONTEXT_TOKENS: "76000"
+              #
+              # Raised 76000 -> 100000 on 2026-10-04, because the headroom above was
+              # nearly gone: the five largest flux-talos pages came to ~56k tokens
+              # (chars/4 estimate; "Key decisions and rationale" alone ~29k) against
+              # the 60.8k budget. 100000 gives an 80k budget. Window arithmetic:
+              # 100,000 + ~8k output + ~10% tokenizer skew = ~119k, under 131,072; at
+              # the 16k output cap it is ~128k, which leaves only ~3.5k.
+              # That is the ceiling for this window -- the next raise needs a larger
+              # one, so past ~80k of pages the fix has to be page size, not this.
+              # Four reflects at ~119k would not fit the KV cache beside the other
+              # stages, which is why REFLECT_LLM_MAX_CONCURRENT dropped to 3 with it.
+              HINDSIGHT_API_REFLECT_MAX_CONTEXT_TOKENS: "100000"
               # Keep automatic mental-model refreshes on spark-gpt-oss-20b. Unset,
               # the refresh chain inherits reflect's config (memory_engine, #4463).
               # That mattered while -long was a one-slot ollama: a daily refresh of
