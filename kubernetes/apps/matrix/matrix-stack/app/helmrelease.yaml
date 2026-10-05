@@ -86,6 +86,16 @@ spec:
                         hostnames:
                           - "matrix.${SECRET_DOMAIN}"
                           - "matrix.${SECRET_DOMAIN_BLOG}"
+                    # ndots:1 so dotted names (bluevulpine.net, matrix.*) are tried
+                    # ABSOLUTE first. With the default ndots:5 the search walk is done
+                    # server-side by CoreDNS autopath inside its "." block, which forwards
+                    # to UniFi and returns the internal 172.16.8.2 for the bluevulpine.net
+                    # apex -- never reaching the bluevulpine.net. zone block (#2059).
+                    # Single-label names still use the search path.
+                    dnsConfig:
+                      options:
+                        - name: ndots
+                          value: "1"
           - target:
               kind: Deployment
               name: matrix-stack-matrix-authentication-service
