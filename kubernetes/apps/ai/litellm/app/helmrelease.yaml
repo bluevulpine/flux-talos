@@ -362,6 +362,44 @@ spec:
                   # Kept as cheap insurance, as on the text routes.
                   num_retries: 2
 
+              # --- the names to use: spark-main, spark-main-vision ---
+              # Model-neutral on purpose. The routes above are named after models
+              # the Spark no longer runs (gpt-oss-20b, qwen2.5vl), which is what
+              # naming a route after its model gets you after one swap. These say
+              # what the route is FOR, so the next model change touches
+              # spark-setup and this file and no consumer.
+              #
+              #   spark-main          text. Falls back to the hosted copy when the
+              #                       Spark is down (router_settings.fallbacks).
+              #   spark-main-vision   the same model, for requests carrying
+              #                       images. NO fallback, so a photo never leaves
+              #                       the house: that is the whole reason it is a
+              #                       separate name.
+              #
+              # Both are thinking-off by default like every Spark route; see the
+              # reasoning_effort warning on spark-gpt-oss-20b above.
+              #
+              # The three older names are LEGACY ALIASES of the same backend, kept
+              # while the last consumers move: mealie (its provider rows live in
+              # its database; change them in its admin UI) and the Hermes agent
+              # (its model config is on its PVC, not in git). hindsight, karakeep
+              # and homebox-companion moved on 2026-10-05. Every virtual key
+              # already allows the new names. Once nothing sends the old ones,
+              # delete those three routes and their fallbacks entries.
+              - model_name: spark-main
+                litellm_params:
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.237:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
+
+              - model_name: spark-main-vision
+                litellm_params:
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.237:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
+
               # --- fallback: the SAME model, hosted (Nous Portal) ---
               # Used only when the Spark fails a request after its retries; see
               # router_settings.fallbacks below. It is the same Qwen3.6-35B-A3B
@@ -494,7 +532,8 @@ spec:
               # LiteLLM's 600s default applies to each of three attempts and
               # hindsight's own 600s gives up first. Slow is not a fallback either.
               #
-              # Vision (spark-qwen25-vl-7b) is deliberately NOT here: its callers
+              # Vision (spark-main-vision, and the legacy spark-qwen25-vl-7b) is
+              # deliberately NOT here: its callers
               # are interactive (karakeep tagging, homebox photos), a failed tag
               # is retried by the app, and photos are a different thing to send
               # out than text. Add it only on purpose.
@@ -507,6 +546,9 @@ spec:
               # here in 2026-09. If the Nous key or credits lapse, remove this
               # block rather than leave it.
               fallbacks:
+                - spark-main:
+                    - nous-qwen36-fallback
+                # Legacy aliases; remove with their routes.
                 - spark-gpt-oss-20b:
                     - nous-qwen36-fallback
                 - spark-gpt-oss-20b-long:
