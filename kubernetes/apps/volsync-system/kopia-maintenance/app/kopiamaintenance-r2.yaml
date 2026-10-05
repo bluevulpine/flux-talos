@@ -20,12 +20,17 @@ spec:
 
   # Resource limits for maintenance pod
   # R2 maintenance may take longer due to network latency
+  # kopia mmaps the whole repo index, so memory tracks repo growth (see the
+  # local job, raised 1Gi→4Gi on 2026-07-04 after OOMs; it peaks ~1.9GiB).
+  # This repo's per-run peak climbed ~650→996Mi over Sep–Oct 2026 and the
+  # 2026-10-05 run pinned at 97% of 1Gi and stalled well past its usual 2-6min.
+  # Raised to 2Gi; revisit when ContainerMemoryNearLimit fires again.
   resources:
     requests:
       memory: 256Mi
       cpu: 100m
     limits:
-      memory: 1Gi
+      memory: 2Gi
 
   # Security context matching VolSync defaults
   podSecurityContext:
