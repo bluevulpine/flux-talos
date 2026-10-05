@@ -36,8 +36,9 @@ spec:
     # priced at each provider's cache-read rate, since a metered API would have
     # cached the same repeated system prompts.
     #
-    # Not covered: vision (qwen2.5vl on Ollama -- no metrics endpoint), speech-
-    # to-text and text-to-speech. So the cost series is a FLOOR. The Claude
+    # Not covered: speech-to-text and text-to-speech. (Vision is covered since
+    # 2026-10-05: it runs on the same vLLM. Before that it was qwen2.5vl on
+    # Ollama, which has no metrics endpoint.) So the cost series is a FLOOR. The Claude
     # comparisons understate a little further: Anthropic charges a premium to
     # WRITE its prompt cache (~1.25x input) and caches only marked prefixes,
     # while vLLM's hits here are priced at the read rate alone.

@@ -348,8 +348,10 @@ spec:
               # http(s) image URL, so the base64-only warning above no longer
               # binds -- but consumers already send bytes.
               #
-              # Ollama and qwen2.5vl:7b are still installed on the Spark as the
-              # rollback: point this back at
+              # Ollama is RETIRED on the Spark (stopped and disabled, 2026-10-05;
+              # spark-setup ollama_enabled). The binary and qwen2.5vl:7b are still on
+              # disk, so the rollback is two steps: ollama_enabled: true with
+              # `--tags inference` there, then point this back at
               #   model: openai/qwen2.5vl:7b, api_base: http://10.0.10.237:11434/v1
               - model_name: spark-qwen25-vl-7b
                 litellm_params:
