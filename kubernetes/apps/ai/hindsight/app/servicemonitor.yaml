@@ -5,10 +5,16 @@ kind: ServiceMonitor
 metadata:
   name: hindsight
 spec:
-  # Selects the API service ONLY. GET /metrics is registered unconditionally on
-  # the API's own port 8888 (api/http.py, prometheus_client) with no enabling
-  # env var. The Next.js control plane exposes NO metrics endpoint, so including
+  # Selects the API and worker Services. GET /metrics is registered
+  # unconditionally on the API's port 8888 (api/http.py, prometheus_client) and
+  # on the worker's 8889 (worker/main.py), with no enabling env var. The Next.js
+  # control plane exposes NO metrics endpoint, so including
   # hindsight-controlplane here would add a permanently-failing target.
+  #
+  # Both Services name their port `http`, which is what lets one endpoint entry
+  # cover them. The queue and consolidation gauges are read from the database,
+  # so every pod that exports them reports the same numbers -- the alerts in
+  # prometheusrule.yaml take a per-pod sum and then the max for that reason.
   #
   # NOTE the label key: app-template stamps Services with
   # `app.kubernetes.io/service: <release>-<serviceKey>`. There is no `controller`
@@ -18,7 +24,12 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/instance: hindsight
-      app.kubernetes.io/service: hindsight-api
+    matchExpressions:
+      - key: app.kubernetes.io/service
+        operator: In
+        values:
+          - hindsight-api
+          - hindsight-worker
   endpoints:
     - port: http
       path: /metrics

@@ -1,0 +1,18 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/master-standalone-strict/poddisruptionbudget-policy-v1.json
+# The API runs two replicas, one per node (topologySpreadConstraints in the
+# HelmRelease). This stops two overlapping voluntary disruptions -- a node drain
+# while a rollout is surging, two drains at once -- from evicting both.
+#
+# Selects the API controller ONLY. The worker is a single Recreate replica by
+# design; a budget on it could never be satisfied and would just block drains.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hindsight-api
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hindsight
+      app.kubernetes.io/controller: hindsight

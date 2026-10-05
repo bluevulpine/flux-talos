@@ -17,7 +17,8 @@ spec:
           annotations:
             summary: >-
               Hindsight has no ready replicas — agent memory recall and retain
-              are both offline. Check `kubectl logs -n ai deploy/hindsight -c
+              are both offline (the worker is a separate Deployment, see
+              HindsightWorkerDown). Check `kubectl logs -n ai deploy/hindsight -c
               api`. Most likely causes: postgres18 unreachable (readiness probes
               /health, which acquires a DB connection), the pgvector extension
               missing (02-init-vector failed), or connection-pool exhaustion.
@@ -26,6 +27,25 @@ spec:
           for: 15m
           labels:
             severity: critical
+
+        # The worker is its own Deployment since the api/worker split, and the
+        # API staying up says nothing about it. With the worker down the API
+        # still accepts retains and answers recall, so nothing looks wrong from
+        # a client -- the queue just grows. HindsightRetainBacklog would catch
+        # that eventually (50 queued for 30m); this names the cause sooner.
+        - alert: HindsightWorkerDown
+          annotations:
+            summary: >-
+              The Hindsight worker has no ready replica — retain extraction,
+              consolidation and mental-model refresh are stopped while the API
+              keeps accepting work. Check `kubectl logs -n ai
+              deploy/hindsight-worker`. It runs no migrations, so right after a
+              version bump it can crash-loop until an API pod has migrated.
+          expr: |
+            kube_deployment_status_replicas_ready{namespace="ai", deployment="hindsight-worker"} == 0
+          for: 15m
+          labels:
+            severity: warning
 
         # A Deployment whose image can't be pulled never becomes ready, so
         # HindsightDown WILL eventually fire — but ImagePullBackOff does not trip
@@ -82,7 +102,7 @@ spec:
               spark-setup's tools/hindsight_trends.sh tells hindsight-side
               queueing from a slow backend. Then the worker.
           expr: |
-            sum(hindsight_async_operations{namespace="ai", status=~"pending|processing"}) > 50
+            max(sum by (pod) (hindsight_async_operations{namespace="ai", status=~"pending|processing"})) > 50
           for: 30m
           labels:
             severity: warning
@@ -159,7 +179,7 @@ spec:
               the consolidation recovery endpoint; check LLM errors at
               /llm-requests first.
           expr: |
-            sum(hindsight_consolidation_failed{namespace="ai"}) > 0
+            max(sum by (pod) (hindsight_consolidation_failed{namespace="ai"})) > 0
           for: 1h
           labels:
             severity: warning
