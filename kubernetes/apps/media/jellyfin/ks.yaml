@@ -11,6 +11,10 @@ spec:
   dependsOn:
     - name: external-secrets-openbao-store
       namespace: external-secrets
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   interval: 1h
   path: ./kubernetes/apps/media/jellyfin/app
   prune: true
@@ -34,3 +38,15 @@ spec:
       VOLSYNC_COPYMETHOD: Snapshot
       VOLSYNC_LOCAL_SCHEDULE: "35 * * * *"
       VOLSYNC_R2_SCHEDULE: "33 1 * * *"
+      # kopiur (components/kopiur), W5. Landed one PR BEFORE the component so the
+      # SnapshotSchedules are created with these crons, not the component's
+      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # H picks a minute per schedule; the hours match VolSync's.
+      KOPIUR_LOCAL_CRON: "H * * * *"
+      KOPIUR_R2_CRON: "H 1 * * *"
+      KOPIUR_COPYMETHOD: Snapshot
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
+      # 30m, not the component's 10m: VolSync's movers for this volume sit in
+      # ContainerCreating 10-20 min on most runs while Longhorn clones it, and
+      # once stalled ~2 h (runbook waves table, footnote 5).
+      KOPIUR_STAGING_TIMEOUT: 30m

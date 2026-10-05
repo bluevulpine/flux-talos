@@ -3,8 +3,8 @@
 **Status (2026-10-05): repositories landed; step 4 (epoch) skipped on evidence; W0
 (jellyseerr, recyclarr, #1934) and W1 (8 apps, #1941) are cut over: kopiur is their only
 backup, and the fork's path-scope retention is cleared in both repositories (all six `keep-*`
-inherited). W2 (11 apps, #1959) is cut over too. W3 (10 apps, #2058) is cut over too. W4 (4 apps)
-is cut over too. W5–W8 not started.** Every restore needs added capabilities (see
+inherited). W2 (11 apps, #1959) is cut over too. W3 (10 apps, #2058) is cut over too. W4 (4 apps, #2074)
+is cut over too. W5's `KOPIUR_*` vars are landing ahead of its parallel run; W6–W8 not started.** Every restore needs added capabilities (see
 "Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
@@ -402,15 +402,15 @@ the `kopiur-pilot` Garage bucket and the OpenBao key `kopiur-pilot` by hand.
 | W4 | database/influxdb | `16,46 * * * *` → `21,51 * * * *` ¹ | `27 1 * * *` → `H 1 * * *` | Direct | longhorn-2-replica ⁶ | uid/gid/fsGroup 1000 |
 | W4 | database/timescaledb | `22,52 * * * *` → `27,57 * * * *` ¹ | `13 6 * * *` → `H 6 * * *` | Snapshot | longhorn-2-replica ⁶ | uid/gid/fsGroup 1000 |
 | W4 | identity/vaultwarden | `2,32 * * * *` → `7,37 * * * *` ¹ | `49 5 * * *` → `H 5 * * *` | Direct | longhorn-2-replica ⁶ |  |
-| W5 | media/jellyfin | `35 * * * *` → `H * * * *` | `33 1 * * *` → `H 1 * * *` | Snapshot | longhorn-1-replica | **`KOPIUR_STAGING_TIMEOUT: 30m`** ⁵ |
-| W5 | media/plex | `20,50 * * * *` → `25,55 * * * *` ¹ | `3 4 * * *` → `H 4 * * *` | Snapshot | longhorn-1-replica | cache 30Gi, **`NS: media`** ³, **`KOPIUR_STAGING_TIMEOUT: 30m`** ⁵ |
+| W5 | media/jellyfin | `35 * * * *` → `H * * * *` | `33 1 * * *` → `H 1 * * *` | Snapshot | longhorn-2-replica ⁶ | **`KOPIUR_STAGING_TIMEOUT: 30m`** ⁵, **staging.storageClassName: longhorn-1-replica patch** ⁶ |
+| W5 | media/plex | `20,50 * * * *` → `25,55 * * * *` ¹ | `3 4 * * *` → `H 4 * * *` | Snapshot | longhorn-2-replica ⁶ | cache 30Gi, **`NS: media`** ³, **`KOPIUR_STAGING_TIMEOUT: 30m`** ⁵, **staging.storageClassName: longhorn-1-replica patch** ⁶ |
 | W6 | develop/hermes | `23 * * * *` → `H * * * *` | `29 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica-local | **staging.storageClassName: longhorn-1-replica patch** |
 | W6 | home/scrypted | `45 * * * *` → `H * * * *` | `11 5 * * *` → `H 5 * * *` | Snapshot | longhorn-1-replica-local | cache 10Gi |
 | W7 | develop/gitea | `18,48 * * * *` → `23,53 * * * *` ¹ | `3 1 * * *` → `H 1 * * *` | Direct | tns-csi-nfs |  |
 | W7 | home/frigate | `45 * * * *` → `H * * * *` | `57 0 * * *` → `H 0 * * *` | Snapshot | tns-csi-nfs |  |
 | W7 | media/readarr-audiobooks | `20 * * * *` → `H * * * *` | `33 4 * * *` → `H 4 * * *` | Snapshot | tns-csi-nfs |  |
 | W7 | media/readarr-ebooks | `25 * * * *` → `H * * * *` | `41 4 * * *` → `H 4 * * *` | Snapshot | tns-csi-nfs |  |
-| W7 | media/tdarr | `30 */4 * * *` → `H */4 * * *` | `33 5 * * *` → `H 5 * * *` | Snapshot | longhorn-1-replica ⁴ |  |
+| W7 | media/tdarr | `30 */4 * * *` → `H */4 * * *` | `33 5 * * *` → `H 5 * * *` | Snapshot | longhorn-2-replica ⁴ ⁶ | **staging.storageClassName: longhorn-1-replica patch** ⁶ |
 | W8 | games/satisfactory | `55 * * * *` → `H * * * *` | `3 5 * * *` → `H 5 * * *` | Direct | tns-csi-nvmeof | uid/gid/fsGroup 1000 |
 | W8 | games/valheim | `58 * * * *` → `H * * * *` | `41 5 * * *` → `H 5 * * *` | Direct | tns-csi-nvmeof | uid/gid/fsGroup 1000 |
 
@@ -449,9 +449,21 @@ assume" the component's comment asks for.
 ⁶ **The StorageClass column is the class at planning time.** A separate 2-replica wave
 (#2035, #2039 and follow-ups, 2026-10-02/03) re-bound most claims to `longhorn-2-replica` by
 re-creating each PVC on the same Longhorn volume (no restore; same data and identity, so
-kopiur is unaffected). W3's and W4's rows are updated (checked live); later waves' are not. Read the live class
+kopiur is unaffected). W3's, W4's and W5's rows and tdarr's are updated (checked live); later
+waves' others are not. Read the live class
 (`kubectl get pvc`) before a wave's restore gate: W3 ended up spanning two classes and needed
 two gates.
+**It also changes the staging class.** `components/kopiur` leaves `staging.storageClassName`
+unset, so a staged clone takes the *source* class: every re-bound app with `Snapshot` copy
+now stages a 2-replica clone, where VolSync staged on `VOLSYNC_CLONE_STORAGECLASS:
+longhorn-1-replica`. Measured 2026-10-05 over 2,705 kopiur Snapshot runs: 2-replica staging
+p50 124 s / p90 153 s / max 538 s vs 1-replica p50 114 s / p90 141 s, and no failures, so
+the small W3/W4 volumes are left as they are. plex (100Gi, 48 runs a day) and jellyfin
+(32Gi) get the app-level patch in their component PR, as hermes does and
+`matrix-bluevulpine/matrix-stack/app/kustomization.yaml` already does for a 20Gi volume.
+Footnote ⁵'s 10–20 min was measured on VolSync's 1-replica clones, so the patch also keeps
+the 30m timeout measured rather than guessed. Check each later wave the same way: live PVC
+class vs `VOLSYNC_CLONE_STORAGECLASS`.
 
 ## Traps found so far (each one produced a plausible wrong answer)
 
@@ -530,7 +542,8 @@ two gates.
 - **`policySelector` does not spread** (per-schedule jitter). One schedule per policy.
 - **The translator's reason string is wrong**: `UNMAPPABLE spec.kopia.storageClassName: … no
   per-policy staging-class override` — `SnapshotPolicy.spec.staging.storageClassName`
-  exists in 0.10.8. Only `develop/hermes` is affected (see table). Worth an upstream issue.
+  exists in 0.10.8. hermes, plex, jellyfin and tdarr need it (see table, footnote ⁶).
+  Worth an upstream issue.
 - **The translator aborts a whole namespace** on one non-kopia source:
   `games/valheim-syncthing` (since removed) made `migrate volsync -n games` emit nothing, so
   `satisfactory` and `valheim` never translate. Second upstream issue.
@@ -655,4 +668,5 @@ only when they are next recreated. Its `Restore` must carry the capability block
 - [ ] Upstream issue: a `spec.schedule.cron` change does not re-pin `status.nextSchedule`
       (only tz/jitter do; `snapshot_schedule.rs:830-840` at 0.10.9), so the stale slot
       fires once (see the traps)
-- [ ] hermes: app-level patch setting `staging.storageClassName: longhorn-1-replica`
+- [ ] hermes, plex, jellyfin, tdarr: app-level patch setting
+      `staging.storageClassName: longhorn-1-replica` (footnote ⁶)
