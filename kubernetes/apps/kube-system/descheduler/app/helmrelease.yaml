@@ -48,10 +48,13 @@ spec:
             # NEW: Load balancing strategy to address pod distribution imbalance
             - name: LowNodeUtilization
               args:
-                # Belt and braces with SystemCriticalPods above: never rebalance the
-                # control plane. Moving kube-system pods (CoreDNS above all) buys a
-                # little packing and risks cluster-wide DNS; this filter does not depend
-                # on the evictor's priority logic.
+                # Belt and braces with SystemCriticalPods above: LowNodeUtilization never
+                # picks kube-system pods to rebalance. Moving them (CoreDNS above all)
+                # buys a little packing and risks cluster-wide DNS; this filter does not
+                # depend on the evictor's priority logic. Scope is THIS plugin only: the
+                # violation plugins below can still evict kube-system pods, deliberately,
+                # since they act only on a real violation (e.g. a node taint), where
+                # moving the pod is correct. There SystemCriticalPods is the only guard.
                 evictableNamespaces:
                   exclude:
                     - kube-system
