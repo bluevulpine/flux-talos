@@ -4,7 +4,8 @@
 (jellyseerr, recyclarr, #1934) and W1 (8 apps, #1941) are cut over: kopiur is their only
 backup, and the fork's path-scope retention is cleared in both repositories (all six `keep-*`
 inherited). W2 (11 apps, #1959) is cut over too. W3 (10 apps, #2058) is cut over too. W4 (4 apps, #2074)
-is cut over too. W5's `KOPIUR_*` vars are landing ahead of its parallel run; W6–W8 not started.** Every restore needs added capabilities (see
+is cut over too. W5 (2 apps) is in its parallel run, with its `KOPIUR_*` vars landed one PR earlier (#2077);
+W6–W8 not started.** Every restore needs added capabilities (see
 "Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
@@ -14,7 +15,7 @@ evidence.
 | Pilots (`media/recyclarr-kopiur-pilot`, `media/jellyseerr-kopiur-pilot`) | passed 4/4 and 5/5; **retired 2026-09-24** after W0 passed its gates. Their READMEs (verdicts, the SQLite integrity method) are at `b625ac57:kubernetes/apps/media/{recyclarr,jellyseerr}-kopiur-pilot/README.md` |
 | PR #1870 — component split + `components/kopiur` | **merged** 2026-09-22 (eab49e12); verified inert live: all Kustomizations Ready on it, all 93 ReplicationSources intact. No app includes `components/kopiur` yet |
 | Two `ClusterRepository` + 18 `ExternalSecret` | **landed** 2026-09-22 (#1879, e4539596), plus the `kopiur-system` Pod Security fix (#1880). Both `Ready`, all 18 secrets synced; catalog scanned 2026-09-23. See "The repositories" |
-| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 cut over 2026-09-25** (#1941, 17:00Z): autobrr, cross-seed, ev-charge-ledger, ev-charge-tracker, calibre-web, notifiarr, sportarr and tautulli are backed up by kopiur only; path-scope retention cleared in both repositories, 16/16 legs PASS. Parallel run from 2026-09-24 (#1936); per-app gates 1–4 (cross-seed-r2 via a manual Snapshot) and the restore gate (calibre-web) passed (#1939). **W2 cut over 2026-09-26** (#1959, 06:52Z): 11 apps on kopiur only; path-scope retention cleared, 22/22 legs PASS. Parallel run from 2026-09-25 (#1953), vars landed one PR earlier (#1950), so no schedule race; the first local runs failed PermissionDenied until #1957 gave the mover `DAC_OVERRIDE`; gates 11/11 and the restore gate (grocy) passed. **W3 cut over 2026-10-04** (#2058): 10 apps on kopiur only (parallel run from 2026-10-01, #2017; vars first, #1974, which also added kometa's missing `NS`); gates 10/10 and two restore gates passed (bazarr on `longhorn-2-replica`, kometa on `longhorn-1-replica`). **W4 cut over 2026-10-05**: couchdb, influxdb, timescaledb and vaultwarden on kopiur only (parallel run from 2026-10-05, #2063; vars first, #2060); gates 4/4 (couchdb-r2 via a manual Snapshot) and the restore gate (vaultwarden, `longhorn-2-replica`) passed. W5–W8 not started |
+| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 cut over 2026-09-25** (#1941, 17:00Z): autobrr, cross-seed, ev-charge-ledger, ev-charge-tracker, calibre-web, notifiarr, sportarr and tautulli are backed up by kopiur only; path-scope retention cleared in both repositories, 16/16 legs PASS. Parallel run from 2026-09-24 (#1936); per-app gates 1–4 (cross-seed-r2 via a manual Snapshot) and the restore gate (calibre-web) passed (#1939). **W2 cut over 2026-09-26** (#1959, 06:52Z): 11 apps on kopiur only; path-scope retention cleared, 22/22 legs PASS. Parallel run from 2026-09-25 (#1953), vars landed one PR earlier (#1950), so no schedule race; the first local runs failed PermissionDenied until #1957 gave the mover `DAC_OVERRIDE`; gates 11/11 and the restore gate (grocy) passed. **W3 cut over 2026-10-04** (#2058): 10 apps on kopiur only (parallel run from 2026-10-01, #2017; vars first, #1974, which also added kometa's missing `NS`); gates 10/10 and two restore gates passed (bazarr on `longhorn-2-replica`, kometa on `longhorn-1-replica`). **W4 cut over 2026-10-05**: couchdb, influxdb, timescaledb and vaultwarden on kopiur only (parallel run from 2026-10-05, #2063; vars first, #2060); gates 4/4 (couchdb-r2 via a manual Snapshot) and the restore gate (vaultwarden, `longhorn-2-replica`) passed. **W5 parallel run** from 2026-10-05: jellyfin, plex with `components/kopiur` beside `volsync-backup`, vars landed first (#2077). W6–W8 not started |
 
 ## Why kopiur
 
@@ -406,6 +407,7 @@ the `kopiur-pilot` Garage bucket and the OpenBao key `kopiur-pilot` by hand.
 | W5 | media/plex | `20,50 * * * *` → `25,55 * * * *` ¹ | `3 4 * * *` → `H 4 * * *` | Snapshot | longhorn-2-replica ⁶ | cache 30Gi, **`NS: media`** ³, **`KOPIUR_STAGING_TIMEOUT: 30m`** ⁵, **staging.storageClassName: longhorn-1-replica patch** ⁶ |
 | W6 | develop/hermes | `23 * * * *` → `H * * * *` | `29 6 * * *` → `H 6 * * *` | Snapshot | longhorn-1-replica-local | **staging.storageClassName: longhorn-1-replica patch** |
 | W6 | home/scrypted | `45 * * * *` → `H * * * *` | `11 5 * * *` → `H 5 * * *` | Snapshot | longhorn-1-replica-local | cache 10Gi |
+| W6 | matrix/matrix-stack ⁷ | `47 */2 * * *` → `H */2 * * *` | `45 6 * * *` → `H 6 * * *` | Snapshot | longhorn-2-replica | `APP: synapse-media`, uid/gid/fsGroup 10091, **staging.storageClassName: longhorn-1-replica patch** ⁶, **namespace prerequisites** ⁷ |
 | W7 | develop/gitea | `18,48 * * * *` → `23,53 * * * *` ¹ | `3 1 * * *` → `H 1 * * *` | Direct | tns-csi-nfs |  |
 | W7 | home/frigate | `45 * * * *` → `H * * * *` | `57 0 * * *` → `H 0 * * *` | Snapshot | tns-csi-nfs |  |
 | W7 | media/readarr-audiobooks | `20 * * * *` → `H * * * *` | `33 4 * * *` → `H 4 * * *` | Snapshot | tns-csi-nfs |  |
@@ -459,11 +461,24 @@ now stages a 2-replica clone, where VolSync staged on `VOLSYNC_CLONE_STORAGECLAS
 longhorn-1-replica`. Measured 2026-10-05 over 2,705 kopiur Snapshot runs: 2-replica staging
 p50 124 s / p90 153 s / max 538 s vs 1-replica p50 114 s / p90 141 s, and no failures, so
 the small W3/W4 volumes are left as they are. plex (100Gi, 48 runs a day) and jellyfin
-(32Gi) get the app-level patch in their component PR, as hermes does and
+(32Gi) get the app-level patch in their component PR, as hermes will in W6 and
 `matrix-bluevulpine/matrix-stack/app/kustomization.yaml` already does for a 20Gi volume.
 Footnote ⁵'s 10–20 min was measured on VolSync's 1-replica clones, so the patch also keeps
 the 30m timeout measured rather than guessed. Check each later wave the same way: live PVC
 class vs `VOLSYNC_CLONE_STORAGECLASS`.
+⁷ **matrix was added after this plan** (the ESS stack landed 2026-09-24; the table dates from
+2026-09-22), so it was missing until 2026-10-05 and joins W6, the staging-patch wave. Unlike
+every other app its namespace was never set up for kopiur, so its W6 vars PR also has to: add
+`matrix` to both ClusterRepositories' `allowedNamespaces`; give it the per-namespace
+`kopiur-{local,r2}` ExternalSecrets the other namespaces have; and add the
+`kopiur.home-operations.com/privileged-movers` annotation **before** the component lands:
+kopiur refuses any mover with added capabilities, and `components/kopiur` always adds
+`DAC_OVERRIDE` (#1957), so even its 10091 backup movers would sit `Pending`
+(`PrivilegedMoverNotPermitted`, the W0 trap) without it. Copy `matrix-bluevulpine`'s staging patch.
+`matrix-bluevulpine/matrix-stack` (2026-10-02) is **not** in the migration: it was built on
+`components/kopiur` from the start and never had VolSync (35/35 scheduled backups
+`Succeeded` 2026-10-05, staged on 1 replica, identity `synapse-media@matrix-bluevulpine:/data`).
+It has never had a restore gate; run one alongside W6's.
 
 ## Traps found so far (each one produced a plausible wrong answer)
 
@@ -542,7 +557,7 @@ class vs `VOLSYNC_CLONE_STORAGECLASS`.
 - **`policySelector` does not spread** (per-schedule jitter). One schedule per policy.
 - **The translator's reason string is wrong**: `UNMAPPABLE spec.kopia.storageClassName: … no
   per-policy staging-class override` — `SnapshotPolicy.spec.staging.storageClassName`
-  exists in 0.10.8. hermes, plex, jellyfin and tdarr need it (see table, footnote ⁶).
+  exists in 0.10.8. hermes, plex, jellyfin, tdarr and matrix need it (see table, footnote ⁶).
   Worth an upstream issue.
 - **The translator aborts a whole namespace** on one non-kopia source:
   `games/valheim-syncthing` (since removed) made `migrate volsync -n games` emit nothing, so
@@ -668,5 +683,5 @@ only when they are next recreated. Its `Restore` must carry the capability block
 - [ ] Upstream issue: a `spec.schedule.cron` change does not re-pin `status.nextSchedule`
       (only tz/jitter do; `snapshot_schedule.rs:830-840` at 0.10.9), so the stale slot
       fires once (see the traps)
-- [ ] hermes, plex, jellyfin, tdarr: app-level patch setting
-      `staging.storageClassName: longhorn-1-replica` (footnote ⁶)
+- [ ] hermes, tdarr, matrix: app-level patch setting
+      `staging.storageClassName: longhorn-1-replica` (footnote ⁶); plex and jellyfin have it (W5)

@@ -9,8 +9,24 @@ resources:
 components:
   - ../../../../components/volsync-claim
   - ../../../../components/volsync-backup
+  # kopiur parallel run (W5, docs/runbooks/kopiur-migration.md): both engines
+  # back up this PVC under the same kopia identity until the per-app gates
+  # pass, then volsync-backup is removed. volsync-claim stays: it owns the PVC.
+  - ../../../../components/kopiur
 
 patches:
+  # Stage kopiur's snapshot clones on 1 replica, as VolSync does
+  # (VOLSYNC_CLONE_STORAGECLASS). A staged PVC otherwise inherits the source
+  # class, and since the 2-replica re-bind every run would clone a 32Gi
+  # 2-REPLICA volume only to read it once and delete it (runbook waves table,
+  # footnote 6; same patch as matrix-bluevulpine).
+  - target:
+      group: kopiur.home-operations.com
+      kind: SnapshotPolicy
+    patch: |-
+      - op: add
+        path: /spec/staging/storageClassName
+        value: longhorn-1-replica
   # Moving the data claim to longhorn-2-replica WITHOUT a restore: storageClassName
   # is immutable on a bound PVC, so the claim is deleted (PV on Retain) and Flux
   # re-creates it pre-bound to the SAME Longhorn volume (already live-patched to 2
