@@ -206,11 +206,11 @@ spec:
               #
               # ⚠️ THE NAME IS HISTORICAL. Since 2026-10-05 the model behind
               # `spark-gpt-oss-20b` is Qwen3.6-35B-A3B (spark-setup
-              # group_vars: vllm_model), not gpt-oss-20b. The route name was kept
-              # because every consumer and every virtual key is bound to it
-              # (hindsight, karakeep, homebox-companion, mealie's database
-              # settings, n8n and node-red flows); renaming it is a key update
-              # per consumer and can be done at leisure. Everything above about
+              # group_vars: vllm_model), not gpt-oss-20b. This route is now a
+              # LEGACY ALIAS: use `spark-main` (defined below), which every
+              # consumer in git and mealie moved to the same day. It remains
+              # only for the Hermes agent, whose model config is on its PVC.
+              # Everything above about
               # vLLM versus Ollama still holds; the gpt-oss harmony-header note
               # does not apply to Qwen, and num_retries stays as cheap insurance.
               #
@@ -362,6 +362,43 @@ spec:
                   # Kept as cheap insurance, as on the text routes.
                   num_retries: 2
 
+              # --- the names to use: spark-main, spark-main-vision ---
+              # Model-neutral on purpose. The routes above are named after models
+              # the Spark no longer runs (gpt-oss-20b, qwen2.5vl), which is what
+              # naming a route after its model gets you after one swap. These say
+              # what the route is FOR, so the next model change touches
+              # spark-setup and this file and no consumer.
+              #
+              #   spark-main          text. Falls back to the hosted copy when the
+              #                       Spark is down (router_settings.fallbacks).
+              #   spark-main-vision   the same model, for requests carrying
+              #                       images. NO fallback, so a photo never leaves
+              #                       the house: that is the whole reason it is a
+              #                       separate name.
+              #
+              # Both are thinking-off by default like every Spark route; see the
+              # reasoning_effort warning on spark-gpt-oss-20b above.
+              #
+              # The three older names are LEGACY ALIASES of the same backend, kept
+              # while the last consumer moves: the Hermes agent (its model config
+              # is on its PVC, not in git). hindsight, karakeep, homebox-companion
+              # and mealie (in its admin UI) moved on 2026-10-05. Every virtual key
+              # already allows the new names. Once nothing sends the old ones,
+              # delete those three routes and their fallbacks entries.
+              - model_name: spark-main
+                litellm_params:
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.237:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
+
+              - model_name: spark-main-vision
+                litellm_params:
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.237:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
+
               # --- fallback: the SAME model, hosted (Nous Portal) ---
               # Used only when the Spark fails a request after its retries; see
               # router_settings.fallbacks below. It is the same Qwen3.6-35B-A3B
@@ -377,7 +414,8 @@ spec:
               # resells OpenRouter capacity (its usage block reports
               # `cost_details.source: openrouter_list`), so the prompt goes to
               # whichever upstream provider serves it. That applies to EVERY
-              # consumer of the two text routes, not only hindsight:
+              # consumer of the text routes (spark-main and the two legacy
+              # names), not only hindsight:
               #   hindsight   session transcripts, commit diffs, knowledge pages
               #   karakeep    bookmark text being summarised/tagged
               #   mealie      recipe text (its settings live in its database)
@@ -385,8 +423,10 @@ spec:
               # homebox-companion is not affected: it uses the vision route for
               # everything, and vision does not fall back. This is the price of
               # not losing the memory, taken deliberately; the only off switch is
-              # the fallbacks block, and it is all-or-nothing. To keep the others
-              # local, give hindsight its own route name and fall back only that.
+              # the fallbacks block, and it is all-or-nothing per route name.
+              # hindsight, karakeep and mealie share `spark-main`, so keeping one
+              # of them local means one more rename: give it (or hindsight) its
+              # own route name and fall back only the one that should.
               #
               # `reasoning: {enabled: false}` is NOT optional. Hosted, the model
               # thinks by default: a one-word reply spent its whole 200-token cap
@@ -494,7 +534,8 @@ spec:
               # LiteLLM's 600s default applies to each of three attempts and
               # hindsight's own 600s gives up first. Slow is not a fallback either.
               #
-              # Vision (spark-qwen25-vl-7b) is deliberately NOT here: its callers
+              # Vision (spark-main-vision, and the legacy spark-qwen25-vl-7b) is
+              # deliberately NOT here: its callers
               # are interactive (karakeep tagging, homebox photos), a failed tag
               # is retried by the app, and photos are a different thing to send
               # out than text. Add it only on purpose.
@@ -507,6 +548,9 @@ spec:
               # here in 2026-09. If the Nous key or credits lapse, remove this
               # block rather than leave it.
               fallbacks:
+                - spark-main:
+                    - nous-qwen36-fallback
+                # Legacy aliases; remove with their routes.
                 - spark-gpt-oss-20b:
                     - nous-qwen36-fallback
                 - spark-gpt-oss-20b-long:

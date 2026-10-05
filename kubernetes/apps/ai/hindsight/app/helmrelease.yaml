@@ -316,8 +316,14 @@ spec:
               # call, usually none); Qwen does what the prompt says (7.5 ops a
               # call on the same 15 inputs). Pages that only ever grew will now
               # also shrink. Spot-read a refreshed page for over-removal.
+              #
+              # Route names: every stage uses `spark-main` since 2026-10-05, a
+              # model-neutral LiteLLM name (see the litellm HelmRelease). Wherever
+              # this file says spark-gpt-oss-20b or spark-gpt-oss-20b-long it means
+              # the route these stages USED to name; both were the same backend,
+              # and the separate -long route for reflect is gone with them.
               HINDSIGHT_API_LLM_PROVIDER: openai
-              HINDSIGHT_API_LLM_MODEL: spark-gpt-oss-20b
+              HINDSIGHT_API_LLM_MODEL: spark-main
 
               # --- retain concurrency: bounded against the account rate limit ---
               # DEFAULT_LLM_MAX_CONCURRENT is 32 (config.py:1126), i.e. up to 32
@@ -738,7 +744,7 @@ spec:
               #
               # The virtual key must allow this model_name before this deploys; see
               # the note above HINDSIGHT_API_LLM_API_KEY in the ExternalSecret.
-              HINDSIGHT_API_REFLECT_LLM_MODEL: spark-gpt-oss-20b-long
+              HINDSIGHT_API_REFLECT_LLM_MODEL: spark-main
               # Sized when reflect's window was 98,304 (it is 131,072 on vLLM now),
               # NOT to the default of 100,000, which was past it. The cap bounds the
               # context reflect accumulates before it is forced to answer, and the
@@ -797,7 +803,7 @@ spec:
               # virtual key to api.openai.com (it did, once, on 2026-09-24); see the
               # note beside HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_BASE_URL.
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_PROVIDER: openai
-              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL: spark-gpt-oss-20b
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL: spark-main
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "2"
               # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
               # floor at all — which is how 232 refreshes ran in ~2h on
@@ -850,7 +856,7 @@ spec:
               # natively. Only the model name and the base URL in the
               # ExternalSecret change.
               HINDSIGHT_API_CONSOLIDATION_LLM_PROVIDER: openai
-              HINDSIGHT_API_CONSOLIDATION_LLM_MODEL: spark-gpt-oss-20b
+              HINDSIGHT_API_CONSOLIDATION_LLM_MODEL: spark-main
               # HINDSIGHT_API_LLM_TEMPERATURE_CONSOLIDATION: none was here, and
               # removing it is REQUIRED, not cleanup. It existed solely because
               # the gpt-5 family rejects an explicit temperature and would 400 on
