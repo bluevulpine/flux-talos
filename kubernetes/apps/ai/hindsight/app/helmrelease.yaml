@@ -679,13 +679,11 @@ spec:
               # LLM_TEMPERATURE_REFLECT and REFLECT_LLM_REASONING_EFFORT stay
               # GONE from this block:
               #   - reasoning_effort is passed through VERBATIM, and since
-              #     2026-10-05 NO stage sends it. On Qwen, unset means thinking
-              #     off, for reflect too. That was not chosen for reflect on
-              #     quality grounds: its tool turns were 12/12 either way, but its
-              #     synthesis with thinking off is unmeasured. If reflect answers
-              #     look shallow, `HINDSIGHT_API_REFLECT_LLM_REASONING_EFFORT: low`
-              #     turns thinking on for reflect alone (vLLM's 16k default output
-              #     cap bounds it); expect it to be several times slower;
+              #     2026-10-05 retain and consolidation do not send it (unset means
+              #     thinking off on Qwen). Reflect sends `low` and the refresh chain
+              #     sends `none`; both are set, with the measurements, beside
+              #     HINDSIGHT_API_REFLECT_LLM_MODEL and
+              #     HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL below;
               #   - temperature falls back to reflect's intended 0.9
               #     (config.py DEFAULT_LLM_TEMPERATURE_REFLECT), which is what
               #     the old `none` override existed to work around.
@@ -745,6 +743,24 @@ spec:
               # The virtual key must allow this model_name before this deploys; see
               # the note above HINDSIGHT_API_LLM_API_KEY in the ExternalSecret.
               HINDSIGHT_API_REFLECT_LLM_MODEL: spark-main
+              # Thinking ON for user-invoked reflect. On Qwen any effort but "none"
+              # switches thinking on (see the note above HINDSIGHT_API_LLM_PROVIDER).
+              #
+              # Measured 2026-10-05: 19 real reflect prompts answered both ways and
+              # judged blind against their own evidence. Thinking on won 11, lost
+              # 2, tied 6, and made 50 unsupported claims to thinking-off's 92.
+              # The whole gap was on evidence-heavy prompts (over 5k tokens: 7 wins
+              # to 2, 43 unsupported claims to 87); with little evidence the two
+              # were the same. Thinking-off answers ran long and invented --
+              # rationale, roles read into bare entity tags, fabricated
+              # [[page:]] links.
+              #
+              # The price is time: 78s median against 26s, and none of the 19
+              # finished inside 25s. That is acceptable only because nothing waits
+              # on a short clock any more -- autoReflect is off in the plugin and
+              # the reflect tool's timeout is 10 minutes. If the session-start
+              # hook's reflect is ever turned back on, this has to go.
+              HINDSIGHT_API_REFLECT_LLM_REASONING_EFFORT: low
               # Sized when reflect's window was 98,304 (it is 131,072 on vLLM now),
               # NOT to the default of 100,000, which was past it. The cap bounds the
               # context reflect accumulates before it is forced to answer, and the
@@ -804,6 +820,21 @@ spec:
               # note beside HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_BASE_URL.
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_PROVIDER: openai
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL: spark-main
+              # EXPLICITLY "none", and it must be set: unset, this chain INHERITS
+              # reflect's effort (memory_engine: mental_model_refresh_llm_reasoning_
+              # effort or reflect_llm_reasoning_effort), so turning thinking on for
+              # reflect above would silently turn it on here too.
+              #
+              # Why not on, when the quality result above was measured on this
+              # chain's own synthesis calls: the chain has ONE setting for two
+              # steps, the reflect synthesis and the delta ops that write the page.
+              # Replaying 14 real delta-op calls with thinking on, timing was fine
+              # (126s median, 210s max, against a 600s timeout) but 2 of the 14
+              # spent the whole 16k output cap reasoning and returned no JSON --
+              # a failed refresh. Thinking off, the same step is 20 of 20 valid.
+              # Turning it on needs a larger output cap on the Spark
+              # (vllm_default_max_tokens) and a re-run of those calls first.
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_REASONING_EFFORT: none
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "2"
               # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
               # floor at all — which is how 232 refreshes ran in ~2h on
