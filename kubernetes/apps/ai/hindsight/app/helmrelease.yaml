@@ -23,12 +23,48 @@ spec:
         type: deployment
         annotations:
           reloader.stakater.com/auto: "true"
-        # Recreate, not RollingUpdate: the model-cache PVC is RWO, so a rolling
-        # update would deadlock on the new pod waiting for a volume the old pod
-        # still holds. Scaling past one replica additionally requires
-        # HINDSIGHT_API_MCP_STATELESS: "true" — noted so a future scale-up does
-        # not silently break MCP sessions.
-        strategy: Recreate
+        # The API: two replicas, surge-only rollout, so a config change, image
+        # bump or node drain never leaves /v1 and /mcp with zero ready pods. It
+        # was one Recreate pod that also ran the background worker, so every
+        # reloader restart was an outage through a slow cold start: clients
+        # logged `503 upstream connect error` for each hook that fired in the gap
+        # (74 failed page fetches on 2026-09-29 alone, during the vLLM cutover).
+        #
+        # Three things made one replica mandatory, and each is gone:
+        #  - the RWO model-cache PVC. It was never needed: the image bakes both
+        #    models into /home/hindsight/.cache at build time, and the PVC mount
+        #    SHADOWED them (checked on 0.10.1: 129M bge-small + 88M MiniLM
+        #    present with nothing mounted). See HF_HUB_OFFLINE below.
+        #  - the in-process worker, now its own controller (`worker`, below).
+        #  - stateful MCP sessions: HINDSIGHT_API_MCP_STATELESS below.
+        #
+        # Two API replicas both run the maintenance loop (mental-model cron,
+        # consolidation reconcile, retention). That is by design upstream
+        # (engine/maintenance.py): no leader, enqueues deduped in the inserting
+        # transaction. Startup migrations take a session-level advisory lock
+        # (migrations.py), so two pods starting together is safe -- but only on a
+        # direct connection, which postgres18-rw is; revisit if a transaction-mode
+        # pooler is ever put in front.
+        replicas: 2
+        strategy: RollingUpdate
+        rollingUpdate:
+          surge: 1
+          unavailable: 0
+        pod:
+          # Spread across nodes, so draining one cannot take both replicas.
+          # matchLabelKeys scopes the count to ONE revision: without it the
+          # selector also counts the old ReplicaSet's pods mid-rollout, and with
+          # only two eligible nodes both new pods could land together.
+          topologySpreadConstraints:
+            - maxSkew: 1
+              topologyKey: kubernetes.io/hostname
+              whenUnsatisfiable: DoNotSchedule
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: *app
+                  app.kubernetes.io/controller: hindsight
+              matchLabelKeys:
+                - pod-template-hash
         initContainers:
           # Creates the hindsight role and database as the superuser, then grants
           # the role ownership. Idempotent; safe on every restart.
@@ -98,7 +134,13 @@ spec:
               # scale-out path, not the starting point.
               tag: 0.10.1
             envFrom: *envFrom
-            env:
+            # ONE env block for the API and the worker (the worker aliases it
+            # below). They are the same program reading the same config, and a
+            # setting that drifts between them -- a model name, a timeout, a
+            # concurrency cap -- is a fault that would look like flakiness.
+            # Nothing here needs to differ: each process ignores the keys that
+            # belong to the other.
+            env: &apiEnv
               TZ: "${TIMEZONE}"
               HINDSIGHT_API_HOST: 0.0.0.0
               # Set explicitly on upstream's advice: if enableServiceLinks were
@@ -107,10 +149,43 @@ spec:
               # would fail to parse its own port. app-template defaults
               # enableServiceLinks to false, so this is belt-and-braces.
               HINDSIGHT_API_PORT: &apiPort 8888
-              # At one replica the upstream worker StatefulSet (whose whole point
-              # is deriving a stable worker id from a pod ordinal) buys nothing.
-              # Set the id statically and let the API run its in-process worker.
+              # --- api / worker split ---
+              # Read by the API only (api/http.py starts the in-process poller
+              # when this is true). The `hindsight-worker` entrypoint never
+              # consults it and always polls, which is what lets both share this
+              # block.
+              HINDSIGHT_API_WORKER_ENABLED: "false"
+              # STABLE, and it has to be. There is no dead-worker reclaim: rows
+              # left in `processing` are reset only by a worker with the SAME id,
+              # at its own startup (poller.py recover_own_tasks). The id was
+              # already `hindsight` while the worker ran inside the API, so the
+              # split-out worker adopts whatever the old pod left behind. A
+              # hostname-derived id (the default) would strand them forever.
+              # This is also why the worker is ONE replica on Recreate: a second
+              # pod with this id would reset the first one's running jobs.
               HINDSIGHT_API_WORKER_ID: hindsight
+              # Every worker restart costs each in-flight job one retry. The
+              # drain on SIGTERM is hardcoded at 30s (worker/main.py), LLM calls
+              # here run minutes, so a restart cancels them, releases the rows to
+              # `pending` and bumps retry_count. At the default of 3, three config
+              # changes during one long consolidation would fail it PERMANENTLY
+              # (nothing re-queues a failed operation). 10 makes that a non-event.
+              HINDSIGHT_API_WORKER_MAX_RETRIES: "10"
+              # The worker's own health/metrics port (/health/live, /health,
+              # /metrics). 8889 is the default; pinned because the probes and the
+              # Service below name it.
+              HINDSIGHT_API_WORKER_HTTP_PORT: &workerPort 8889
+              # Required for more than one API replica. Stateful MCP keeps the
+              # Mcp-Session-Id in process memory, so a follow-up request that
+              # round-robins to the other pod would not find its session. Costs
+              # server-sent streams (POST only), which no consumer here uses.
+              HINDSIGHT_API_MCP_STATELESS: "true"
+              # The weights are in the image, so never ask huggingface.co about
+              # them. Without this the loaders still make revalidation requests at
+              # startup, which would put an external site back on the critical
+              # path of every pod start -- the thing the old cache PVC existed to
+              # avoid.
+              HF_HUB_OFFLINE: "1"
 
               # --- auth: NOT optional ---
               # Without this, /v1 and /mcp are unauthenticated and anything on
@@ -130,8 +205,15 @@ spec:
               # exhaustion readiness AND liveness fail and the pod restarts,
               # reading as an app bug while Authentik and Immich start failing to
               # connect first and point the investigation elsewhere.
+              #
+              # PER PROCESS: two API replicas and the worker each open their own
+              # pool, so 12 here is 36 connections, 9% of the cluster budget
+              # (it was one pool of 20). Do not go much below 12 -- the worker
+              # runs up to 10 jobs at once (WORKER_MAX_SLOTS) and each holds a
+              # connection. READ_DB_POOL_MAX_SIZE is inert: the read pool only
+              # opens when HINDSIGHT_API_READ_DATABASE_URL is set, and it is not.
               HINDSIGHT_API_DB_POOL_MIN_SIZE: "2"
-              HINDSIGHT_API_DB_POOL_MAX_SIZE: "20"
+              HINDSIGHT_API_DB_POOL_MAX_SIZE: "12"
               HINDSIGHT_API_READ_DB_POOL_MAX_SIZE: "10"
 
               # --- retention ---
@@ -787,9 +869,8 @@ spec:
                   timeoutSeconds: 5
                   failureThreshold: 3
               # 300s. Cold start on a node without the image is a 1.42 GB pull
-              # across 15 layers (two ~565 MB torch layers), extract, ~220 MB
-              # weight fetch if the cache PVC is empty, torch import, then
-              # Alembic migrations.
+              # across 15 layers (two ~565 MB torch layers), extract, torch
+              # import, then Alembic migrations.
               startup:
                 enabled: true
                 custom: true
@@ -803,9 +884,10 @@ spec:
                   failureThreshold: 30
             securityContext:
               allowPrivilegeEscalation: false
-              # false, matching upstream: the process writes to the HuggingFace
-              # cache and to /tmp. Both are mounted volumes below, but the image
-              # is not built for a read-only root and upstream does not claim it.
+              # false, matching upstream: the process reads its models from
+              # /home/hindsight/.cache in the image layer and writes to /tmp (an
+              # emptyDir). The image is not built for a read-only root and
+              # upstream does not claim it.
               readOnlyRootFilesystem: false
               capabilities:
                 drop:
@@ -862,6 +944,86 @@ spec:
                 memory: 256Mi
               limits:
                 memory: 1Gi
+      # The background worker: retain extraction, consolidation, mental-model
+      # refresh. Same image, `hindsight-worker` entrypoint, same env block.
+      #
+      # ONE replica, Recreate -- see HINDSIGHT_API_WORKER_ID. Its restarts do not
+      # touch the API: recall, page reads and retain SUBMISSION keep working
+      # (a retain is a row in async_operations; the worker picks it up when it
+      # is back). It does not run migrations (run_migrations=False), so on a
+      # version bump it can briefly meet an old schema if it starts before an API
+      # pod has migrated; it crash-loops until the migration lands, then settles.
+      worker:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        strategy: Recreate
+        pod:
+          # 30s hardcoded drain + 5s cancel + releasing the rows back to
+          # `pending`. The default 30s can SIGKILL before the release; startup
+          # recovery covers that too, but at the cost of a slower pickup.
+          terminationGracePeriodSeconds: 90
+        containers:
+          worker:
+            image:
+              repository: ghcr.io/vectorize-io/hindsight-api
+              # Same image and tag as `api` above -- bump together.
+              tag: 0.10.1
+            command:
+              - hindsight-worker
+            envFrom: *envFrom
+            env: *apiEnv
+            probes:
+              # /health/live does no database access; /health does. Same split
+              # as the API, for the same reason (a postgres18 failover must not
+              # restart-loop the pod).
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health/live
+                    port: *workerPort
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: *workerPort
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health/live
+                    port: *workerPort
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 30
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities:
+                drop:
+                  - "ALL"
+            resources:
+              requests:
+                cpu: 100m
+                memory: 1Gi
+              limits:
+                # It loads the embedder and reranker too (MemoryEngine.initialize
+                # is the same call), so it is sized like the API.
+                memory: 4Gi
     defaultPodOptions:
       # The namespace enforces `baseline`, but this pod complies with
       # `restricted` by construction and should keep doing so — baseline is the
@@ -893,11 +1055,16 @@ spec:
         ports:
           http:
             port: *cpPort
+      # Exists for the ServiceMonitor only; nothing routes to the worker.
+      worker:
+        controller: worker
+        ports:
+          http:
+            port: *workerPort
     persistence:
-      hf-cache:
-        existingClaim: hindsight-hf-cache
-        globalMounts:
-          - path: /home/hindsight/.cache
+      # No model-cache volume: the weights ship in the image (see the API
+      # controller's header). Mounting anything at /home/hindsight/.cache hides
+      # them and forces a download.
       tmp:
         type: emptyDir
         globalMounts:
