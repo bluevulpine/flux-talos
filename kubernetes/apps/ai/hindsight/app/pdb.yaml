@@ -5,7 +5,7 @@
 # while a rollout is surging, two drains at once -- from evicting both.
 #
 # Selects the API controller ONLY. The worker is a single Recreate replica by
-# design; a budget on it could never be satisfied and would just block drains.
+# design, so a budget on it would protect nothing.
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:

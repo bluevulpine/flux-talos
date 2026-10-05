@@ -86,6 +86,7 @@ spec:
         # either.
         #
         # Note the image ships NO wget and NO curl. To re-check, use its Python:
+        # (The worker serves the same endpoint on :8889.)
         #   kubectl -n ai exec deploy/hindsight -c api -- python -c \
         #     "import urllib.request; print(urllib.request.urlopen(
         #      'http://localhost:8888/metrics').read().decode())" | grep ^hindsight_
@@ -98,7 +99,8 @@ spec:
               makes no LLM call, so it keeps working while retain cannot. Check
               the LLM path first: gatus "DGX Spark (vLLM)" and vLLM's /health on
               10.0.10.237:8000, then LiteLLM (`kubectl logs -n ai deploy/litellm`),
-              then `kubectl logs -n ai deploy/hindsight -c api | grep -i llm`.
+              then `kubectl logs -n ai deploy/hindsight-worker | grep -i llm` (LLM
+              work runs in the worker, not the API).
               spark-setup's tools/hindsight_trends.sh tells hindsight-side
               queueing from a slow backend. Then the worker.
           expr: |
@@ -130,7 +132,7 @@ spec:
               `select operation_id, bank_id, operation_type, claimed_at from
               async_operations where status='processing' order by claimed_at`
               (database hindsight on the postgres18 primary). Check
-              `kubectl -n ai logs deploy/hindsight -c api | grep <operation_id>`
+              `kubectl -n ai logs deploy/hindsight-worker | grep <operation_id>`
               ends in DB errors rather than live WORKER_TASK lines, then
               requeue it: `update async_operations set status='pending',
               worker_id=null, claimed_at=null, updated_at=now() where

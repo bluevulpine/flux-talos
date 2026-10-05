@@ -51,7 +51,10 @@ spec:
           surge: 1
           unavailable: 0
         pod:
-          # One per node, so draining a node cannot take both replicas.
+          # Spread across nodes, so draining one cannot take both replicas.
+          # matchLabelKeys scopes the count to ONE revision: without it the
+          # selector also counts the old ReplicaSet's pods mid-rollout, and with
+          # only two eligible nodes both new pods could land together.
           topologySpreadConstraints:
             - maxSkew: 1
               topologyKey: kubernetes.io/hostname
@@ -60,6 +63,8 @@ spec:
                 matchLabels:
                   app.kubernetes.io/name: *app
                   app.kubernetes.io/controller: hindsight
+              matchLabelKeys:
+                - pod-template-hash
         initContainers:
           # Creates the hindsight role and database as the superuser, then grants
           # the role ownership. Idempotent; safe on every restart.
@@ -879,9 +884,10 @@ spec:
                   failureThreshold: 30
             securityContext:
               allowPrivilegeEscalation: false
-              # false, matching upstream: the process writes to the HuggingFace
-              # cache and to /tmp. Both are mounted volumes below, but the image
-              # is not built for a read-only root and upstream does not claim it.
+              # false, matching upstream: the process reads its models from
+              # /home/hindsight/.cache in the image layer and writes to /tmp (an
+              # emptyDir). The image is not built for a read-only root and
+              # upstream does not claim it.
               readOnlyRootFilesystem: false
               capabilities:
                 drop:
