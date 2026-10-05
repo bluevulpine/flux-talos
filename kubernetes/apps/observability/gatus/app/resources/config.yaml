@@ -142,51 +142,28 @@ endpoints:
     alerts:
       - type: pushover
 
-  # Inference backend. LiteLLM routes every LLM call in the cluster to Ollama on
-  # the DGX Spark, and there is deliberately NO fallback member configured —
-  # both the Azure and Anthropic credit pools are exhausted, so a fallback would
-  # only 401. That makes this the single point of failure for Hindsight,
-  # homebox-companion, karakeep, mealie, n8n and node-red all at once, which is
-  # why it is worth a probe of its own rather than relying on pod health.
+  # The DGX Spark's inference engine: vLLM on :8000 (spark-setup, roles/vllm),
+  # serving Qwen3.6 behind every `spark-*` text and vision route in LiteLLM.
+  # Hindsight's retain, consolidation and reflect all depend on it, and it is a
+  # box OUTSIDE the cluster, so pod health says nothing about it.
   #
-  # Probes /v1/models, not / : the root path answers with a static "Ollama is
-  # running" string that proves only that the HTTP listener is up. /v1/models is
-  # the same OpenAI-compatible surface LiteLLM actually calls, so this exercises
-  # the real path rather than a bystander endpoint.
+  # Probes /v1/models, the same OpenAI-compatible surface LiteLLM calls. The
+  # len() condition is the load-bearing half: a listener that answers 200 with
+  # NOTHING loaded fails every request with "model not found" while a plain
+  # status check sits green.
   #
-  # The len() condition is the load-bearing half. A registry that answers 200
-  # with an EMPTY model list is the failure this is really guarding against —
-  # it happens when the models directory is unreadable or a pull was interrupted,
-  # and every inference request then fails with "model not found" while a plain
-  # status check sits green. Status alone would not catch it.
+  # ⚠️ Reachability, not capacity: /v1/models answers in milliseconds even when
+  # the engine is saturated. A dead ENGINE behind a live API server does fail
+  # this (the container's own watchdog restarts it).
   #
-  # Addressed by IP rather than by name, matching the api_base LiteLLM actually
-  # calls. That is the point: this probe exists to tell us whether the path
-  # Hindsight uses is alive, so it has to exercise the SAME path. Probing a
-  # hostname that LiteLLM does not use could go green while every real call
-  # fails, or page "Spark down" for what is really a DNS record problem.
+  # Addressed by IP, matching the api_base LiteLLM uses, so this exercises the
+  # SAME path. `spark-ab23.${SECRET_DOMAIN}` once stopped resolving hours after
+  # it was created; restore the name here only when the LiteLLM api_base goes
+  # back to it, and only after verifying it resolves from inside a pod.
   #
-  # It was briefly http://spark-ab23.${SECRET_DOMAIN}:11434/v1/models, and that
-  # name stopped resolving hours after it was created — the UDM returned NODATA
-  # for it while still answering the bare `spark-ab23`. Restore the name here
-  # only when the LiteLLM api_base goes back to it, and only after verifying it
-  # resolves from inside a pod.
-  - name: DGX Spark (Ollama)
-    group: inference
-    url: "http://10.0.10.237:11434/v1/models"
-    interval: 1m
-    conditions:
-      - "[STATUS] == 200"
-      - "len([BODY].data) > 0"
-    alerts:
-      - type: pushover
-
-  # vLLM on :8000 (spark-setup, roles/vllm), which serves spark-gpt-oss-20b and
-  # its -long alias. A separate process from Ollama above, which now serves only
-  # vision -- so either can be down while the other is up. Same probe and the
-  # same reasoning: /v1/models is the surface LiteLLM calls, and the len()
-  # condition catches a listener that answers 200 with nothing loaded. It
-  # replaces the :11435 probe for the retired long-context ollama.
+  # There was a second probe, `DGX Spark (Ollama)` on :11434. Ollama was retired
+  # on 2026-10-05 (spark-setup ollama_enabled: false) when Qwen3.6 took over
+  # vision; a probe for a stopped service with no consumers only pages.
   - name: DGX Spark (vLLM)
     group: inference
     url: "http://10.0.10.237:8000/v1/models"
@@ -204,7 +181,7 @@ endpoints:
   # dead. That check would monitor the SSO layer, not the gateway.
   #
   # This matters more than usual here: LiteLLM is the single path every LLM call
-  # in the cluster takes, and the `DGX Spark (Ollama)` probe above tests only the
+  # in the cluster takes, and the `DGX Spark (vLLM)` probe above tests only the
   # BACKEND -- it stays green when the proxy in front of it is down.
   #
   # /health/readiness is LiteLLM's own readiness endpoint and returns
