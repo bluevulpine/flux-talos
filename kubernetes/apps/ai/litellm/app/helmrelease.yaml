@@ -376,16 +376,24 @@ spec:
               # ⚠️ PRIVACY. A request that falls back LEAVES THE HOUSE: Nous
               # resells OpenRouter capacity (its usage block reports
               # `cost_details.source: openrouter_list`), so the prompt goes to
-              # whichever upstream provider serves it. For hindsight that prompt
-              # is a session transcript or a commit diff. That is the price of
-              # not losing the memory, taken deliberately; remove the fallbacks
-              # block to stay strictly local.
+              # whichever upstream provider serves it. That applies to EVERY
+              # consumer of the two text routes, not only hindsight:
+              #   hindsight   session transcripts, commit diffs, knowledge pages
+              #   karakeep    bookmark text being summarised/tagged
+              #   mealie      recipe text (its settings live in its database)
+              #   n8n, node-red   whatever a flow sends (none use it today)
+              # homebox-companion is not affected: it uses the vision route for
+              # everything, and vision does not fall back. This is the price of
+              # not losing the memory, taken deliberately; the only off switch is
+              # the fallbacks block, and it is all-or-nothing. To keep the others
+              # local, give hindsight its own route name and fall back only that.
               #
               # `reasoning: {enabled: false}` is NOT optional. Hosted, the model
               # thinks by default: a one-word reply spent its whole 200-token cap
               # reasoning and returned empty content, and retains ran 26-142s with
               # one of three failing the schema. Off, 16 of 17 replayed retains
-              # were schema-valid at 8s p50. (The Spark's own switch,
+              # were schema-valid at 8s p50 (hosted, at 4 concurrent -- not
+              # comparable to the Spark's 13s at 8). (The Spark's own switch,
               # chat_template_kwargs, is ignored here; `reasoning` is OpenRouter's.)
               #
               # Cost, measured: 17 retains for $0.026, so ~$0.0015 a call, on the
@@ -479,8 +487,12 @@ spec:
               redis_host: dragonfly.database.svc.cluster.local
               redis_port: 6379
               # Text routes only. A fallback fires after the route's own
-              # num_retries are spent (connection refused, 5xx, timeout), i.e. when
-              # the Spark is down or restarting, not when it is merely slow.
+              # num_retries are spent on errors that come back FAST: connection
+              # refused, 5xx. That covers the Spark being down, restarting or its
+              # engine having crashed. It does NOT cover an engine that accepts
+              # the connection and then hangs: no route sets a timeout, so
+              # LiteLLM's 600s default applies to each of three attempts and
+              # hindsight's own 600s gives up first. Slow is not a fallback either.
               #
               # Vision (spark-qwen25-vl-7b) is deliberately NOT here: its callers
               # are interactive (karakeep tagging, homebox photos), a failed tag
