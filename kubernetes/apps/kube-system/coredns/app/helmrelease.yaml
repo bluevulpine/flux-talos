@@ -226,6 +226,10 @@ spec:
     # A drain (e.g. a Talos node roll) may take down only one replica at a time.
     podDisruptionBudget:
       maxUnavailable: 1
+    # Cluster DNS is a critical add-on: schedule ahead of (and preempt) ordinary
+    # pods when a node is full, and fall under the descheduler's
+    # evictSystemCriticalPods: false protection. The chart default is none.
+    priorityClassName: system-cluster-critical
     tolerations:
       - key: CriticalAddonsOnly
         operator: Exists
