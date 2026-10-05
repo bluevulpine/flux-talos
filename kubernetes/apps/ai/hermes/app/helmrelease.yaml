@@ -174,15 +174,8 @@ spec:
       # Secret updates. 0440 + fsGroup 10000 is exactly what the gateway
       # (uid/gid 10000, no caps) needs to read it.
       #
-      # canary: throwaway pilot profile; removed after the pilot.
-      canary-secrets:
-        type: secret
-        name: hermes-profile-canary
-        defaultMode: 0440
-        globalMounts:
-          - path: /run/hermes-profiles/canary
-            readOnly: true
-      # wasp: Buzz code reviewer. See externalsecret-profile-wasp.yaml.
+      # wasp: Buzz code reviewer, and the Matrix pilot's named profile (it
+      # replaced the throwaway canary). See externalsecret-profile-wasp.yaml.
       wasp-secrets:
         type: secret
         name: hermes-profile-wasp

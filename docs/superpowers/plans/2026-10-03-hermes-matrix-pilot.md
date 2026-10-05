@@ -25,6 +25,25 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-03-hermes-matrix-pilot-design.md`. Read it first; every "why" lives there.
 
+> **Execution notes, 2026-10-04.** These amend the tasks below, and these notes win where they differ.
+>
+> **The named-profile subject is Wasp, not `canary`.** Bosun had already onboarded Wasp into the multiplexer (#2057) using this exact pattern, so Derek chose to test P3–P6 on that real agent.
+> - Wasp is `@wasp:derekjacobs.dev`, device `WASPHERMES`.
+> - Its fields are `Wasp__Matrix__AccessToken` / `Wasp__Matrix__RecoveryKey` in `secret/hermes-wasp`, following Wasp's own naming.
+> - Its recovery key goes to `/opt/data/profiles/wasp/matrix-recovery-key.txt`.
+> - P4's LiteLLM spend check becomes "Wasp answers with its own provider credential".
+> - `canary` never ran. Its manifests were removed in #2064, and its MAS user, OpenBao key and LiteLLM key are retired live.
+> - Read `canary` below as `wasp`.
+>
+> **Federation needed three extra PRs:**
+> - **#2059** pins `matrix.*` to the Pangolin VPS with `hostAliases`, instead of an SSRF allowlist.
+> - **#2059** also adds a CoreDNS `bluevulpine.net.` block forwarding to public DNS.
+> - **#2062** sets `ndots:1` on Synapse, because CoreDNS `autopath` otherwise bypasses that block.
+>
+> **Tooling corrections:**
+> - The privilege-drop helper is `/command/s6-setuidgid`; it isn't on the `kubectl exec` PATH.
+> - Generated credentials are piped into OpenBao by the agent, never handed to Derek.
+
 ## Global Constraints
 
 - Behaviour claims come from **pod source** (`/opt/hermes`, v0.21.4), never from `~/.hermes/hermes-agent` (a newer, different build).
