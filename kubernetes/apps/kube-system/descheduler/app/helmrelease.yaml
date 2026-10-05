@@ -28,14 +28,36 @@ spec:
           pluginConfig:
             - name: DefaultEvictor
               args:
-                evictFailedBarePods: true
-                evictLocalStoragePods: true
-                # Changed from true to false for safer operation in homelab environment
-                evictSystemCriticalPods: false
+                # v0.36 `podProtections` form, replacing the deprecated
+                # evictFailedBarePods/evictLocalStoragePods/evictSystemCriticalPods
+                # booleans. With those booleans this release kept evicting
+                # kube-system/coredns (system-cluster-critical, priority 2e9) via
+                # LowNodeUtilization: 4 evictions in ~28h, 25 CoreDNS pods in 7d, and
+                # zero "system critical priority" rejections in 6h of --v=3 logs.
+                # Each eviction left cluster DNS on ONE replica (PDB maxUnavailable 1).
+                # Same intent as before: everything below stays protected by default
+                # EXCEPT the two disabled here. SystemCriticalPods and DaemonSetPods
+                # remain protected (do NOT add them to this list). The deprecated keys
+                # must not be reintroduced: mixing them with podProtections fails
+                # validation.
+                podProtections:
+                  defaultDisabled:
+                    - PodsWithLocalStorage
+                    - FailedBarePods
                 nodeFit: true
             # NEW: Load balancing strategy to address pod distribution imbalance
             - name: LowNodeUtilization
               args:
+                # Belt and braces with SystemCriticalPods above: LowNodeUtilization never
+                # picks kube-system pods to rebalance. Moving them (CoreDNS above all)
+                # buys a little packing and risks cluster-wide DNS; this filter does not
+                # depend on the evictor's priority logic. Scope is THIS plugin only: the
+                # violation plugins below can still evict kube-system pods, deliberately,
+                # since they act only on a real violation (e.g. a node taint), where
+                # moving the pod is correct. There SystemCriticalPods is the only guard.
+                evictableNamespaces:
+                  exclude:
+                    - kube-system
                 # Nodes below these thresholds are considered underutilized
                 thresholds:
                   cpu: 20
