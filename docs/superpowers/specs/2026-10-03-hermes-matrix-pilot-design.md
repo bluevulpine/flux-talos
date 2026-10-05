@@ -59,7 +59,7 @@ This spec is the pilot that answers both. It does **not** onboard Fizz, Pollen, 
 - Device IDs are plain alphanumeric. Whether MAS 1.26 accepts hyphens is unverified, and nothing is gained by finding out.
 - Commands: `mas-cli manage register-user -y -d <Display> <user>`, then `mas-cli manage issue-compatibility-token <user> <DEVICE>`.
 - **Never** pass `--yes-i-want-to-grant-synapse-admin-privileges`.
-- **Derek runs the token step.** It pipes straight into `bao kv patch` and never prints the token. The agent's session is not permitted to write generated credentials into OpenBao.
+- ~~**Derek runs the token step.**~~ **Superseded 2026-10-03 by Derek:** the agent operating the cluster runs it. `bao kv` is an approval-gated ask rule, and the token pipes straight from `mas-cli` into OpenBao, so it is never printed. The original line had over-applied a one-time classifier block. See the hermes README, "Adding an agent profile".
 
 ### 2. Secret delivery
 

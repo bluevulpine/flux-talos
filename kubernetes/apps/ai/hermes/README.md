@@ -141,9 +141,10 @@ partitioned by it.
 **Profiles** are the isolation unit — separate `config.yaml`, `.env`, `SOUL.md`, memory,
 sessions, skills and cron per profile, with credentials never shared across them. They
 are per-*agent*, not per-*person*; the dashboard has a profile switcher and anyone
-logged in can use it. For several agents in this one pod, set
-`gateway.multiplex_profiles: true` on the default profile — upstream recommends it
-specifically for container deployments, where one process per profile is heavy.
+logged in can use it. This pod runs several agents as profiles of one multiplexing
+gateway. That is switched on by `GATEWAY_MULTIPLEX_PROFILES: "true"` in the
+HelmRelease env, **not** left to the implicit default, which refuses under s6. See
+"Adding an agent profile" below.
 
 ## Before giving it cluster access
 
@@ -157,3 +158,159 @@ When you do hand it a kubeconfig or talosconfig, add `approvals.deny` globs for 
 node in both hostname and `10.0.10.x` form. That list is consulted **before** `--yolo`
 and `approvals.mode: off`. It is a guardrail, not a boundary — glob matching on shell
 strings is dodgeable — so it covers the accident, not the adversary.
+
+## Matrix
+
+Agents talk on the derekjacobs.dev homeserver (`kubernetes/apps/matrix`) as their own
+users, via Hermes' built-in Matrix gateway with **E2EE required**. Bosun (the default
+profile) is `@bosun:derekjacobs.dev`, device `BOSUNHERMES`. Wasp is `@wasp:derekjacobs.dev`,
+device `WASPHERMES`. Design and evidence:
+`docs/superpowers/specs/2026-10-03-hermes-matrix-pilot-design.md`.
+
+**The identity is a MAS account plus a compatibility token, not an Authentik user.**
+Authentik login is browser-only, so agents use a token instead:
+`mas-cli manage register-user` followed by `issue-compatibility-token <user> <DEVICE>`.
+That gives one device per process, so a second consumer later only needs a second
+token for a new device ID on the same account. CLI-issued compatibility tokens **do not
+expire**: MAS stores `expires_at = NULL`, and Bosun's token was still valid after 28h
+(checked 2026-10-05). They are revoked only by `kill-sessions` or `lock-user`, so there is
+no refresh path to build. Never pass
+`--yes-i-want-to-grant-synapse-admin-privileges`.
+
+Where each setting must live. This is decided by the loader, not by preference:
+
+| Setting | Where | Why |
+| --- | --- | --- |
+| `MATRIX_ACCESS_TOKEN`, `MATRIX_RECOVERY_KEY` | OpenBao → secret path | They are credentials. |
+| `MATRIX_HOMESERVER`, `MATRIX_E2EE_MODE=required` | secret path too | The adapter's credential pass rewrites `extra.homeserver` from `MATRIX_HOMESERVER`, so a YAML-only homeserver is blanked to `""` and `connect()` aborts. |
+| `MATRIX_RECOVERY_KEY_OUTPUT_FILE` | secret path, a **per-profile** path | It is read only through the scoped secret reader. The file is opened `O_EXCL`, so it must not exist when the profile first boots. |
+| `platforms.matrix.device_id`, `platforms.matrix.allowed_users` | the profile's `config.yaml` | These survive the env pass. |
+
+The "secret path" is process env via `hermes-secret` for the default profile (Bosun), and
+the mounted `profile.env` for a named profile (see below). **Never put `MATRIX_*` in
+`/opt/data/.env`.** In the launch scope `.env` beats process env, so it would shadow
+OpenBao.
+
+**First boot bootstraps cross-signing** and writes the recovery key to the output file.
+Move it into OpenBao straight away; it is piped, never printed. Then delete the file and
+force-sync the ExternalSecret. Until that happens, a second restart would try to bootstrap
+again and fail on the existing file. Once the key is stored, restarts verify silently.
+
+**Federation with bluevulpine.net needs three non-obvious pieces** (#2059, #2062):
+- Synapse `hostAliases` pin both `matrix.*` hosts to the Pangolin VPS.
+- CoreDNS answers the `bluevulpine.net.` zone from public DNS.
+- Synapse runs with `ndots:1`.
+
+All three exist because split-horizon DNS hands Synapse the internal gateway, and
+Synapse's SSRF guard refuses it. **Do not** "fix" that with `ip_range_whitelist`:
+`172.16.8.2` fronts every LAN-only route, and the whitelist also governs pushers.
+
+**Known limits:**
+- **Element's "Verify User" (interactive verification) cannot complete.** The adapter has
+  no SAS handler. The device is still cross-signed by the agent's own key, which is what
+  matters for encryption.
+- **The first message of the very first DM between two servers that have never met can
+  be undecryptable.** Element encrypts before it knows the remote device. This happens
+  once per server pair, not once per DM.
+- **Rotating any agent's credentials restarts every agent.** Reloader rolls the whole pod
+  (`strategy: Recreate`), and Bosun drops too.
+
+## Adding an agent profile
+
+One pod, one multiplexing gateway, one Hermes profile per agent. Each profile gets its
+own secret scope, `state.db`, memory, SOUL and Matrix adapter. Wasp (#2057, #2064) is the
+worked example. `<agent>` is lowercase (`pollen`); `<Agent>` is the OpenBao field prefix
+(`Pollen`); `<DEVICE>` is uppercase alphanumeric (`POLLENHERMES`).
+
+**Why a file and not env:** under multiplexing, the process environment is the *default*
+profile's credentials only. A named profile resolves secrets from its own files and
+never borrows. So its secrets arrive as a mounted `profile.env`, read by the profile's
+own `secrets.command`. The mount is a directory, **not** a `subPath`, because a `subPath`
+mount never receives Secret updates.
+
+1. **Identity.** The agent operating the cluster runs this itself. Derek
+   decided this on 2026-10-03, reversing the pilot spec's "Derek runs the token step". It is
+   safe because `bao kv` is an approval-gated ask rule, and the token goes straight from
+   `mas-cli` into OpenBao; it is never printed:
+   ```bash
+   export BAO_ADDR=https://openbao.derekjacobs.dev   # only ~/.zshrc sets it; /bin/bash scripts do not
+   kubectl -n matrix exec deploy/matrix-stack-matrix-authentication-service -- \
+     mas-cli manage register-user -y -d <Agent> <agent>
+   T=$(kubectl -n matrix exec deploy/matrix-stack-matrix-authentication-service -- \
+     mas-cli manage issue-compatibility-token <agent> <DEVICE> 2>&1 | grep -o 'mct_[A-Za-z0-9_]*' | head -1)
+   # NEW path → put, seeding EVERY field the agent's profile.env template references:
+   [ -n "$T" ] && bao kv put secret/hermes-<agent> <Agent>__Matrix__AccessToken="$T" \
+     <Agent>__Matrix__RecoveryKey= <Agent>__OtherField=…; unset T
+   ```
+   - **`put` only creates.** On an existing path it **replaces every field**, so every
+     later write (recovery key, rotation, other credentials) uses `patch`. `patch` fails
+     on a path that doesn't exist yet, which is why step 1 uses `put`. If the agent
+     already has a path (Wasp did), use `patch` here too.
+   - Seed every field the template references, even ones that are still empty. A
+     missing field fails the v2 template, and with it the whole Secret.
+2. **Git (one PR):**
+   - `app/externalsecret-profile-<agent>.yaml` renders one key, `profile.env`. Use
+     Wasp's as the shape, but **copy only the `MATRIX_*` lines**. Change
+     `MATRIX_RECOVERY_KEY_OUTPUT_FILE` to `/opt/data/profiles/<agent>/…` and the field
+     refs to `<Agent>__…`. Everything else in Wasp's file (`BUZZ_*` and its literal
+     `BUZZ_AUTH_TAG` attestation, `API_SERVER_KEY`, `GITEA_*`) is **Wasp's own** and
+     must not be copied.
+   - A `<agent>-secrets` persistence entry in `helmrelease.yaml`: `type: secret`,
+     `defaultMode: 0440`, mounted at `/run/hermes-profiles/<agent>`, `readOnly`.
+   - Add the ExternalSecret to `kustomization.yaml`.
+3. **Merge, then confirm the file is in the pod** before `profile create`. A
+   credential that arrives later is never retried, because the rescan signature only
+   covers `config.yaml` and `.env`:
+   `kubectl -n ai exec deploy/hermes -- cut -d= -f1 /run/hermes-profiles/<agent>/profile.env`
+4. **Create and configure the profile as the gateway user.** `kubectl exec` is root, the
+   CLI does not drop privileges, and a root-owned profile tree breaks the E2EE store:
+   ```bash
+   H=(kubectl -n ai exec deploy/hermes -- /command/s6-setuidgid hermes hermes)
+   "${H[@]}" profile create <agent>        # no --clone: copies no credentials
+   # Gate and model FIRST. The token is already in the mounted file, and it reaches the
+   # profile the moment secrets.command is enabled (every config set triggers a rescan).
+   "${H[@]}" -p <agent> config set platforms.matrix.device_id <DEVICE>
+   "${H[@]}" -p <agent> config set platforms.matrix.allowed_users "@bluevulpine:bluevulpine.net"
+   # ...set the agent's own model:/provider here (see below)...
+   "${H[@]}" -p <agent> config set secrets.command.command "/bin/cat /run/hermes-profiles/<agent>/profile.env"
+   "${H[@]}" -p <agent> config set secrets.command.override_existing true
+   "${H[@]}" -p <agent> config set secrets.command.enabled true   # LAST: this hands it the token
+   ```
+   - `profile create` seeds the *default* profile's `model:` block (Bosun's Anthropic),
+     whose credential the new profile cannot reach. Set the agent's own model and
+     provider key before enabling `secrets.command`.
+   - `s6-setuidgid` lives in `/command`. It is not on the `kubectl exec` PATH.
+   - The order matters: with `allowed_users` set before the token reaches the profile,
+     the adapter comes up closed.
+5. **Checks:**
+   - **Live add:** `/opt/data/gateway_state.json` `served_profiles` gains `<agent>`, and
+     there is still exactly one gateway process.
+   - **Adapter:** the log shows the agent's Matrix adapter connected as `@<agent>`, with
+     no `duplicate_credential`.
+   - **Ownership:** `find /opt/data/profiles/<agent> ! -uid 10000` prints nothing.
+   - **Recovery key:** move it into OpenBao at once, never printed, then delete the
+     file and force-sync. A restart before this would re-bootstrap and fail on the
+     existing file:
+     ```bash
+     F=/opt/data/profiles/<agent>/matrix-recovery-key.txt
+     kubectl -n ai exec deploy/hermes -- cat "$F" | tr -d '\n' \
+       | { read -r K; bao kv patch secret/hermes-<agent> <Agent>__Matrix__RecoveryKey="$K" >/dev/null && echo stored; unset K; } \
+       && kubectl -n ai exec deploy/hermes -- rm -f "$F" \
+       && kubectl -n ai annotate externalsecret hermes-profile-<agent> force-sync="$(date +%s)" --overwrite
+     ```
+   - **Gating:** an encrypted DM from an allowed user gets a reply. A DM from anyone
+     else logs `rejecting invite … from unauthorized user`.
+6. **Rotating a token:**
+   - Run `mas-cli manage kill-sessions <agent>` **first**. It revokes every session for
+     the user, so running it after the re-issue would kill the new token too.
+   - Then `issue-compatibility-token <agent> <DEVICE>` for the **same device**. A new
+     device ID resets the agent's crypto store.
+   - Then patch OpenBao and force-sync the ExternalSecret.
+   - Reloader rolls the pod even though the Secret is volume-only (verified), and the
+     adapter re-uploads keys and re-signs the device with the stored recovery key.
+     Every agent restarts.
+
+Isolation between profiles is Hermes's logical isolation, not a kernel boundary. The
+process can read every mounted `profile.env`. That suits agents of equal trust. An agent
+that needs a hard boundary gets its own Deployment, with its profile as that pod's
+default profile and the same identity and OpenBao layout.
