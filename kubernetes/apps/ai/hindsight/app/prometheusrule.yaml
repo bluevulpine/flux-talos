@@ -99,10 +99,10 @@ spec:
               makes no LLM call, so it keeps working while retain cannot. Check
               the LLM path first: gatus "DGX Spark (vLLM)" and vLLM's /health on
               10.0.10.237:8000, then LiteLLM (`kubectl logs -n ai deploy/litellm`),
-              then `kubectl logs -n ai deploy/hindsight-worker | grep -i llm` (LLM
-              work runs in the worker, not the API).
+              then `kubectl logs -n ai deploy/hindsight-worker | grep -i llm`
+              (retain and consolidation LLM work runs in the worker, not the API).
               spark-setup's tools/hindsight_trends.sh tells hindsight-side
-              queueing from a slow backend. Then the worker.
+              queueing from a slow backend.
           expr: |
             max(sum by (pod) (hindsight_async_operations{namespace="ai", status=~"pending|processing"})) > 50
           for: 30m
