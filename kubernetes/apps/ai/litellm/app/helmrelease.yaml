@@ -311,7 +311,11 @@ spec:
               # size slots x context x its per-token KV against what is free.
 
               # --- vision ---
-              # The ONLY model here that can see an image. The gpt-oss entries above
+              # ⚠️ Since 2026-10-05 this route is the same Qwen3.6 on vLLM as the
+              # text routes (see the note above the route itself). The rest of this
+              # header describes qwen2.5vl on Ollama, which is now only the rollback.
+              #
+              # (Then:) The ONLY model here that can see an image. The gpt-oss entries above
               # are text-only, which is why karakeep's image slot and
               # homebox-companion's photo item-detection were dead after the
               # Azure migration -- gpt-4.1-mini and gpt-5-mini were both
@@ -337,8 +341,10 @@ spec:
               # the same Qwen3.6 on vLLM as the text routes, which reads images
               # itself. Checked side by side with qwen2.5vl on five images: same
               # or better tags, and a rendered receipt transcribed exactly. Images
-              # are capped at ~1 MP and two per request on the server
-              # (spark-setup vllm_extra_args). vLLM, unlike Ollama, will fetch an
+              # are capped at ~1 MP and TWO PER REQUEST on the server
+              # (spark-setup vllm_extra_args) -- a request with more gets a 400
+              # where Ollama accepted it. homebox-companion's multi-photo
+              # detection is the consumer to check. vLLM, unlike Ollama, will fetch an
               # http(s) image URL, so the base64-only warning above no longer
               # binds -- but consumers already send bytes.
               #
@@ -350,6 +356,7 @@ spec:
                   model: openai/qwen3.6-35b-a3b
                   api_base: http://10.0.10.237:8000/v1
                   api_key: unused-no-auth
+                  # Kept as cheap insurance, as on the text routes.
                   num_retries: 2
 
             # There is deliberately NO fallback entry here, and no

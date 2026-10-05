@@ -672,11 +672,14 @@ spec:
               #
               # LLM_TEMPERATURE_REFLECT and REFLECT_LLM_REASONING_EFFORT stay
               # GONE from this block:
-              #   - reasoning_effort is passed through VERBATIM. That would 400 on
-              #     a backend that rejects it (the gpt-4o era), but vLLM gpt-oss
-              #     accepts it -- retain, consolidation and refresh all send
-              #     `low`. Reflect stays unset on purpose: it is the stage where
-              #     reasoning pays, and vLLM's 16k default output cap bounds it;
+              #   - reasoning_effort is passed through VERBATIM, and since
+              #     2026-10-05 NO stage sends it. On Qwen, unset means thinking
+              #     off, for reflect too. That was not chosen for reflect on
+              #     quality grounds: its tool turns were 12/12 either way, but its
+              #     synthesis with thinking off is unmeasured. If reflect answers
+              #     look shallow, `HINDSIGHT_API_REFLECT_LLM_REASONING_EFFORT: low`
+              #     turns thinking on for reflect alone (vLLM's 16k default output
+              #     cap bounds it); expect it to be several times slower;
               #   - temperature falls back to reflect's intended 0.9
               #     (config.py DEFAULT_LLM_TEMPERATURE_REFLECT), which is what
               #     the old `none` override existed to work around.
