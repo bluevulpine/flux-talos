@@ -410,7 +410,7 @@ the `kopiur-pilot` Garage bucket and the OpenBao key `kopiur-pilot` by hand.
 | W7 | home/frigate | `45 * * * *` → `H * * * *` | `57 0 * * *` → `H 0 * * *` | Snapshot | tns-csi-nfs |  |
 | W7 | media/readarr-audiobooks | `20 * * * *` → `H * * * *` | `33 4 * * *` → `H 4 * * *` | Snapshot | tns-csi-nfs |  |
 | W7 | media/readarr-ebooks | `25 * * * *` → `H * * * *` | `41 4 * * *` → `H 4 * * *` | Snapshot | tns-csi-nfs |  |
-| W7 | media/tdarr | `30 */4 * * *` → `H */4 * * *` | `33 5 * * *` → `H 5 * * *` | Snapshot | longhorn-1-replica ⁴ |  |
+| W7 | media/tdarr | `30 */4 * * *` → `H */4 * * *` | `33 5 * * *` → `H 5 * * *` | Snapshot | longhorn-2-replica ⁴ ⁶ | **staging.storageClassName: longhorn-1-replica patch** ⁶ |
 | W8 | games/satisfactory | `55 * * * *` → `H * * * *` | `3 5 * * *` → `H 5 * * *` | Direct | tns-csi-nvmeof | uid/gid/fsGroup 1000 |
 | W8 | games/valheim | `58 * * * *` → `H * * * *` | `41 5 * * *` → `H 5 * * *` | Direct | tns-csi-nvmeof | uid/gid/fsGroup 1000 |
 
@@ -449,7 +449,8 @@ assume" the component's comment asks for.
 ⁶ **The StorageClass column is the class at planning time.** A separate 2-replica wave
 (#2035, #2039 and follow-ups, 2026-10-02/03) re-bound most claims to `longhorn-2-replica` by
 re-creating each PVC on the same Longhorn volume (no restore; same data and identity, so
-kopiur is unaffected). W3's, W4's and W5's rows are updated (checked live); later waves' are not. Read the live class
+kopiur is unaffected). W3's, W4's and W5's rows and tdarr's are updated (checked live); later
+waves' others are not. Read the live class
 (`kubectl get pvc`) before a wave's restore gate: W3 ended up spanning two classes and needed
 two gates.
 **It also changes the staging class.** `components/kopiur` leaves `staging.storageClassName`
@@ -541,7 +542,8 @@ class vs `VOLSYNC_CLONE_STORAGECLASS`.
 - **`policySelector` does not spread** (per-schedule jitter). One schedule per policy.
 - **The translator's reason string is wrong**: `UNMAPPABLE spec.kopia.storageClassName: … no
   per-policy staging-class override` — `SnapshotPolicy.spec.staging.storageClassName`
-  exists in 0.10.8. `develop/hermes`, plex and jellyfin need it (see table, footnote ⁶). Worth an upstream issue.
+  exists in 0.10.8. hermes, plex, jellyfin and tdarr need it (see table, footnote ⁶).
+  Worth an upstream issue.
 - **The translator aborts a whole namespace** on one non-kopia source:
   `games/valheim-syncthing` (since removed) made `migrate volsync -n games` emit nothing, so
   `satisfactory` and `valheim` never translate. Second upstream issue.
@@ -666,4 +668,5 @@ only when they are next recreated. Its `Restore` must carry the capability block
 - [ ] Upstream issue: a `spec.schedule.cron` change does not re-pin `status.nextSchedule`
       (only tz/jitter do; `snapshot_schedule.rs:830-840` at 0.10.9), so the stale slot
       fires once (see the traps)
-- [ ] hermes: app-level patch setting `staging.storageClassName: longhorn-1-replica`
+- [ ] hermes, plex, jellyfin, tdarr: app-level patch setting
+      `staging.storageClassName: longhorn-1-replica` (footnote ⁶)
