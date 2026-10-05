@@ -120,13 +120,15 @@ Key properties, all commented in the manifests:
    fork's `KopiaMaintenance` (and flip kopiur `maintenance.enabled: true` in the same
    change), then the VolSync operator. Then decide the post-migration claim shape (below).
 7. **`Direct` → `Snapshot` for the apps that are `Direct` only by omission.** couchdb,
-   influxdb, vaultwarden, grocy, obsidian and gitea inherited the "Direct for NFS"
+   influxdb, vaultwarden, grocy and obsidian (all Longhorn) inherited the "Direct for NFS"
    default (`a03c53e6`) without a stated reason (plex is not one: it sets Snapshot
    explicitly); they kept it through the migration so each wave changed one thing.
-   Switch them one at a time, couchdb first, and re-run its restore gate. **Never** switch satisfactory or valheim: they are on `tns-csi-nvmeof`, where a
-   snapshot-sourced PVC can hit the tns-csi `CreateVolume` idempotency bug, whose rollback
-   deletes a Bound volume's dataset (`docs/tns-csi-idempotency-bug-report.md`; still present
-   in v0.19.0).
+   Switch them one at a time, couchdb first, and re-run its restore gate. **Not** gitea,
+   satisfactory or valheim, nor any other app on a `tns-csi-*` class: a snapshot-sourced
+   PVC there can hit the tns-csi `CreateVolume` idempotency bug (NFS and NVMe-oF alike),
+   whose rollback deletes a Bound volume's dataset
+   (`docs/tns-csi-idempotency-bug-report.md`; still present in v0.19.0). The tns-csi-nfs
+   apps already on Snapshot (frigate, readarr) are W7's decision, not this step's.
 
 ## Per-app cutover
 
