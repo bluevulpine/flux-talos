@@ -101,8 +101,8 @@ Only **new or changed** internal hostnames fail to publish while it is down.
 ## Predicting it
 
 `unpoller_device_memory_utilization_ratio{name="Morpheus"}` is a sawtooth over
-60 days of Thanos history: it climbs, a restart or reboot resets it, it climbs
-again. Daily averages:
+60 days of Thanos history: it climbs, a reboot resets it (a service restart
+only shaves a few points, see below), it climbs again. Daily averages:
 
 ```
 normal band ....... 68–78%
@@ -144,6 +144,10 @@ end-to-end on 2026-08-13:
 | after `systemctl restart unifi` | 79–80% | 1189 MB | (unchanged) |
 | after `systemctl restart unifi-protect` | 78–80% | 1166 MB | (unchanged) |
 | **after full reboot** | **69–72%** | **97 MB** | **cpu_pressure only** |
+
+Repeated 2026-10-05 (a restart with no hang, alert firing at a 6h average
+above 80%): `systemctl restart unifi` took several minutes to return and moved
+the ratio from 83–86% to 81.4%. The alert kept firing.
 
 The residue is swap. It sat at 1166–1300 MB across *both* service restarts —
 pages evicted days earlier never fault back in and get freed, so the app
