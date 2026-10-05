@@ -56,11 +56,11 @@ spec:
     # (plex 100Gi, jellyfin 32Gi) may need more — measure, do not assume.
     timeout: "${KOPIUR_STAGING_TIMEOUT:-10m}"
     # staging.storageClassName is deliberately NOT templated here: absent means
-    # the staged PVC copies the source PVC's class. Where that class carries
-    # replicas a throwaway clone does not need (longhorn-2-replica,
-    # longhorn-1-replica-local), the app carries a patch staging on
-    # longhorn-1-replica instead; which apps, and the measured cost of not
-    # patching: docs/runbooks/kopiur-migration.md, waves table footnote 6.
+    # the staged PVC copies the source PVC's class. Most apps keep that, even
+    # on longhorn-2-replica: for small volumes the extra replica was measured
+    # as ~10s a run. Large volumes (and longhorn-1-replica-local) carry an
+    # app-level patch staging on longhorn-1-replica instead. Which apps, and
+    # the measurement: docs/runbooks/kopiur-migration.md, footnote 6.
   mover:
     cache:
       # mode is pinned, not defaulted: the CRD declares it a nullable enum with

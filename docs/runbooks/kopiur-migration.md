@@ -461,7 +461,7 @@ now stages a 2-replica clone, where VolSync staged on `VOLSYNC_CLONE_STORAGECLAS
 longhorn-1-replica`. Measured 2026-10-05 over 2,705 kopiur Snapshot runs: 2-replica staging
 p50 124 s / p90 153 s / max 538 s vs 1-replica p50 114 s / p90 141 s, and no failures, so
 the small W3/W4 volumes are left as they are. plex (100Gi, 48 runs a day) and jellyfin
-(32Gi) get the app-level patch in their component PR, as hermes does and
+(32Gi) get the app-level patch in their component PR, as hermes will in W6 and
 `matrix-bluevulpine/matrix-stack/app/kustomization.yaml` already does for a 20Gi volume.
 Footnote ⁵'s 10–20 min was measured on VolSync's 1-replica clones, so the patch also keeps
 the 30m timeout measured rather than guessed. Check each later wave the same way: live PVC
