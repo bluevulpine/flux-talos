@@ -34,47 +34,30 @@ spec:
       NS: database
       VOLSYNC_CAPACITY: 20Gi
       # 2 replicas: a single replica makes every Talos drain a data-loss risk until
-      # a crash-consistent VolSync snapshot is restored (see VOLSYNC_COPYMETHOD).
+      # a crash-consistent kopiur snapshot is restored (see KOPIUR_COPYMETHOD).
       VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_CACHE_CLASS: longhorn-1-replica
-      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
-      # Explicit RWO. The volsync component defaults to ReadWriteMany, which on
+      # Explicit RWO. The volsync-claim component defaults to ReadWriteMany, which on
       # Longhorn means a share-manager and therefore NFS - the wrong substrate
       # for a database. Nothing else mounts this claim, so RWO is correct and
       # stating it keeps the default from being load-bearing.
       VOLSYNC_ACCESSMODES: ReadWriteOnce
+      # kopiur (components/kopiur), W4. Landed one PR BEFORE the component so the
+      # SnapshotSchedules are created with these crons, not the component's
+      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # Twice-hourly: explicit minutes (kopiur has no stepped H), chosen as
+      # VolSync's +5 so the two engines stayed apart during the parallel run.
+      KOPIUR_LOCAL_CRON: "27,57 * * * *"
+      # H picks a minute; the hour matches VolSync's old R2 run.
+      KOPIUR_R2_CRON: "H 6 * * *"
       # Snapshot, not the component default of Direct. Direct has kopia walk a
       # live PGDATA while Postgres writes to it - files read at different
       # instants, no consistency point. Snapshot takes an atomic point-in-time
       # that Postgres crash-recovers from via WAL on restore. Note the limit:
       # crash-consistent, not logically consistent - no per-table or PITR
       # restore, and a corrupt page is copied faithfully into every snapshot.
-      VOLSYNC_COPYMETHOD: Snapshot
-      # timescaledb-ha runs as postgres, uid/gid 1000.
-      VOLSYNC_RUN_AS_USER: "1000"
-      VOLSYNC_RUN_AS_GROUP: "1000"
-      VOLSYNC_FS_GROUP: "1000"
-      VOLSYNC_LOCAL_SCHEDULE: "22,52 * * * *"
-      # Was "52 1 * * *", which fired at the same minute as this app's own
-      # VOLSYNC_LOCAL_SCHEDULE above ("22,52 * * * *") once a day: two movers
-      # staging the SAME PVC with copyMethod: Snapshot in the same minute. It
-      # also sat 60s from media/maintainerr's R2 slot, inside the 40s+
-      # CreateVolume window r2.yaml documents as the trigger condition.
-      # 06:13 continues the 8-minute R2 grid past 05:57 and is free of every
-      # local mover in every hour. See components/volsync/r2.yaml.
-      VOLSYNC_R2_SCHEDULE: "13 6 * * *"
-      # kopiur (components/kopiur), W4. Landed one PR BEFORE the component so the
-      # SnapshotSchedules are created with these crons, not the component's
-      # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # Twice-hourly: explicit minutes (kopiur has no stepped H), VolSync's +5,
-      # which keeps VolSync's slots outside the 20m forward jitter window.
-      KOPIUR_LOCAL_CRON: "27,57 * * * *"
-      # H picks a minute; the hour matches VolSync's R2 run.
-      KOPIUR_R2_CRON: "H 6 * * *"
       KOPIUR_COPYMETHOD: Snapshot
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
-      # Mirrors VOLSYNC_RUN_AS_* / VOLSYNC_FS_GROUP.
+      # timescaledb-ha runs as postgres, uid/gid 1000.
       KOPIUR_RUN_AS_USER: "1000"
       KOPIUR_RUN_AS_GROUP: "1000"
       KOPIUR_FS_GROUP: "1000"

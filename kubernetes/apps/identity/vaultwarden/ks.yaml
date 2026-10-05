@@ -33,22 +33,18 @@ spec:
       GATUS_SUBDOMAIN: vaultwarden
       VOLSYNC_CAPACITY: 2Gi
       # 2 replicas: the vault is small but irreplaceable, and a single replica
-      # makes every Talos drain a data-loss risk until VolSync restores it.
+      # makes every Talos drain a data-loss risk until kopiur restores it.
       VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_CACHE_CLASS: longhorn-1-replica
-      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
-      VOLSYNC_LOCAL_SCHEDULE: "2,32 * * * *"
-      VOLSYNC_R2_SCHEDULE: "49 5 * * *"
       # kopiur (components/kopiur), W4. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # Twice-hourly: explicit minutes (kopiur has no stepped H), VolSync's +5,
-      # which keeps VolSync's slots outside the 20m forward jitter window.
+      # Twice-hourly: explicit minutes (kopiur has no stepped H), chosen as
+      # VolSync's +5 so the two engines stayed apart during the parallel run.
       KOPIUR_LOCAL_CRON: "7,37 * * * *"
-      # H picks a minute; the hour matches VolSync's R2 run.
+      # H picks a minute; the hour matches VolSync's old R2 run.
       KOPIUR_R2_CRON: "H 5 * * *"
-      # Direct, matching VolSync (no VOLSYNC_COPYMETHOD set, so its default).
+      # Direct, as VolSync was (its default); a switch to Snapshot is a
+      # post-migration follow-up (docs/runbooks/kopiur-migration.md).
       KOPIUR_COPYMETHOD: Direct
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
 

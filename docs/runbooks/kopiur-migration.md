@@ -4,7 +4,7 @@
 (jellyseerr, recyclarr, #1934) and W1 (8 apps, #1941) are cut over: kopiur is their only
 backup, and the fork's path-scope retention is cleared in both repositories (all six `keep-*`
 inherited). W2 (11 apps, #1959) is cut over too. W3 (10 apps, #2058) is cut over too. W4 (4 apps)
-is in its parallel run, with its `KOPIUR_*` vars landed one PR earlier (#2060); W5–W8 not started.** Every restore needs added capabilities (see
+is cut over too. W5–W8 not started.** Every restore needs added capabilities (see
 "Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
@@ -14,7 +14,7 @@ evidence.
 | Pilots (`media/recyclarr-kopiur-pilot`, `media/jellyseerr-kopiur-pilot`) | passed 4/4 and 5/5; **retired 2026-09-24** after W0 passed its gates. Their READMEs (verdicts, the SQLite integrity method) are at `b625ac57:kubernetes/apps/media/{recyclarr,jellyseerr}-kopiur-pilot/README.md` |
 | PR #1870 — component split + `components/kopiur` | **merged** 2026-09-22 (eab49e12); verified inert live: all Kustomizations Ready on it, all 93 ReplicationSources intact. No app includes `components/kopiur` yet |
 | Two `ClusterRepository` + 18 `ExternalSecret` | **landed** 2026-09-22 (#1879, e4539596), plus the `kopiur-system` Pod Security fix (#1880). Both `Ready`, all 18 secrets synced; catalog scanned 2026-09-23. See "The repositories" |
-| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 cut over 2026-09-25** (#1941, 17:00Z): autobrr, cross-seed, ev-charge-ledger, ev-charge-tracker, calibre-web, notifiarr, sportarr and tautulli are backed up by kopiur only; path-scope retention cleared in both repositories, 16/16 legs PASS. Parallel run from 2026-09-24 (#1936); per-app gates 1–4 (cross-seed-r2 via a manual Snapshot) and the restore gate (calibre-web) passed (#1939). **W2 cut over 2026-09-26** (#1959, 06:52Z): 11 apps on kopiur only; path-scope retention cleared, 22/22 legs PASS. Parallel run from 2026-09-25 (#1953), vars landed one PR earlier (#1950), so no schedule race; the first local runs failed PermissionDenied until #1957 gave the mover `DAC_OVERRIDE`; gates 11/11 and the restore gate (grocy) passed. **W3 cut over 2026-10-04** (#2058): 10 apps on kopiur only (parallel run from 2026-10-01, #2017; vars first, #1974, which also added kometa's missing `NS`); gates 10/10 and two restore gates passed (bazarr on `longhorn-2-replica`, kometa on `longhorn-1-replica`). **W4 parallel run** from 2026-10-05: couchdb, influxdb, timescaledb, vaultwarden with `components/kopiur` beside `volsync-backup`, vars landed first (#2060). W5–W8 not started |
+| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 cut over 2026-09-25** (#1941, 17:00Z): autobrr, cross-seed, ev-charge-ledger, ev-charge-tracker, calibre-web, notifiarr, sportarr and tautulli are backed up by kopiur only; path-scope retention cleared in both repositories, 16/16 legs PASS. Parallel run from 2026-09-24 (#1936); per-app gates 1–4 (cross-seed-r2 via a manual Snapshot) and the restore gate (calibre-web) passed (#1939). **W2 cut over 2026-09-26** (#1959, 06:52Z): 11 apps on kopiur only; path-scope retention cleared, 22/22 legs PASS. Parallel run from 2026-09-25 (#1953), vars landed one PR earlier (#1950), so no schedule race; the first local runs failed PermissionDenied until #1957 gave the mover `DAC_OVERRIDE`; gates 11/11 and the restore gate (grocy) passed. **W3 cut over 2026-10-04** (#2058): 10 apps on kopiur only (parallel run from 2026-10-01, #2017; vars first, #1974, which also added kometa's missing `NS`); gates 10/10 and two restore gates passed (bazarr on `longhorn-2-replica`, kometa on `longhorn-1-replica`). **W4 cut over 2026-10-05**: couchdb, influxdb, timescaledb and vaultwarden on kopiur only (parallel run from 2026-10-05, #2063; vars first, #2060); gates 4/4 (couchdb-r2 via a manual Snapshot) and the restore gate (vaultwarden, `longhorn-2-replica`) passed. W5–W8 not started |
 
 ## Why kopiur
 
@@ -119,6 +119,16 @@ Key properties, all commented in the manifests:
    cycle): retire `components/volsync-backup`, the R2 slot grid and hour-03 reservation, the
    fork's `KopiaMaintenance` (and flip kopiur `maintenance.enabled: true` in the same
    change), then the VolSync operator. Then decide the post-migration claim shape (below).
+7. **`Direct` → `Snapshot` for the apps that are `Direct` only by omission.** couchdb,
+   influxdb, vaultwarden, grocy and obsidian (all Longhorn) inherited the "Direct for NFS"
+   default (`a03c53e6`) without a stated reason (plex is not one: it sets Snapshot
+   explicitly); they kept it through the migration so each wave changed one thing.
+   Switch them one at a time, couchdb first, and re-run its restore gate. **Not** gitea,
+   satisfactory or valheim, nor any other app on a `tns-csi-*` class: a snapshot-sourced
+   PVC there can hit the tns-csi `CreateVolume` idempotency bug (NFS and NVMe-oF alike),
+   whose rollback deletes a Bound volume's dataset
+   (`docs/tns-csi-idempotency-bug-report.md`; still present in v0.19.0). The tns-csi-nfs
+   apps already on Snapshot (frigate, readarr) are W7's decision, not this step's.
 
 ## Per-app cutover
 
@@ -290,6 +300,16 @@ the pinned calibre-web image served as the compare pod's toolbox.
   writer list: every differing path must have been modified after the snapshot, or deleted
   from a directory that was; 18/18 were, 0 unexplained. `config.cache` (SQLite)
   `integrity_check` `ok` on both legs.
+
+**W4 result (2026-10-05, vaultwarden, `longhorn-2-replica`):** all four W4 claims are on
+the one class, so one gate. PASS on the first run, from `kopia-local`
+(`vaultwarden-local-20261005174510`) and `kopia-r2` (`vaultwarden-r2-20261005054207`). 4 files
+/ 5 entries, all `0:0`: 0 differing lines on content, owner/mode/size, file mtimes **and**
+dir mtimes, live vs each restore and local vs R2. The SQLite set (`db.sqlite3`, `-wal`,
+`-shm`) is byte-identical between the two restores and `integrity_check` `ok` (29 tables) on
+both. Chosen because it copies `Direct` and is root-owned, so ownership is the thing a
+capability-less mover gets wrong; couchdb had no R2 snapshot yet. Kit in
+`.handoff/w4-restore-vaultwarden` (RWX, so no `nodeName`; calibre-web toolbox image).
 
 #### Restores need capabilities, not just root
 
