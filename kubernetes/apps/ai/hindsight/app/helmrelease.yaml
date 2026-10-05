@@ -302,11 +302,14 @@ spec:
               # historical; see the litellm HelmRelease). So in this file:
               #  - everything measured about gpt-oss's speed, reasoning tokens and
               #    harmony 500s describes the previous model;
-              #  - the three *_REASONING_EFFORT: low settings are REMOVED, and must
-              #    stay out. On Qwen any reasoning_effort other than "none" switches
-              #    thinking ON, overriding the server default of off -- "low" meant
-              #    118s retains instead of 13s. Unset, hindsight sends no effort at
-              #    all and the server default applies;
+              #  - the gpt-oss-era *_REASONING_EFFORT: low settings are REMOVED for
+              #    retain and consolidation, and must stay out there. On Qwen any
+              #    reasoning_effort other than "none" switches thinking ON,
+              #    overriding the server default of off -- "low" meant 118s retains
+              #    instead of 13s. Unset, hindsight sends no effort at all and the
+              #    server default applies. Two stages DO set it, each on a
+              #    measurement recorded beside it: reflect (`low`, thinking on) and
+              #    the mental-model refresh chain (an explicit `none`);
               #  - the "omits every OPTIONAL field" gap is closed: on 50 replayed
               #    retains Qwen filled `entities` on all 189 facts;
               #  - the KV budget arithmetic carries over: the Spark pins Qwen's KV
@@ -599,9 +602,11 @@ spec:
               # same size; delta-op output was sometimes shorter (6.1k -> 4.2k chars,
               # 4.0k -> 2.2k), so it may carry fewer page edits. Spot-read refreshed
               # pages for thinning, and revert these two lines if it shows.
-              # (Also gpt-oss, also removed for Qwen. A rollback restores
-              # HINDSIGHT_API_CONSOLIDATION_LLM_REASONING_EFFORT: low and
-              # HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_REASONING_EFFORT: low.)
+              # (Also gpt-oss, also removed for Qwen. A rollback to gpt-oss restores
+              # HINDSIGHT_API_CONSOLIDATION_LLM_REASONING_EFFORT: low here, and
+              # CHANGES the existing HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_
+              # REASONING_EFFORT line further down from `none` to `low` -- do not
+              # add a second copy of that key.)
 
               # A retain failover member to Azure was tried here on 2026-09-07
               # and REMOVED the same evening: it never worked, and it made
@@ -676,8 +681,8 @@ spec:
               # option, but it tunes the same reasoning phase that IS the
               # problem; gpt-4o removes the phase instead of shrinking it.
               #
-              # LLM_TEMPERATURE_REFLECT and REFLECT_LLM_REASONING_EFFORT stay
-              # GONE from this block:
+              # LLM_TEMPERATURE_REFLECT stays GONE from this block; reasoning
+              # effort is set deliberately, further down:
               #   - reasoning_effort is passed through VERBATIM, and since
               #     2026-10-05 retain and consolidation do not send it (unset means
               #     thinking off on Qwen). Reflect sends `low` and the refresh chain
