@@ -471,8 +471,10 @@ class vs `VOLSYNC_CLONE_STORAGECLASS`.
 every other app its namespace was never set up for kopiur, so its W6 vars PR also has to: add
 `matrix` to both ClusterRepositories' `allowedNamespaces`; give it the per-namespace
 `kopiur-{local,r2}` ExternalSecrets the other namespaces have; and add the
-`kopiur.home-operations.com/privileged-movers` annotation (its 10091 backup movers do not
-need it, a root restore mover does). Copy `matrix-bluevulpine`'s staging patch.
+`kopiur.home-operations.com/privileged-movers` annotation **before** the component lands:
+kopiur refuses any mover with added capabilities, and `components/kopiur` always adds
+`DAC_OVERRIDE` (#1957), so even its 10091 backup movers would sit `Pending`
+(`PrivilegedMoverNotPermitted`, the W0 trap) without it. Copy `matrix-bluevulpine`'s staging patch.
 `matrix-bluevulpine/matrix-stack` (2026-10-02) is **not** in the migration: it was built on
 `components/kopiur` from the start and never had VolSync (35/35 scheduled backups
 `Succeeded` 2026-10-05, staged on 1 replica, identity `synapse-media@matrix-bluevulpine:/data`).
