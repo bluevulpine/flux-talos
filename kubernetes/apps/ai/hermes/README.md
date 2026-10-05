@@ -171,7 +171,10 @@ device `WASPHERMES`. Design and evidence:
 Authentik login is browser-only, so agents use a token instead:
 `mas-cli manage register-user` followed by `issue-compatibility-token <user> <DEVICE>`.
 That gives one device per process, so a second consumer later only needs a second
-token for a new device ID on the same account. Never pass
+token for a new device ID on the same account. CLI-issued compatibility tokens **do not
+expire**: MAS stores `expires_at = NULL`, and Bosun's token was still valid after 28h
+(checked 2026-10-05). They are revoked only by `kill-sessions` or `lock-user`, so there is
+no refresh path to build. Never pass
 `--yes-i-want-to-grant-synapse-admin-privileges`.
 
 Where each setting must live. This is decided by the loader, not by preference:
