@@ -145,6 +145,10 @@ end-to-end on 2026-08-13:
 | after `systemctl restart unifi-protect` | 78–80% | 1166 MB | (unchanged) |
 | **after full reboot** | **69–72%** | **97 MB** | **cpu_pressure only** |
 
+Repeated 2026-10-05 (a restart with no hang, alert firing at a 6h average
+above 80%): `systemctl restart unifi` took several minutes to return and moved
+the ratio from 83–86% to 81.4%. The alert kept firing.
+
 The residue is swap. It sat at 1166–1300 MB across *both* service restarts —
 pages evicted days earlier never fault back in and get freed, so the app
 restarts reclaim heap but not the underlying pressure. The reboot took 164 s
