@@ -153,11 +153,12 @@ spec:
           config.yaml: |-
             model_list:
               # --- primary: DGX Spark (spark-ab23) over the LAN ---
-              # Two engines on the Spark, both OpenAI-compatible at /v1 and both
-              # without auth of their own: vLLM (:8000) serves gpt-oss, Ollama
-              # (:11434) serves the vision and dense models. Each ignores the
+              # One engine on the Spark since 2026-10-05: vLLM (:8000), serving
+              # Qwen3.6 for every `spark-*` text and vision route. (Ollama on
+              # :11434 served gpt-oss, then only vision, and is retired.) It is
+              # OpenAI-compatible at /v1 and has no auth of its own: it ignores the
               # bearer token, so api_key is a placeholder, not a secret. LiteLLM
-              # is the authentication boundary in front of them; they are
+              # is the authentication boundary in front of it; it is
               # reachable by anything on VLAN 10.
               #
               # Addressed by IP, deliberately, after the name stopped resolving.
@@ -373,8 +374,8 @@ spec:
             # AuthenticationError.."), so an outage of the Spark reads as an
             # auth problem somewhere else. Failing cleanly against a single
             # backend is the honest behaviour, and reachability is alerted on
-            # separately by the `DGX Spark (vLLM)` (gpt-oss) and
-            # `DGX Spark (Ollama)` (vision, dense) gatus endpoints.
+            # separately by the `DGX Spark (vLLM)` gatus endpoint (text and
+            # vision; it is the only engine).
             #
             # To restore a fallback, add a second model_list member and a
             # router_settings.fallbacks block. Any OpenAI-compatible provider
