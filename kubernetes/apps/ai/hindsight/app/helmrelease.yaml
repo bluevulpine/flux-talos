@@ -409,7 +409,14 @@ spec:
 
               HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "4"
               HINDSIGHT_API_CONSOLIDATION_LLM_MAX_CONCURRENT: "2"
-              HINDSIGHT_API_REFLECT_LLM_MAX_CONCURRENT: "4"
+              # 3, not the 4 the budget above was written for: REFLECT_MAX_CONTEXT_
+              # TOKENS is 100000 now (see it below), so a worst-case reflect is ~119k
+              # tokens, not ~92k. Worst case at 3:
+              #   3 x ~119k + retain ~56k + consolidation ~50k + refresh ~50k = ~513k
+              # of ~573k; at 4 it would be ~632k and vLLM would preempt and recompute.
+              # Reflect ran 38 times in the 72h before this change, so the fourth
+              # permit was not being used.
+              HINDSIGHT_API_REFLECT_LLM_MAX_CONCURRENT: "3"
 
               # --- retain batching: OFF, and it has to be ---
               # This was "true" to buy Anthropic's Message Batches API discount:
@@ -644,7 +651,17 @@ spec:
               # reflect silently falls back to the failure above. Full mode does not
               # fix it with this model: a dry-run regenerated a 12k-token page as a
               # 243-token stub.
-              HINDSIGHT_API_REFLECT_MAX_CONTEXT_TOKENS: "76000"
+              #
+              # Raised 76000 -> 100000 on 2026-10-04, because the headroom above was
+              # nearly gone: the five largest flux-talos pages came to ~56k tokens
+              # (chars/4 estimate; "Key decisions and rationale" alone ~29k) against
+              # the 60.8k budget. 100000 gives an 80k budget. Window arithmetic:
+              # 100,000 + ~8k output + ~10% tokenizer skew = ~119k, under 131,072.
+              # That is the ceiling for this window -- the next raise needs a larger
+              # one, so past ~80k of pages the fix has to be page size, not this.
+              # Four reflects at ~119k would not fit the KV cache beside the other
+              # stages, which is why REFLECT_LLM_MAX_CONCURRENT dropped to 3 with it.
+              HINDSIGHT_API_REFLECT_MAX_CONTEXT_TOKENS: "100000"
               # Keep automatic mental-model refreshes on spark-gpt-oss-20b. Unset,
               # the refresh chain inherits reflect's config (memory_engine, #4463).
               # That mattered while -long was a one-slot ollama: a daily refresh of
