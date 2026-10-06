@@ -35,7 +35,7 @@ spec:
             image:
               repository: lscr.io/linuxserver/obsidian
               # renovate: datasource=docker depName=lscr.io/linuxserver/obsidian
-              tag: v1.10.6-ls106
+              tag: v1.13.7-ls147
             env:
               TZ: "${TIMEZONE}"
               PUID: "568"
