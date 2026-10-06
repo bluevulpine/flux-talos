@@ -30,14 +30,18 @@ spec:
           WRITERS=(app.db calibre-web.log)
           DBS=(app.db gdrive.db)
           printf '%s\n' "${WRITERS[@]}" > /tmp/writers
-          # content: sha256 of every regular file; meta: type/mode/owner/size of every
-          # entry, plus file mtimes. Directory mtimes are listed separately because the
+          # content: sha256 of every regular file; meta: type/mode/owner of every
+          # entry and size of every non-directory, plus file mtimes. Directory mtimes are listed separately because the
           # pilot found kopia does not preserve them. Tab-separated with the path last,
           # so a path containing spaces still keys correctly.
           manifest() {
             cd "$1" || exit 1
             find . -path ./lost+found -prune -o -type f -printf '%P\0' | sort -z | xargs -0 sha256sum | sed 's/  /\t/' > /tmp/$2.sha
-            find . -mindepth 1 -path ./lost+found -prune -o -printf '%y\t%m\t%U:%G\t%s\t%P\n' | sort -t$'\t' -k5 > /tmp/$2.meta
+            # Directory SIZE is printed as '-': ext4 sizes a directory by its history
+            # (blocks are not freed when entries go), so a restore's freshly built
+            # directories differ from live, and even from each other (W5 jellyfin
+            # gate, 2026-10-06: 95 dirs, identical entries/mode/owner). Not data.
+            find . -mindepth 1 -path ./lost+found -prune -o -type d -printf '%y\t%m\t%U:%G\t-\t%P\n' -o -printf '%y\t%m\t%U:%G\t%s\t%P\n' | sort -t$'\t' -k5 > /tmp/$2.meta
             find . -path ./lost+found -prune -o -type f -printf '%T@\t%P\n' | sort -t$'\t' -k2 > /tmp/$2.fmtime
             find . -mindepth 1 -path ./lost+found -prune -o -type d -printf '%T@\t%P\n' | sort -t$'\t' -k2 > /tmp/$2.dmtime
           }

@@ -58,8 +58,8 @@ spec:
     # staging.storageClassName is deliberately NOT templated here: absent means
     # the staged PVC copies the source PVC's class. Most apps keep that, even
     # on longhorn-2-replica: for small volumes the extra replica was measured
-    # as ~10s a run. Large volumes (and the `-local` classes) carry an
-    # app-level patch staging on longhorn-1-replica instead. Which apps, and
+    # as ~10s a run. Some apps (large volumes) carry an app-level patch
+    # staging on longhorn-1-replica instead. Which apps, and
     # the measurement: docs/runbooks/kopiur-migration.md, footnote 6.
   mover:
     cache:

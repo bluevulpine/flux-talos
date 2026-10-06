@@ -33,23 +33,28 @@ spec:
       NS: media
       GATUS_PATH: /web/index.html
       VOLSYNC_CAPACITY: 100Gi
-      VOLSYNC_CACHE_CAPACITY: 30Gi
       VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_CACHE_CLASS: longhorn-1-replica
-      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
+      # kopiur (components/kopiur), W5. Landed one PR BEFORE the component so the
+      # SnapshotSchedules are created with these crons, not the component's
+      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # Twice-hourly: explicit minutes (kopiur has no stepped H), chosen as
+      # VolSync's +5 so the two engines stayed apart during the parallel run.
+      KOPIUR_LOCAL_CRON: "25,55 * * * *"
+      # H picks a minute; the hour matches VolSync's old R2 run.
+      KOPIUR_R2_CRON: "H 4 * * *"
       # The component defaults to Direct, which mounts the LIVE config PVC and
       # reads it while Plex is writing. That is a ~494 MB SQLite database being
-      # copied under an active writer, 48 times a day on the schedule below plus
+      # copied under an active writer, 48 times a day on KOPIUR_LOCAL_CRON plus
       # once more for R2 - every one of those snapshots can be torn, and the
       # backup reports success either way. Same class as the defect fixed in
       # #1711. Snapshot takes a CSI point-in-time copy and the mover reads that
       # instead, so the database is never read mid-write and the mover stops
-      # co-mounting the volume Plex is using.
+      # co-mounting the volume Plex is using. (Written for VolSync; unchanged
+      # under kopiur, whose component also defaults to Direct.)
       #
       # Deliberately NOT paired with VOLSYNC_ACCESSMODES: ReadWriteOnce, which
       # is the other half of the house pattern. That variable also feeds
-      # components/volsync/claim.yaml, which is what creates the `plex` PVC
+      # components/volsync-claim/claim.yaml, which is what creates the `plex` PVC
       # itself - so setting it here would try to mutate a bound PVC's
       # accessModes. Confirmed against the live cluster with a server-side
       # dry-run: "The PersistentVolumeClaim \"plex\" is invalid: spec:
@@ -61,25 +66,13 @@ spec:
       #
       # RWX + Snapshot is not a novel combination in this repo: frigate and
       # both readarr instances already run it.
-      VOLSYNC_COPYMETHOD: Snapshot
-      VOLSYNC_LOCAL_SCHEDULE: "20,50 * * * *"
-      VOLSYNC_R2_SCHEDULE: "3 4 * * *"
-      # kopiur (components/kopiur), W5. Landed one PR BEFORE the component so the
-      # SnapshotSchedules are created with these crons, not the component's
-      # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # Twice-hourly: explicit minutes (kopiur has no stepped H), VolSync's +5,
-      # which keeps VolSync's slots outside the 20m forward jitter window.
-      KOPIUR_LOCAL_CRON: "25,55 * * * *"
-      # H picks a minute; the hour matches VolSync's R2 run.
-      KOPIUR_R2_CRON: "H 4 * * *"
-      # Snapshot, matching VolSync: see the torn-SQLite reasoning above.
       KOPIUR_COPYMETHOD: Snapshot
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
-      # Matches VOLSYNC_CACHE_CAPACITY (the component default is 16Gi).
+      # VolSync's cache size for this volume (the component default is 16Gi).
       KOPIUR_CACHE_CAPACITY: 30Gi
-      # 30m, not the component's 10m: VolSync's movers for this volume sit in
-      # ContainerCreating 10-20 min on most runs while Longhorn clones it, and
-      # once stalled ~2 h (runbook waves table, footnote 5).
+      # 30m, not the component's 10m: staging this volume takes ~12-13 min
+      # (kopiur's first runs: 715s local, 772s R2; VolSync's 10-20 min, once
+      # ~2 h). The 10m default would have failed both first runs (footnote 5).
       KOPIUR_STAGING_TIMEOUT: 30m
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
