@@ -9,6 +9,7 @@ resources:
   - ./helmrelease.yaml
   - ./httproute.yaml
   - ./rbac.yaml
+  - ./ciliumnetworkpolicy.yaml
 components:
   - ../../../../components/volsync-claim
   - ../../../../components/volsync-backup

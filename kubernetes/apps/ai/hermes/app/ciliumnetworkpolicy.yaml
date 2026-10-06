@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: hermes-api
+spec:
+  description: >-
+    Hermes' OpenAI-compatible API (8642) binds the pod IP so Paperclip can
+    drive runs. This policy stands in for the old loopback bind: 8642 answers
+    to paperclip pods in this namespace and to nothing else. INGRESS ONLY --
+    an egress section here, even an empty one, would put hermes into
+    default-deny for egress and cut Telegram, Buzz, Matrix, OpenBao and every
+    model provider. First CiliumNetworkPolicy in this repo; the cluster runs
+    Cilium's `default` enforcement mode, so only endpoints a policy selects
+    are affected.
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: hermes
+  ingress:
+    # Selecting hermes makes it default-deny for ingress, so the dashboard's
+    # existing path has to be re-allowed: the `internal` Gateway's Envoy pods
+    # in `network`. Probes are exec (no kubelet traffic to re-allow); nothing
+    # scrapes hermes.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: network
+            gateway.envoyproxy.io/owning-gateway-name: internal
+      toPorts:
+        - ports:
+            - port: "9119"
+              protocol: TCP
+    # The one new path.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            app.kubernetes.io/name: paperclip
+      toPorts:
+        - ports:
+            - port: "8642"
+              protocol: TCP

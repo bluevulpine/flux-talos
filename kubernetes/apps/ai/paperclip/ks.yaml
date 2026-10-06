@@ -1,0 +1,52 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app paperclip
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    - name: cloudnative-pg-cluster18
+      namespace: database
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
+  path: ./kubernetes/apps/ai/paperclip/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: ai
+  wait: true
+  interval: 30m
+  retryInterval: 1m
+  timeout: 5m
+  postBuild:
+    substitute:
+      APP: *app
+      NS: ai
+      GATUS_SUBDOMAIN: paperclip
+      # PAPERCLIP_HOME: embedded-PG is off (DATABASE_URL), so this holds uploads,
+      # the instance config, and agent workspaces (git checkouts accrue).
+      VOLSYNC_CAPACITY: 20Gi
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      # kopiur-only from day one (no VolSync history to migrate). Explicit
+      # minutes (kopiur has no stepped H); :23/:53 is the first free pair in
+      # the fleet's odd-minute ladder (:7 .. :29 taken). Both repositories see
+      # this app as new, so there is no parallel run and no schedule race.
+      KOPIUR_LOCAL_CRON: "23,53 * * * *"
+      # R2 pinned <= :39 in hour 02, next free slot after n8n's :30 and the
+      # :35/:38 W5 pair (kopiur-maint-r2 owns hour 03).
+      KOPIUR_R2_CRON: "33 2 * * *"
+      # RWO + Snapshot: the mover cannot co-mount the RWO volume the app holds,
+      # and a Direct copy would read live agent workspaces mid-write.
+      KOPIUR_COPYMETHOD: Snapshot
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass

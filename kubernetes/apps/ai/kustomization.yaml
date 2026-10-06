@@ -10,3 +10,4 @@ resources:
   - ./hermes/ks.yaml
   - ./hindsight/ks.yaml
   - ./litellm/ks.yaml
+  - ./paperclip/ks.yaml

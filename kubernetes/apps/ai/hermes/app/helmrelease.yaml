@@ -69,12 +69,15 @@ spec:
               HERMES_UID: "10000"
               HERMES_GID: "10000"
               # The dashboard reaches the gateway over this API, so it cannot be
-              # switched off — but it binds container loopback, NOT the pod IP.
-              # Nothing else in the cluster can reach it, which keeps the
-              # unattended-approval surface (approvals.unattended_mode) closed
-              # without having to argue about its default.
+              # switched off. It binds the pod IP so Paperclip can POST /v1/runs,
+              # and ciliumnetworkpolicy.yaml is what keeps everything ELSE out:
+              # ingress to 8642 is allowed from pods labelled
+              # app.kubernetes.io/name=paperclip in this namespace, nothing more.
+              # The unattended-approval surface (approvals.unattended_mode) is
+              # therefore exactly as closed as that policy. The Service still
+              # exposes 8642 under the name `api` for a stable DNS target.
               API_SERVER_ENABLED: "true"
-              API_SERVER_HOST: "127.0.0.1"
+              API_SERVER_HOST: "0.0.0.0"
               API_SERVER_PORT: "8642"
               # Serve every profile under /opt/data/profiles from this one gateway
               # (one Hermes per agent profile, not one pod per agent; see
@@ -89,8 +92,9 @@ spec:
               - secretRef:
                   name: hermes-secret
             probes:
-              # exec, not httpGet: kubelet probes the POD IP, and the API server
-              # deliberately listens only on container loopback. curl ships in
+              # exec, not httpGet, and KEEP it that way: kubelet probes from the
+              # node IP, which ciliumnetworkpolicy.yaml does not admit on 8642
+              # (and should not -- that policy is the whole guard). curl ships in
               # the image (Debian 13 base, curl in the apt layer).
               liveness: &probes
                 enabled: true
@@ -155,6 +159,9 @@ spec:
         ports:
           http:
             port: *port
+          # Gated by ciliumnetworkpolicy.yaml (paperclip only).
+          api:
+            port: 8642
     persistence:
       data:
         existingClaim: *app
