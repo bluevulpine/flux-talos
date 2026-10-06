@@ -683,8 +683,8 @@ spec:
               # effort is set deliberately, further down:
               #   - reasoning_effort is passed through VERBATIM, and since
               #     2026-10-05 retain and consolidation do not send it (unset means
-              #     thinking off on Qwen). Reflect sends `low` and the refresh chain
-              #     sends `none`; both are set, with the measurements, beside
+              #     thinking off on Qwen). Reflect and the refresh chain both send
+              #     `low`; both are set, with the measurements, beside
               #     HINDSIGHT_API_REFLECT_LLM_MODEL and
               #     HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL below;
               #   - temperature falls back to reflect's intended 0.9
@@ -793,7 +793,11 @@ spec:
               # (chars/4 estimate; "Key decisions and rationale" alone ~29k) against
               # the 60.8k budget. 100000 gives an 80k budget. Window arithmetic:
               # 100,000 + ~8k output + ~10% tokenizer skew = ~119k, under 131,072; at
-              # the 16k output cap it is ~128k, which leaves only ~3.5k.
+              # a 16k output cap it is ~128k, which leaves only ~3.5k. The Spark's
+              # cap is 32k since 2026-10-05 (spark-setup vllm_default_max_tokens):
+              # 100k + 32k x 1.1 does NOT fit 131,072, and vLLM clamps max_tokens
+              # to the space left in the window rather than erroring, so a reflect
+              # that runs away on a page-sized prompt stops short of 32k anyway.
               # That is the ceiling for this window -- the next raise needs a larger
               # one, so past ~80k of pages the fix has to be page size, not this.
               # Four reflects at ~119k would not fit the KV cache beside the other
