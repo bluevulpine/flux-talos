@@ -16,8 +16,14 @@ spec:
         #
         # 10m: one VPN restart cycle takes ~7s and a passing check clears the
         # error, so a server hop does not fire it. It also fires before the
-        # generic KubePodNotReady (15m), so this actionable alert is the first
-        # notification.
+        # generic KubePodNotReady and KubeDeploymentReplicasMismatch (both 15m),
+        # so this actionable alert is the first notification. Both generic
+        # alerts DO follow: this chart's KubePodNotReady matches a Running pod
+        # whose Ready condition is false, not only Pending/Unknown phases.
+        #
+        # Silent if the pod does not exist at all (evicted, unschedulable):
+        # there is no series to compare. KubeDeploymentReplicasMismatch covers
+        # that case.
         - alert: GluetunVPNDown
           expr: |-
             kube_pod_container_status_ready{namespace="download", pod=~"qbittorrent-.*", container="gluetun"} == 0

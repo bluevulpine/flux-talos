@@ -80,8 +80,10 @@ spec:
               # firewall drops input on ports not in FIREWALL_INPUT_PORTS.
               # Readiness, not liveness: restarting the container cannot fix an
               # expired subscription. NotReady fires GluetunVPNDown
-              # (prometheusrule.yaml) and drops the WebUI from the Service,
-              # which turns the gatus check red as well.
+              # (prometheusrule.yaml) and drops the pod from the Service, which
+              # turns the gatus check red and makes Sonarr/Radarr/Lidarr log
+              # download-client errors: expected during an outage, and it stops
+              # new grabs into a client that cannot download.
               readiness:
                 enabled: true
                 custom: true
