@@ -308,8 +308,8 @@ spec:
               #    overriding the server default of off -- "low" meant 118s retains
               #    instead of 13s. Unset, hindsight sends no effort at all and the
               #    server default applies. Two stages DO set it, each on a
-              #    measurement recorded beside it: reflect (`low`, thinking on) and
-              #    the mental-model refresh chain (an explicit `none`);
+              #    measurement recorded beside it: reflect (`low`) and the
+              #    mental-model refresh chain (`low`, since 2026-10-05 evening);
               #  - the "omits every OPTIONAL field" gap is closed: on 50 replayed
               #    retains Qwen filled `entities` on all 189 facts;
               #  - the KV budget arithmetic carries over: the Spark pins Qwen's KV
@@ -603,10 +603,8 @@ spec:
               # 4.0k -> 2.2k), so it may carry fewer page edits. Spot-read refreshed
               # pages for thinning, and revert these two lines if it shows.
               # (Also gpt-oss, also removed for Qwen. A rollback to gpt-oss restores
-              # HINDSIGHT_API_CONSOLIDATION_LLM_REASONING_EFFORT: low here, and
-              # CHANGES the existing HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_
-              # REASONING_EFFORT line further down from `none` to `low` -- do not
-              # add a second copy of that key.)
+              # HINDSIGHT_API_CONSOLIDATION_LLM_REASONING_EFFORT: low here; the
+              # refresh chain's effort is already `low` further down.)
 
               # A retain failover member to Azure was tried here on 2026-09-07
               # and REMOVED the same evening: it never worked, and it made
@@ -685,8 +683,8 @@ spec:
               # effort is set deliberately, further down:
               #   - reasoning_effort is passed through VERBATIM, and since
               #     2026-10-05 retain and consolidation do not send it (unset means
-              #     thinking off on Qwen). Reflect sends `low` and the refresh chain
-              #     sends `none`; both are set, with the measurements, beside
+              #     thinking off on Qwen). Reflect and the refresh chain both send
+              #     `low`; both are set, with the measurements, beside
               #     HINDSIGHT_API_REFLECT_LLM_MODEL and
               #     HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL below;
               #   - temperature falls back to reflect's intended 0.9
@@ -795,7 +793,11 @@ spec:
               # (chars/4 estimate; "Key decisions and rationale" alone ~29k) against
               # the 60.8k budget. 100000 gives an 80k budget. Window arithmetic:
               # 100,000 + ~8k output + ~10% tokenizer skew = ~119k, under 131,072; at
-              # the 16k output cap it is ~128k, which leaves only ~3.5k.
+              # a 16k output cap it is ~128k, which leaves only ~3.5k. The Spark's
+              # cap is 32k since 2026-10-05 (spark-setup vllm_default_max_tokens):
+              # 100k + 32k x 1.1 does NOT fit 131,072, and vLLM clamps max_tokens
+              # to the space left in the window rather than erroring, so a reflect
+              # that runs away on a page-sized prompt stops short of 32k anyway.
               # That is the ceiling for this window -- the next raise needs a larger
               # one, so past ~80k of pages the fix has to be page size, not this.
               # Four reflects at ~119k would not fit the KV cache beside the other
@@ -825,21 +827,30 @@ spec:
               # note beside HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_BASE_URL.
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_PROVIDER: openai
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL: spark-main
-              # EXPLICITLY "none", and it must be set: unset, this chain INHERITS
-              # reflect's effort (memory_engine: mental_model_refresh_llm_reasoning_
-              # effort or reflect_llm_reasoning_effort), so turning thinking on for
-              # reflect above would silently turn it on here too.
+              # Thinking ON for the automatic page refreshes, since 2026-10-05 evening.
+              # Set explicitly either way: unset, this chain INHERITS reflect's
+              # effort (memory_engine: mental_model_refresh_llm_reasoning_effort or
+              # reflect_llm_reasoning_effort).
               #
-              # Why not on, when the quality result above was measured on this
-              # chain's own synthesis calls: the chain has ONE setting for two
-              # steps, the reflect synthesis and the delta ops that write the page.
-              # Replaying 14 real delta-op calls with thinking on, timing was fine
-              # (126s median, 210s max, against a 600s timeout) but 2 of the 14
-              # spent the whole 16k output cap reasoning and returned no JSON --
-              # a failed refresh. Thinking off, the same step is 20 of 20 valid.
-              # Turning it on needs a larger output cap on the Spark
-              # (vllm_default_max_tokens) and a re-run of those calls first.
-              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_REASONING_EFFORT: none
+              # The quality result beside HINDSIGHT_API_REFLECT_LLM_MODEL was measured
+              # on THIS chain's synthesis calls (every reflect synthesis in the three
+              # days sampled came from a page refresh), so this is where the halved
+              # unsupported-claim rate lands: in the stored knowledge pages.
+              #
+              # The cost, measured on 14 real delta-op calls (the chain has one
+              # setting for both its synthesis and the delta ops that write the
+              # page): ~166s median per call against ~20-90s thinking-off, and about
+              # 1 call in 14 runs away reasoning until the output cap and returns no
+              # JSON. That is random, not input-specific -- the two calls that failed
+              # at the Spark's old 16k cap passed at 32k while a third failed. The
+              # cap was raised to 32768 anyway (spark-setup vllm_default_max_tokens,
+              # a CAP on every request, not a default) so the ordinary calls, which
+              # reach ~15k, never clip. A runaway costs ~460s of GPU and one retry
+              # of the refresh (WORKER_MAX_RETRIES is 10), not the refresh itself.
+              #
+              # Set back to `none` if HindsightConsolidationFailing or failed
+              # refresh_mental_model rows in async_operations climb.
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_REASONING_EFFORT: low
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "2"
               # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
               # floor at all — which is how 232 refreshes ran in ~2h on
