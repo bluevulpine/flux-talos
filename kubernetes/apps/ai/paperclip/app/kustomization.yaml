@@ -5,10 +5,10 @@ kind: Kustomization
 resources:
   - ./ocirepository.yaml
   - ./externalsecret.yaml
+  - ./pvc.yaml
   - ./helmrelease.yaml
   - ./httproute.yaml
 components:
-  - ../../../../components/volsync-claim
-  # kopiur backs this PVC up; born on kopiur, no VolSync history
-  # (docs/runbooks/kopiur-migration.md). volsync-claim owns the PVC.
+  # kopiur backs the claim up; born on kopiur, no VolSync history, and NO
+  # volsync-claim (see pvc.yaml for why).
   - ../../../../components/kopiur

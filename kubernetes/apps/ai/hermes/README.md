@@ -35,13 +35,16 @@ set, so the agent process itself never runs as root.
 **API server on the pod IP, gated by Cilium.** The dashboard talks to the gateway over the
 OpenAI-compatible API on 8642, so it cannot be switched off. Since Paperclip slice one
 it binds `0.0.0.0` and the Service exposes it as port `api`, so Paperclip can POST
-`/v1/runs` — and `ciliumnetworkpolicy.yaml` is what closes the unattended-approval
+`/v1/runs` — and `ciliumnetworkpolicy.yaml` is what narrows the unattended-approval
 surface (see below) instead of the bind address: ingress to 8642 is allowed from
-`app.kubernetes.io/name=paperclip` pods in `ai`, nothing else; the dashboard's 9119
-is re-allowed from the `internal` Gateway's Envoy pods. The policy is ingress-only on
-purpose (an egress block would cut every outbound platform). The liveness probe stays
-`exec`+`curl`, not `httpGet`: kubelet probes from the node IP, which the policy does
-not admit.
+`app.kubernetes.io/name=paperclip` pods in `ai` and no other pod; the dashboard's 9119
+is re-allowed from the `internal` Gateway's Envoy pods. **Known gap:** Cilium's
+`allow-localhost` default exempts the local node from policy, so `hostNetwork` pods on
+whichever node runs hermes (cilium-agent, node-exporter) can still reach 8642;
+`API_SERVER_KEY` is the guard there. Closing that means `allow-localhost: policy`
+cluster-wide, which was judged too wide a change for this. The policy is ingress-only
+on purpose (an egress block would cut every outbound platform). The liveness probe
+stays `exec`+`curl` so it never depends on the policy.
 
 **One hostname.** `HERMES_DASHBOARD_PUBLIC_URL` adds its exact host to the dashboard's
 Host / WebSocket-Origin guard, so a second entry point (a Tailscale MagicDNS name, say)

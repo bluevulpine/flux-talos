@@ -33,15 +33,14 @@ spec:
       APP: *app
       NS: ai
       GATUS_SUBDOMAIN: paperclip
-      # PAPERCLIP_HOME: embedded-PG is off (DATABASE_URL), so this holds uploads,
-      # the instance config, and agent workspaces (git checkouts accrue).
-      VOLSYNC_CAPACITY: 20Gi
-      VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      # Claim is app-local (app/pvc.yaml), so no VOLSYNC_* vars: 20Gi RWO on
+      # longhorn-2-replica is set there.
       # kopiur-only from day one (no VolSync history to migrate). Explicit
-      # minutes (kopiur has no stepped H); :23/:53 is the first free pair in
-      # the fleet's odd-minute ladder (:7 .. :29 taken). Both repositories see
-      # this app as new, so there is no parallel run and no schedule race.
+      # minutes, :23/:53, the first free pair in the fleet's odd-minute ladder
+      # (:7 .. :29 taken). hermes' VolSync local snapshot also fires at :23 --
+      # a different engine on a different Longhorn volume, so the only overlap
+      # is two snapshot requests in the same minute; accepted. Both
+      # repositories see this app as new: no parallel run, no schedule race.
       KOPIUR_LOCAL_CRON: "23,53 * * * *"
       # R2 pinned <= :39 in hour 02, next free slot after n8n's :30 and the
       # :35/:38 W5 pair (kopiur-maint-r2 owns hour 03).

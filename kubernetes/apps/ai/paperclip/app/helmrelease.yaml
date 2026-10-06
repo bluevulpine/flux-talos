@@ -30,7 +30,7 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
-          init-db:
+          01-init-db:
             image:
               repository: ghcr.io/home-operations/postgres-init
               tag: rolling
@@ -55,9 +55,10 @@ spec:
               PAPERCLIP_DEPLOYMENT_EXPOSURE: private
               PAPERCLIP_PUBLIC_URL: https://paperclip.${SECRET_DOMAIN}
               BETTER_AUTH_URL: https://paperclip.${SECRET_DOMAIN}
-              # Slice one: one Hermes gateway, two profiles, both reachable over
-              # the pod IP because PAPERCLIP opens 8642 (see hermes' CNP).
-              PAPERCLIP_HERMES_BASE_URL: http://hermes.ai.svc.cluster.local:8642
+              # The Hermes adapter (URL http://hermes.ai.svc.cluster.local:8642,
+              # key) is configured in Paperclip's UI after first login, not via
+              # env: the server reads no PAPERCLIP_HERMES_* vars (checked
+              # server/src/app.ts at 2026.1001.0).
               TZ: ${TIMEZONE}
             envFrom: *envFrom
             resources:

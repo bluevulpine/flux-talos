@@ -8,7 +8,9 @@ spec:
   description: >-
     Hermes' OpenAI-compatible API (8642) binds the pod IP so Paperclip can
     drive runs. This policy stands in for the old loopback bind: 8642 answers
-    to paperclip pods in this namespace and to nothing else. INGRESS ONLY --
+    to paperclip pods in this namespace and to no other pod. Cilium's
+    allow-localhost default exempts the local node (hostNetwork pods on
+    hermes' node are not blocked; API_SERVER_KEY guards those). INGRESS ONLY --
     an egress section here, even an empty one, would put hermes into
     default-deny for egress and cut Telegram, Buzz, Matrix, OpenBao and every
     model provider. First CiliumNetworkPolicy in this repo; the cluster runs
