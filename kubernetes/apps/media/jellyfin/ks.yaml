@@ -32,12 +32,7 @@ spec:
       GATUS_SERVICE: jellyfin
       VOLSYNC_CAPACITY: 32Gi
       VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
       VOLSYNC_ACCESSMODES: ReadWriteOnce
-      VOLSYNC_COPYMETHOD: Snapshot
-      VOLSYNC_LOCAL_SCHEDULE: "35 * * * *"
-      VOLSYNC_R2_SCHEDULE: "33 1 * * *"
       # kopiur (components/kopiur), W5. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
@@ -46,7 +41,7 @@ spec:
       KOPIUR_R2_CRON: "H 1 * * *"
       KOPIUR_COPYMETHOD: Snapshot
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
-      # 30m, not the component's 10m: VolSync's movers for this volume sit in
-      # ContainerCreating 10-20 min on most runs while Longhorn clones it, and
-      # once stalled ~2 h (runbook waves table, footnote 5).
+      # 30m, not the component's 10m: staging this volume takes ~8-12 min
+      # (kopiur's first runs: 725s local, 498s R2; VolSync's 10-20 min, once
+      # ~2 h). The 10m default would have failed the first run (footnote 5).
       KOPIUR_STAGING_TIMEOUT: 30m
