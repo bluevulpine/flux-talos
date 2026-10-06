@@ -69,6 +69,30 @@ spec:
               runAsUser: 0
               runAsNonRoot: false
             probes:
+              # The liveness/startup probes below hit qBittorrent's WebUI, which
+              # answers whether or not the tunnel is up, so an expired VPN
+              # subscription left the pod 2/2 Ready while gluetun looped
+              # "restarting VPN because it failed to pass the healthcheck".
+              # This probe asks gluetun itself: `healthcheck` queries its health
+              # server (127.0.0.1:9999), which returns 500 from a failed startup
+              # check until a check passes (internal/vpn/tunnelup.go, v3.41.3).
+              # Exec, not httpGet: the server binds loopback and gluetun's
+              # firewall drops input on ports not in FIREWALL_INPUT_PORTS.
+              # Readiness, not liveness: restarting the container cannot fix an
+              # expired subscription. NotReady fires GluetunVPNDown
+              # (prometheusrule.yaml) and drops the WebUI from the Service,
+              # which turns the gatus check red as well.
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command:
+                      - /gluetun-entrypoint
+                      - healthcheck
+                  periodSeconds: 30
+                  timeoutSeconds: 10
+                  failureThreshold: 3
               liveness:
                 enabled: true
                 custom: true
