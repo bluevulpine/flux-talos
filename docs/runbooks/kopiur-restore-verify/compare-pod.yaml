@@ -30,8 +30,8 @@ spec:
           WRITERS=(app.db calibre-web.log)
           DBS=(app.db gdrive.db)
           printf '%s\n' "${WRITERS[@]}" > /tmp/writers
-          # content: sha256 of every regular file; meta: type/mode/owner/size of every
-          # entry, plus file mtimes. Directory mtimes are listed separately because the
+          # content: sha256 of every regular file; meta: type/mode/owner of every
+          # entry and size of every non-directory, plus file mtimes. Directory mtimes are listed separately because the
           # pilot found kopia does not preserve them. Tab-separated with the path last,
           # so a path containing spaces still keys correctly.
           manifest() {

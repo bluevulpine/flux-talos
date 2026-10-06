@@ -12,7 +12,7 @@ These are hand-applied manifests, not Flux-managed. Nothing under `docs/` is rec
 | file | what |
 | --- | --- |
 | `restores.yaml` | two `Restore`s (one per repository) into new PVCs, root mover **plus added capabilities** |
-| `compare-pod.yaml` | read-only comparison of live vs local, live vs R2 and local vs R2: sha256 of every file; type/mode/owner/size of every entry; file mtimes; directory mtimes (informational). Files matching `WRITERS` are left out of the strict comparison and checked separately: the SQLite databases with `PRAGMA integrity_check` (in the app's own image), the rest shown for information |
+| `compare-pod.yaml` | read-only comparison of live vs local, live vs R2 and local vs R2: sha256 of every file; type/mode/owner of every entry and the size of every non-directory (directory size depends on the directory's history, so it is printed as `-`); file mtimes; directory mtimes (informational). Files matching `WRITERS` are left out of the strict comparison and checked separately: the SQLite databases with `PRAGMA integrity_check` (in the app's own image), the rest shown for information |
 | `run.sh` | `./run.sh` restores and compares; `./run.sh compare` re-runs the comparison only; `./run.sh cleanup` deletes everything it created |
 
 ## Do not drop the capability block

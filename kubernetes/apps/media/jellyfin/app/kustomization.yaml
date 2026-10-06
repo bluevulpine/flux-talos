@@ -13,8 +13,9 @@ components:
   - ../../../../components/kopiur
 
 patches:
-  # Stage kopiur's snapshot clones on 1 replica, as VolSync did. A staged PVC otherwise inherits the source
-  # class, and since the 2-replica re-bind every run would clone a 32Gi
+  # Stage kopiur's snapshot clones on 1 replica, as VolSync did. A staged PVC
+  # otherwise inherits the source class, and since the 2-replica re-bind every
+  # run would clone a 32Gi
   # 2-REPLICA volume only to read it once and delete it (runbook waves table,
   # footnote 6; same patch as matrix-bluevulpine).
   - target:

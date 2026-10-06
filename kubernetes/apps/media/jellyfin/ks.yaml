@@ -36,7 +36,7 @@ spec:
       # kopiur (components/kopiur), W5. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # H picks a minute per schedule; the hours match VolSync's.
+      # H picks a minute per schedule; the hours match VolSync's old ones.
       KOPIUR_LOCAL_CRON: "H * * * *"
       KOPIUR_R2_CRON: "H 1 * * *"
       KOPIUR_COPYMETHOD: Snapshot
