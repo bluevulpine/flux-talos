@@ -11,6 +11,9 @@ spec:
   dependsOn:
     - name: external-secrets-openbao-store
       namespace: external-secrets
+    # hermes mounts the vault claim; without it the pod sits Pending.
+    - name: vault
+      namespace: ai
   interval: 30m
   retryInterval: 1m
   timeout: 5m

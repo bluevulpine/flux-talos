@@ -1,0 +1,28 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/master-standalone/persistentvolumeclaim-v1.json
+# The shared notes vault (Obsidian-format Markdown), mounted by hermes at
+# /opt/data/vault. See ../README.md for the layout and who may write where.
+#
+# Its own claim and its own app, deliberately NOT on hermes' data PVC: hermes
+# runs `Recreate` on a volsync-backed RWO volume, so co-locating would couple
+# the notes' backup and availability to the agent's own state. And the kopiur
+# component targets the claim by ${APP}, which is `hermes` there.
+#
+# Plain claim, no volsync-claim: that component's dataSourceRef waits forever on
+# a ReplicationDestination only components/volsync-backup creates. Same shape as
+# ai/paperclip/app/pvc.yaml (docs/runbooks/kopiur-migration.md, "After the
+# migration: the claim"). Treat as permanent until components/kopiur-claim lands.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vault
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  # 2 replicas: between kopiur snapshots the notes live only on this volume
+  # (until the Syncthing peer on the NAS is attached, they are the only copy
+  # besides the snapshots).
+  storageClassName: longhorn-2-replica
