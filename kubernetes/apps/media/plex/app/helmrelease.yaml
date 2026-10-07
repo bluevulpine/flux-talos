@@ -256,11 +256,11 @@ spec:
             # of the three was allocated to anything.
             resources:
               requests:
-                cpu: 100m
-                memory: 1Gi
+                cpu: 2
+                memory: 16Gi
                 amd.com/gpu: 1
               limits:
-                memory: 16Gi
+                memory: 24Gi
                 amd.com/gpu: 1
     service:
       app:
