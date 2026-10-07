@@ -11,8 +11,10 @@
 #
 # It applies ONLY to requests by the console's own ServiceAccount (matchCondition),
 # so nothing else that creates Jobs is affected, and failurePolicy: Fail cannot
-# break them. Verified 2026-09-28 by server-side dry-run as that user: the real
-# CronJob templates are admitted; each rule below rejects its counter-example.
+# break them. Verified by server-side dry-run as a user the policy matched: the real
+# CronJob templates (collector cached/force, archiver) are admitted; each rule below
+# rejects its counter-example (2026-09-28; command/entrypoint and cross-workload rules
+# 2026-10-06).
 #
 # When a CronJob legitimately changes shape (a new Secret, another init image) this
 # policy must change with it, or the console's test run is refused with a message
@@ -78,6 +80,30 @@ spec:
         !has(e.valueFrom.fieldRef) && !has(e.valueFrom.resourceFieldRef))))
         )
       message: a console Job may only read the two Kia Secrets and ConfigMaps
+    # Image, ServiceAccount and Secrets bound the Job's reach, not what it runs: without
+    # this, postgres-init + kia-trip-archiver-secret + `sh -c` reads the Postgres
+    # superuser password. Neither real CronJob sets any of these (the only plain env is
+    # kia-collector's FORCE_REFRESH), so the image's own entrypoint is the only thing a
+    # console Job may run.
+    - expression: >-
+        variables.containers.all(c,
+        !has(c.command) && !has(c.args) && !has(c.lifecycle) &&
+        !has(c.livenessProbe) && !has(c.readinessProbe) && !has(c.startupProbe) &&
+        (!has(c.env) || c.env.all(e, has(e.valueFrom) || e.name == 'FORCE_REFRESH')))
+      message: a console Job must run the image's own entrypoint, unmodified
+    # The two workloads must not borrow each other's Secrets, ConfigMaps or images.
+    - expression: >-
+        variables.pod.serviceAccountName != 'kia-collector' ||
+        variables.containers.all(c, !c.image.startsWith('gitea.derekjacobs.dev/bvn-homelab/kia-trip-archiver:') &&
+        (!has(c.envFrom) || c.envFrom.all(e, (!has(e.secretRef) || e.secretRef.name == 'kia-collector-secret') &&
+        (!has(e.configMapRef) || e.configMapRef.name == 'kia-collector-config'))))
+      message: a kia-collector Job may only use kia-collector's own image, Secret and ConfigMap
+    - expression: >-
+        variables.pod.serviceAccountName != 'kia-trip-archiver' ||
+        variables.containers.all(c, !c.image.startsWith('gitea.derekjacobs.dev/bvn-homelab/kia-collector:') &&
+        (!has(c.envFrom) || c.envFrom.all(e, (!has(e.secretRef) || e.secretRef.name == 'kia-trip-archiver-secret') &&
+        (!has(e.configMapRef) || e.configMapRef.name == 'kia-trip-archiver-config'))))
+      message: a kia-trip-archiver Job may only use kia-trip-archiver's own image, Secret and ConfigMap
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/admissionregistration.k8s.io/validatingadmissionpolicybinding_v1.json
 apiVersion: admissionregistration.k8s.io/v1

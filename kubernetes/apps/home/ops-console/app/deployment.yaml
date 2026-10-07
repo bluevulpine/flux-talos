@@ -75,9 +75,16 @@ spec:
             capabilities:
               drop:
                 - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 25m
               memory: 64Mi
             limits:
               memory: 192Mi
+      volumes:
+        # Read-only root filesystem: multipart form parsing needs a writable temp dir.
+        - name: tmp
+          emptyDir: {}
