@@ -56,6 +56,10 @@ spec:
               value: https://sso.${SECRET_DOMAIN}/application/o/ops-console/
             - name: OPS_PUBLIC_URL
               value: https://ops.${SECRET_DOMAIN}
+            # Second gate behind the Authentik application's own group binding; compared
+            # with the id_token's preferred_username.
+            - name: OPS_ALLOWED_USERS
+              value: bluevulpine
           envFrom:
             - secretRef:
                 name: ops-console-secret
