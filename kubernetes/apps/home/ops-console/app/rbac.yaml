@@ -8,6 +8,10 @@
 # inside the Job. jobs-policy.yaml (a ValidatingAdmissionPolicy scoped to this
 # ServiceAccount) is what bounds the Job's ServiceAccount, images, Secrets and
 # volumes to the two Kia workloads. Both must change together.
+#
+# `get jobs` cannot be narrowed: a console Job's name is generated per run, so no
+# resourceNames list can name it. It lets the console read the spec of any Job in
+# `home`; those specs hold Secret references, not values.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -17,6 +21,10 @@ rules:
       - batch
     resources:
       - cronjobs
+    resourceNames:
+      - kia-collector-cached
+      - kia-collector-force
+      - kia-trip-archiver
     verbs:
       - get
   - apiGroups:

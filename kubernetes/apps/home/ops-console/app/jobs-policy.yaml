@@ -89,8 +89,37 @@ spec:
         variables.containers.all(c,
         !has(c.command) && !has(c.args) && !has(c.lifecycle) &&
         !has(c.livenessProbe) && !has(c.readinessProbe) && !has(c.startupProbe) &&
-        (!has(c.env) || c.env.all(e, has(e.valueFrom) || e.name == 'FORCE_REFRESH')))
-      message: a console Job must run the image's own entrypoint, unmodified
+        (!has(c.env) || c.env.all(e, has(e.valueFrom) || (e.name == 'FORCE_REFRESH' && has(e.value) && e.value == 'true'))))
+      message: a console Job must run the image's own entrypoint, unmodified (FORCE_REFRESH may only be "true")
+    # Where and how much the Job runs. Image, ServiceAccount and Secrets bound what it
+    # can reach; these bound what it can take from everything else in the cluster:
+    # `priorityClassName: system-node-critical` preempts other workloads, `nodeName`
+    # skips the scheduler, `hostPort` squats a node's port, and an unbounded fan-out
+    # hammers the Kia API (account lockout, 12V drain). The real CronJob templates set
+    # none of these, and their largest memory limit is 384Mi.
+    - expression: >-
+        !has(variables.pod.priorityClassName) && !has(variables.pod.nodeName) &&
+        !has(variables.pod.nodeSelector) && !has(variables.pod.tolerations) &&
+        !has(variables.pod.affinity) && !has(variables.pod.runtimeClassName)
+      message: a console Job may not set its own priority, node, scheduling constraints or runtime class
+    - expression: >-
+        (!has(object.spec.parallelism) || object.spec.parallelism <= 1) &&
+        (!has(object.spec.completions) || object.spec.completions <= 1)
+      message: a console Job may run one pod at a time, once (parallelism and completions at most 1)
+    - expression: >-
+        variables.containers.all(c, !has(c.ports) ||
+        c.ports.all(p, !has(p.hostPort) || p.hostPort == 0))
+      message: a console Job may not claim a host port
+    - expression: >-
+        variables.containers.all(c, has(c.resources) && has(c.resources.limits) &&
+        has(c.resources.limits.memory) &&
+        !quantity(c.resources.limits.memory).isGreaterThan(quantity('512Mi')) &&
+        (!has(c.resources.limits.cpu) || !quantity(c.resources.limits.cpu).isGreaterThan(quantity('1'))) &&
+        (!has(c.resources.requests) || !has(c.resources.requests.memory) ||
+        !quantity(c.resources.requests.memory).isGreaterThan(quantity('512Mi'))) &&
+        (!has(c.resources.requests) || !has(c.resources.requests.cpu) ||
+        !quantity(c.resources.requests.cpu).isGreaterThan(quantity('1'))))
+      message: a console Job's containers need a memory limit of at most 512Mi, and cpu at most 1
     # The two workloads must not borrow each other's Secrets, ConfigMaps or images.
     - expression: >-
         variables.pod.serviceAccountName != 'kia-collector' ||
