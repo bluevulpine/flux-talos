@@ -6,10 +6,10 @@ network as `dev-shell`. Login is **SSH key only** (no passwords).
 ## Access
 
 ```bash
-# Via Tailscale (preferred)
-ssh bluevulpine@dev-shell -p 2222
+# Via Tailscale (preferred): the Service exposes port 22
+ssh bluevulpine@dev-shell
 
-# Via port-forward
+# Via port-forward (straight to sshd in the pod, which listens on 2222)
 kubectl port-forward -n develop dev-shell-0 2222:2222
 ssh bluevulpine@localhost -p 2222
 ```
