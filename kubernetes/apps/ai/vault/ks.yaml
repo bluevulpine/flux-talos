@@ -22,9 +22,10 @@ spec:
     name: home-kubernetes
     namespace: flux-system
   targetNamespace: ai
-  # false: nothing here runs. The claim only binds once hermes mounts it, so a
-  # wait would hold this Kustomization un-Ready for no reason the operator can act on.
-  wait: false
+  # true: longhorn-2-replica binds Immediately, so the claim goes Bound as soon as it
+  # is created. Waiting makes hermes' dependsOn mean "the volume is Bound", not
+  # merely "the manifest was applied".
+  wait: true
   interval: 30m
   retryInterval: 1m
   timeout: 5m
