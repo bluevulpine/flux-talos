@@ -1,0 +1,38 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: qbittorrent-rules
+spec:
+  groups:
+    - name: qbittorrent.vpn
+      rules:
+        # The gluetun container's readiness is gluetun's own healthcheck (see the
+        # readiness probe in helmrelease.yaml). When the tunnel cannot pass
+        # traffic, e.g. because the VPN subscription has expired, gluetun keeps
+        # cycling servers forever without crashing, so no restart or crashloop
+        # alert ever fires. This one does.
+        #
+        # 10m: one VPN restart cycle takes ~7s and a passing check clears the
+        # error, so a server hop does not fire it. It also fires before the
+        # generic KubePodNotReady and KubeDeploymentReplicasMismatch (both 15m),
+        # so this actionable alert is the first notification. Both generic
+        # alerts DO follow: this chart's KubePodNotReady matches a Running pod
+        # whose Ready condition is false, not only Pending/Unknown phases.
+        #
+        # Silent if the pod does not exist at all (evicted, unschedulable):
+        # there is no series to compare. KubeDeploymentReplicasMismatch covers
+        # that case.
+        - alert: GluetunVPNDown
+          expr: |-
+            kube_pod_container_status_ready{namespace="download", pod=~"qbittorrent-.*", container="gluetun"} == 0
+          for: 10m
+          annotations:
+            summary: >-
+              qBittorrent's gluetun VPN has failed its healthcheck for 10m and
+              torrent traffic is stopped. Check that the VPN subscription has not
+              expired, then read the gluetun logs:
+              kubectl -n download logs deploy/qbittorrent -c gluetun
+          labels:
+            severity: warning
