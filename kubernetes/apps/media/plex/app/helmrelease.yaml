@@ -256,7 +256,7 @@ spec:
             # of the three was allocated to anything.
             resources:
               requests:
-                cpu: 100m
+                cpu: 2
                 memory: 16Gi
                 amd.com/gpu: 1
               limits:
