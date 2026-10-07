@@ -19,3 +19,4 @@ data:
     ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHMEniGY1vl3sOPjJylY7a2Tz7Vp3Wc7308OZ8xzP3+c bluevulpine@Eon.local
     ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL89mNPs414kpJMztK3d/ot/Mm6LJ7WrU5PI2VvcrvNJ bluevulpine@Aurelia.funb.us
     ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC70HI+sKZEMDf1nhIsnRsEBsuAghAF/+9YAaqMR9CYe steam@valheim-5c49bbc9cc-clgnk
+    sk-ecdsa-sha2-nistp256@openssh.com AAAAInNrLWVjZHNhLXNoYTItbmlzdHAyNTZAb3BlbnNzaC5jb20AAAAIbmlzdHAyNTYAAABBBLGc8EvUs2XCMmZ3BON0ECDeJ0jw0aE6WTSX4RzF9FxNKSeDVtKqvtL5/m5GlMmEEDXPpsruk+Qck3Dw2971MdYAAAAUaWRfZWNkc2Ffc2tAYmxpbmsuc2g= bluevulpine@iphone
