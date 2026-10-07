@@ -1,0 +1,117 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app paperclip
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: paperclip
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+      remediateLastFailure: true
+  uninstall:
+    keepHistory: false
+  values:
+    controllers:
+      paperclip:
+        # Single replica on an RWO claim; Drizzle migrations run at startup.
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          01-init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom: &envFrom
+              - secretRef:
+                  name: paperclip-secret
+        containers:
+          app:
+            image:
+              # Versioned tag (YYYY.MMDD.N). `latest` and `canary` also exist;
+              # pin the date tag so Renovate drives upgrades.
+              repository: ghcr.io/paperclipai/paperclip
+              tag: 2026.1001.0
+            env:
+              NODE_ENV: production
+              PORT: &port 3100
+              HOST: 0.0.0.0
+              PAPERCLIP_HOME: /paperclip
+              # DATABASE_URL (from the secret) turns the embedded Postgres off:
+              # the entrypoint only starts it when DATABASE_URL is unset.
+              PAPERCLIP_DEPLOYMENT_MODE: authenticated
+              PAPERCLIP_DEPLOYMENT_EXPOSURE: private
+              PAPERCLIP_PUBLIC_URL: https://paperclip.${SECRET_DOMAIN}
+              BETTER_AUTH_URL: https://paperclip.${SECRET_DOMAIN}
+              # The Hermes adapter (URL http://hermes.ai.svc.cluster.local:8642,
+              # key) is configured in Paperclip's UI after first login, not via
+              # env: the server reads no PAPERCLIP_HERMES_* vars (checked
+              # server/src/app.ts at 2026.1001.0).
+              TZ: ${TIMEZONE}
+            envFrom: *envFrom
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 2Gi
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health
+                    port: *port
+                  initialDelaySeconds: 15
+                  periodSeconds: 10
+                  timeoutSeconds: 2
+                  failureThreshold: 3
+              readiness: *probes
+            securityContext:
+              runAsUser: 1000
+              runAsGroup: 1000
+              runAsNonRoot: true
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities:
+                drop:
+                  - "ALL"
+    defaultPodOptions:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      # Same rule as hermes: agents that run commands stay off the control plane.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: *port
+    persistence:
+      home:
+        existingClaim: *app
+        globalMounts:
+          - path: /paperclip
+    ingress:
+      app:
+        enabled: false

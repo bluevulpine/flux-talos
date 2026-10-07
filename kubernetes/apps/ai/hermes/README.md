@@ -32,12 +32,19 @@ start as root to fix ownership on `/opt/data` before dropping. `CHOWN`, `DAC_OVE
 the same set the TrueNAS catalog app grants. `HERMES_ALLOW_ROOT_GATEWAY` is **not**
 set, so the agent process itself never runs as root.
 
-**API server on container loopback.** The dashboard talks to the gateway over the
-OpenAI-compatible API on 8642, so it cannot be switched off — but `API_SERVER_HOST` is
-`127.0.0.1`, so it never listens on the pod IP and is not in the Service. That closes
-the unattended-approval surface (see below) by construction. The liveness probe is
-therefore `exec`+`curl`, not `httpGet`: kubelet probes the pod IP, which has nothing
-listening on 8642.
+**API server on the pod IP, gated by Cilium.** The dashboard talks to the gateway over the
+OpenAI-compatible API on 8642, so it cannot be switched off. Since Paperclip slice one
+it binds `0.0.0.0` and the Service exposes it as port `api`, so Paperclip can POST
+`/v1/runs` — and `ciliumnetworkpolicy.yaml` is what narrows the unattended-approval
+surface (see below) instead of the bind address: ingress to 8642 is allowed from
+`app.kubernetes.io/name=paperclip` pods in `ai` and no other pod; the dashboard's 9119
+is re-allowed from the `internal` Gateway's Envoy pods. **Known gap:** Cilium's
+`allow-localhost` default exempts the local node from policy, so `hostNetwork` pods on
+whichever node runs hermes (cilium-agent, node-exporter) can still reach 8642;
+`API_SERVER_KEY` is the guard there. Closing that means `allow-localhost: policy`
+cluster-wide, which was judged too wide a change for this. The policy is ingress-only
+on purpose (an egress block would cut every outbound platform). The liveness probe
+stays `exec`+`curl` so it never depends on the policy.
 
 **One hostname.** `HERMES_DASHBOARD_PUBLIC_URL` adds its exact host to the dashboard's
 Host / WebSocket-Origin guard, so a second entry point (a Tailscale MagicDNS name, say)

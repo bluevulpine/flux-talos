@@ -1,0 +1,14 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ./ocirepository.yaml
+  - ./externalsecret.yaml
+  - ./pvc.yaml
+  - ./helmrelease.yaml
+  - ./httproute.yaml
+components:
+  # kopiur backs the claim up; born on kopiur, no VolSync history, and NO
+  # volsync-claim (see pvc.yaml for why).
+  - ../../../../components/kopiur

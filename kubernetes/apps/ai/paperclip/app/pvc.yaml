@@ -1,0 +1,27 @@
+---
+# Paperclip's home: uploads, instance config and agent workspaces.
+#
+# Deliberately NOT components/volsync-claim. That component's claim carries a
+# dataSourceRef to ReplicationDestination/${APP}-dst-local, which only
+# components/volsync-backup creates. On a NEW claim the VolSync populator
+# waits for that object forever (docs/runbooks/kopiur-migration.md, "After the
+# migration: the claim"). Every other kopiur app bound under VolSync first;
+# this is the first app born on kopiur, so it gets a plain claim.
+#
+# kopiur backs it up (components/kopiur targets the claim by name `${APP}`).
+# A rebuild restores via a kopiur Restore, not a populator: the planned
+# components/kopiur-claim (same runbook section) is the right home for that,
+# and this claim can only move onto it by being recreated -- a plain claim
+# that later gains a dataSourceRef hits the same immutable-field SSA stall the
+# volsync-claim component documents. Treat this file as permanent until then.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: paperclip
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: longhorn-2-replica
