@@ -46,6 +46,7 @@ spec:
       key: KOPIA_PASSWORD
   allowedNamespaces:
     list:
+      - ai
       - database
       - develop
       - download

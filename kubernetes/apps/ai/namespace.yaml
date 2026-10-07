@@ -23,6 +23,10 @@ metadata:
     # the app has. This is a per-namespace policy, so it also covers any later
     # `ai` app with VolSync. Remove the line to revert; nothing else depends on it.
     volsync.backube/privileged-movers: "true"
+    # Same opt-in for kopiur movers (paperclip is the first `ai` app on kopiur).
+    # Without it kopiur refuses the mover (PrivilegedMoverNotPermitted); see
+    # docs/runbooks/kopiur-migration.md. Every other kopiur namespace has it.
+    kopiur.home-operations.com/privileged-movers: "true"
   labels:
     # baseline, NOT restricted — and the choice is load-bearing, not a
     # concession. Hermes is expected to move here from `develop` (which is
