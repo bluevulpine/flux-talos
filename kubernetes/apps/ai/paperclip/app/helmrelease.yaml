@@ -43,7 +43,7 @@ spec:
               # Versioned tag (YYYY.MMDD.N). `latest` and `canary` also exist;
               # pin the date tag so Renovate drives upgrades.
               repository: ghcr.io/paperclipai/paperclip
-              tag: 2026.1001.0
+              tag: 2026.1005.0
             env:
               NODE_ENV: production
               PORT: &port 3100
