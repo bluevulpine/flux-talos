@@ -75,6 +75,14 @@ spec:
                   httpGet:
                     path: /api/health
                     port: *port
+                    # kubelet probes the pod IP, and Paperclip rejects any Host
+                    # it doesn't recognise with 403 (allowedHostnames = the
+                    # PAPERCLIP_PUBLIC_URL host, server/src/config.ts). Without
+                    # this header the pod never goes Ready and liveness kills it
+                    # every ~40 s (observed on first deploy, 2026-10-07).
+                    httpHeaders:
+                      - name: Host
+                        value: paperclip.${SECRET_DOMAIN}
                   initialDelaySeconds: 15
                   periodSeconds: 10
                   timeoutSeconds: 2
