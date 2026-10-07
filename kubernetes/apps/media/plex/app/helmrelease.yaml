@@ -257,10 +257,10 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 1Gi
+                memory: 16Gi
                 amd.com/gpu: 1
               limits:
-                memory: 16Gi
+                memory: 24Gi
                 amd.com/gpu: 1
     service:
       app:
