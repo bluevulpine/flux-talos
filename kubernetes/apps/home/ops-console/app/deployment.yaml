@@ -1,0 +1,101 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/apps/deployment_v1.json
+# The ops console: UI and forwarder only. Source: bvn-homelab/ops-console.
+# No state of its own (a pending login lives in the reauth servers), so a restart
+# loses nothing but an open browser tab.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ops-console
+  annotations:
+    # The bearers and the signing key come from OpenBao through ops-console-secret;
+    # roll the pod when they rotate (a rotated bearer is otherwise not picked up).
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ops-console
+  template:
+    metadata:
+      labels:
+        # The reauth servers' NetworkPolicies admit exactly this label.
+        app.kubernetes.io/name: ops-console
+    spec:
+      serviceAccountName: ops-console
+      automountServiceAccountToken: true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ops-console
+          # Full ref auto-updated by Flux image automation (ImagePolicy flux-system:ops-console).
+          # NOTE: no ":tag" suffix on the marker — this is a combined image:repo:tag scalar,
+          # so Flux must write the whole ref. ":tag" would overwrite the scalar with the bare tag.
+          image: gitea.derekjacobs.dev/bvn-homelab/ops-console:2-e183ac0e # {"$imagepolicy": "flux-system:ops-console"}
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: OPS_NAMESPACE
+              value: home
+            # Sign-in is the console's own (OIDC against Authentik); the issuer string must
+            # equal the provider's `issuer`, trailing slash included. Slug = the Authentik
+            # application's slug.
+            - name: OPS_OIDC_ISSUER
+              value: https://sso.${SECRET_DOMAIN}/application/o/ops-console/
+            - name: OPS_PUBLIC_URL
+              value: https://ops.${SECRET_DOMAIN}
+            # Second gate behind the Authentik application's own group binding; compared
+            # with the id_token's preferred_username.
+            - name: OPS_ALLOWED_USERS
+              value: bluevulpine
+          envFrom:
+            - secretRef:
+                name: ops-console-secret
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 3
+            failureThreshold: 20
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              memory: 192Mi
+      volumes:
+        # Read-only root filesystem: multipart form parsing needs a writable temp dir.
+        - name: tmp
+          emptyDir: {}

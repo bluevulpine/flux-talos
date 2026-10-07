@@ -1,0 +1,12 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/imagerepository-image-v1.json
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageRepository
+metadata:
+  name: &app ops-console
+spec:
+  # Published to the bvn-homelab org by Drone (registry_user=fizz-bot).
+  image: gitea.derekjacobs.dev/bvn-homelab/ops-console
+  interval: 5m
+  secretRef:
+    name: gitea-registry-creds

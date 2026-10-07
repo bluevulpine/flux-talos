@@ -1,0 +1,26 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ops-console
+spec:
+  groups:
+    - name: ops-console.rules
+      rules:
+        # The route is behind Authentik, so an external probe reads the SSO redirect
+        # as healthy whatever the app is doing. Ask Kubernetes instead. This also
+        # covers an image that cannot be pulled (zero available replicas either way).
+        - alert: OpsConsoleUnavailable
+          annotations:
+            summary: >-
+              The ops console has had no available replica for 10m. Credential
+              re-enrolments (Kia OTP) can only be done from a terminal until it is
+              back. Check `kubectl -n home get deploy,pods -l app.kubernetes.io/name=ops-console`.
+          expr: |
+            (kube_deployment_status_replicas_available{namespace="home", deployment="ops-console"} < 1)
+            or
+            absent(kube_deployment_status_replicas_available{namespace="home", deployment="ops-console"})
+          for: 10m
+          labels:
+            severity: warning

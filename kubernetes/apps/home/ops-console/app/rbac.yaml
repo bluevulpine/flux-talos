@@ -1,0 +1,48 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/rbac.authorization.k8s.io/role_v1.json
+# What the console may do in the Kubernetes API: run a component's own CronJob once,
+# to prove a re-auth held, and read the result. This Role grants only that -- no
+# secrets, no pods, no logs, nothing outside this namespace.
+#
+# `create jobs` is, in effect, "run a pod in this namespace", and RBAC cannot look
+# inside the Job. jobs-policy.yaml (a ValidatingAdmissionPolicy scoped to this
+# ServiceAccount) is what bounds the Job's ServiceAccount, images, Secrets and
+# volumes to the two Kia workloads. Both must change together.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ops-console
+rules:
+  - apiGroups:
+      - batch
+    resources:
+      - cronjobs
+    verbs:
+      - get
+  - apiGroups:
+      - batch
+    resources:
+      - jobs
+    verbs:
+      - create
+      - get
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/rbac.authorization.k8s.io/rolebinding_v1.json
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ops-console
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ops-console
+subjects:
+  - kind: ServiceAccount
+    name: ops-console
+    namespace: home
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/core/serviceaccount_v1.json
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ops-console

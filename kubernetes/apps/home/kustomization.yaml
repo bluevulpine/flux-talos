@@ -21,4 +21,5 @@ resources:
   - ./ev-charge-tracker/ks.yaml
   - ./ev-charge-ledger/ks.yaml
   - ./minnkota-collector/ks.yaml
+  - ./ops-console/ks.yaml
   - ./wican-bridge/ks.yaml
