@@ -493,6 +493,11 @@ kopiur refuses any mover with added capabilities, and `components/kopiur` always
 `DAC_OVERRIDE` (#1957), so even its 10091 backup movers would sit `Pending`
 (`PrivilegedMoverNotPermitted`, the W0 trap) without it (`ai` has only VolSync's). Both copy
 `matrix-bluevulpine`'s staging patch.
+**`ai` is done (2026-10-07, #2096):** paperclip, the first `ai` app, was born on kopiur and
+needed all three pieces ahead of W6 — `allowedNamespaces` on both repositories, the `ai`
+`kopiur-{local,r2}` ExternalSecrets, and the annotation. W6's vars PR for hermes should **not**
+add them again; only `matrix` still needs the namespace steps, and hermes still needs the
+staging patch.
 `matrix-bluevulpine/matrix-stack` (2026-10-02) is **not** in the migration: it was built on
 `components/kopiur` from the start and never had VolSync (35/35 scheduled backups
 `Succeeded` 2026-10-05, staged on 1 replica, identity `synapse-media@matrix-bluevulpine:/data`).
