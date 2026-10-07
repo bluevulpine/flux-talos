@@ -1,0 +1,44 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/master-standalone/role-rbac-v1.json
+# TEMPORARY. Lets the dev-shell pod open a shell in Paperclip to run
+# `claude auth login` during first-run setup (the onboarding wizard only offers a
+# terminal command). Remove this file, its kustomization entry and the
+# `dev-shell` serviceAccountName binding once setup is done.
+#
+# Scope: pods get/list and pods/exec create, in THIS namespace only. exec cannot
+# be limited to the paperclip pod (resourceNames match pod names, which change on
+# every rollout), so the Role covers every pod in `ai`, including hermes. That is
+# the cost of this grant: anyone who can log into dev-shell can exec into hermes
+# while this file exists.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: dev-shell-temp-exec
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - "pods"
+    verbs:
+      - "get"
+      - "list"
+  - apiGroups:
+      - ""
+    resources:
+      - "pods/exec"
+    verbs:
+      - "create"
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/master-standalone/rolebinding-rbac-v1.json
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dev-shell-temp-exec
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: dev-shell-temp-exec
+subjects:
+  - kind: ServiceAccount
+    name: dev-shell
+    namespace: develop

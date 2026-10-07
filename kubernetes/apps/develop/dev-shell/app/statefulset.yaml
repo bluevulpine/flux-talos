@@ -23,6 +23,7 @@ spec:
         app.kubernetes.io/name: dev-shell
         app.kubernetes.io/instance: dev-shell
     spec:
+      serviceAccountName: dev-shell
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch

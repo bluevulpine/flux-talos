@@ -8,6 +8,7 @@ resources:
   - ./pvc.yaml
   - ./helmrelease.yaml
   - ./httproute.yaml
+  - ./rbac-temp-exec.yaml
 components:
   # kopiur backs the claim up; born on kopiur, no VolSync history, and NO
   # volsync-claim (see pvc.yaml for why).
