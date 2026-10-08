@@ -54,6 +54,11 @@ spec:
             env:
               TZ: "${TIMEZONE}"
               HERMES_HOME: /opt/data
+              # The shared notes vault (ai/vault). The obsidian skill resolves its
+              # path from this. Named profiles do not inherit process env under
+              # multiplexing, so a profile that needs it must list it in its own
+              # env_passthrough.
+              OBSIDIAN_VAULT_PATH: /opt/data/vault
               HERMES_DASHBOARD: "1"
               HERMES_DASHBOARD_HOST: "0.0.0.0"
               HERMES_DASHBOARD_PORT: &port 9119
@@ -170,6 +175,13 @@ spec:
         existingClaim: *app
         globalMounts:
           - path: /opt/data
+      # The notes vault: its own claim and backups (ai/vault), mounted INSIDE the
+      # data mount so profiles find it at $HERMES_HOME/vault. The hermes claim's
+      # backups do not include it (a nested mount is a different volume).
+      vault:
+        existingClaim: vault
+        globalMounts:
+          - path: /opt/data/vault
       # /opt/hermes is read-only by design; the agent still needs somewhere to
       # put kubectl/talosctl and scratch work. Anything that must survive a
       # restart belongs under /opt/data.

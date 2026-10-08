@@ -11,6 +11,11 @@ spec:
   dependsOn:
     - name: external-secrets-openbao-store
       namespace: external-secrets
+    # hermes mounts the vault claim; without it the pod sits Pending. Note this
+    # also makes hermes depend on kopiur-repositories THROUGH vault: if that goes
+    # un-Ready, this Kustomization stops reconciling (running pods are unaffected).
+    - name: vault
+      namespace: ai
   interval: 30m
   retryInterval: 1m
   timeout: 5m

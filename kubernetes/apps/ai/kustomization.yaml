@@ -11,3 +11,4 @@ resources:
   - ./hindsight/ks.yaml
   - ./litellm/ks.yaml
   - ./paperclip/ks.yaml
+  - ./vault/ks.yaml
