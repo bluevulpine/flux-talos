@@ -132,7 +132,7 @@ spec:
               # reranking need no external service and no API key. -slim forces
               # both onto remote providers or in-cluster TEI — that is the
               # scale-out path, not the starting point.
-              tag: 0.10.1
+              tag: 0.10.3
             envFrom: *envFrom
             # ONE env block for the API and the worker (the worker aliases it
             # below). They are the same program reading the same config, and a
@@ -1047,7 +1047,7 @@ spec:
             image:
               repository: ghcr.io/vectorize-io/hindsight-api
               # Same image and tag as `api` above -- bump together.
-              tag: 0.10.1
+              tag: 0.10.3
             command:
               - hindsight-worker
             envFrom: *envFrom
