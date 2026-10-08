@@ -15,9 +15,11 @@ writer per file.
 - `agents/<name>/` — an agent's own notes and memory files. Only that agent writes here.
 - `inbox/<name>/` — an agent's proposals for shared notes. Only that agent writes
   here; a human (or a designated curator) merges them into shared notes.
-- Everything else — human-authored and shared notes. Agents read it and do **not**
-  edit in place. Per-agent daily logs go in their own file
-  (`daily/2026-10-04.bosun.md`) and are linked from the human's daily note.
+- Everything else — human-authored and shared notes (the existing vault's tree:
+  `Timestamps/YYYY/MM-Month/YYYY-MM-DD-Weekday`, `Templates/`, `Storytime/`,
+  `joplin export/`, ...). Agents read it and do **not** edit in place. An agent's
+  own daily log goes under its own folder (`agents/<name>/daily/YYYY-MM-DD.md`),
+  never into the human `Timestamps/` tree, and the human links to it if wanted.
 
 ## Backups
 
@@ -29,5 +31,7 @@ writer per file.
 ## Not done here
 
 - Syncthing sidecar (NAS peer) and the commit-to-Gitea history job are separate PRs.
+  The volume starts empty; Syncthing populates it, receive-only on the cluster side
+  at first, and `agents/` and `inbox/` are created only after that first sync lands.
 - The existing `productivity/obsidian` + `couchdb` (LiveSync) apps are untouched
   and hold their own copy of the vault.
