@@ -9,14 +9,15 @@ spec:
     - name: qbittorrent.vpn
       rules:
         # The gluetun container's readiness is gluetun's own healthcheck (see the
-        # readiness probe in helmrelease.yaml). gluetun is a NATIVE SIDECAR, an
-        # initContainer, so kube-state-metrics reports it under
-        # kube_pod_init_container_status_ready. kube_pod_container_status_ready
-        # has no gluetun series at all, and this alert would match nothing and
-        # never fire. When the tunnel cannot pass
+        # readiness probe in helmrelease.yaml). When the tunnel cannot pass
         # traffic, e.g. because the VPN subscription has expired, gluetun keeps
         # cycling servers forever without crashing, so no restart or crashloop
         # alert ever fires. This one does.
+        #
+        # gluetun is a NATIVE SIDECAR (an initContainer), so kube-state-metrics
+        # reports it under kube_pod_init_container_status_ready.
+        # kube_pod_container_status_ready has no gluetun series at all; on that
+        # metric this alert would match nothing and never fire.
         #
         # 10m: one VPN restart cycle takes ~7s and a passing check clears the
         # error, so a server hop does not fire it. It also fires before the
