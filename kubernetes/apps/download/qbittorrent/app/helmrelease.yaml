@@ -23,7 +23,16 @@ spec:
             env:
               TZ: "${TIMEZONE}"
               QBITTORRENT__PORT: &port 8080
-              QBITTORRENT__BT_PORT: &btport 50413
+              # The torrenting port is the VPN's forwarded port, kept in
+              # OpenBao (externalsecret.yaml). qbittorrent-nox reads options
+              # from QBT_<OPTION> env (--torrenting-port here). The
+              # QBITTORRENT__BT_PORT this replaced was never read by anything:
+              # 50413 only matched because it was already saved in the config.
+              QBT_TORRENTING_PORT:
+                valueFrom:
+                  secretKeyRef:
+                    name: qbittorrent-secret
+                    key: QBT_TORRENTING_PORT
               QBT_Preferences__WebUI__AuthSubnetWhitelistEnabled: true
               QBT_Preferences__WebUI__AuthSubnetWhitelist: |-
                 10.42.0.0/16, 10.43.0.0/16, 172.16.0.0/16
@@ -47,7 +56,7 @@ spec:
               limits:
                 memory: 4Gi
         # Gluetun VPN sidecar - all traffic routes through this. Declared after
-        # `containers` only because it reuses the &port/&btport anchors there.
+        # `containers` only because it reuses the &port anchor there.
         initContainers:
           gluetun:
             image:
@@ -61,7 +70,8 @@ spec:
               TZ: "${TIMEZONE}"
               VPN_INTERFACE: wg0
               FIREWALL_INPUT_PORTS: *port
-              FIREWALL_VPN_INPUT_PORTS: *btport
+              # FIREWALL_VPN_INPUT_PORTS comes from qbittorrent-secret (the
+              # forwarded port). It must not be set here: env overrides envFrom.
               DOT: "off"
             securityContext:
               capabilities:
@@ -77,7 +87,7 @@ spec:
             # sockets at 21:26:01, gluetun brought up wg0 at 21:26:47 after
             # three failed servers, and libtorrent never bound wg0. Everything
             # it sent left via eth0 and was dropped by gluetun's kill switch:
-            # 0 DHT nodes and 0 bytes for two days, with every probe green.
+            # 0 bytes in either direction for two days, with every probe green.
             restartPolicy: Always
             probes:
               # All probes run `healthcheck`, which queries gluetun's health
@@ -141,6 +151,9 @@ spec:
         ports:
           http:
             port: *port
+      # Inert: peers reach qBittorrent through the VPN's forwarded port on
+      # wg0, never via this LAN address, and gluetun's firewall drops eth0
+      # input on anything but FIREWALL_INPUT_PORTS (the WebUI).
       bittorrent:
         controller: qbittorrent
         type: LoadBalancer
@@ -148,7 +161,7 @@ spec:
           io.cilium/lb-ipam-ips: ${SVC_QBITTORRENT_ADDR}
         ports:
           bittorrent-tcp:
-            port: *btport
+            port: &btport 50413
             protocol: TCP
           bittorrent-udp:
             port: *btport
