@@ -46,7 +46,9 @@ spec:
                 memory: 256Mi
               limits:
                 memory: 4Gi
-          # Gluetun VPN sidecar - all traffic routes through this
+        # Gluetun VPN sidecar - all traffic routes through this. Declared after
+        # `containers` only because it reuses the &port/&btport anchors there.
+        initContainers:
           gluetun:
             image:
               repository: ghcr.io/qdm12/gluetun
@@ -68,53 +70,58 @@ spec:
               allowPrivilegeEscalation: true
               runAsUser: 0
               runAsNonRoot: false
+            # Native sidecar (an initContainer with restartPolicy: Always), so the
+            # kubelet starts qBittorrent only after this container's startup
+            # probe passes, i.e. once the tunnel is up. As a plain sidecar both
+            # started together: on 2026-10-06 qBittorrent bound its listen
+            # sockets at 21:26:01, gluetun brought up wg0 at 21:26:47 after
+            # three failed servers, and libtorrent never bound wg0. Everything
+            # it sent left via eth0 and was dropped by gluetun's kill switch:
+            # 0 DHT nodes and 0 bytes for two days, with every probe green.
+            restartPolicy: Always
             probes:
-              # The liveness/startup probes below hit qBittorrent's WebUI, which
-              # answers whether or not the tunnel is up, so an expired VPN
-              # subscription left the pod 2/2 Ready while gluetun looped
-              # "restarting VPN because it failed to pass the healthcheck".
-              # This probe asks gluetun itself: `healthcheck` queries its health
-              # server (127.0.0.1:9999), which returns 500 from a failed startup
+              # All probes run `healthcheck`, which queries gluetun's health
+              # server (127.0.0.1:9999). It returns 500 from a failed startup
               # check until a check passes (internal/vpn/tunnelup.go, v3.41.3).
               # Exec, not httpGet: the server binds loopback and gluetun's
               # firewall drops input on ports not in FIREWALL_INPUT_PORTS.
-              # Readiness, not liveness: restarting the container cannot fix an
-              # expired subscription. NotReady fires GluetunVPNDown
-              # (prometheusrule.yaml) and drops the pod from the Service, which
-              # turns the gatus check red and makes Sonarr/Radarr/Lidarr log
-              # download-client errors: expected during an outage, and it stops
-              # new grabs into a client that cannot download.
+              #
+              # The probes used to hit qBittorrent's WebUI on :8080, which
+              # answers with or without a tunnel. As a native sidecar that
+              # would also deadlock: qBittorrent cannot start until this
+              # startup probe passes.
+              #
+              # startup: up to 5m for the first tunnel. On failure the kubelet
+              # restarts gluetun and qBittorrent stays unstarted, which is right
+              # when there is no tunnel to use.
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: &healthcheck
+                      - /gluetun-entrypoint
+                      - healthcheck
+                  periodSeconds: 5
+                  timeoutSeconds: 10
+                  failureThreshold: 60
+              # readiness, not liveness: gluetun restarts its own tunnel on a
+              # failed check, and restarting the container cannot fix an expired
+              # subscription. A NotReady sidecar makes the pod NotReady, which
+              # fires GluetunVPNDown (prometheusrule.yaml) and drops the pod
+              # from the Service: the gatus check turns red and
+              # Sonarr/Radarr/Lidarr log download-client errors. That is
+              # expected during an outage, and it stops new grabs into a client
+              # that cannot download.
               readiness:
                 enabled: true
                 custom: true
                 spec:
                   exec:
-                    command:
-                      - /gluetun-entrypoint
-                      - healthcheck
+                    command: *healthcheck
                   periodSeconds: 30
                   timeoutSeconds: 10
                   failureThreshold: 3
-              liveness:
-                enabled: true
-                custom: true
-                spec:
-                  httpGet:
-                    path: /
-                    port: *port
-                  initialDelaySeconds: 30
-                  periodSeconds: 30
-                  failureThreshold: 5
-              startup:
-                enabled: true
-                custom: true
-                spec:
-                  httpGet:
-                    path: /
-                    port: *port
-                  initialDelaySeconds: 10
-                  periodSeconds: 5
-                  failureThreshold: 30
             resources:
               requests:
                 cpu: 10m
