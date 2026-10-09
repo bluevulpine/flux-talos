@@ -1,0 +1,19 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/externaldns.k8s.io/dnsendpoint_v1alpha1.json
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: jellyfin
+spec:
+  endpoints:
+    # Public record only. WAN1 forwards to the `external-direct` gateway, which
+    # serves this hostname with the wildcard cert. Unproxied: Cloudflare's proxy
+    # would put streaming back on the throttled path this exists to avoid. LAN
+    # resolvers answer from the `internal` gateway's record instead.
+    - dnsName: "jellyfin.${SECRET_DOMAIN}"
+      recordType: CNAME
+      targets:
+        - "wheels.${SECRET_DOMAIN}"
+      providerSpecific:
+        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+          value: "false"
