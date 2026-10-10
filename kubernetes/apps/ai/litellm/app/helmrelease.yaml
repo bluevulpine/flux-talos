@@ -457,6 +457,51 @@ spec:
                     reasoning:
                       enabled: false
 
+              # --- hosted, by name: GLM-5.3-Flash on Nous Portal ---
+              # Not a fallback and not on the Spark: a 320B/18B-active MoE that
+              # needs two Sparks (sparkrun's recipe is TP=2 at 98 GB each), reached
+              # on Nous's credits instead. Named after the model because choosing
+              # this route IS choosing the model; `spark-main` stays the neutral
+              # default. Same key and privacy posture as the fallback above: every
+              # prompt leaves the house, via whichever upstream Nous routes to.
+              #
+              # Verified 2026-10-10 with the key: plain reply, strict json_schema
+              # (nested object, enum, nullable), and a tool call all worked; text,
+              # image and video in; $0.12 / $0.40 per million tokens. There is a
+              # `z-ai/glm-5.3-flash:US` at about 2x that if US-only hosting ever
+              # matters.
+              #
+              # Reasoning CANNOT be disabled on this model ("Reasoning is mandatory
+              # for this endpoint", HTTP 400 on reasoning.enabled=false), so the
+              # cheap mode is reasoning_effort: low -- 0 reasoning tokens for a
+              # one-word reply against 93 at the default. Pinned here through
+              # extra_body, which the OpenAI client merges LAST -- so a caller's
+              # own reasoning_effort is probably overwritten by it, not honoured.
+              # A consumer that wants the model's full reasoning gets its own route
+              # (nous-glm53 below has none pinned), rather than a flag.
+              #
+              # Not in any virtual key yet: add it per consumer with /key/update.
+              - model_name: nous-glm53-flash
+                litellm_params:
+                  model: openai/z-ai/glm-5.3-flash
+                  api_base: https://inference-api.nousresearch.com/v1
+                  api_key: os.environ/NOUS_API_KEY
+                  extra_body:
+                    reasoning_effort: low
+
+              # The full GLM-5.3 (753B, text only -- no images), same key, same
+              # posture, for work that wants the bigger model: $0.91 / $2.86 per
+              # million tokens, ~8x the Flash. Verified 2026-10-10 like the Flash:
+              # plain reply, strict json_schema, tool call. Nothing pinned here:
+              # on a one-word reply it spent 0 reasoning tokens even at the
+              # default, and this route exists for the harder calls where its
+              # reasoning is the point. Not in any virtual key yet.
+              - model_name: nous-glm53
+                litellm_params:
+                  model: openai/z-ai/glm-5.3
+                  api_base: https://inference-api.nousresearch.com/v1
+                  api_key: os.environ/NOUS_API_KEY
+
             litellm_settings:
               drop_params: true
               # Response cache in the shared dragonfly, OPT-IN ONLY (default_off).
