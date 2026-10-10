@@ -116,7 +116,7 @@ spec:
       # been read as "never configured" when it was in fact "cannot persist".
       #
       # Mounted as a subPath on the existing `tdarr` claim rather than a new PVC
-      # so it inherits that claim's volsync backup - the config half of DB2
+      # so it inherits that claim's kopiur backup - the config half of DB2
       # (library settings, flows, plugin stacks, node worker limits, API keys)
       # is real human effort and worth replicating. The derived half (file
       # index, job reports, statistics) rides along; Tdarr does not separate
@@ -125,7 +125,7 @@ spec:
       #
       # So the claim is one volume with two halves, and any move or restore must
       # carry both: the node/server config JSON at its root (mounted below as
-      # /app/configs) and this `server/` directory. volsync backs up the whole
+      # /app/configs) and this `server/` directory. kopiur backs up the whole
       # volume, so a restore does.
       #
       # The claim is Longhorn RWO (see ks.yaml) because SQLite on NFS stalled
