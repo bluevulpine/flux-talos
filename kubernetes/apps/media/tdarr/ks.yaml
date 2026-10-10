@@ -11,6 +11,10 @@ spec:
   dependsOn:
     - name: external-secrets-openbao-store
       namespace: external-secrets
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   interval: 1h
   path: ./kubernetes/apps/media/tdarr/app
   prune: true
@@ -49,3 +53,12 @@ spec:
       VOLSYNC_COPYMETHOD: Snapshot
       VOLSYNC_LOCAL_SCHEDULE: "30 */4 * * *"
       VOLSYNC_R2_SCHEDULE: "33 5 * * *"
+      # kopiur (components/kopiur), W7. Landed one PR BEFORE the component so the
+      # SnapshotSchedules are created with these crons, not the component's
+      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # H picks a minute per schedule; the hours match VolSync's old ones.
+      KOPIUR_LOCAL_CRON: "H */4 * * *"
+      KOPIUR_R2_CRON: "H 5 * * *"
+      # Snapshot: Tdarr holds the RWO volume, and it carries Tdarr's SQLite.
+      KOPIUR_COPYMETHOD: Snapshot
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass

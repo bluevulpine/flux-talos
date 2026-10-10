@@ -13,6 +13,10 @@ spec:
       namespace: database
     - name: external-secrets-openbao-store
       namespace: external-secrets
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   interval: 1h
   path: ./kubernetes/apps/develop/gitea/app
   prune: true
@@ -36,4 +40,18 @@ spec:
       VOLSYNC_CLONE_STORAGECLASS: tns-csi-nfs
       VOLSYNC_LOCAL_SCHEDULE: "18,48 * * * *"
       VOLSYNC_R2_SCHEDULE: "3 1 * * *"
-
+      # kopiur (components/kopiur), W7. Landed one PR BEFORE the component so the
+      # SnapshotSchedules are created with these crons, not the component's
+      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # Twice-hourly: explicit minutes (kopiur has no stepped H). :1/:31 is the
+      # next free pair in the fleet's odd-minute ladder (:7 .. :29 taken), and is
+      # clear of VolSync's :18/:48 during the parallel run.
+      KOPIUR_LOCAL_CRON: "1,31 * * * *"
+      # H picks a minute; the hour matches VolSync's old R2 run.
+      KOPIUR_R2_CRON: "H 1 * * *"
+      # Direct, as VolSync already was. Repos are git's own files, written
+      # atomically; the LevelDB queue (queues/common) is transient.
+      # The volume is tns-csi-nfs RWX, so the mover co-mounts it with no
+      # staged clone, which keeps it clear of tns-csi's non-idempotent
+      # CreateVolume (runbook Sequence step 7).
+      KOPIUR_COPYMETHOD: Direct

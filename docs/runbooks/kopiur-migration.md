@@ -128,7 +128,9 @@ Key properties, all commented in the manifests:
    PVC there can hit the tns-csi `CreateVolume` idempotency bug (NFS and NVMe-oF alike),
    whose rollback deletes a Bound volume's dataset
    (`docs/tns-csi-idempotency-bug-report.md`; still present in v0.19.0). The tns-csi-nfs
-   apps already on Snapshot (frigate, readarr) are W7's decision, not this step's.
+   apps that were on Snapshot under VolSync (frigate, both readarrs) moved to `Direct` in W7
+   (2026-10-10): the readarrs' volumes hold no SQLite (Postgres-backed), and frigate's
+   `frigate.db` is safe only while frigate stays scaled to 0 (its `ks.yaml` says so).
 
 ## Per-app cutover
 
@@ -442,10 +444,10 @@ the `kopiur-pilot` Garage bucket and the OpenBao key `kopiur-pilot` by hand.
 | W6 | ai/hermes ⁷ | `23 * * * *` → `H * * * *` | `29 6 * * *` → `H 6 * * *` | Snapshot | longhorn-2-replica-local ⁶ | **staging.storageClassName: longhorn-1-replica patch** |
 | W6 | home/scrypted | `45 * * * *` → `H * * * *` | `11 5 * * *` → `H 5 * * *` | Snapshot | longhorn-2-replica-local ⁶ | cache 10Gi on `longhorn-1-replica-local`; **staging.storageClassName: longhorn-1-replica-local patch** (VolSync's clone class; free parity, though footnote ⁶ would allow inheriting at 10Gi) |
 | W6 | matrix/matrix-stack ⁷ | `47 */2 * * *` → `H */2 * * *` | `45 6 * * *` → `H 6 * * *` | Snapshot | longhorn-2-replica | `APP: synapse-media`, uid/gid/fsGroup 10091, **staging.storageClassName: longhorn-1-replica patch** ⁶, **namespace prerequisites** ⁷ |
-| W7 | develop/gitea | `18,48 * * * *` → `23,53 * * * *` ¹ | `3 1 * * *` → `H 1 * * *` | Direct | tns-csi-nfs |  |
-| W7 | home/frigate | `45 * * * *` → `H * * * *` | `57 0 * * *` → `H 0 * * *` | Snapshot | tns-csi-nfs |  |
-| W7 | media/readarr-audiobooks | `20 * * * *` → `H * * * *` | `33 4 * * *` → `H 4 * * *` | Snapshot | tns-csi-nfs |  |
-| W7 | media/readarr-ebooks | `25 * * * *` → `H * * * *` | `41 4 * * *` → `H 4 * * *` | Snapshot | tns-csi-nfs |  |
+| W7 | develop/gitea | `18,48 * * * *` → `1,31 * * * *` ¹ | `3 1 * * *` → `H 1 * * *` | Direct | tns-csi-nfs |  |
+| W7 | home/frigate | `45 * * * *` → `H * * * *` | `57 0 * * *` → `H 0 * * *` | **Direct** (was Snapshot; step 7) | tns-csi-nfs |  |
+| W7 | media/readarr-audiobooks | `20 * * * *` → `H * * * *` | `33 4 * * *` → `H 4 * * *` | **Direct** (was Snapshot; step 7) | tns-csi-nfs |  |
+| W7 | media/readarr-ebooks | `25 * * * *` → `H * * * *` | `41 4 * * *` → `H 4 * * *` | **Direct** (was Snapshot; step 7) | tns-csi-nfs |  |
 | W7 | media/tdarr | `30 */4 * * *` → `H */4 * * *` | `33 5 * * *` → `H 5 * * *` | Snapshot | longhorn-2-replica ⁴ ⁶ | **staging.storageClassName: longhorn-1-replica patch** ⁶ |
 | W8 | games/satisfactory | `55 * * * *` → `H * * * *` | `3 5 * * *` → `H 5 * * *` | Direct | tns-csi-nvmeof | uid/gid/fsGroup 1000 |
 | W8 | games/valheim | `58 * * * *` → `H * * * *` | `41 5 * * *` → `H 5 * * *` | Direct | tns-csi-nvmeof | uid/gid/fsGroup 1000 |
@@ -603,8 +605,8 @@ It has never had a restore gate; run one alongside W6's.
   alerted: `KopiurSnapshotStuckPending` watches `Pending` only and `KopiurBackupStale`
   fires at 48 h, the same as the deadline. Fixed by staging plex `ReadWriteOnce` and adding
   `KopiurSnapshotStuckRunning` (> 2 h; the longest normal run in 7 days was 70 min). plex
-  was the only Snapshot-copy app with an RWX source; W7's tns-csi RWX apps stage over the
-  NAS's NFS, not a share-manager. Its first retry also failed: the Longhorn snapshot was
+  was the only Snapshot-copy app with an RWX source; W7's tns-csi RWX apps are `Direct`, so
+  they stage nothing. Its first retry also failed: the Longhorn snapshot was
   marked `removed` before it became ready, so the VolumeSnapshot never did, and it failed
   at the 30m staging timeout, freeing the schedule for the next slot.
 - **Never put a `${…}` token in a `ks.yaml` comment.** `cluster-apps` runs postBuild

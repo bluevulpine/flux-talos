@@ -15,6 +15,10 @@ spec:
       namespace: external-secrets
     - name: rreading-glasses
       namespace: media
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   interval: 1h
   path: ./kubernetes/apps/media/readarr-audiobooks/app
   prune: true
@@ -38,3 +42,15 @@ spec:
       VOLSYNC_COPYMETHOD: Snapshot
       VOLSYNC_LOCAL_SCHEDULE: "20 * * * *"
       VOLSYNC_R2_SCHEDULE: "33 4 * * *"
+      # kopiur (components/kopiur), W7. Landed one PR BEFORE the component so the
+      # SnapshotSchedules are created with these crons, not the component's
+      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # H picks a minute per schedule; the hours match VolSync's old ones.
+      KOPIUR_LOCAL_CRON: "H * * * *"
+      KOPIUR_R2_CRON: "H 4 * * *"
+      # Direct: the volume is tns-csi-nfs RWX, so the mover co-mounts it with no
+      # staged clone, which keeps it clear of tns-csi's non-idempotent
+      # CreateVolume (runbook Sequence step 7).
+      # Safe here: the database is Postgres, and the volume holds only config
+      # and logs (no SQLite).
+      KOPIUR_COPYMETHOD: Direct
