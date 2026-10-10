@@ -444,7 +444,7 @@ the `kopiur-pilot` Garage bucket and the OpenBao key `kopiur-pilot` by hand.
 | W6 | ai/hermes ⁷ | `23 * * * *` → `H * * * *` | `29 6 * * *` → `H 6 * * *` | Snapshot | longhorn-2-replica-local ⁶ | **staging.storageClassName: longhorn-1-replica patch** |
 | W6 | home/scrypted | `45 * * * *` → `H * * * *` | `11 5 * * *` → `H 5 * * *` | Snapshot | longhorn-2-replica-local ⁶ | cache 10Gi on `longhorn-1-replica-local`; **staging.storageClassName: longhorn-1-replica-local patch** (VolSync's clone class; free parity, though footnote ⁶ would allow inheriting at 10Gi) |
 | W6 | matrix/matrix-stack ⁷ | `47 */2 * * *` → `H */2 * * *` | `45 6 * * *` → `H 6 * * *` | Snapshot | longhorn-2-replica | `APP: synapse-media`, uid/gid/fsGroup 10091, **staging.storageClassName: longhorn-1-replica patch** ⁶, **namespace prerequisites** ⁷ |
-| W7 | develop/gitea | `18,48 * * * *` → `1,31 * * * *` ¹ | `3 1 * * *` → `H 1 * * *` | Direct | tns-csi-nfs |  |
+| W7 | develop/gitea | `18,48 * * * *` → `24,54 * * * *` ¹ (+6: +5 is paperclip's) | `3 1 * * *` → `H 1 * * *` | Direct | tns-csi-nfs |  |
 | W7 | home/frigate | `45 * * * *` → `H * * * *` | `57 0 * * *` → `H 0 * * *` | **Direct** (was Snapshot; step 7) | tns-csi-nfs |  |
 | W7 | media/readarr-audiobooks | `20 * * * *` → `H * * * *` | `33 4 * * *` → `H 4 * * *` | **Direct** (was Snapshot; step 7) | tns-csi-nfs |  |
 | W7 | media/readarr-ebooks | `25 * * * *` → `H * * * *` | `41 4 * * *` → `H 4 * * *` | **Direct** (was Snapshot; step 7) | tns-csi-nfs |  |

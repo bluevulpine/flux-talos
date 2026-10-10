@@ -43,10 +43,12 @@ spec:
       # kopiur (components/kopiur), W7. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # Twice-hourly: explicit minutes (kopiur has no stepped H). :1/:31 is the
-      # next free pair in the fleet's odd-minute ladder (:7 .. :29 taken), and is
-      # clear of VolSync's :18/:48 during the parallel run.
-      KOPIUR_LOCAL_CRON: "1,31 * * * *"
+      # Twice-hourly: explicit minutes (kopiur has no stepped H). The 20m forward
+      # jitter means a pin fires anywhere in [pin, pin+20m), so to keep VolSync's
+      # :18/:48 out of both windows the pin must sit in :19-:28 (runbook footnote
+      # 1). VolSync's +5 (:23) is paperclip's and every odd minute there is taken,
+      # so :24/:54 (+6); its windows [:24,:44) and [:54,:14) miss :18 and :48.
+      KOPIUR_LOCAL_CRON: "24,54 * * * *"
       # H picks a minute; the hour matches VolSync's old R2 run.
       KOPIUR_R2_CRON: "H 1 * * *"
       # Direct, as VolSync already was. Repos are git's own files, written
