@@ -90,13 +90,77 @@ spec:
   compression:
     - type: Gzip
     - type: Brotli
-  targetSelectors:
+  # Named, not a selector: two BackendTrafficPolicies on one Gateway do not
+  # merge (only xRoute-targeted policies support mergeType), so external-direct
+  # carries its own copy of these settings plus a login rate limit in
+  # envoy-backend-policy-direct below. A new gateway must be added here.
+  targetRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
+      name: external
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: internal
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: external-pangolin
   tcpKeepalive: {}
   timeout:
     http:
       requestTimeout: 0s
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.envoyproxy.io/backendtrafficpolicy_v1alpha1.json
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: envoy-backend-policy-direct
+  namespace: network
+spec:
+  # Keep in step with envoy-backend-policy above. requestTimeout: 0s matters
+  # most: without it Envoy's default 15s route timeout cuts long streams.
+  compression:
+    - type: Gzip
+    - type: Brotli
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: external-direct
+  tcpKeepalive: {}
+  timeout:
+    http:
+      requestTimeout: 0s
+  # external-direct is the one door with nothing (Cloudflare, Pangolin) in front,
+  # so Jellyfin's per-user lockout was the only brake on password guessing.
+  # Cap login and password-reset POSTs per client IP; excess gets HTTP 429.
+  # The client IP is the real peer (envoy-client-policy-direct trusts no XFF).
+  # - Regex, case-insensitive: Jellyfin routes ignore case, so a plain
+  #   PathPrefix on /Users/AuthenticateByName is bypassed by /users/...; the
+  #   optional /emby prefix covers its legacy route aliases.
+  # - Envoy regexes are FULL-match against :path (query string included), not
+  #   a search: the trailing .* is what makes this cover AuthenticateByName,
+  #   AuthenticateWithQuickConnect, ForgotPassword/Pin and ?query variants.
+  #   Without it only the bare /Users/Authenticate (no such endpoint) matched.
+  # - Local, not Global: each of the 2 Envoy replicas counts separately, so the
+  #   effective cap is up to 2x. Global (Redis/Dragonfly-backed) would be exact
+  #   but adds a ratelimit service and a login-path dependency on Dragonfly.
+  # - Per-IP local limits (sourceCIDR Distinct) were verified accepted by
+  #   EG v1.9.2 on a throwaway policy before this was written.
+  rateLimit:
+    type: Local
+    local:
+      rules:
+        - clientSelectors:
+            - path:
+                type: RegularExpression
+                value: "(?i)^(/emby)?/users/(authenticate|forgotpassword).*"
+              methods:
+                - value: POST
+              sourceCIDR:
+                type: Distinct
+                value: 0.0.0.0/0
+          limit:
+            requests: 5
+            unit: Minute
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.envoyproxy.io/clienttrafficpolicy_v1alpha1.json
 apiVersion: gateway.envoyproxy.io/v1alpha1
