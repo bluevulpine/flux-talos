@@ -457,6 +457,35 @@ spec:
                     reasoning:
                       enabled: false
 
+              # --- hosted, by name: GLM-5.3-Flash on Nous Portal ---
+              # Not a fallback and not on the Spark: a 320B/18B-active MoE that
+              # needs two Sparks (sparkrun's recipe is TP=2 at 98 GB each), reached
+              # on Nous's credits instead. Named after the model because choosing
+              # this route IS choosing the model; `spark-main` stays the neutral
+              # default. Same key and privacy posture as the fallback above: every
+              # prompt leaves the house, via whichever upstream Nous routes to.
+              #
+              # Verified 2026-10-10 with the key: plain reply, strict json_schema
+              # (nested object, enum, nullable), and a tool call all worked; text,
+              # image and video in; $0.12 / $0.40 per million tokens. There is a
+              # `z-ai/glm-5.3-flash:US` at about 2x that if US-only hosting ever
+              # matters.
+              #
+              # Reasoning CANNOT be disabled on this model ("Reasoning is mandatory
+              # for this endpoint", HTTP 400 on reasoning.enabled=false), so the
+              # cheap mode is reasoning_effort: low -- 0 reasoning tokens for a
+              # one-word reply against 93 at the default. Set here as the route's
+              # default; a caller that sends its own reasoning_effort overrides it.
+              #
+              # Not in any virtual key yet: add it per consumer with /key/update.
+              - model_name: nous-glm53-flash
+                litellm_params:
+                  model: openai/z-ai/glm-5.3-flash
+                  api_base: https://inference-api.nousresearch.com/v1
+                  api_key: os.environ/NOUS_API_KEY
+                  extra_body:
+                    reasoning_effort: low
+
             litellm_settings:
               drop_params: true
               # Response cache in the shared dragonfly, OPT-IN ONLY (default_off).
