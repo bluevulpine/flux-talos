@@ -35,32 +35,23 @@ spec:
       VOLSYNC_CAPACITY: 20Gi
       # Agent state: config, .env, SOUL.md, sessions, memories, skills, cron.
       # Hourly local, nightly R2 — it accretes slowly but is expensive to lose.
-      VOLSYNC_LOCAL_SCHEDULE: "23 * * * *"
-      # Continues the 8-minute grid: 06:13 -> 06:21 -> 06:29. Was 06:05, which
-      # collided exactly with media/bazarr and media/radarr locals. Pick a slot
-      # against LOCAL movers too, not just other R2 sources -- the grid in
-      # components/volsync/r2.yaml only spaces R2 from R2, which is how #1736
-      # ended up clearing eleven exact collisions. Minute 29 is free of both.
-      VOLSYNC_R2_SCHEDULE: "29 6 * * *"
       # Two replicas, node-local best-effort: dataLocality best-effort keeps ONE
       # replica on the pod's node without the hard pin of strict-local, so a Talos
       # drain can still move the agent and rebuild locally; the second replica sits
-      # on another node. VolSync is still the backup, but a drain no longer leaves
-      # the agent's only live copy on a single disk. Clone/cache stay 1-replica
-      # (throwaway mover volumes).
+      # on another node. kopiur is the backup, but a drain no longer leaves the
+      # agent's only live copy on a single disk. Staged clones stay 1-replica
+      # (app/kustomization.yaml staging patch).
       VOLSYNC_STORAGECLASS: longhorn-2-replica-local
-      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
-      # RWO + Snapshot: the mover cannot co-mount an RWO volume the agent holds,
-      # and a Direct copy would read a live SQLite state.db mid-write.
       VOLSYNC_ACCESSMODES: ReadWriteOnce
-      VOLSYNC_COPYMETHOD: Snapshot
       # kopiur (components/kopiur), W6. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # H picks a minute per schedule; the hours match VolSync's.
+      # H picks a minute per schedule; the hours match VolSync's old ones.
       KOPIUR_LOCAL_CRON: "H * * * *"
       KOPIUR_R2_CRON: "H 6 * * *"
-      # Snapshot, as VolSync: see the RWO + Snapshot note above.
+      # RWO + Snapshot: the mover cannot co-mount an RWO volume the agent holds,
+      # and a Direct copy would read a live SQLite state.db mid-write.
+      # kopia skips the uv/cargo caches (CACHEDIR.TAG) and the gateway sockets:
+      # a restore re-downloads the caches (W6 restore gate, runbook).
       KOPIUR_COPYMETHOD: Snapshot
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass

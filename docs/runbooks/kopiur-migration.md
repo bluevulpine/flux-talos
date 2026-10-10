@@ -4,8 +4,7 @@
 (jellyseerr, recyclarr, #1934) and W1 (8 apps, #1941) are cut over: kopiur is their only
 backup, and the fork's path-scope retention is cleared in both repositories (all six `keep-*`
 inherited). W2 (11 apps, #1959) is cut over too. W3 (10 apps, #2058) is cut over too. W4 (4 apps, #2074)
-is cut over too. W5 (jellyfin, plex) is cut over too. W6 (hermes, scrypted, matrix) is in its parallel run,
-with its `KOPIUR_*` vars and `matrix`'s namespace onboarding landed one PR earlier (#2115); W7–W8 not started.** Every restore needs added capabilities (see
+is cut over too. W5 (jellyfin, plex) is cut over too. W6 (hermes, scrypted, matrix) is cut over too. W7–W8 not started.** Every restore needs added capabilities (see
 "Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
@@ -15,7 +14,7 @@ evidence.
 | Pilots (`media/recyclarr-kopiur-pilot`, `media/jellyseerr-kopiur-pilot`) | passed 4/4 and 5/5; **retired 2026-09-24** after W0 passed its gates. Their READMEs (verdicts, the SQLite integrity method) are at `b625ac57:kubernetes/apps/media/{recyclarr,jellyseerr}-kopiur-pilot/README.md` |
 | PR #1870 — component split + `components/kopiur` | **merged** 2026-09-22 (eab49e12); verified inert live: all Kustomizations Ready on it, all 93 ReplicationSources intact. No app includes `components/kopiur` yet |
 | Two `ClusterRepository` + 18 `ExternalSecret` | **landed** 2026-09-22 (#1879, e4539596), plus the `kopiur-system` Pod Security fix (#1880). Both `Ready`, all 18 secrets synced; catalog scanned 2026-09-23. See "The repositories" |
-| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 cut over 2026-09-25** (#1941, 17:00Z): autobrr, cross-seed, ev-charge-ledger, ev-charge-tracker, calibre-web, notifiarr, sportarr and tautulli are backed up by kopiur only; path-scope retention cleared in both repositories, 16/16 legs PASS. Parallel run from 2026-09-24 (#1936); per-app gates 1–4 (cross-seed-r2 via a manual Snapshot) and the restore gate (calibre-web) passed (#1939). **W2 cut over 2026-09-26** (#1959, 06:52Z): 11 apps on kopiur only; path-scope retention cleared, 22/22 legs PASS. Parallel run from 2026-09-25 (#1953), vars landed one PR earlier (#1950), so no schedule race; the first local runs failed PermissionDenied until #1957 gave the mover `DAC_OVERRIDE`; gates 11/11 and the restore gate (grocy) passed. **W3 cut over 2026-10-04** (#2058): 10 apps on kopiur only (parallel run from 2026-10-01, #2017; vars first, #1974, which also added kometa's missing `NS`); gates 10/10 and two restore gates passed (bazarr on `longhorn-2-replica`, kometa on `longhorn-1-replica`). **W4 cut over 2026-10-05**: couchdb, influxdb, timescaledb and vaultwarden on kopiur only (parallel run from 2026-10-05, #2063; vars first, #2060); gates 4/4 (couchdb-r2 via a manual Snapshot) and the restore gate (vaultwarden, `longhorn-2-replica`) passed. **W5 cut over 2026-10-06**: jellyfin and plex on kopiur only (parallel run from 2026-10-05, #2079, with the 1-replica staging patch; vars first, #2077); gates 2/2 on both legs (R2 legs via manual Snapshots) and the restore gate (jellyfin, `longhorn-2-replica`) passed. **W6 parallel run** from 2026-10-10: hermes, scrypted, matrix with `components/kopiur` beside `volsync-backup` and per-app staging patches; vars and `matrix`'s namespace onboarding landed first (#2115). W7–W8 not started |
+| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 cut over 2026-09-25** (#1941, 17:00Z): autobrr, cross-seed, ev-charge-ledger, ev-charge-tracker, calibre-web, notifiarr, sportarr and tautulli are backed up by kopiur only; path-scope retention cleared in both repositories, 16/16 legs PASS. Parallel run from 2026-09-24 (#1936); per-app gates 1–4 (cross-seed-r2 via a manual Snapshot) and the restore gate (calibre-web) passed (#1939). **W2 cut over 2026-09-26** (#1959, 06:52Z): 11 apps on kopiur only; path-scope retention cleared, 22/22 legs PASS. Parallel run from 2026-09-25 (#1953), vars landed one PR earlier (#1950), so no schedule race; the first local runs failed PermissionDenied until #1957 gave the mover `DAC_OVERRIDE`; gates 11/11 and the restore gate (grocy) passed. **W3 cut over 2026-10-04** (#2058): 10 apps on kopiur only (parallel run from 2026-10-01, #2017; vars first, #1974, which also added kometa's missing `NS`); gates 10/10 and two restore gates passed (bazarr on `longhorn-2-replica`, kometa on `longhorn-1-replica`). **W4 cut over 2026-10-05**: couchdb, influxdb, timescaledb and vaultwarden on kopiur only (parallel run from 2026-10-05, #2063; vars first, #2060); gates 4/4 (couchdb-r2 via a manual Snapshot) and the restore gate (vaultwarden, `longhorn-2-replica`) passed. **W5 cut over 2026-10-06**: jellyfin and plex on kopiur only (parallel run from 2026-10-05, #2079, with the 1-replica staging patch; vars first, #2077); gates 2/2 on both legs (R2 legs via manual Snapshots) and the restore gate (jellyfin, `longhorn-2-replica`) passed. **W6 cut over 2026-10-10**: hermes, scrypted and matrix on kopiur only (parallel run from 2026-10-10, #2116, with per-app staging patches; vars and `matrix`'s namespace onboarding first, #2115); gates 3/3 on both legs and two restore gates passed (hermes on `longhorn-2-replica-local`, matrix on `longhorn-2-replica`), plus matrix-bluevulpine's first. W7–W8 not started |
 
 ## Why kopiur
 
@@ -326,6 +325,26 @@ all three pairs. The kit now prints `-` for directory size (`kopiur-restore-veri
 it already treats directory mtimes as informational. Kit: `.handoff/w5-restore-jellyfin`
 (post-snapshot rule per leg, since jellyfin writes continuously and the legs were 35 min
 apart; pinned to brokkr01, RWO).
+
+**W6 results (2026-10-10, two classes plus matrix-bluevulpine).** Kits in `.handoff/w6-restore-*`.
+- **matrix (`longhorn-2-replica`):** `synapse-media-local-20261010062650` and
+  `synapse-media-r2-20261010064922`. 384 files / 795 entries, all `10091:10091`; 0 differing
+  paths in every pair.
+- **hermes (`longhorn-2-replica-local`, also scrypted's class):** `hermes-local-20261010055608`
+  and `hermes-r2-20261010065500`. local vs R2: 22 differing paths, all changed after the earlier
+  snapshot; owners `10000:10000` identical; all 12 SQLite databases (`state.db` and the
+  profiles' too) `integrity_check` `ok` on both legs. **Live has 116,209 files, the backups
+  70,656**: all 52,921 missing paths are inside `CACHEDIR.TAG` directories (uv's and cargo's
+  caches, which kopia skips by design) except 2 Unix sockets, checked path by path. A restored
+  hermes re-downloads those caches; nothing else is missing.
+- **matrix-bluevulpine (`longhorn-2-replica`, kopiur-native, never gated before):**
+  `synapse-media-local-20261009062637` and `synapse-media-r2-20261009065024`. 8 files / 26
+  entries, all `10091:10091`; 0 differing paths in every pair.
+- The kits' first matrix-bluevulpine verdict was a false FAIL: on a **perfect** match, the
+  `grep` in `diffpaths` exits 1 and `pipefail` failed the step. Fixed with `|| true`.
+- hermes-r2's first staging took 481 s, within 2 min of the 10m default (VolSync's hermes-r2
+  ran ~8 min end to end). One sample, so no change; raise `KOPIUR_STAGING_TIMEOUT` if it
+  ever times out.
 
 #### Restores need capabilities, not just root
 

@@ -12,18 +12,16 @@ resources:
   - ./ciliumnetworkpolicy.yaml
 components:
   - ../../../../components/volsync-claim
-  - ../../../../components/volsync-backup
-  # kopiur parallel run (W6, docs/runbooks/kopiur-migration.md): both engines
-  # back up this PVC under the same kopia identity until the per-app gates
-  # pass, then volsync-backup is removed. volsync-claim stays: it owns the PVC.
+  # kopiur backs this PVC up (W6 cutover, docs/runbooks/kopiur-migration.md).
+  # volsync-claim stays: it owns the PVC and its (now inert) dataSourceRef.
   - ../../../../components/kopiur
 
 patches:
-  # Stage kopiur's snapshot clones on longhorn-1-replica, VolSync's clone class
-  # (VOLSYNC_CLONE_STORAGECLASS). A staged PVC otherwise inherits the source
-  # class, longhorn-2-replica-local here, so every run would clone a 20Gi
-  # 2-replica volume only to read it once and delete it
-  # (runbook waves table, footnote 6; same patch as plex/jellyfin).
+  # Stage kopiur's snapshot clones on longhorn-1-replica, VolSync's old clone
+  # class. A staged PVC otherwise inherits the source class,
+  # longhorn-2-replica-local here, so every run would clone a 20Gi 2-replica
+  # volume only to read it once and delete it (runbook waves table, footnote 6;
+  # same patch as plex/jellyfin).
   - target:
       group: kopiur.home-operations.com
       kind: SnapshotPolicy
@@ -36,6 +34,9 @@ patches:
   # docs/runbooks/volsync-app-namespace-move.md, "Retiring the permanent pin"); on
   # this cluster Flux skips it because it already exists. This replaces the
   # temporary `volumeName` pin used to move the claim to its current StorageClass.
+  # kopiur app: the claim's dataSourceRef points at a VolSync RD that is no longer
+  # deployed (inert), so a rebuild restores via kopiur, NOT the VolSync DR path
+  # (docs/runbooks/kopiur-migration.md).
   # Consequences -- read before editing:
   #  1. NEVER remove this annotation while the claim exists: Flux owns
   #     f:volumeName, so the next apply without it stalls on the immutable field.
