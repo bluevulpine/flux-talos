@@ -352,7 +352,7 @@ apart; pinned to brokkr01, RWO).
 Snapshots (`<app>-r2-manual-w7-gate`), local legs the newest scheduled run before them.
 - **gitea (`tns-csi-nfs`, Direct from a live RWX writer; also frigate's and the readarrs'
   class):** `gitea-local-20261010155456` and `gitea-r2-manual-w7-gate`. 3,716 files / 6,394
-  entries, owners `1000:0` (6,386) and `1000:1000` (8) identical on all three; 1 differing
+  entries, owners `1000:0` (6,386) and `1000:1000` (8) identical on live, local and R2; 1 differing
   path in each pair, changed after the snapshot. Restored onto a fresh `tns-csi-nfs` PVC
   (plain `CreateVolume`, no content source, so outside the idempotency bug).
 - **tdarr (`longhorn-2-replica`, Snapshot staged on `longhorn-1-replica`):**
@@ -366,6 +366,9 @@ Snapshots (`<app>-r2-manual-w7-gate`), local legs the newest scheduled run befor
   (`|| true` on the `grep`) only covered the perfect-match case. Fixed with `true;` at the end
   of the brace group in every `.handoff` kit; re-ran the compare only: both PASS. The bug can
   only produce false FAILs, never a false PASS, so earlier verdicts stand.
+- **frigate is `Direct` only while it is scaled to 0** (`config/frigate.db` is SQLite, WAL).
+  kopiur is now its only backup, so reviving frigate must come with `KOPIUR_COPYMETHOD:
+  Snapshot` (or a move off SQLite) in the same change.
 
 #### Restores need capabilities, not just root
 
