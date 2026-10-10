@@ -136,6 +136,10 @@ spec:
   # - Regex, case-insensitive: Jellyfin routes ignore case, so a plain
   #   PathPrefix on /Users/AuthenticateByName is bypassed by /users/...; the
   #   optional /emby prefix covers its legacy route aliases.
+  # - Envoy regexes are FULL-match against :path (query string included), not
+  #   a search: the trailing .* is what makes this cover AuthenticateByName,
+  #   AuthenticateWithQuickConnect, ForgotPassword/Pin and ?query variants.
+  #   Without it only the bare /Users/Authenticate (no such endpoint) matched.
   # - Local, not Global: each of the 2 Envoy replicas counts separately, so the
   #   effective cap is up to 2x. Global (Redis/Dragonfly-backed) would be exact
   #   but adds a ratelimit service and a login-path dependency on Dragonfly.
@@ -148,7 +152,7 @@ spec:
         - clientSelectors:
             - path:
                 type: RegularExpression
-                value: "(?i)^(/emby)?/users/(authenticate|forgotpassword)"
+                value: "(?i)^(/emby)?/users/(authenticate|forgotpassword).*"
               methods:
                 - value: POST
               sourceCIDR:
