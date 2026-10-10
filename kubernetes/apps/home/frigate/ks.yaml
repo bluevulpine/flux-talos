@@ -15,6 +15,10 @@ spec:
       namespace: external-secrets
     - name: mosquitto
       namespace: home
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   interval: 1h
   path: ./kubernetes/apps/home/frigate/app
   prune: true
@@ -38,4 +42,16 @@ spec:
       VOLSYNC_COPYMETHOD: Snapshot
       VOLSYNC_LOCAL_SCHEDULE: "45 * * * *"
       VOLSYNC_R2_SCHEDULE: "57 0 * * *"
-
+      # kopiur (components/kopiur), W7. Landed one PR BEFORE the component so the
+      # SnapshotSchedules are created with these crons, not the component's
+      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # H picks a minute per schedule; the hours match VolSync's old ones.
+      KOPIUR_LOCAL_CRON: "H * * * *"
+      KOPIUR_R2_CRON: "H 0 * * *"
+      # Direct: the volume is tns-csi-nfs RWX, so the mover co-mounts it with no
+      # staged clone, which keeps it clear of tns-csi's non-idempotent
+      # CreateVolume (runbook Sequence step 7).
+      # SAFE ONLY WHILE FRIGATE IS SCALED TO 0: config/frigate.db is SQLite (WAL),
+      # and a Direct copy under a live writer can capture a torn database. If
+      # frigate comes back, move it off SQLite or switch this to Snapshot.
+      KOPIUR_COPYMETHOD: Direct
