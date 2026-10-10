@@ -36,15 +36,11 @@ spec:
       GATUS_SERVICE: frigate
       VOLSYNC_CAPACITY: 10Gi
       VOLSYNC_STORAGECLASS: tns-csi-nfs
-      VOLSYNC_CLONE_STORAGECLASS: tns-csi-nfs
-      VOLSYNC_SNAPSHOTCLASS: tns-csi-nfs-snapshot
       VOLSYNC_ACCESSMODES: ReadWriteMany
-      VOLSYNC_COPYMETHOD: Snapshot
-      VOLSYNC_LOCAL_SCHEDULE: "45 * * * *"
-      VOLSYNC_R2_SCHEDULE: "57 0 * * *"
-      # kopiur (components/kopiur), W7. Landed one PR BEFORE the component so the
-      # SnapshotSchedules are created with these crons, not the component's
-      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # kopiur (components/kopiur), the only backup since the W7 cutover. These
+      # vars landed one PR BEFORE the component so the SnapshotSchedules were
+      # created with these crons, not the component's defaults (runbook trap: a
+      # cron change does not re-pin a pending slot).
       # H picks a minute per schedule; the hours match VolSync's old ones.
       KOPIUR_LOCAL_CRON: "H * * * *"
       KOPIUR_R2_CRON: "H 0 * * *"

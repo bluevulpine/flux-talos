@@ -37,25 +37,22 @@ spec:
       VOLSYNC_CAPACITY: 20Gi
       # No longer "low criticality, regenerates": as of 2026-09-02 this claim
       # holds the library definitions and flows, which are hand-built and do not
-      # regenerate. Backup every 4 hours (staggered +30min).
+      # regenerate. Backup every 4 hours (KOPIUR_LOCAL_CRON below).
       #
       # Longhorn RWO, not tns-csi-nfs RWX, since 2026-09-25. The claim carries
       # Tdarr's SQLite database (DB2/SQL/database.db), and SQLite on NFS stalled
       # the whole server. On 2026-09-25, 1 in 5 poll-worker-limits calls took
       # 20-35s against a normal ~0.1s, and the node logs showed 68 >30s timeouts
       # in 3h. That held from the external node AND from inside the pod on
-      # 0.0.0.0, so it was not the network, and the server CPU sat idle. Same failure and same fix as jellyfin (#1703). RWO specifically:
-      # Longhorn RWX is itself NFS, via a share-manager pod.
+      # 0.0.0.0, so it was not the network, and the server CPU sat idle. Same
+      # failure and same fix as jellyfin (#1703). RWO specifically: Longhorn RWX is
+      # itself NFS, via a share-manager pod.
       VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_CLONE_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_SNAPSHOTCLASS: longhorn-snapclass
       VOLSYNC_ACCESSMODES: ReadWriteOnce
-      VOLSYNC_COPYMETHOD: Snapshot
-      VOLSYNC_LOCAL_SCHEDULE: "30 */4 * * *"
-      VOLSYNC_R2_SCHEDULE: "33 5 * * *"
-      # kopiur (components/kopiur), W7. Landed one PR BEFORE the component so the
-      # SnapshotSchedules are created with these crons, not the component's
-      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # kopiur (components/kopiur), the only backup since the W7 cutover. These
+      # vars landed one PR BEFORE the component so the SnapshotSchedules were
+      # created with these crons, not the component's defaults (runbook trap: a
+      # cron change does not re-pin a pending slot).
       # H picks a minute per schedule; the hours match VolSync's old ones.
       KOPIUR_LOCAL_CRON: "H */4 * * *"
       KOPIUR_R2_CRON: "H 5 * * *"
