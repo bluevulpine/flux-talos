@@ -573,6 +573,19 @@ It has never had a restore gate; run one alongside W6's.
   **admits** that: the empty field drops out and kopiur falls back to its default hostname
   (the namespace). So the identity comes out right by accident, not through the explicit
   pin the design relies on. Add `NS` to the `ks.yaml` in the app's own wave (table ³).
+- **A staged clone of an RWX claim is served over NFS from a share-manager, which can
+  land on a Pi.** `staging.accessModes` defaults to the source's modes. plex's claim is
+  RWX (Snapshot copy), so every staged clone got a Longhorn share-manager; on 2026-10-08
+  it landed on `jormungandr1`, the mover hung on its first NFS reads of 100Gi / 175k
+  files, and with `concurrencyPolicy: Forbid` it held plex's local schedule for **48 h**
+  until the Job's deadline. R2 kept running, so plex was never wholly unprotected. Nothing
+  alerted: `KopiurSnapshotStuckPending` watches `Pending` only and `KopiurBackupStale`
+  fires at 48 h, the same as the deadline. Fixed by staging plex `ReadWriteOnce` and adding
+  `KopiurSnapshotStuckRunning` (> 2 h; the longest normal run in 7 days was 70 min). plex
+  was the only Snapshot-copy app with an RWX source; W7's tns-csi RWX apps stage over the
+  NAS's NFS, not a share-manager. Its first retry also failed: the Longhorn snapshot was
+  marked `removed` before it became ready, so the VolumeSnapshot never did, and it failed
+  at the 30m staging timeout, freeing the schedule for the next slot.
 - **Never put a `${…}` token in a `ks.yaml` comment.** `cluster-apps` runs postBuild
   substitution over the `ks.yaml` files themselves.
 - **`sourcePathOverride: /data` is load-bearing.** kopiur's default is `/pvc/<name>`;
