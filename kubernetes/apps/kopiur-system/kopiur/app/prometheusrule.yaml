@@ -52,3 +52,22 @@ spec:
           for: 1h
           labels:
             severity: warning
+
+        # Stuck while running: a mover that hangs (e.g. on an NFS mount) holds
+        # its schedule under concurrencyPolicy Forbid until the Job's 48h
+        # deadline, and KopiurBackupStale only fires at 48h too, so nothing
+        # saw plex-local stall for 48h (2026-10-08..10). Backtested over 7 days:
+        # the longest normal run was 70 min (mealie), plex's 25-30 min; only
+        # that stalled run (2,880 min) crosses 2h.
+        - alert: KopiurSnapshotStuckRunning
+          annotations:
+            summary: >-
+              Snapshot {{ $labels.namespace }}/{{ $labels.name }} (policy
+              {{ $labels.policy }}) has been Running for over two hours; with
+              concurrencyPolicy Forbid its schedule fires nothing else until it
+              ends. Check the mover pod's logs and its staged volume's mount.
+          expr: |
+            max by (namespace, name, policy) (kopiur_resource_phase{kind="Snapshot", phase="Running"}) == 1
+          for: 2h
+          labels:
+            severity: warning

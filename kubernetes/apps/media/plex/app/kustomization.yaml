@@ -20,9 +20,16 @@ resources:
 patches:
   # Stage kopiur's snapshot clones on 1 replica, as VolSync did. A staged PVC
   # otherwise inherits the source class, and since the 2-replica re-bind every
-  # run would clone a 100Gi
-  # 2-REPLICA volume only to read it once and delete it (runbook waves table,
-  # footnote 6; same patch as matrix-bluevulpine).
+  # run would clone a 100Gi 2-REPLICA volume only to read it once and delete it
+  # (runbook waves table, footnote 6; same patch as matrix-bluevulpine).
+  #
+  # And stage it ReadWriteOnce. The staged PVC otherwise copies the source's
+  # access modes, and plex's claim is ReadWriteMany (see ks.yaml for why), so
+  # Longhorn served every clone over NFS from a share-manager pod, which can
+  # land on any node, Pis included. On 2026-10-08 it landed on jormungandr1:
+  # the mover mounted 100Gi / 175k files over NFS from a Pi, hung on its first
+  # reads, and held the schedule (concurrencyPolicy Forbid) for 48h until the
+  # Job's deadline. One pod reads the clone, so RWX bought nothing.
   - target:
       group: kopiur.home-operations.com
       kind: SnapshotPolicy
@@ -30,6 +37,10 @@ patches:
       - op: add
         path: /spec/staging/storageClassName
         value: longhorn-1-replica
+      - op: add
+        path: /spec/staging/accessModes
+        value:
+          - ReadWriteOnce
   # Moving the data claim to longhorn-2-replica WITHOUT a restore: storageClassName
   # is immutable on a bound PVC, so the claim is deleted (PV on Retain) and Flux
   # re-creates it pre-bound to the SAME Longhorn volume (already live-patched to 2
