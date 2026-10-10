@@ -17,10 +17,11 @@ components:
   - ../../../../components/kopiur
 
 patches:
-  # Stage kopiur's snapshot clones on longhorn-1-replica, VolSync's old clone class. A staged PVC otherwise inherits the source
-  # class, longhorn-2-replica-local here, so every run would clone a 20Gi
-  # 2-replica volume only to read it once and delete it
-  # (runbook waves table, footnote 6; same patch as plex/jellyfin).
+  # Stage kopiur's snapshot clones on longhorn-1-replica, VolSync's old clone
+  # class. A staged PVC otherwise inherits the source class,
+  # longhorn-2-replica-local here, so every run would clone a 20Gi 2-replica
+  # volume only to read it once and delete it (runbook waves table, footnote 6;
+  # same patch as plex/jellyfin).
   - target:
       group: kopiur.home-operations.com
       kind: SnapshotPolicy
