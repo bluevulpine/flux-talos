@@ -85,7 +85,8 @@ spec:
       # Snapshot: Synapse holds the RWO volume, so the mover cannot co-mount it.
       VOLSYNC_COPYMETHOD: Snapshot
       # Mover runs as Synapse's own uid/gid (chart default 10091) instead of root,
-      # so the namespace needs no privileged-movers annotation.
+      # so VolSync's movers need no privileged-movers annotation (kopiur's do:
+      # they always add DAC_OVERRIDE, see ../namespace.yaml).
       VOLSYNC_RUN_AS_USER: "10091"
       VOLSYNC_RUN_AS_GROUP: "10091"
       VOLSYNC_FS_GROUP: "10091"
