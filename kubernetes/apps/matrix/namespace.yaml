@@ -9,3 +9,8 @@ metadata:
     pod-security.kubernetes.io/audit: privileged
   annotations:
     kustomize.toolkit.fluxcd.io/prune: disabled
+    # kopiur refuses any mover with added capabilities unless the namespace opts
+    # in, and components/kopiur always adds DAC_OVERRIDE (#1957), so even
+    # Synapse's uid-10091 movers would sit Pending (PrivilegedMoverNotPermitted)
+    # without it; restores also run as root. See docs/runbooks/kopiur-migration.md.
+    kopiur.home-operations.com/privileged-movers: "true"

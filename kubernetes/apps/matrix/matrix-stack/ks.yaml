@@ -56,6 +56,10 @@ spec:
     - name: matrix-stack-db
     - name: external-secrets-openbao-store
       namespace: external-secrets
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   path: ./kubernetes/apps/matrix/matrix-stack/app
   prune: true
   sourceRef:
@@ -89,3 +93,15 @@ spec:
       # 06:45 continues the 06:xx R2 grid (13/21/29/37/53) without a collision.
       VOLSYNC_LOCAL_SCHEDULE: "47 */2 * * *"
       VOLSYNC_R2_SCHEDULE: "45 6 * * *"
+      # kopiur (components/kopiur), W6. Landed one PR BEFORE the component so the
+      # SnapshotSchedules are created with these crons, not the component's
+      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # H picks a minute per schedule; the hours match VolSync's.
+      KOPIUR_LOCAL_CRON: "H */2 * * *"
+      KOPIUR_R2_CRON: "H 6 * * *"
+      KOPIUR_COPYMETHOD: Snapshot
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
+      # Synapse's uid/gid, as VOLSYNC_RUN_AS_* (and matrix-bluevulpine).
+      KOPIUR_RUN_AS_USER: "10091"
+      KOPIUR_RUN_AS_GROUP: "10091"
+      KOPIUR_FS_GROUP: "10091"
