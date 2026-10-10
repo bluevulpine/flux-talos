@@ -4,7 +4,7 @@
 (jellyseerr, recyclarr, #1934) and W1 (8 apps, #1941) are cut over: kopiur is their only
 backup, and the fork's path-scope retention is cleared in both repositories (all six `keep-*`
 inherited). W2 (11 apps, #1959) is cut over too. W3 (10 apps, #2058) is cut over too. W4 (4 apps, #2074)
-is cut over too. W5 (jellyfin, plex) is cut over too. W6 (hermes, scrypted, matrix) is cut over too. W7–W8 not started.** Every restore needs added capabilities (see
+is cut over too. W5 (jellyfin, plex) is cut over too. W6 (hermes, scrypted, matrix) is cut over too. W7 (gitea, frigate, both readarrs, tdarr) is cut over too. W8 not started.** Every restore needs added capabilities (see
 "Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
@@ -14,7 +14,7 @@ evidence.
 | Pilots (`media/recyclarr-kopiur-pilot`, `media/jellyseerr-kopiur-pilot`) | passed 4/4 and 5/5; **retired 2026-09-24** after W0 passed its gates. Their READMEs (verdicts, the SQLite integrity method) are at `b625ac57:kubernetes/apps/media/{recyclarr,jellyseerr}-kopiur-pilot/README.md` |
 | PR #1870 — component split + `components/kopiur` | **merged** 2026-09-22 (eab49e12); verified inert live: all Kustomizations Ready on it, all 93 ReplicationSources intact. No app includes `components/kopiur` yet |
 | Two `ClusterRepository` + 18 `ExternalSecret` | **landed** 2026-09-22 (#1879, e4539596), plus the `kopiur-system` Pod Security fix (#1880). Both `Ready`, all 18 secrets synced; catalog scanned 2026-09-23. See "The repositories" |
-| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 cut over 2026-09-25** (#1941, 17:00Z): autobrr, cross-seed, ev-charge-ledger, ev-charge-tracker, calibre-web, notifiarr, sportarr and tautulli are backed up by kopiur only; path-scope retention cleared in both repositories, 16/16 legs PASS. Parallel run from 2026-09-24 (#1936); per-app gates 1–4 (cross-seed-r2 via a manual Snapshot) and the restore gate (calibre-web) passed (#1939). **W2 cut over 2026-09-26** (#1959, 06:52Z): 11 apps on kopiur only; path-scope retention cleared, 22/22 legs PASS. Parallel run from 2026-09-25 (#1953), vars landed one PR earlier (#1950), so no schedule race; the first local runs failed PermissionDenied until #1957 gave the mover `DAC_OVERRIDE`; gates 11/11 and the restore gate (grocy) passed. **W3 cut over 2026-10-04** (#2058): 10 apps on kopiur only (parallel run from 2026-10-01, #2017; vars first, #1974, which also added kometa's missing `NS`); gates 10/10 and two restore gates passed (bazarr on `longhorn-2-replica`, kometa on `longhorn-1-replica`). **W4 cut over 2026-10-05**: couchdb, influxdb, timescaledb and vaultwarden on kopiur only (parallel run from 2026-10-05, #2063; vars first, #2060); gates 4/4 (couchdb-r2 via a manual Snapshot) and the restore gate (vaultwarden, `longhorn-2-replica`) passed. **W5 cut over 2026-10-06**: jellyfin and plex on kopiur only (parallel run from 2026-10-05, #2079, with the 1-replica staging patch; vars first, #2077); gates 2/2 on both legs (R2 legs via manual Snapshots) and the restore gate (jellyfin, `longhorn-2-replica`) passed. **W6 cut over 2026-10-10**: hermes, scrypted and matrix on kopiur only (parallel run from 2026-10-10, #2116, with per-app staging patches; vars and `matrix`'s namespace onboarding first, #2115); gates 3/3 on both legs and two restore gates passed (hermes on `longhorn-2-replica-local`, matrix on `longhorn-2-replica`), plus matrix-bluevulpine's first. W7–W8 not started |
+| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 cut over 2026-09-25** (#1941, 17:00Z): autobrr, cross-seed, ev-charge-ledger, ev-charge-tracker, calibre-web, notifiarr, sportarr and tautulli are backed up by kopiur only; path-scope retention cleared in both repositories, 16/16 legs PASS. Parallel run from 2026-09-24 (#1936); per-app gates 1–4 (cross-seed-r2 via a manual Snapshot) and the restore gate (calibre-web) passed (#1939). **W2 cut over 2026-09-26** (#1959, 06:52Z): 11 apps on kopiur only; path-scope retention cleared, 22/22 legs PASS. Parallel run from 2026-09-25 (#1953), vars landed one PR earlier (#1950), so no schedule race; the first local runs failed PermissionDenied until #1957 gave the mover `DAC_OVERRIDE`; gates 11/11 and the restore gate (grocy) passed. **W3 cut over 2026-10-04** (#2058): 10 apps on kopiur only (parallel run from 2026-10-01, #2017; vars first, #1974, which also added kometa's missing `NS`); gates 10/10 and two restore gates passed (bazarr on `longhorn-2-replica`, kometa on `longhorn-1-replica`). **W4 cut over 2026-10-05**: couchdb, influxdb, timescaledb and vaultwarden on kopiur only (parallel run from 2026-10-05, #2063; vars first, #2060); gates 4/4 (couchdb-r2 via a manual Snapshot) and the restore gate (vaultwarden, `longhorn-2-replica`) passed. **W5 cut over 2026-10-06**: jellyfin and plex on kopiur only (parallel run from 2026-10-05, #2079, with the 1-replica staging patch; vars first, #2077); gates 2/2 on both legs (R2 legs via manual Snapshots) and the restore gate (jellyfin, `longhorn-2-replica`) passed. **W6 cut over 2026-10-10**: hermes, scrypted and matrix on kopiur only (parallel run from 2026-10-10, #2116, with per-app staging patches; vars and `matrix`'s namespace onboarding first, #2115); gates 3/3 on both legs and two restore gates passed (hermes on `longhorn-2-replica-local`, matrix on `longhorn-2-replica`), plus matrix-bluevulpine's first. **W7 cut over 2026-10-10**: gitea, frigate, readarr-audiobooks, readarr-ebooks and tdarr on kopiur only (parallel run from 2026-10-10, #2120, with tdarr's staging patch and gitea's pin moved clear of VolSync's jitter in review; vars first, #2119, which moved frigate and the readarrs to `Direct`); gates 5/5 on both legs (R2 legs via manual Snapshots) and two restore gates passed (gitea on `tns-csi-nfs`, tdarr on `longhorn-2-replica`). W8 not started |
 
 ## Why kopiur
 
@@ -347,6 +347,25 @@ apart; pinned to brokkr01, RWO).
 - hermes-r2's first staging took 481 s, within 2 min of the 10m default (VolSync's hermes-r2
   ran ~8 min end to end). One sample, so no change; raise `KOPIUR_STAGING_TIMEOUT` if it
   ever times out.
+
+**W7 results (2026-10-10, two classes).** Kits in `.handoff/w7-restore-*`. R2 legs from manual
+Snapshots (`<app>-r2-manual-w7-gate`), local legs the newest scheduled run before them.
+- **gitea (`tns-csi-nfs`, Direct from a live RWX writer; also frigate's and the readarrs'
+  class):** `gitea-local-20261010155456` and `gitea-r2-manual-w7-gate`. 3,716 files / 6,394
+  entries, owners `1000:0` (6,386) and `1000:1000` (8) identical on all three; 1 differing
+  path in each pair, changed after the snapshot. Restored onto a fresh `tns-csi-nfs` PVC
+  (plain `CreateVolume`, no content source, so outside the idempotency bug).
+- **tdarr (`longhorn-2-replica`, Snapshot staged on `longhorn-1-replica`):**
+  `tdarr-local-20261010161327` and `tdarr-r2-manual-w7-gate`. ~25,700 files / ~42,040
+  entries, all `568:568`; live vs local 26 and vs R2 20 differing paths, local vs R2 10, all
+  changed after the snapshot; `DB2/SQL/database.db` `integrity_check` `ok` on both legs.
+  First staging fit the 10m default (the local run Succeeded at 16:13Z).
+- **Both first verdicts were a false FAIL**, with every check clean: in `diffpaths`, `diff`
+  exits 1 whenever the files *differ*, and under `pipefail` that failed the pipeline, so
+  `rc=1` was set silently whenever any path differed, however well explained. The W6 fix
+  (`|| true` on the `grep`) only covered the perfect-match case. Fixed with `true;` at the end
+  of the brace group in every `.handoff` kit; re-ran the compare only: both PASS. The bug can
+  only produce false FAILs, never a false PASS, so earlier verdicts stand.
 
 #### Restores need capabilities, not just root
 

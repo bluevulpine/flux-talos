@@ -35,23 +35,17 @@ spec:
       GATUS_SUBDOMAIN: gitea
       VOLSYNC_CAPACITY: 10Gi
       VOLSYNC_STORAGECLASS: tns-csi-nfs
-      VOLSYNC_SNAPSHOTCLASS: tns-csi-nfs-snapshot
-      VOLSYNC_CACHE_CLASS: longhorn-1-replica
-      VOLSYNC_CLONE_STORAGECLASS: tns-csi-nfs
-      VOLSYNC_LOCAL_SCHEDULE: "18,48 * * * *"
-      VOLSYNC_R2_SCHEDULE: "3 1 * * *"
-      # kopiur (components/kopiur), W7. Landed one PR BEFORE the component so the
-      # SnapshotSchedules are created with these crons, not the component's
-      # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # Twice-hourly: explicit minutes (kopiur has no stepped H). The 20m forward
-      # jitter means a pin fires anywhere in [pin, pin+20m), so to keep VolSync's
-      # :18/:48 out of both windows the pin must sit in :19-:28 (runbook footnote
-      # 1). VolSync's +5 (:23) is paperclip's and every odd minute there is taken,
-      # so :24/:54 (+6); its windows [:24,:44) and [:54,:14) miss :18 and :48.
+      # kopiur (components/kopiur), the only backup since the W7 cutover. These
+      # vars landed one PR BEFORE the component so the SnapshotSchedules were
+      # created with these crons, not the component's defaults (runbook trap: a
+      # cron change does not re-pin a pending slot).
+      # Twice-hourly: explicit minutes (kopiur has no stepped H). Chosen to keep
+      # VolSync's old :18/:48 out of the 20m forward-jitter windows during the
+      # parallel run (runbook footnote 1): +6, as +5 (:23) is paperclip's.
       KOPIUR_LOCAL_CRON: "24,54 * * * *"
       # H picks a minute; the hour matches VolSync's old R2 run.
       KOPIUR_R2_CRON: "H 1 * * *"
-      # Direct, as VolSync already was. Repos are git's own files, written
+      # Direct, as under VolSync. Repos are git's own files, written
       # atomically; the LevelDB queue (queues/common) is transient.
       # The volume is tns-csi-nfs RWX, so the mover co-mounts it with no
       # staged clone, which keeps it clear of tns-csi's non-idempotent
