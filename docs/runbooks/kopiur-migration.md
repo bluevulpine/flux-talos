@@ -1,10 +1,11 @@
 # Runbook: VolSync → kopiur backup migration
 
-**Status (2026-10-05): repositories landed; step 4 (epoch) skipped on evidence; W0
+**Status (2026-10-10): repositories landed; step 4 (epoch) skipped on evidence; W0
 (jellyseerr, recyclarr, #1934) and W1 (8 apps, #1941) are cut over: kopiur is their only
 backup, and the fork's path-scope retention is cleared in both repositories (all six `keep-*`
 inherited). W2 (11 apps, #1959) is cut over too. W3 (10 apps, #2058) is cut over too. W4 (4 apps, #2074)
-is cut over too. W5 (jellyfin, plex) is cut over too. W6–W8 not started.** Every restore needs added capabilities (see
+is cut over too. W5 (jellyfin, plex) is cut over too. W6's `KOPIUR_*` vars (and `matrix`'s namespace
+onboarding) are landing ahead of its parallel run; W7–W8 not started.** Every restore needs added capabilities (see
 "Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
@@ -420,7 +421,7 @@ the `kopiur-pilot` Garage bucket and the OpenBao key `kopiur-pilot` by hand.
 | W5 | media/jellyfin | `35 * * * *` → `H * * * *` | `33 1 * * *` → `H 1 * * *` | Snapshot | longhorn-2-replica ⁶ | **`KOPIUR_STAGING_TIMEOUT: 30m`** ⁵, **staging.storageClassName: longhorn-1-replica patch** ⁶ |
 | W5 | media/plex | `20,50 * * * *` → `25,55 * * * *` ¹ | `3 4 * * *` → `H 4 * * *` | Snapshot | longhorn-2-replica ⁶ | cache 30Gi, **`NS: media`** ³, **`KOPIUR_STAGING_TIMEOUT: 30m`** ⁵, **staging.storageClassName: longhorn-1-replica patch** ⁶ |
 | W6 | ai/hermes ⁷ | `23 * * * *` → `H * * * *` | `29 6 * * *` → `H 6 * * *` | Snapshot | longhorn-2-replica-local ⁶ | **staging.storageClassName: longhorn-1-replica patch** |
-| W6 | home/scrypted | `45 * * * *` → `H * * * *` | `11 5 * * *` → `H 5 * * *` | Snapshot | longhorn-2-replica-local ⁶ | cache 10Gi; staging patch: decide in W6 (10Gi volume, footnote ⁶) |
+| W6 | home/scrypted | `45 * * * *` → `H * * * *` | `11 5 * * *` → `H 5 * * *` | Snapshot | longhorn-2-replica-local ⁶ | cache 10Gi on `longhorn-1-replica-local`; **staging.storageClassName: longhorn-1-replica-local patch** (VolSync's clone class; free parity, though footnote ⁶ would allow inheriting at 10Gi) |
 | W6 | matrix/matrix-stack ⁷ | `47 */2 * * *` → `H */2 * * *` | `45 6 * * *` → `H 6 * * *` | Snapshot | longhorn-2-replica | `APP: synapse-media`, uid/gid/fsGroup 10091, **staging.storageClassName: longhorn-1-replica patch** ⁶, **namespace prerequisites** ⁷ |
 | W7 | develop/gitea | `18,48 * * * *` → `23,53 * * * *` ¹ | `3 1 * * *` → `H 1 * * *` | Direct | tns-csi-nfs |  |
 | W7 | home/frigate | `45 * * * *` → `H * * * *` | `57 0 * * *` → `H 0 * * *` | Snapshot | tns-csi-nfs |  |
@@ -497,7 +498,8 @@ kopiur refuses any mover with added capabilities, and `components/kopiur` always
 needed all three pieces ahead of W6 — `allowedNamespaces` on both repositories, the `ai`
 `kopiur-{local,r2}` ExternalSecrets, and the annotation. W6's vars PR for hermes should **not**
 add them again; only `matrix` still needs the namespace steps, and hermes still needs the
-staging patch.
+staging patch. **`matrix` is onboarded in W6's vars PR** (repositories, ExternalSecrets,
+annotation), mirroring #2096.
 `matrix-bluevulpine/matrix-stack` (2026-10-02) is **not** in the migration: it was built on
 `components/kopiur` from the start and never had VolSync (35/35 scheduled backups
 `Succeeded` 2026-10-05, staged on 1 replica, identity `synapse-media@matrix-bluevulpine:/data`).
@@ -720,4 +722,10 @@ only when they are next recreated. Its `Restore` must carry the capability block
       (only tz/jitter do; `snapshot_schedule.rs:830-840` at 0.10.9), so the stale slot
       fires once (see the traps)
 - [ ] hermes (`ai`), tdarr, matrix: app-level patch setting
-      `staging.storageClassName: longhorn-1-replica` (footnote ⁶); plex and jellyfin have it (W5)
+      `staging.storageClassName: longhorn-1-replica` (footnote ⁶), scrypted the same with
+      `longhorn-1-replica-local`; plex and jellyfin have it (W5)
+
+- [ ] **plex's HelmRelease still `dependsOn: volsync` (`volsync-system`)**
+      (`kubernetes/apps/media/plex/app/helmrelease.yaml`), the only HelmRelease with it. Drop it
+      at decommission (step 6), before removing VolSync, or plex parks in "dependency not ready"
+      with no alert. Found by #2085's review.

@@ -37,8 +37,9 @@ spec:
           labels:
             severity: critical
 
-        # Stuck for any other reason: a staging wait is bounded at 10m
-        # (spec.staging.timeout), so an hour in Pending is never normal.
+        # Stuck for any other reason: a staging wait is bounded by
+        # spec.staging.timeout (10m default, 30m for plex and jellyfin), so an
+        # hour in Pending is never normal.
         - alert: KopiurSnapshotStuckPending
           annotations:
             summary: >-

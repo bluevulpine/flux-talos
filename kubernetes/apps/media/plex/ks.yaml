@@ -62,7 +62,8 @@ spec:
       # fails the whole kustomize apply while Flux still reports "applied
       # revision", which is exactly how the jellyfin migration lost a step.
       # RWO belongs in the RWX->RWO migration, where the PVC is recreated
-      # anyway - not here.
+      # anyway - not here. (kopiur's staged clone is already RWO: the staging
+      # patch in app/kustomization.yaml. Only this source claim stays RWX.)
       #
       # RWX + Snapshot is not a novel combination in this repo: frigate and
       # both readarr instances already run it.

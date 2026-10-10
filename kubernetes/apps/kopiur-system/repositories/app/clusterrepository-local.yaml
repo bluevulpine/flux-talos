@@ -53,6 +53,7 @@ spec:
       - games
       - home
       - identity
+      - matrix
       - matrix-bluevulpine
       - media
       - productivity

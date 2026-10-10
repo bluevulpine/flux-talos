@@ -11,6 +11,10 @@ spec:
   dependsOn:
     - name: multus-networks
       namespace: kube-system
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   interval: 1h
   path: ./kubernetes/apps/home/scrypted/app
   prune: true
@@ -37,3 +41,15 @@ spec:
       VOLSYNC_COPYMETHOD: Snapshot
       VOLSYNC_LOCAL_SCHEDULE: "45 * * * *"
       VOLSYNC_R2_SCHEDULE: "11 5 * * *"
+      # kopiur (components/kopiur), W6. Landed one PR BEFORE the component so the
+      # SnapshotSchedules are created with these crons, not the component's
+      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # H picks a minute per schedule; the hours match VolSync's.
+      KOPIUR_LOCAL_CRON: "H * * * *"
+      KOPIUR_R2_CRON: "H 5 * * *"
+      KOPIUR_COPYMETHOD: Snapshot
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
+      # The cache matches VolSync's (VOLSYNC_CACHE_CAPACITY / _CACHE_CLASS); the
+      # component defaults are 16Gi on longhorn-1-replica.
+      KOPIUR_CACHE_CAPACITY: 10Gi
+      KOPIUR_CACHE_CLASS: longhorn-1-replica-local
