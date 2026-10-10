@@ -110,6 +110,50 @@ spec:
         namespaces:
           from: All
 ---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/gateway_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: external-direct
+  namespace: network
+  annotations:
+    # Same split-horizon arrangement as external-pangolin: no external-dns
+    # instance derives records from this gateway; the public record is a
+    # DNSEndpoint CNAME to wheels (WAN1, DDNS'd), and LAN clients keep getting
+    # the internal gateway's A record for the same hostname.
+    external-dns.alpha.kubernetes.io/controller: none
+spec:
+  gatewayClassName: envoy
+  # Fourth ingress door: the UniFi WAN1 port forward lands here, so anything
+  # attached to this gateway is on the open internet with no Cloudflare or
+  # Pangolin in front. Chosen for Jellyfin over Pangolin because its native
+  # apps cannot pass a proxy login wall (so Pangolin would add no auth), and
+  # video wants the direct path -- the same reason Plex streams over WAN1.
+  #
+  # Exposure is fenced twice: routes are accepted only from the media namespace,
+  # and the listener only serves the Jellyfin hostname. Publishing another app
+  # here means widening one of those on purpose.
+  infrastructure:
+    annotations:
+      lbipam.cilium.io/ips: ${SVC_NGINX_DIRECT}
+  listeners:
+    # HTTPS only: nothing should ever be reachable over plaintext from the WAN.
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: "jellyfin.${SECRET_DOMAIN}"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: "${SECRET_DOMAIN/./-}-production-tls"
+            namespace: kube-system
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              kubernetes.io/metadata.name: media
+---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

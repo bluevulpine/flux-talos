@@ -40,3 +40,7 @@ data:
   # Tdarr's node port (8266), reached by the external transcode node on the DGX
   # Spark. Separate from the web UI, which stays cluster-internal.
   SVC_TDARR_NODE_ADDR: 172.16.8.18
+  # `external-direct` Envoy Gateway: the target of the UniFi WAN1 port forward
+  # for apps served straight to the internet (Jellyfin). Named NGINX_* only to
+  # sit with the other gateway addresses; it is Envoy.
+  SVC_NGINX_DIRECT: 172.16.8.19

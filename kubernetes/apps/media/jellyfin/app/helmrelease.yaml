@@ -102,6 +102,11 @@ spec:
           - name: internal
             namespace: network
             sectionName: https
+          # Internet-facing via the WAN1 port forward. Public DNS is
+          # ./dnsendpoint.yaml; LAN clients still resolve to `internal`.
+          - name: external-direct
+            namespace: network
+            sectionName: https
         hostnames:
           - jellyfin.${SECRET_DOMAIN}
     persistence:

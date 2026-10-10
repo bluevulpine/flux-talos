@@ -6,6 +6,7 @@ resources:
   - ./ocirepository.yaml
   - ./helmrelease.yaml
   - ./media-nfs.yaml
+  - ./dnsendpoint.yaml
 components:
   - ../../../../components/volsync-claim
   # kopiur backs this PVC up (W5 cutover, docs/runbooks/kopiur-migration.md).
