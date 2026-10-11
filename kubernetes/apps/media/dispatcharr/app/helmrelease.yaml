@@ -1,0 +1,261 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app dispatcharr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: dispatcharr
+  interval: 1h
+  values:
+    controllers:
+      dispatcharr:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        # Single replica: RWO /data, one celery beat, and the stream proxy keeps
+        # per-channel ownership state in the pod-local Redis below. A rolling
+        # update would briefly run two schedulers and split viewers of one
+        # channel across two upstream connections - the thing this app exists
+        # to prevent.
+        strategy: Recreate
+        pod:
+          # The Service is named "dispatcharr", so service links would inject
+          # DISPATCHARR_PORT=tcp://<ip>:9191, which the entrypoint reads as its
+          # nginx listen port (upstream #760). app-template already defaults
+          # this to false; stated so nobody "fixes" it.
+          enableServiceLinks: false
+        initContainers:
+          01-init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom:
+              - secretRef:
+                  name: dispatcharr-secret
+        containers:
+          # Modular mode (upstream docker/docker-compose.yml) instead of the
+          # all-in-one image, which runs its own Postgres 17 and Redis in this
+          # container. Postgres is the shared cluster18 like every other *arr;
+          # the entrypoint's version check needs >= the bundled 17.
+          #
+          # Root at start is required, not a choice: the entrypoint rewrites
+          # /etc/environment and /etc/profile.d, runs useradd for PUID/PGID,
+          # chowns /data, seds the nginx port into /etc/nginx, then drops to the
+          # app user with `su -` for uwsgi/daphne. readOnlyRootFilesystem and
+          # runAsNonRoot are therefore off; every gitops repo found running it
+          # (bjw-s, rafaribe, mrdynamo, LukeEvansTech) lands in the same place.
+          # The media namespace enforces PSS baseline, which this satisfies.
+          app:
+            image:
+              repository: ghcr.io/dispatcharr/dispatcharr
+              tag: 0.32.0@sha256:b7d695c5cc98b9abd64c74a94539c1ebffc23d965021613c820c67e25dea41a3
+            env: &env
+              TZ: "${TIMEZONE}"
+              DISPATCHARR_ENV: modular
+              DISPATCHARR_PORT: &port 9191
+              DISPATCHARR_LOG_LEVEL: info
+              # Same uid/gid as the other media apps, so anything written to
+              # /data matches their ownership. Must be non-zero (upstream
+              # refuses PUID=0).
+              PUID: "568"
+              PGID: "568"
+              # Redis is the sidecar below, not dragonfly. The stream proxy
+              # buffers the VIDEO itself in Redis: every ~256 KB chunk is
+              # SETEX'd with a 60 s TTL (apps/proxy/live_proxy/input/buffer.py),
+              # so one HD channel is ~60-75 MB rewritten continuously. Not a
+              # memory problem for the shared dragonfly (it peaks at ~143 MiB of
+              # 512 Mi over 60 days) but a coupling one: every chunk would be
+              # replicated to two followers on other nodes, and dragonfly
+              # changed master 8 times in 60 days (node maintenance), each of
+              # which would drop every live stream. Pod-local, a channel's
+              # buffer lives and dies with the pod serving it.
+              REDIS_HOST: localhost
+              REDIS_PORT: "6379"
+              # Behind Envoy, the TCP peer is the gateway pod. Trust only the
+              # pod CIDR, not upstream's default of all RFC1918, so a LAN client
+              # cannot pick its own address via X-Forwarded-For. Same range as
+              # Jellyfin's Known Proxies.
+              DISPATCHARR_TRUSTED_PROXIES: 10.69.0.0/16
+            envFrom: &envFrom
+              - secretRef:
+                  name: dispatcharr-secret
+            probes:
+              # /api/core/version/ is AllowAny (core/api_views.py) and served
+              # through nginx -> uwsgi, so it is a real end-to-end check. The
+              # entrypoint waits for Postgres and Redis, then runs migrate and
+              # collectstatic before uwsgi listens, hence the separate budget.
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/core/version/?format=json
+                    port: *port
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 60
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/core/version/?format=json
+                    port: *port
+                  periodSeconds: 20
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              # Same check, but slower to act: a liveness restart cuts every
+              # viewer's stream, so a burst of uwsgi saturation or a slow
+              # Postgres gets ~2 minutes before the container is killed, while
+              # readiness above reacts in one.
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/core/version/?format=json
+                    port: *port
+                  periodSeconds: 20
+                  timeoutSeconds: 5
+                  failureThreshold: 6
+            securityContext:
+              allowPrivilegeEscalation: false
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                memory: 2Gi
+          # Upstream's separate celery service, as a second container so it
+          # shares /data (it blocks until the web container writes /data/jwt)
+          # and the pod-local Redis. Runs beat plus the default and dvr queues.
+          # No probe: it serves nothing, and `celery inspect ping` goes through
+          # Redis, so a probe would restart celery for the sidecar's faults.
+          celery:
+            image:
+              repository: ghcr.io/dispatcharr/dispatcharr
+              tag: 0.32.0@sha256:b7d695c5cc98b9abd64c74a94539c1ebffc23d965021613c820c67e25dea41a3
+            command:
+              - /app/docker/entrypoint.celery.sh
+            env: *env
+            envFrom: *envFrom
+            securityContext:
+              allowPrivilegeEscalation: false
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+          redis:
+            image:
+              repository: docker.io/valkey/valkey
+              tag: 9.0.6-alpine
+            # Called directly, bypassing docker-entrypoint.sh's chown/gosu path
+            # so it can start as non-root.
+            command:
+              - valkey-server
+            args:
+              - --bind
+              - 127.0.0.1
+              - --port
+              - "6379"
+              # A cache and a broker, never a database: no RDB, no AOF. This is
+              # also what makes readOnlyRootFilesystem work - the image's /data
+              # VOLUME is not created by Kubernetes, so it is read-only here.
+              # Enabling persistence needs a writable mount first.
+              - --save
+              - ""
+              - --appendonly
+              - "no"
+              # ~768 MiB is ~10 HD channels at the default 60 s chunk TTL, well
+              # over the provider's 4 connections, so eviction should never run.
+              # If it does, volatile-lru spares the celery queues (no TTL) but
+              # NOT the proxy's coordination keys: live:channel:<id>:owner and
+              # the output owners are SET NX EX too (output/*/manager.py), and
+              # losing one can open a second upstream connection for a channel.
+              # Treat eviction as a fault, not a safety valve. maxmemory caps
+              # used_memory, not RSS; constantly rewritten ~256 KB values
+              # fragment the allocator, hence the container limit sits well
+              # above it - an OOMKill empties every live buffer and queue.
+              - --maxmemory
+              - 768mb
+              - --maxmemory-policy
+              - volatile-lru
+            probes:
+              liveness: &redisProbes
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command:
+                      - valkey-cli
+                      - ping
+                  periodSeconds: 10
+                  timeoutSeconds: 3
+                  failureThreshold: 3
+              readiness: *redisProbes
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 999
+              runAsGroup: 999
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 25m
+                memory: 64Mi
+              limits:
+                memory: 1536Mi
+    service:
+      app:
+        controller: dispatcharr
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        annotations:
+          gatus.home-operations.com/endpoint: |
+            group: media
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Dispatcharr"
+          gethomepage.dev/group: "Video"
+          gethomepage.dev/icon: "dispatcharr.png"
+          gethomepage.dev/description: "IPTV proxy"
+        # UI only. Jellyfin and Plex fetch the M3U, EPG, HDHomeRun lineup and
+        # streams from the in-cluster Service (dispatcharr.media.svc), which
+        # authentik does not sit in front of.
+        labels:
+          auth: authentik
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - dispatcharr.${SECRET_DOMAIN}
+    persistence:
+      data:
+        existingClaim: *app
+        advancedMounts:
+          dispatcharr:
+            app:
+              - path: /data
+            celery:
+              - path: /data
+      tmp:
+        type: emptyDir
+        # Bounded so a runaway temp writer evicts this pod instead of filling
+        # the node's ephemeral storage.
+        sizeLimit: 2Gi
+        advancedMounts:
+          dispatcharr:
+            app:
+              - path: /tmp
+            celery:
+              - path: /tmp

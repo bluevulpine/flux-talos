@@ -1,0 +1,56 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app dispatcharr
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  # IPTV proxy between the provider and Jellyfin/Plex. Its job here is
+  # connection pooling: N viewers of one channel share ONE provider connection.
+  # Jellyfin's own "Allow stream sharing" does not do this for the provider's
+  # URLs - each viewer's ffmpeg opened its own upstream connection (verified in
+  # the Jellyfin log 2026-10-11), and the provider caps connections per account.
+  #
+  # No dragonfly dependency, deliberately: Redis is a sidecar in the pod (see
+  # helmrelease.yaml for why the stream buffer stays off the shared cache).
+  dependsOn:
+    - name: cloudnative-pg-cluster18
+      namespace: database
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
+  interval: 1h
+  path: ./kubernetes/apps/media/dispatcharr/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: media
+  wait: false
+  postBuild:
+    substitute:
+      APP: *app
+      NS: media
+      # /data holds the Django secret (jwt), logo/poster caches, uploaded
+      # M3U/EPG files and in-app backups. The database is in Postgres, so this
+      # is small and low-churn.
+      VOLSYNC_CAPACITY: 5Gi
+      VOLSYNC_STORAGECLASS: longhorn-2-replica
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      # kopiur (components/kopiur). R2 avoids hour 03 (reserved for
+      # kopia-maint-r2; docs/runbooks/volsync-mover-stuck.md); hour 06 was the
+      # least-used slot when this was written.
+      KOPIUR_LOCAL_CRON: "H */4 * * *"
+      KOPIUR_R2_CRON: "H 6 * * *"
+      KOPIUR_COPYMETHOD: Snapshot
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
+      # KOPIUR_RUN_AS_* left at the component default (root), unlike sportarr:
+      # the entrypoint writes /data/jwt as root with mode 0600 and never chowns
+      # it, so a 568 mover could not read it. Root also restores ownership as-is.
