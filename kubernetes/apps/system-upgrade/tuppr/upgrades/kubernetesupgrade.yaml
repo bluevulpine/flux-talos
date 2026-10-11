@@ -19,11 +19,20 @@ spec:
     # phase yet has just been created and is about to run, so it blocks too.
     # tuppr passes a missing status as an empty map, hence has(): a bare
     # status.phase on it is an evaluation error. A failing check is retried
-    # every minute, never failing the upgrade, so a stuck run holds upgrades back.
+    # every minute, never failing the upgrade, so a stuck run holds upgrades back:
+    # a refused Snapshot stays Pending until fixed, a hung mover stays Running up
+    # to its Job's 48h deadline. If an upgrade sits in HealthChecking, look at
+    # KopiurSnapshotRefused / StuckPending / StuckRunning (kopiur prometheusrule).
     - apiVersion: kopiur.home-operations.com/v1alpha1
       kind: Snapshot
       expr: |-
         has(status.phase) && !(status.phase in ["Pending", "Running"])
+    # Same for a kopiur Restore's mover. Restores are manual and rare; no alert
+    # covers a stuck one, but tuppr's phase message names the failing check.
+    - apiVersion: kopiur.home-operations.com/v1alpha1
+      kind: Restore
+      expr: |-
+        has(status.phase) && !(status.phase in ["Pending", "Resolving", "Restoring"])
     # Require attached Longhorn volumes to be healthy, but ignore detached ones:
     # a detached volume has robustness "unknown" (robustness is only meaningful
     # while attached), so gating on state == "attached" would fail permanently —

@@ -772,7 +772,7 @@ only when they are next recreated. Its `Restore` must carry the capability block
       last cutover (W8, 2026-10-11), so not before 2026-11-10: until then VolSync and its
       repositories are the rollback path. Item 1 was a safety fix, so it did not wait.
       1. **Done 2026-10-11:** tuppr now gates on kopiur Snapshots `Pending`/`Running` (or
-         with no phase yet), checked with tuppr's own CEL code against all 6,130 live
+         with no phase yet) and on in-flight Restores, checked with tuppr's own CEL code against all 6,129 live
          Snapshots. Was: **tuppr's upgrade gate is vacuous.** `system-upgrade/tuppr/upgrades/talosupgrade.yaml`
          and `kubernetesupgrade.yaml` wait for no `volsync.backube` ReplicationSource to be
          `Synchronizing`. Its coverage shrank with every wave and after W8 there are none, so
