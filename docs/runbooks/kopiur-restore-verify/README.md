@@ -15,6 +15,10 @@ These are hand-applied manifests, not Flux-managed. Nothing under `docs/` is rec
 | `compare-pod.yaml` | read-only comparison of live vs local, live vs R2 and local vs R2: sha256 of every file; type/mode/owner of every entry and the size of every non-directory (directory size depends on the directory's history, so it is printed as `-`); file mtimes; directory mtimes (informational). Files matching `WRITERS` are left out of the strict comparison and checked separately: the SQLite databases with `PRAGMA integrity_check` (in the app's own image), the rest shown for information |
 | `run.sh` | `./run.sh` restores and compares; `./run.sh compare` re-runs the comparison only; `./run.sh cleanup` deletes everything it created |
 
+**Always run `./run.sh cleanup`, even after a failed or timed-out run.** tuppr holds every
+Talos/Kubernetes upgrade while any kopiur Restore is `Pending`/`Resolving`/`Restoring`
+(`kubernetes/apps/system-upgrade/tuppr/upgrades`), and no alert covers a stuck Restore.
+
 ## Do not drop the capability block
 
 `runAsUser: 0` alone restores every entry as `0:0`, and the Restore still reports

@@ -9,22 +9,34 @@ spec:
     # renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
     version: v1.36.2
   healthChecks:
-    # Wait for VolSync backups to complete before upgrading, but exempt Syncthing
-    # movers: a Syncthing ReplicationSource maintains a continuous, live sync so it
-    # reports Synchronizing=True permanently and never flips to False. Without the
-    # has(status.syncthing) short-circuit the gate can never pass and tuppr blocks
-    # every Talos/Kubernetes upgrade forever. Same property handled for the
-    # VolSyncVolumeOutOfSync alert in 0904f74d. (tuppr's CEL env exposes only
-    # status, not spec — Syncthing sources are identified by status.syncthing;
-    # kopia/restic sources instead carry status.kopia/status.restic.)
-    - apiVersion: volsync.backube/v1alpha1
-      kind: ReplicationSource
+    # Wait for in-flight kopiur backups before rebooting a node, so an upgrade
+    # never kills a mover mid-upload. kopiur replaced VolSync for every PVC by the
+    # W8 cutover (2026-10-11, docs/runbooks/kopiur-migration.md); the old
+    # ReplicationSource check passed vacuously once no sources were left.
+    # Only Pending/Running count as in flight: Failed, Succeeded, Unchanged,
+    # Discovered (imported from the repo) and Deleting are terminal or not a
+    # backup run, and gating on Failed would block forever. A Snapshot with no
+    # phase yet has just been created and is about to run, so it blocks too.
+    # tuppr passes a missing status as an empty map, hence has(): a bare
+    # status.phase on it is an evaluation error. A failing check is retried
+    # every minute, never failing the upgrade, so a stuck run holds upgrades back:
+    # a refused Snapshot stays Pending until fixed, a hung mover stays Running up
+    # to its Job's 48h deadline. If an upgrade sits in HealthChecking, look at
+    # KopiurSnapshotRefused / StuckPending / StuckRunning (kopiur prometheusrule).
+    - apiVersion: kopiur.home-operations.com/v1alpha1
+      kind: Snapshot
       expr: |-
-        has(status.syncthing) || status.conditions.filter(c, c.type == "Synchronizing").all(c, c.status == "False")
+        has(status.phase) && !(status.phase in ["Pending", "Running"])
+    # Same for a kopiur Restore's mover. Restores are manual and rare; no alert
+    # covers a stuck one, but tuppr's phase message names the failing check.
+    - apiVersion: kopiur.home-operations.com/v1alpha1
+      kind: Restore
+      expr: |-
+        has(status.phase) && !(status.phase in ["Pending", "Resolving", "Restoring"])
     # Require attached Longhorn volumes to be healthy, but ignore detached ones:
     # a detached volume has robustness "unknown" (robustness is only meaningful
     # while attached), so gating on state == "attached" would fail permanently —
-    # this cluster always has many idle/detached volumes (VolSync clones,
+    # this cluster always has many idle/detached volumes (backup clones,
     # scaled-down workloads). Only an attached-but-degraded volume (mid-rebuild)
     # should actually block a node roll.
     - apiVersion: longhorn.io/v1beta2
