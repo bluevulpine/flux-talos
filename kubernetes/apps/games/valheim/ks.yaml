@@ -35,41 +35,21 @@ spec:
       VOLSYNC_CAPACITY: 50Gi
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       VOLSYNC_STORAGECLASS: tns-csi-nvmeof
-      VOLSYNC_SNAPSHOTCLASS: tns-csi-nvmeof-snapshot
-      # Direct reads the live PVC and never stages a CSI snapshot/clone, which is
-      # where tns-csi's non-idempotent CreateVolume wedges. valheim-local hung
-      # 7.5h on 2026-08-29 ("cannot create ...: dataset already exists", NVMe-oF
-      # namespace never appearing) and had wedged before on 2026-07-05.
-      #
-      # CANARY: this is the FIRST Direct source in the cluster on a ReadWriteOnce
-      # volume -- all 14 existing Direct sources are RWX. On RWO the mover must
-      # land on the app's node or it will sit Pending with a Multi-Attach error.
-      # VolSync exposes spec.kopia.moverAffinity for that; we are deliberately
-      # testing without it first, because whether VolSync already co-locates a
-      # Direct mover for RWO is unverified here. If the mover goes Pending,
-      # add moverAffinity (podAffinity on app.kubernetes.io/name=valheim,
-      # topologyKey kubernetes.io/hostname) or revert this line.
-      #
-      # satisfactory is the other RWO/nvmeof candidate and is deliberately NOT
-      # changed yet -- it waits on this canary.
-      VOLSYNC_COPYMETHOD: Direct
-      VOLSYNC_CACHE_CLASS: longhorn-1-replica
-      VOLSYNC_CLONE_STORAGECLASS: tns-csi-nvmeof
-      VOLSYNC_RUN_AS_USER: "1000"
-      VOLSYNC_RUN_AS_GROUP: "1000"
-      VOLSYNC_FS_GROUP: "1000"
-      VOLSYNC_LOCAL_SCHEDULE: "58 * * * *"
-      VOLSYNC_R2_SCHEDULE: "41 5 * * *"
-      # kopiur (components/kopiur), W8. Landed one PR BEFORE the component so the
-      # SnapshotSchedules are created with these crons, not the component's
-      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # kopiur (components/kopiur), the only backup since the W8 cutover. These
+      # vars landed one PR BEFORE the component so the SnapshotSchedules were
+      # created with these crons, not the component's defaults (runbook trap: a
+      # cron change does not re-pin a pending slot).
       # H picks a minute per schedule; the hours match VolSync's old ones.
       KOPIUR_LOCAL_CRON: "H * * * *"
       KOPIUR_R2_CRON: "H 5 * * *"
-      # Direct, as under VolSync (the canary above): no staged clone, so
-      # tns-csi's non-idempotent CreateVolume is never called. kopiur co-locates
-      # a Direct mover onto an RWO volume's attach node by itself
-      # (moverDefaults.sourceColocation, default Auto), so it needs no affinity.
+      # Direct reads the live PVC and never stages a CSI snapshot/clone, so
+      # tns-csi's non-idempotent CreateVolume is never called. NEVER switch this
+      # to Snapshot (runbook: the tns-csi-nvmeof driver bug). Under VolSync's
+      # Snapshot, valheim-local hung 7.5h on 2026-08-29 ("dataset already
+      # exists", NVMe-oF namespace never appearing) and had wedged on 2026-07-05.
+      # The volume is RWO: kopiur co-locates a Direct mover onto its attach node
+      # by itself (moverDefaults.sourceColocation, default Auto). Verified W8,
+      # 2026-10-11: every mover landed on the app's node, no affinity set.
       KOPIUR_COPYMETHOD: Direct
       # Mover runs as the game server's own uid/gid, as VolSync's did.
       KOPIUR_RUN_AS_USER: "1000"

@@ -1,10 +1,10 @@
 # Runbook: VolSync → kopiur backup migration
 
-**Status (2026-10-10): repositories landed; step 4 (epoch) skipped on evidence; W0
+**Status (2026-10-11): repositories landed; step 4 (epoch) skipped on evidence; W0
 (jellyseerr, recyclarr, #1934) and W1 (8 apps, #1941) are cut over: kopiur is their only
 backup, and the fork's path-scope retention is cleared in both repositories (all six `keep-*`
 inherited). W2 (11 apps, #1959) is cut over too. W3 (10 apps, #2058) is cut over too. W4 (4 apps, #2074)
-is cut over too. W5 (jellyfin, plex) is cut over too. W6 (hermes, scrypted, matrix) is cut over too. W7 (gitea, frigate, both readarrs, tdarr) is cut over too. W8 not started.** Every restore needs added capabilities (see
+is cut over too. W5 (jellyfin, plex) is cut over too. W6 (hermes, scrypted, matrix) is cut over too. W7 (gitea, frigate, both readarrs, tdarr) is cut over too. W8 (satisfactory, valheim) is cut over too: no VolSync backup source remains. Still to retire: see "Decommission" under Open items.** Every restore needs added capabilities (see
 "Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
@@ -14,7 +14,7 @@ evidence.
 | Pilots (`media/recyclarr-kopiur-pilot`, `media/jellyseerr-kopiur-pilot`) | passed 4/4 and 5/5; **retired 2026-09-24** after W0 passed its gates. Their READMEs (verdicts, the SQLite integrity method) are at `b625ac57:kubernetes/apps/media/{recyclarr,jellyseerr}-kopiur-pilot/README.md` |
 | PR #1870 — component split + `components/kopiur` | **merged** 2026-09-22 (eab49e12); verified inert live: all Kustomizations Ready on it, all 93 ReplicationSources intact. No app includes `components/kopiur` yet |
 | Two `ClusterRepository` + 18 `ExternalSecret` | **landed** 2026-09-22 (#1879, e4539596), plus the `kopiur-system` Pod Security fix (#1880). Both `Ready`, all 18 secrets synced; catalog scanned 2026-09-23. See "The repositories" |
-| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 cut over 2026-09-25** (#1941, 17:00Z): autobrr, cross-seed, ev-charge-ledger, ev-charge-tracker, calibre-web, notifiarr, sportarr and tautulli are backed up by kopiur only; path-scope retention cleared in both repositories, 16/16 legs PASS. Parallel run from 2026-09-24 (#1936); per-app gates 1–4 (cross-seed-r2 via a manual Snapshot) and the restore gate (calibre-web) passed (#1939). **W2 cut over 2026-09-26** (#1959, 06:52Z): 11 apps on kopiur only; path-scope retention cleared, 22/22 legs PASS. Parallel run from 2026-09-25 (#1953), vars landed one PR earlier (#1950), so no schedule race; the first local runs failed PermissionDenied until #1957 gave the mover `DAC_OVERRIDE`; gates 11/11 and the restore gate (grocy) passed. **W3 cut over 2026-10-04** (#2058): 10 apps on kopiur only (parallel run from 2026-10-01, #2017; vars first, #1974, which also added kometa's missing `NS`); gates 10/10 and two restore gates passed (bazarr on `longhorn-2-replica`, kometa on `longhorn-1-replica`). **W4 cut over 2026-10-05**: couchdb, influxdb, timescaledb and vaultwarden on kopiur only (parallel run from 2026-10-05, #2063; vars first, #2060); gates 4/4 (couchdb-r2 via a manual Snapshot) and the restore gate (vaultwarden, `longhorn-2-replica`) passed. **W5 cut over 2026-10-06**: jellyfin and plex on kopiur only (parallel run from 2026-10-05, #2079, with the 1-replica staging patch; vars first, #2077); gates 2/2 on both legs (R2 legs via manual Snapshots) and the restore gate (jellyfin, `longhorn-2-replica`) passed. **W6 cut over 2026-10-10**: hermes, scrypted and matrix on kopiur only (parallel run from 2026-10-10, #2116, with per-app staging patches; vars and `matrix`'s namespace onboarding first, #2115); gates 3/3 on both legs and two restore gates passed (hermes on `longhorn-2-replica-local`, matrix on `longhorn-2-replica`), plus matrix-bluevulpine's first. **W7 cut over 2026-10-10**: gitea, frigate, readarr-audiobooks, readarr-ebooks and tdarr on kopiur only (parallel run from 2026-10-10, #2120, with tdarr's staging patch and gitea's pin moved clear of VolSync's jitter in review; vars first, #2119, which moved frigate and the readarrs to `Direct`); gates 5/5 on both legs (R2 legs via manual Snapshots) and two restore gates passed (gitea on `tns-csi-nfs`, tdarr on `longhorn-2-replica`). W8 not started |
+| Fleet cutover (W0–W8) | **W0 cut over 2026-09-24**: jellyseerr and recyclarr are backed up by kopiur only. Before that, a parallel run from 2026-09-23 (#1886); backups were refused for ~21 h until #1924; per-app and restore gates passed (#1930); pilots retired (#1931). **W1 cut over 2026-09-25** (#1941, 17:00Z): autobrr, cross-seed, ev-charge-ledger, ev-charge-tracker, calibre-web, notifiarr, sportarr and tautulli are backed up by kopiur only; path-scope retention cleared in both repositories, 16/16 legs PASS. Parallel run from 2026-09-24 (#1936); per-app gates 1–4 (cross-seed-r2 via a manual Snapshot) and the restore gate (calibre-web) passed (#1939). **W2 cut over 2026-09-26** (#1959, 06:52Z): 11 apps on kopiur only; path-scope retention cleared, 22/22 legs PASS. Parallel run from 2026-09-25 (#1953), vars landed one PR earlier (#1950), so no schedule race; the first local runs failed PermissionDenied until #1957 gave the mover `DAC_OVERRIDE`; gates 11/11 and the restore gate (grocy) passed. **W3 cut over 2026-10-04** (#2058): 10 apps on kopiur only (parallel run from 2026-10-01, #2017; vars first, #1974, which also added kometa's missing `NS`); gates 10/10 and two restore gates passed (bazarr on `longhorn-2-replica`, kometa on `longhorn-1-replica`). **W4 cut over 2026-10-05**: couchdb, influxdb, timescaledb and vaultwarden on kopiur only (parallel run from 2026-10-05, #2063; vars first, #2060); gates 4/4 (couchdb-r2 via a manual Snapshot) and the restore gate (vaultwarden, `longhorn-2-replica`) passed. **W5 cut over 2026-10-06**: jellyfin and plex on kopiur only (parallel run from 2026-10-05, #2079, with the 1-replica staging patch; vars first, #2077); gates 2/2 on both legs (R2 legs via manual Snapshots) and the restore gate (jellyfin, `longhorn-2-replica`) passed. **W6 cut over 2026-10-10**: hermes, scrypted and matrix on kopiur only (parallel run from 2026-10-10, #2116, with per-app staging patches; vars and `matrix`'s namespace onboarding first, #2115); gates 3/3 on both legs and two restore gates passed (hermes on `longhorn-2-replica-local`, matrix on `longhorn-2-replica`), plus matrix-bluevulpine's first. **W7 cut over 2026-10-10**: gitea, frigate, readarr-audiobooks, readarr-ebooks and tdarr on kopiur only (parallel run from 2026-10-10, #2120, with tdarr's staging patch and gitea's pin moved clear of VolSync's jitter in review; vars first, #2119, which moved frigate and the readarrs to `Direct`); gates 5/5 on both legs (R2 legs via manual Snapshots) and two restore gates passed (gitea on `tns-csi-nfs`, tdarr on `longhorn-2-replica`). **W8 cut over 2026-10-11**: satisfactory and valheim on kopiur only (parallel run from 2026-10-11, #2128; vars first, #2127); kopiur's first `Direct` movers on RWO volumes, all co-located onto the app's node with no affinity; gates 2/2 on both legs (R2 legs via manual Snapshots) and the restore gate (valheim, `tns-csi-nvmeof`) passed |
 
 ## Why kopiur
 
@@ -369,6 +369,27 @@ Snapshots (`<app>-r2-manual-w7-gate`), local legs the newest scheduled run befor
 - **frigate is `Direct` only while it is scaled to 0** (`config/frigate.db` is SQLite, WAL).
   kopiur is now its only backup, so reviving frigate must come with `KOPIUR_COPYMETHOD:
   Snapshot` (or a move off SQLite) in the same change.
+
+**W8 results (2026-10-11, one class).** Kit in `.handoff/w8-restore/` (`./run.sh <app>`). R2
+legs from manual Snapshots (`<app>-r2-manual-w8-gate`), local legs the newest scheduled run
+before them.
+- **First `Direct` movers on RWO volumes.** Both volumes are `tns-csi-nvmeof` `ReadWriteOnce`.
+  kopiur placed every mover (two local, two R2) on the node holding the volume (satisfactory
+  brokkr03, valheim brokkr02) through `moverDefaults.sourceColocation: Auto`, the default; no
+  affinity is set and there was no Multi-Attach error. Same as the VolSync canary of 2026-08-30.
+- **valheim (`tns-csi-nvmeof`, Direct from a live RWO writer):** `valheim-local-20261011013001`
+  and `valheim-r2-manual-w8-gate`. 73 files / 84 entries, all `111:1000`, identical on live,
+  local and R2; live vs local and local vs R2 8 differing paths each (world autosave after the
+  local leg), live vs R2 0. The compare pod is pinned (`nodeName`) to the app's node, since the
+  live PVC is RWO. Restored onto fresh `tns-csi-nvmeof` PVCs (plain `CreateVolume`); both
+  scratch PVs were released after cleanup.
+- **satisfactory is small, not broken:** 12 files / 26.5 KB on both legs. Its backed-up claim
+  is `/config` (Steam logs and `ServerSettings.7777.sav`; the server holds no world saves). The
+  2.7 GB of game files are a separate, unbacked cache volume (`sf-gamedata`).
+- **The retention clear's `.handoff/` copy was stale** (pre-W1: 1Gi, no failure on a missing
+  PASS line) during the W7 clears, and its gitea-local and readarr-audiobooks-local legs were
+  OOMKilled silently. Use `docs/runbooks/kopiur-cutover/clear-path-retention.sh`; the
+  `.handoff/` copy now matches it.
 
 #### Restores need capabilities, not just root
 
@@ -747,6 +768,19 @@ only when they are next recreated. Its `Restore` must carry the capability block
       carry `onScheduleDelete: Retain` and no `onPolicyDelete`, so the prune deletes only
       CRs, never kopia data. The pilot bucket and OpenBao key are dropped by hand
       afterwards). Order: repositories → W0 cutover → gates pass → retire pilots
+- [ ] **Decommission (after W8).** Order matters for the first item:
+      1. **tuppr's upgrade gate is vacuous.** `system-upgrade/tuppr/upgrades/talosupgrade.yaml`
+         and `kubernetesupgrade.yaml` wait for no `volsync.backube` ReplicationSource to be
+         `Synchronizing`. Its coverage shrank with every wave and after W8 there are none, so
+         it always passes: an upgrade can reboot a node under a running kopiur mover (worst
+         for W8's Direct movers, on the app's node against live RWO volumes). Replace it with
+         a gate on kopiur's in-flight Snapshots BEFORE VolSync's CRDs go, since a health check
+         on a removed kind may block or error. The Talos upgrade is suspended meanwhile.
+      2. Delete `components/volsync-backup`; repoint the kopiur comments that cite it
+         (`components/kopiur/{local,r2}.yaml`, `clusterrepository-local.yaml`) at a
+         commit-pinned path.
+      3. Uninstall VolSync (HelmRelease, CRDs), after 1.
+      4. `volsync-claim`'s inert `dataSourceRef` (see "After the migration: the claim").
 - [ ] At decommission: flip `catalog.adoption` to `Adopt`? and decide on the pre-120 d
       VolSync tail
 - [x] The cluster runs kopiur **0.10.9**. The repositories patch (2 ClusterRepositories with
