@@ -11,6 +11,10 @@ spec:
   dependsOn:
     - name: external-secrets-openbao-store
       namespace: external-secrets
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   path: ./kubernetes/apps/games/valheim/app
   prune: true
   sourceRef:
@@ -56,3 +60,18 @@ spec:
       VOLSYNC_FS_GROUP: "1000"
       VOLSYNC_LOCAL_SCHEDULE: "58 * * * *"
       VOLSYNC_R2_SCHEDULE: "41 5 * * *"
+      # kopiur (components/kopiur), W8. Landed one PR BEFORE the component so the
+      # SnapshotSchedules are created with these crons, not the component's
+      # defaults (runbook trap: a cron change does not re-pin a pending slot).
+      # H picks a minute per schedule; the hours match VolSync's old ones.
+      KOPIUR_LOCAL_CRON: "H * * * *"
+      KOPIUR_R2_CRON: "H 5 * * *"
+      # Direct, as under VolSync (the canary above): no staged clone, so
+      # tns-csi's non-idempotent CreateVolume is never called. kopiur co-locates
+      # a Direct mover onto an RWO volume's attach node by itself
+      # (moverDefaults.sourceColocation, default Auto), so it needs no affinity.
+      KOPIUR_COPYMETHOD: Direct
+      # Mover runs as the game server's own uid/gid, as VolSync's did.
+      KOPIUR_RUN_AS_USER: "1000"
+      KOPIUR_RUN_AS_GROUP: "1000"
+      KOPIUR_FS_GROUP: "1000"
