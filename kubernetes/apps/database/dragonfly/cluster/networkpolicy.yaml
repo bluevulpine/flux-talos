@@ -54,29 +54,6 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: dragonfly-allow-identity
-  namespace: database
-spec:
-  podSelector:
-    matchLabels:
-      app: dragonfly
-      app.kubernetes.io/name: dragonfly
-      app.kubernetes.io/part-of: dragonfly
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: identity
-      ports:
-        - port: 6379
-          protocol: TCP
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/networking.k8s.io/networkpolicy_v1.json
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
   name: dragonfly-allow-ai
   namespace: database
 spec:
