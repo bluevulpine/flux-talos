@@ -164,7 +164,10 @@ spec:
               - 127.0.0.1
               - --port
               - "6379"
-              # A cache and a broker, never a database: no RDB, no AOF.
+              # A cache and a broker, never a database: no RDB, no AOF. This is
+              # also what makes readOnlyRootFilesystem work - the image's /data
+              # VOLUME is not created by Kubernetes, so it is read-only here.
+              # Enabling persistence needs a writable mount first.
               - --save
               - ""
               - --appendonly
