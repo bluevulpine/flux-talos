@@ -778,7 +778,8 @@ sit there, with no alert covering a stuck Restore.
          with no phase yet) and on Restores `Pending`/`Resolving`/`Restoring` (the live
          CRD's enum). Checked with tuppr's own CEL code against all 6,129 live Snapshots
          and every Restore phase. Was: **tuppr's upgrade gate is vacuous.**
-         `system-upgrade/tuppr/upgrades/talosupgrade.yaml` and `kubernetesupgrade.yaml` wait for no `volsync.backube` ReplicationSource to be
+         `system-upgrade/tuppr/upgrades/talosupgrade.yaml` and `kubernetesupgrade.yaml` wait
+         for no `volsync.backube` ReplicationSource to be
          `Synchronizing`. Its coverage shrank with every wave and after W8 there are none, so
          it always passes: an upgrade can reboot a node under a running kopiur mover (worst
          for W8's Direct movers, on the app's node against live RWO volumes). Replace it with
