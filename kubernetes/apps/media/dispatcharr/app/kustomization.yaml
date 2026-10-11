@@ -17,7 +17,10 @@ patches:
   # pod) would sit Pending. "Inert" in the other apps only because their
   # claims were bound before the migration - docs/runbooks/kopiur-migration.md
   # "After the migration: the claim". An empty 5Gi start restores nothing
-  # anyway. Drop this once components/kopiur-claim exists.
+  # anyway. Keep this for the life of the claim: once it is bound, removing
+  # the patch makes SSA add dataSourceRef to an immutable PVC spec and the whole
+  # Kustomization stalls (components/volsync-claim explains). Move to
+  # components/kopiur-claim only when the PVC is next recreated.
   - target:
       kind: PersistentVolumeClaim
       name: \$\{APP\}
