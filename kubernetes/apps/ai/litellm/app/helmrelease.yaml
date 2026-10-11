@@ -514,7 +514,7 @@ spec:
               # turning it on globally would be a behaviour change nobody asked for.
               #
               # `namespace` prefixes every key so this tenant is separable inside a
-              # dragonfly shared with authentik, nextcloud, grafana and others. It
+              # dragonfly shared with immich, tracearr, thanos and others. It
               # runs --cluster_mode=emulated, where SELECT-based db isolation is not
               # reliable, so a key prefix is the isolation mechanism (same as
               # tracearr's REDIS_PREFIX).
