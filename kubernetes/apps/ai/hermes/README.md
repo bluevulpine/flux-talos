@@ -11,7 +11,8 @@ it is genuinely well maintained — the catalog tracks upstream within 0–1 day
 rejected on blast radius, not on quality.
 
 TrueNAS is what this cluster *recovers from*: tns-csi serves every NFS/iSCSI/NVMe-oF
-PV, and Garage holds Thanos, CNPG backups, VolSync snapshots, and the Talos etcd
+PV, and Garage holds Thanos, CNPG backups, the kopia backup repository (kopiur;
+VolSync before 2026-10), and the Talos etcd
 backups. An agent with a `terminal` tool does not belong on the recovery asset. The
 availability argument for putting it on the NAS ("the cluster can't restart it") is
 real but narrow — with 7 nodes it only matters when the agent reboots its *own* node,
@@ -55,13 +56,22 @@ the `ts-exit-node` Connector advertises `172.16.8.0/24` and the internal gateway
 
 **`longhorn-1-replica-local`.** `dataLocality: best-effort` keeps the single replica on
 the pod's node without the hard pin of strict-local, so a Talos drain can still move the
-agent and rebuild locally. VolSync provides the redundancy — `Snapshot` copyMethod,
-because the mover cannot co-mount an RWO volume the agent holds and a `Direct` copy
-would read a live SQLite `state.db` mid-write.
+agent and rebuild locally. kopiur provides the redundancy — `Snapshot` copyMethod,
+because a `Direct` copy would read a live SQLite `state.db` mid-write. (Not because of
+RWO: kopiur co-locates a `Direct` mover onto the volume's node, verified in W8.)
 
-**No ServiceAccount token.** app-template sets `automountServiceAccountToken: false`.
-The agent starts with **no** cluster credentials. Giving it kubectl/talosctl access is a
-deliberate, separate act — see below.
+**A ServiceAccount token, with RBAC.** app-template defaults
+`automountServiceAccountToken` to `false`; the HelmRelease turns it on so kubectl's
+in-cluster config works. What the `hermes` SA can do is set in two places, and widening
+either is a deliberate, reviewed change:
+
+- `app/rbac.yaml`: cluster-wide **read-only** (`hermes-agent-reader`): workloads, events,
+  PVCs, Flux, Gateway API, metrics, and backup state (kopiur, VolSync until it is
+  uninstalled). No Secret verbs.
+- `kubernetes/apps/games/rbac.yaml`: a namespaced **operator** role in `games` only, for
+  game-save resets: exec, pod delete, deployment patch/scale, Job create/delete, and
+  creating kopiur Snapshots (a backup before a reset). Its jobs/exec rights can reach
+  `games` Secrets; the file says so.
 
 ## First boot is not zero-touch
 
@@ -87,7 +97,7 @@ Both supported Anthropic paths establish the credential inside `/opt/data`, not 
   sit inert; it becomes a selectable credential that fails at call time.
 
 So `hermes setup` (or the dashboard's API Keys page, which edits the same `.env` on the
-PVC) owns this, and the PVC is backed up by VolSync. This is a deliberate deviation from
+PVC) owns this, and the PVC is backed up by kopiur. This is a deliberate deviation from
 the repo's usual "every secret via OpenBao" pattern — the alternative is an env var that
 can silently poison the credential pool.
 
