@@ -83,6 +83,17 @@ rules:
       - "get"
       - "list"
       - "watch"
+  # kopiur has backed up every PVC since the W8 cutover (2026-10-11,
+  # docs/runbooks/kopiur-migration.md). Read-only like the rest; no kopiur kind
+  # holds Secret values (repositories reference a Secret by name only).
+  - apiGroups:
+      - "kopiur.home-operations.com"
+    resources:
+      - "*"
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
   - apiGroups:
       - "snapshot.storage.k8s.io"
     resources:

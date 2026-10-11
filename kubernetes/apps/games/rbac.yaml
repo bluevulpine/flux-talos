@@ -49,13 +49,20 @@ rules:
     verbs:
       - "create"
       - "delete"
+  # Take a backup before a world reset. kopiur replaced VolSync here at the W8
+  # cutover (2026-10-11), so the old ReplicationSource manual-trigger patch has
+  # nothing left to patch. Create only: no delete (with deletionPolicy: Delete
+  # that would remove kopia data) and no Restore. A manual Snapshot names the
+  # app's policy and carries its config label, e.g. for valheim's local repo:
+  #   metadata: {generateName: valheim-local-manual-,
+  #     labels: {kopiur.home-operations.com/config: valheim-local}}
+  #   spec: {policyRef: {name: valheim-local}}
   - apiGroups:
-      - "volsync.backube"
+      - "kopiur.home-operations.com"
     resources:
-      - "replicationsources"
-      - "replicationdestinations"
+      - "snapshots"
     verbs:
-      - "patch"
+      - "create"
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/master-standalone/rolebinding-rbac-v1.json
 apiVersion: rbac.authorization.k8s.io/v1
