@@ -97,18 +97,30 @@ spec:
                   periodSeconds: 10
                   timeoutSeconds: 5
                   failureThreshold: 60
-              liveness: &probes
+              readiness:
                 enabled: true
                 custom: true
                 spec:
                   httpGet:
                     path: /api/core/version/?format=json
                     port: *port
-                  initialDelaySeconds: 0
                   periodSeconds: 20
                   timeoutSeconds: 5
                   failureThreshold: 3
-              readiness: *probes
+              # Same check, but slower to act: a liveness restart cuts every
+              # viewer's stream, so a burst of uwsgi saturation or a slow
+              # Postgres gets ~2 minutes before the container is killed, while
+              # readiness above reacts in one.
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/core/version/?format=json
+                    port: *port
+                  periodSeconds: 20
+                  timeoutSeconds: 5
+                  failureThreshold: 6
             securityContext:
               allowPrivilegeEscalation: false
             resources:
@@ -156,10 +168,16 @@ spec:
               - ""
               - --appendonly
               - "no"
-              # Bounded below the container limit. volatile-lru evicts only
-              # keys with a TTL - the stream chunks - and never the celery
-              # queues, which carry none. ~768 MB is ~10 HD channels at the
-              # default 60 s chunk TTL, well over the provider's 4 connections.
+              # ~768 MiB is ~10 HD channels at the default 60 s chunk TTL, well
+              # over the provider's 4 connections, so eviction should never run.
+              # If it does, volatile-lru spares the celery queues (no TTL) but
+              # NOT the proxy's coordination keys: live:channel:<id>:owner and
+              # the output owners are SET NX EX too (output/*/manager.py), and
+              # losing one can open a second upstream connection for a channel.
+              # Treat eviction as a fault, not a safety valve. maxmemory caps
+              # used_memory, not RSS; constantly rewritten ~256 KB values
+              # fragment the allocator, hence the container limit sits well
+              # above it - an OOMKill empties every live buffer and queue.
               - --maxmemory
               - 768mb
               - --maxmemory-policy
@@ -189,7 +207,7 @@ spec:
                 cpu: 25m
                 memory: 64Mi
               limits:
-                memory: 1Gi
+                memory: 1536Mi
     service:
       app:
         controller: dispatcharr
@@ -228,6 +246,9 @@ spec:
               - path: /data
       tmp:
         type: emptyDir
+        # Bounded so a runaway temp writer evicts this pod instead of filling
+        # the node's ephemeral storage.
+        sizeLimit: 2Gi
         advancedMounts:
           dispatcharr:
             app:
