@@ -768,8 +768,12 @@ only when they are next recreated. Its `Restore` must carry the capability block
       carry `onScheduleDelete: Retain` and no `onPolicyDelete`, so the prune deletes only
       CRs, never kopia data. The pilot bucket and OpenBao key are dropped by hand
       afterwards). Order: repositories → W0 cutover → gates pass → retire pilots
-- [ ] **Decommission (after W8).** Order matters for the first item:
-      1. **tuppr's upgrade gate is vacuous.** `system-upgrade/tuppr/upgrades/talosupgrade.yaml`
+- [ ] **Decommission (after W8).** Items 2-4 wait for step 6's 30 green days after the
+      last cutover (W8, 2026-10-11), so not before 2026-11-10: until then VolSync and its
+      repositories are the rollback path. Item 1 was a safety fix, so it did not wait.
+      1. **Done 2026-10-11:** tuppr now gates on kopiur Snapshots `Pending`/`Running` (or
+         with no phase yet), checked with tuppr's own CEL code against all 6,130 live
+         Snapshots. Was: **tuppr's upgrade gate is vacuous.** `system-upgrade/tuppr/upgrades/talosupgrade.yaml`
          and `kubernetesupgrade.yaml` wait for no `volsync.backube` ReplicationSource to be
          `Synchronizing`. Its coverage shrank with every wave and after W8 there are none, so
          it always passes: an upgrade can reboot a node under a running kopiur mover (worst
