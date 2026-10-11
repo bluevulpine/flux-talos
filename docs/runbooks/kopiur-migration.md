@@ -4,7 +4,7 @@
 (jellyseerr, recyclarr, #1934) and W1 (8 apps, #1941) are cut over: kopiur is their only
 backup, and the fork's path-scope retention is cleared in both repositories (all six `keep-*`
 inherited). W2 (11 apps, #1959) is cut over too. W3 (10 apps, #2058) is cut over too. W4 (4 apps, #2074)
-is cut over too. W5 (jellyfin, plex) is cut over too. W6 (hermes, scrypted, matrix) is cut over too. W7 (gitea, frigate, both readarrs, tdarr) is cut over too. W8 (satisfactory, valheim) is cut over too: no VolSync backup source remains.** Every restore needs added capabilities (see
+is cut over too. W5 (jellyfin, plex) is cut over too. W6 (hermes, scrypted, matrix) is cut over too. W7 (gitea, frigate, both readarrs, tdarr) is cut over too. W8 (satisfactory, valheim) is cut over too: no VolSync backup source remains. Still to retire: see "Decommission" under Open items.** Every restore needs added capabilities (see
 "Restores need capabilities, not just root"). This is the single source of truth for the migration; the
 decisions below were made with Derek and are not open for re-litigation without new
 evidence.
@@ -768,6 +768,19 @@ only when they are next recreated. Its `Restore` must carry the capability block
       carry `onScheduleDelete: Retain` and no `onPolicyDelete`, so the prune deletes only
       CRs, never kopia data. The pilot bucket and OpenBao key are dropped by hand
       afterwards). Order: repositories → W0 cutover → gates pass → retire pilots
+- [ ] **Decommission (after W8).** Order matters for the first item:
+      1. **tuppr's upgrade gate is vacuous.** `system-upgrade/tuppr/upgrades/talosupgrade.yaml`
+         and `kubernetesupgrade.yaml` wait for no `volsync.backube` ReplicationSource to be
+         `Synchronizing`. Its coverage shrank with every wave and after W8 there are none, so
+         it always passes: an upgrade can reboot a node under a running kopiur mover (worst
+         for W8's Direct movers, on the app's node against live RWO volumes). Replace it with
+         a gate on kopiur's in-flight Snapshots BEFORE VolSync's CRDs go, since a health check
+         on a removed kind may block or error. The Talos upgrade is suspended meanwhile.
+      2. Delete `components/volsync-backup`; repoint the kopiur comments that cite it
+         (`components/kopiur/{local,r2}.yaml`, `clusterrepository-local.yaml`) at a
+         commit-pinned path.
+      3. Uninstall VolSync (HelmRelease, CRDs), after 1.
+      4. `volsync-claim`'s inert `dataSourceRef` (see "After the migration: the claim").
 - [ ] At decommission: flip `catalog.adoption` to `Adopt`? and decide on the pre-120 d
       VolSync tail
 - [x] The cluster runs kopiur **0.10.9**. The repositories patch (2 ClusterRepositories with
