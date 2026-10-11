@@ -65,12 +65,13 @@ spec:
               # Redis is the sidecar below, not dragonfly. The stream proxy
               # buffers the VIDEO itself in Redis: every ~256 KB chunk is
               # SETEX'd with a 60 s TTL (apps/proxy/live_proxy/input/buffer.py),
-              # so one HD channel is ~60-75 MB rewritten continuously. On the
-              # shared dragonfly that is replicated to two followers and
-              # competes for its 512 Mi with authentik sessions, immich and
-              # nextcloud; and dragonfly runs cluster_mode=emulated, which only
-              # serves DB 0, so the usual REDIS_DB isolation is unavailable.
-              # Pod-local also means a dragonfly restart cannot drop live TV.
+              # so one HD channel is ~60-75 MB rewritten continuously. Not a
+              # memory problem for the shared dragonfly (it peaks at ~143 MiB of
+              # 512 Mi over 60 days) but a coupling one: every chunk would be
+              # replicated to two followers on other nodes, and dragonfly
+              # changed master 8 times in 60 days (node maintenance), each of
+              # which would drop every live stream. Pod-local, a channel's
+              # buffer lives and dies with the pod serving it.
               REDIS_HOST: localhost
               REDIS_PORT: "6379"
               # Behind Envoy, the TCP peer is the gateway pod. Trust only the
