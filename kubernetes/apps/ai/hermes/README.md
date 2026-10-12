@@ -235,9 +235,23 @@ Synapse's SSRF guard refuses it. **Do not** "fix" that with `ip_range_whitelist`
 ## Adding an agent profile
 
 One pod, one multiplexing gateway, one Hermes profile per agent. Each profile gets its
-own secret scope, `state.db`, memory, SOUL and Matrix adapter. Wasp (#2057, #2064) is the
-worked example. `<agent>` is lowercase (`pollen`); `<Agent>` is the OpenBao field prefix
-(`Pollen`); `<DEVICE>` is uppercase alphanumeric (`POLLENHERMES`).
+own secret scope, `state.db`, memory, SOUL and adapters. Two worked examples: Wasp
+(#2057, #2064) for a chat-platform agent (Buzz + Matrix) and Deckhand (#2161) for a
+Paperclip-driven one. `<agent>` is lowercase (`pollen`); `<Agent>` is the OpenBao field
+prefix (`Pollen`); `<DEVICE>` is uppercase alphanumeric (`POLLENHERMES`).
+
+**OpenBao layout:** `secret/agents/<agent>/profile` holds the profile's credentials
+(`<Agent>__ApiServerKey`, `<Agent>__Paperclip__APIKey`, `<Agent>__Matrix__*`, ...).
+A GitHub App, if the agent commits, lives at `secret/github-apps/<app>` and is read by
+`gh-as-bot.sh` directly, never through `profile.env`. Shared, non-secret values
+(`PAPERCLIP_API_URL`, relay URLs) are literals in the template, not Bao fields. Wasp
+predates this layout and still reads `secret/hermes-wasp`; it moves when convenient.
+
+**Trust boundary:** the four profiles (Bosun, Wasp, Deckhand, Aurelia) share one process,
+so each can read every mounted `profile.env` and, via `gh-as-bot.sh`, mint any GitHub
+App token the pod's Bao policy allows. Commit authorship therefore records which profile
+*chose* a credential, not a hard boundary. Accepted while all profiles are operator
+agents of equal trust; see the last paragraph of this section for the alternative.
 
 **Why a file and not env:** under multiplexing, the process environment is the *default*
 profile's credentials only. A named profile resolves secrets from its own files and
@@ -245,7 +259,15 @@ never borrows. So its secrets arrive as a mounted `profile.env`, read by the pro
 own `secrets.command`. The mount is a directory, **not** a `subPath`, because a `subPath`
 mount never receives Secret updates.
 
-1. **Identity.** The agent operating the cluster runs this itself. Derek
+1. **Identity.** *Paperclip-only agent (Deckhand, Aurelia):* skip the Matrix steps.
+   Create the agent's Paperclip API key in the Paperclip UI, then on the Mac with the
+   key on the clipboard:
+   ```zsh
+   pbpaste | bao kv put -mount=secret agents/<agent>/profile \
+     <Agent>__ApiServerKey="$(openssl rand -hex 32)" <Agent>__Paperclip__APIKey=-
+   ```
+   (`=-` reads stdin, so the key never appears on screen or in history; `bao` has no
+   `@file` syntax.) *Matrix agent:* the agent operating the cluster runs this itself. Derek
    decided this on 2026-10-03, reversing the pilot spec's "Derek runs the token step". It is
    safe because `bao kv` is an approval-gated ask rule, and the token goes straight from
    `mas-cli` into OpenBao; it is never printed:
@@ -256,7 +278,7 @@ mount never receives Secret updates.
    T=$(kubectl -n matrix exec deploy/matrix-stack-matrix-authentication-service -- \
      mas-cli manage issue-compatibility-token <agent> <DEVICE> 2>&1 | grep -o 'mct_[A-Za-z0-9_]*' | head -1)
    # NEW path → put, seeding EVERY field the agent's profile.env template references:
-   [ -n "$T" ] && bao kv put secret/hermes-<agent> <Agent>__Matrix__AccessToken="$T" \
+   [ -n "$T" ] && bao kv put -mount=secret agents/<agent>/profile <Agent>__Matrix__AccessToken="$T" \
      <Agent>__Matrix__RecoveryKey= <Agent>__OtherField=…; unset T
    ```
    - **`put` only creates.** On an existing path it **replaces every field**, so every
@@ -266,12 +288,14 @@ mount never receives Secret updates.
    - Seed every field the template references, even ones that are still empty. A
      missing field fails the v2 template, and with it the whole Secret.
 2. **Git (one PR):**
-   - `app/externalsecret-profile-<agent>.yaml` renders one key, `profile.env`. Use
-     Wasp's as the shape, but **copy only the `MATRIX_*` lines**. Change
-     `MATRIX_RECOVERY_KEY_OUTPUT_FILE` to `/opt/data/profiles/<agent>/…` and the field
-     refs to `<Agent>__…`. Everything else in Wasp's file (`BUZZ_*` and its literal
-     `BUZZ_AUTH_TAG` attestation, `API_SERVER_KEY`, `GITEA_*`) is **Wasp's own** and
-     must not be copied.
+   - `app/externalsecret-profile-<agent>.yaml` renders one key, `profile.env`. For a
+     Paperclip-driven agent copy `externalsecret-profile-deckhand.yaml` and change the
+     name and `<Agent>__` prefix. For a Matrix agent start from that file and add
+     **only the `MATRIX_*` lines** from Wasp's, with `MATRIX_RECOVERY_KEY_OUTPUT_FILE`
+     at `/opt/data/profiles/<agent>/…`. Everything else in Wasp's file (`BUZZ_*` and
+     its literal `BUZZ_AUTH_TAG` attestation, `GITEA_*`) is **Wasp's own** and must not
+     be copied. `API_SERVER_KEY` is always present: a named profile fails closed on
+     `/p/<agent>/v1/...` without it.
    - A `<agent>-secrets` persistence entry in `helmrelease.yaml`: `type: secret`,
      `defaultMode: 0440`, mounted at `/run/hermes-profiles/<agent>`, `readOnly`.
    - Add the ExternalSecret to `kustomization.yaml`.
@@ -286,8 +310,9 @@ mount never receives Secret updates.
    "${H[@]}" profile create <agent>        # no --clone: copies no credentials
    # Gate and model FIRST. The token is already in the mounted file, and it reaches the
    # profile the moment secrets.command is enabled (every config set triggers a rescan).
-   "${H[@]}" -p <agent> config set platforms.matrix.device_id <DEVICE>
+   "${H[@]}" -p <agent> config set platforms.matrix.device_id <DEVICE>              # Matrix agents only
    "${H[@]}" -p <agent> config set platforms.matrix.allowed_users "@bluevulpine:bluevulpine.net"
+   "${H[@]}" -p <agent> config set approvals.mode off   # Paperclip-driven: nobody answers prompts
    # ...set the agent's own model:/provider here (see below)...
    "${H[@]}" -p <agent> config set secrets.command.command "/bin/cat /run/hermes-profiles/<agent>/profile.env"
    "${H[@]}" -p <agent> config set secrets.command.override_existing true
@@ -303,7 +328,8 @@ mount never receives Secret updates.
    - **Live add:** `/opt/data/gateway_state.json` `served_profiles` gains `<agent>`, and
      there is still exactly one gateway process.
    - **Adapter:** the log shows the agent's Matrix adapter connected as `@<agent>`, with
-     no `duplicate_credential`.
+     no `duplicate_credential`. Paperclip-driven: a `POST /p/<agent>/v1/runs` with the
+     profile's `API_SERVER_KEY` returns `run_id` (401 means the key did not reach it).
    - **Ownership:** `find /opt/data/profiles/<agent> ! -uid 10000` prints nothing.
    - **Recovery key:** move it into OpenBao at once, never printed, then delete the
      file and force-sync. A restart before this would re-bootstrap and fail on the
@@ -311,7 +337,7 @@ mount never receives Secret updates.
      ```bash
      F=/opt/data/profiles/<agent>/matrix-recovery-key.txt
      kubectl -n ai exec deploy/hermes -- cat "$F" | tr -d '\n' \
-       | { read -r K; bao kv patch secret/hermes-<agent> <Agent>__Matrix__RecoveryKey="$K" >/dev/null && echo stored; unset K; } \
+       | { read -r K; bao kv patch -mount=secret agents/<agent>/profile <Agent>__Matrix__RecoveryKey="$K" >/dev/null && echo stored; unset K; } \
        && kubectl -n ai exec deploy/hermes -- rm -f "$F" \
        && kubectl -n ai annotate externalsecret hermes-profile-<agent> force-sync="$(date +%s)" --overwrite
      ```
