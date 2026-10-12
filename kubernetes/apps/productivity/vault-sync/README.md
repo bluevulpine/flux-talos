@@ -23,7 +23,9 @@ login is in OpenBao (`bao kv get -field=VaultSync__GuiPassword secret/vault-sync
 it with `bao kv patch` (never `put`, which drops the other fields); Reloader rolls the pod.
 
 1. **Pair Syncthing.** Get the pod's device ID:
-   `kubectl -n productivity exec deploy/vault-sync-syncthing -c app -- syncthing cli show system | jq -r .myID`
+   `kubectl -n productivity exec deploy/vault-sync-syncthing -c app -- syncthing --home=/var/syncthing/config device-id`
+   (`syncthing cli` refuses to run here: the image sets `STGUIADDRESS`, and `cli` then
+   also demands `--gui-apikey`.)
    - On the **NAS** (`vault` Syncthing, `LPIWKNK-…`): Add Remote Device → the pod's ID,
      name `k8s-vault-sync`, share folder `ftk9p-v9mgn` (Obsidian) with it.
    - In the **pod's** GUI: Add Remote Device →
