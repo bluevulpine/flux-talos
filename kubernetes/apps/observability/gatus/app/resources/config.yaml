@@ -196,3 +196,36 @@ endpoints:
       - "[BODY].db == connected"
     alerts:
       - type: pushover
+
+  # The hosted fallback behind `spark-main`: Nous Portal, probed THROUGH LiteLLM
+  # on the `nous-qwen36-fallback` route with a key that can reach nothing else
+  # (LITELLM_GATUS_KEY, alias `gatus`, $1/30d budget). Nothing exercises this
+  # path until the Spark is down, which is exactly when a lapsed key or spent
+  # credits would surface -- and badly: LiteLLM buries a dead fallback in a
+  # nested AuthenticationError, so a Spark outage reads as an auth problem
+  # somewhere else (fallbacks note in the litellm HelmRelease). A probe of
+  # /v1/models would not do: it answers 200 on an exhausted account. Only a
+  # real completion proves the key AND the credits.
+  #
+  # Cost: max_tokens 1 on a 19-token prompt measured $0.00000285 a call
+  # (usage.cost, 2026-10-12), so every 30 minutes is under a cent a year; the
+  # key's own budget caps a runaway at $1. completion_tokens >= 1 is the
+  # load-bearing condition: it proves the MODEL answered, not just that the
+  # gateway returned JSON. Thinking is off on the route, so that one token is
+  # the answer ("pong", finish_reason length), not reasoning. 1.6s measured.
+  - name: Nous Portal (LiteLLM fallback)
+    group: inference
+    url: "http://litellm.ai.svc.cluster.local:4000/v1/chat/completions"
+    method: POST
+    headers:
+      Authorization: "Bearer $${LITELLM_GATUS_KEY}"
+      Content-Type: application/json
+    body: '{"model":"nous-qwen36-fallback","messages":[{"role":"user","content":"Reply with the single word pong."}],"max_tokens":1}'
+    interval: 30m
+    client:
+      timeout: 30s
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].usage.completion_tokens >= 1"
+    alerts:
+      - type: pushover
