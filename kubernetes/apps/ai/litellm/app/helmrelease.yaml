@@ -226,6 +226,7 @@ spec:
               # produced 0). So a consumer tuned for gpt-oss with
               # reasoning_effort: low is asking Qwen to think. An explicit
               # `chat_template_kwargs: {"enable_thinking": false}` wins over both.
+              #
               # --- the routes: spark-main, spark-main-vision ---
               # Model-neutral on purpose. The first routes here were named after
               # the models the Spark ran (spark-gpt-oss-20b, spark-gpt-oss-20b-long,
