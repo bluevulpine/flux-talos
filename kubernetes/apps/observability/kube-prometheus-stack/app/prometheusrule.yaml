@@ -126,15 +126,17 @@ spec:
             severity: warning
         - alert: GarageDataVolumeFilling
           annotations:
-            summary: Garage data volume is {{ $value | humanizePercentage }} full on {{ $labels.instance }} — backups will start failing soon.
+            summary: Garage data volume is {{ $value | humanizePercentage }} full on {{ $labels.instance }} ({{ $labels.job }}) — backups will start failing soon.
           expr: 1 - (garage_local_disk_avail{volume="data"} / garage_local_disk_total{volume="data"}) > 0.85
           for: 15m
           labels:
             severity: warning
+        # Critical only for vault, the live write path. pinas (job
+        # garage-pinas) is the second copy and gets the 85% warning above only.
         - alert: GarageDataVolumeCritical
           annotations:
             summary: Garage data volume is {{ $value | humanizePercentage }} full on {{ $labels.instance }} — backup writes about to fail.
-          expr: 1 - (garage_local_disk_avail{volume="data"} / garage_local_disk_total{volume="data"}) > 0.95
+          expr: 1 - (garage_local_disk_avail{job="garage", volume="data"} / garage_local_disk_total{job="garage", volume="data"}) > 0.95
           for: 5m
           labels:
             severity: critical
