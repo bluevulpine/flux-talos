@@ -41,7 +41,8 @@ this replica and the Mac edit the same tree while apart:
   promotion into the curated `shared/` files happens from the Mac side (and
   the weekly dreaming pass), so no file is rewritten from two devices;
 - a `*.sync-conflict-*` copy means the rule was broken. git ignores the copies,
-  so vault-sync's committer fails its run while one exists, which is the alert.
+  so vault-sync's committer fails its run while one exists (#2158), which is
+  the alert.
 
 What this side keeps out, via the per-device `.stignore` the init container
 seeds (edit it on the volume; Syncthing never syncs ignore files):
