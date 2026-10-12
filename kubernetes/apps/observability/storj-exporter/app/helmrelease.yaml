@@ -97,7 +97,7 @@ spec:
       # reads one node's API, so each node gets its own controller. Addressed by
       # tailnet IP, like the pinas node-exporter scrape, because pinas may move
       # offsite; cluster CoreDNS cannot resolve *.ts.net.
-      storj-exporter-pinas:
+      pinas:
         type: deployment
         replicas: 1
         containers:
@@ -116,16 +116,18 @@ spec:
             port: 9651
             protocol: TCP
       pinas:
-        controller: storj-exporter-pinas
+        controller: pinas
         ports:
           http:
             port: 9651
             protocol: TCP
     # The exporter's metrics carry no node identity, so each ServiceMonitor
     # stamps a `node` label; the dashboard's node selector filters on it.
+    # With two services app-template suffixes every name, so vault's Service
+    # is storj-exporter-app (it was storj-exporter while it was the only one).
     serviceMonitor:
       app:
-        serviceName: storj-exporter
+        serviceName: storj-exporter-app
         endpoints:
           - port: http
             scheme: http
