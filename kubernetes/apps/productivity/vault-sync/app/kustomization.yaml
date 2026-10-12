@@ -12,6 +12,7 @@ configMapGenerator:
     files:
       - commit.sh=./resources/commit.sh
       - known_hosts=./resources/known_hosts
+      - passwd=./resources/passwd
     options:
       annotations:
         # commit.sh is shell: Flux postBuild envsubst would rewrite its ${...}

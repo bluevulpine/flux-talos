@@ -226,6 +226,11 @@ spec:
             app:
               - path: /scripts
                 readOnly: true
+              # OpenSSH aborts ("No user exists for uid 568") when the uid has
+              # no passwd entry, and alpine/git ships none for 568.
+              - path: /etc/passwd
+                subPath: passwd
+                readOnly: true
       secrets:
         type: secret
         name: vault-sync-secret
