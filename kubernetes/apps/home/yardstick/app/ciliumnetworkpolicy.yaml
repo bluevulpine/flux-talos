@@ -1,0 +1,37 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: yardstick
+spec:
+  description: >-
+    Yardstick has no login of its own in this setup (Authentik guards the
+    gateway route), shows the yard's GPS coordinates and can drive the robot.
+    Its Service is a LoadBalancer (${SVC_YARDSTICK_ADDR}) only so Home
+    Assistant's plain-HTTP integration can reach it, so 8477 answers to HA and
+    to the internal gateway and to nothing else on the LAN or in the cluster.
+    Cilium's allow-localhost default exempts the local node, so kubelet probes
+    are unaffected. INGRESS ONLY: an egress section, even an empty one, would
+    default-deny egress and cut Yarbo's cloud MQTT, the licence check and mail.
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: yardstick
+  ingress:
+    # The browser path: the `internal` Gateway's Envoy pods, behind Authentik.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: network
+            gateway.envoyproxy.io/owning-gateway-name: internal
+      toPorts:
+        - ports:
+            - port: "8477"
+              protocol: TCP
+    # Home Assistant (HAOS on VLAN 50). Arrives via the LoadBalancer with its
+    # source IP intact (Cilium DSR).
+    - fromCIDR:
+        - 192.168.50.10/32
+      toPorts:
+        - ports:
+            - port: "8477"
+              protocol: TCP
