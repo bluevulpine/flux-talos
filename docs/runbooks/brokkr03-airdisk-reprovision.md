@@ -1,5 +1,13 @@
 # Runbook: brokkr03 AirDisk EPHEMERAL reprovision
 
+> **Historical (2026-07-14). `data-1` is no longer a Longhorn disk on any brokkr.**
+> The AirDisk is too slow for Longhorn replicas: every one of 355 replica
+> `r/w timeout` failures from 2026-10-04 to 10-11 was on a `data-1` disk. Its
+> replicas were evicted and the disk entries removed in #2136, #2138, #2140 and
+> #2141; see `kubernetes/apps/longhorn-system/longhorn/disks/brokkr02.yaml`. If
+> you repartition an AirDisk again, **skip Step 5 and the rebalance note in
+> Step 7**: re-registering `data-1` would undo that migration.
+
 Fixes a first-boot partitioning artifact on brokkr03: its AirDisk 1TB SSD split
 `EPHEMERAL` and `u-data-1` unevenly compared to its siblings, leaving
 `EPHEMERAL` half the size it should be and chronically short on headroom for
@@ -255,6 +263,9 @@ kubectl get --raw "/api/v1/nodes/brokkr03/proxy/stats/summary" | \
 
 ## Step 5 — re-register the disk with Longhorn
 
+> **Do not run this step any more.** `data-1` is no longer a Longhorn disk; see the
+> note at the top. Kept as a record of the 2026-07-14 run.
+
 The old `data-1` disk entry on `nodes.longhorn.io/brokkr03` still points at the
 now-defunct UUID (`48d0e531-...`) — the wipe erased its `longhorn-disk.cfg`
 marker along with everything else on that partition. Longhorn will discover
@@ -307,7 +318,7 @@ kubectl get pods -A -o wide | grep brokkr03
 kubectl describe node brokkr03 | grep -A2 "^Conditions" | grep DiskPressure
 ```
 
-Optional: let Longhorn rebalance replicas back onto the fresh `data-1` disk
+(Historical, do not do this now; see the note at the top.) Optional: let Longhorn rebalance replicas back onto the fresh `data-1` disk
 for data locality, or leave workloads as-is on brokkr01/brokkr02 — both are
 fine long-term; the other nodes have headroom to carry the load indefinitely.
 
