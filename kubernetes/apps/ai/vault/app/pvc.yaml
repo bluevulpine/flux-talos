@@ -1,0 +1,43 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.36.2-standalone-strict/persistentvolumeclaim-v1.json
+# The Obsidian vault, as a Syncthing replica inside the hermes pod: mounted at
+# /opt/data/vault by hermes and by the syncthing sidecar (ai/hermes). See
+# ../README.md for what lives here and who may write where.
+#
+# Its own claim, deliberately NOT on hermes' data PVC: hermes runs `Recreate`
+# on a volsync-backed RWO volume, so co-locating would couple the notes'
+# availability to the agent's own state, and the ai/hermes kustomization's
+# kind-only IfNotPresent patch would silently adopt a second claim there.
+#
+# Plain claims, outside components/kopiur, for the same reason as
+# productivity/vault-sync: the vault already lives on the NAS, on the Mac, in
+# the vault-sync replica and in Gitea. A kopiur restore would only hand
+# Syncthing a stale tree to reconcile. Losing these volumes costs a re-pair
+# and one ~730 MiB pull.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vault
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: longhorn-2-replica
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.36.2-standalone-strict/persistentvolumeclaim-v1.json
+# Syncthing's own state (device key, config.xml, index database). Separate from
+# the vault so the vault volume holds nothing but notes, and so the device
+# identity survives a pod restart (a lost key means re-pairing).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vault-syncthing-config
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: longhorn-2-replica

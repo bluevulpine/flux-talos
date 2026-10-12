@@ -42,6 +42,54 @@ spec:
         # not designed for concurrent write access." A RollingUpdate would
         # briefly run two pods against one PVC.
         strategy: Recreate
+        initContainers:
+          # Prepares the Syncthing sidecar (same shape as productivity/vault-sync):
+          # `syncthing generate` creates the config if absent and (re)sets the
+          # GUI login on every start, so OpenBao stays the source of truth and
+          # the GUI is never open. The grep makes a login that did not land in
+          # the config fail the pod rather than start an unauthenticated GUI.
+          # It also seeds the vault's .stignore (per device, never synced):
+          # lost+found is ext4's root-owned dir at the volume root, .git/.qmd
+          # are the Mac's local-only trees, and the LiveSync plugin dir holds
+          # CouchDB credentials that the vault's .gitignore already keeps out
+          # of git for the same reason. Agents do not need any of them.
+          vault-syncthing:
+            image: &syncthingImage
+              repository: ghcr.io/syncthing/syncthing
+              # renovate: datasource=docker depName=ghcr.io/syncthing/syncthing
+              tag: 2.1.6
+            command:
+              - /bin/sh
+              - -c
+              - >-
+                printf '%s\n' "$STGUI_PASSWORD" | syncthing --home=/var/syncthing/config generate --gui-user="$STGUI_USER" --gui-password=- && grep -q "<user>$STGUI_USER</user>" /var/syncthing/config/config.xml && { [ -f /opt/data/vault/.stignore ] || printf '%s\n' lost+found .git .qmd .obsidian/plugins/obsidian-livesync > /opt/data/vault/.stignore; }
+            env:
+              TZ: "${TIMEZONE}"
+              STNODEFAULTFOLDER: "1"
+              STGUI_USER:
+                valueFrom:
+                  secretKeyRef:
+                    name: vault-syncthing-secret
+                    key: STGUI_USER
+              STGUI_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: vault-syncthing-secret
+                    key: STGUI_PASSWORD
+            securityContext: &syncthingSecurityContext
+              # The pod has no runAsUser (hermes' s6 entrypoint starts as root
+              # and drops to 10000 itself), so pin it here: the sidecar must
+              # write the vault as the same uid the agents run as. Syncthing
+              # replicates the Mac's 0600/0700 modes, so group access via
+              # fsGroup would not be enough.
+              runAsNonRoot: true
+              runAsUser: 10000
+              runAsGroup: 10000
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+              seccompProfile:
+                type: RuntimeDefault
         containers:
           app:
             image:
@@ -54,6 +102,11 @@ spec:
             env:
               TZ: "${TIMEZONE}"
               HERMES_HOME: /opt/data
+              # The shared notes vault (ai/vault). The obsidian skill resolves its
+              # path from this. Named profiles do not inherit process env under
+              # multiplexing, so a profile that needs it must list it in its own
+              # env_passthrough.
+              OBSIDIAN_VAULT_PATH: /opt/data/vault
               HERMES_DASHBOARD: "1"
               HERMES_DASHBOARD_HOST: "0.0.0.0"
               HERMES_DASHBOARD_PORT: &port 9119
@@ -138,6 +191,50 @@ spec:
                 memory: 1Gi
               limits:
                 memory: 6Gi
+          # Syncthing peer: a live replica of the Obsidian vault, in this pod
+          # because the vault claim is RWO. Pairs with the NAS (introducer) the
+          # same way productivity/vault-sync does; agents read and write the
+          # files directly and the vault-sync pod's committer is what puts the
+          # result in Gitea. The sync port is not exposed: this side dials OUT,
+          # and Syncthing connections are bidirectional once established.
+          syncthing:
+            image: *syncthingImage
+            env:
+              TZ: "${TIMEZONE}"
+              # Running as non-root, the image entrypoint skips its su-exec/PUID
+              # path and execs syncthing directly. Without this, first start
+              # creates ~/Sync under /var/syncthing.
+              STNODEFAULTFOLDER: "1"
+              STNOUPGRADE: "1"
+            probes:
+              # exec, like the hermes container: keeps the probe off the
+              # CiliumNetworkPolicy. Same check as the image's own HEALTHCHECK.
+              # Liveness only. A readiness probe on a sidecar marks the whole
+              # pod NotReady, and the Service would drop 9119 (dashboard) and
+              # 8642 (paperclip -> hermes API) because Syncthing was slow to
+              # start. Liveness restarts just this container; the GUI route
+              # may 503 for a moment while it does.
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command:
+                      - curl
+                      - -fsS
+                      - -o
+                      - /dev/null
+                      - http://127.0.0.1:8384/rest/noauth/health
+                  initialDelaySeconds: 20
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+            securityContext: *syncthingSecurityContext
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
     defaultPodOptions:
       # app-template defaults this to false; without it the pod gets no
       # projected SA token and kubectl's in-cluster config has nothing to
@@ -165,18 +262,55 @@ spec:
           # Gated by ciliumnetworkpolicy.yaml (paperclip only).
           api:
             port: 8642
+          # Syncthing GUI, reached only through httproute.yaml (Authentik).
+          syncthing:
+            port: 8384
     persistence:
+      # Agent state, scratch and profile secrets are the hermes container's
+      # alone (advancedMounts, not globalMounts): the Syncthing sidecar and its
+      # init container get the vault and nothing else.
       data:
         existingClaim: *app
+        advancedMounts:
+          hermes:
+            app:
+              - path: /opt/data
+      # The Obsidian vault (ai/vault), mounted INSIDE the data mount so profiles
+      # find it at $HERMES_HOME/vault, and at the same path in the sidecar so
+      # one path names the Syncthing folder everywhere. The hermes claim's
+      # backups do not include it (a nested mount is a different volume).
+      # The volume ROOT is the Syncthing folder: lost+found at that root is
+      # kept out by the .stignore the init container seeds.
+      vault:
+        existingClaim: vault
         globalMounts:
-          - path: /opt/data
+          - path: /opt/data/vault
+      # Syncthing's HOME and state. The image's /var/syncthing is root-owned
+      # and the sidecar's root filesystem is read-only, so HOME is an emptyDir
+      # and the config (device key, index) sits on its own small claim.
+      vault-syncthing-home:
+        type: emptyDir
+        advancedMounts:
+          hermes:
+            syncthing: &syncthingHome
+              - path: /var/syncthing
+            vault-syncthing: *syncthingHome
+      vault-syncthing-config:
+        existingClaim: vault-syncthing-config
+        advancedMounts:
+          hermes:
+            syncthing: &syncthingConfig
+              - path: /var/syncthing/config
+            vault-syncthing: *syncthingConfig
       # /opt/hermes is read-only by design; the agent still needs somewhere to
       # put kubectl/talosctl and scratch work. Anything that must survive a
       # restart belongs under /opt/data.
       tmp:
         type: emptyDir
-        globalMounts:
-          - path: /tmp
+        advancedMounts:
+          hermes:
+            app:
+              - path: /tmp
       # Per-profile secret files (one entry per named Hermes profile). A named
       # profile cannot read process env under multiplexing, so its secrets
       # arrive as one KEY=VALUE file read by the profile's own secrets.command
@@ -190,6 +324,8 @@ spec:
         type: secret
         name: hermes-profile-wasp
         defaultMode: 0440
-        globalMounts:
-          - path: /run/hermes-profiles/wasp
-            readOnly: true
+        advancedMounts:
+          hermes:
+            app:
+              - path: /run/hermes-profiles/wasp
+                readOnly: true
