@@ -8,6 +8,7 @@ resources:
   - ./pvc.yaml
   - ./prometheusrule.yaml
   - ./helmrelease.yaml
+  - ./ciliumnetworkpolicy.yaml
 components:
   # kopiur backup (local every 2h, R2 daily). No volsync-claim: see pvc.yaml.
   - ../../../../components/kopiur

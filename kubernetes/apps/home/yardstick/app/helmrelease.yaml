@@ -101,6 +101,19 @@ spec:
     service:
       app:
         controller: *app
+        # LoadBalancer for the Home Assistant integration (yardstickhome/
+        # yardstick), which speaks plain http://<host>:<port>/api/ha only: no
+        # TLS, no login, so it cannot go through the gateway and Authentik.
+        # Zeroconf discovery does not cross from the pod network either; add
+        # it in HA by hand with ${SVC_YARDSTICK_ADDR}:8477. NOT read-only
+        # despite the UI's claim: it POSTs /api/ha/control/<action> (dock,
+        # start plans). Exposure is fenced by ciliumnetworkpolicy.yaml.
+        type: LoadBalancer
+        annotations:
+          lbipam.cilium.io/ips: "${SVC_YARDSTICK_ADDR}"
+        # Local keeps the client source IP, which the policy's fromCIDR rule
+        # for HA depends on; Cluster would SNAT it to a node address.
+        externalTrafficPolicy: Local
         ports:
           http:
             port: 8477
