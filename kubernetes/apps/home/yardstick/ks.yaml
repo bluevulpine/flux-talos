@@ -1,0 +1,49 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app yardstick
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    - name: longhorn
+      namespace: longhorn-system
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
+  interval: 1h
+  path: ./kubernetes/apps/home/yardstick/app
+  prune: true
+  retryInterval: 1m
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: home
+  timeout: 5m
+  wait: false
+  postBuild:
+    substitute:
+      APP: *app
+      NS: home
+      # Snapshot, not the component's Direct default: the claim is RWO and
+      # holds a live SQLite database in WAL mode, so the mover gets a
+      # point-in-time copy instead of the file mid-write. Same as
+      # home/ev-charge-tracker and home/mosquitto.
+      KOPIUR_COPYMETHOD: Snapshot
+      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
+      # Recordings only accrue while the robot works, and a lost hour or two
+      # of telemetry is cheap; the licence/install_id in config.json is what
+      # actually matters and changes rarely. Every 2h local, daily R2. Hour 03
+      # is reserved for kopia-maint-r2, so R2 takes H 6.
+      KOPIUR_LOCAL_CRON: "H */2 * * *"
+      KOPIUR_R2_CRON: "H 6 * * *"
+      # The data volume is small; 16Gi (the component default) of kopia cache
+      # would be larger than what it caches.
+      KOPIUR_CACHE_CAPACITY: 2Gi
