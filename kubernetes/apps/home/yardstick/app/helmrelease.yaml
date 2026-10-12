@@ -33,16 +33,20 @@ spec:
               - "8477"
               - --note
               - k8s
-              # The robot's own MQTT broker, over HaLow (its IoT-Wi-Fi address
-              # is 192.168.50.222). Reached ROUTED from the pod network: VLAN 10
-              # may initiate to VLAN 50, and `yardstick discover --host` found
-              # serial 25070102P2TFE555 at both addresses from off-VLAN. So no
-              # Multus leg. Discovery's subnet SCAN would only see the pod
-              # network, which is why the host is given here. A Yarbo account
-              # sign-in in the UI is still required before it records.
-              - --robot-host
-              - 192.168.50.54
-              - --record
+              # Exactly the vendor unit's command (minus --note deb). No
+              # --robot-host / --record: Yarbo closed the local MQTT path, and
+              # Yardstick reaches the robot only through the signed-in Yarbo
+              # account (its Settings page: "Yarbo closed the connection
+              # Yardstick used to make over your own network"; measured
+              # 2026-10-12 from /proc/net/tcp: MQTT/TLS to Yarbo's AWS brokers
+              # on :8883, nothing to 192.168.50.x). Robots come from the account.
+              #
+              # Passing --robot-host anyway is actively harmful: it adds a
+              # second, serial-less core to config.json, and both cores then
+              # record the same robot stream (two "recorded N messages" lines
+              # a minute with near-identical counts). The entry is stored in
+              # config.json, so after dropping the flag it must also be removed
+              # once in the UI ("Remove this core" on the serial-less card).
             env:
               TZ: "${TIMEZONE}"
             probes:
