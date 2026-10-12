@@ -9,3 +9,4 @@ resources:
   - ./namespace.yaml
   - ./kopiur/ks.yaml
   - ./repositories/ks.yaml
+  - ./replication/ks.yaml

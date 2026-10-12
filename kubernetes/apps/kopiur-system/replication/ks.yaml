@@ -1,0 +1,30 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app kopiur-replication
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  # Its own Kustomization, not part of kopiur-repositories, because Flux
+  # server-dry-runs every object in a Kustomization before applying any. The
+  # kopiur webhook admits a RepositoryReplication only if its namespace is in
+  # the ClusterRepository's allowedNamespaces, so in one batch the dry-run is
+  # checked against the OLD list and fails the whole apply, including the
+  # list change itself (#2157). dependsOn guarantees the list lands first.
+  dependsOn:
+    - name: kopiur-repositories
+      namespace: kopiur-system
+  interval: 1h
+  path: ./kubernetes/apps/kopiur-system/replication/app
+  prune: true
+  retryInterval: 1m
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  # NO targetNamespace: every object carries metadata.namespace already.
+  timeout: 5m
+  wait: false

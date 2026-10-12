@@ -54,7 +54,7 @@ spec:
       - home
       - identity
       # Not a backup consumer: the RepositoryReplication to pinas lives here
-      # (replication-pinas.yaml). The webhook checks a ClusterRepository
+      # (kopiur-system/replication/). The webhook checks a ClusterRepository
       # consumer's namespace against this list, the operator's own included.
       - kopiur-system
       - matrix
