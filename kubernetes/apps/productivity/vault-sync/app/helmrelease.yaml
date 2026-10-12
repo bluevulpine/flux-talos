@@ -31,14 +31,16 @@ spec:
             command:
               - /bin/sh
               - -c
-              - printf '%s\n' "$STGUI_PASSWORD" | syncthing generate --gui-user="$STGUI_USER" --gui-password=-
-            env: &env
+              # --home is the image's STHOMEDIR, spelled out so generate and
+              # serve cannot disagree. The grep makes a login that did not land
+              # in the config serve reads fail the pod instead of leaving the
+              # GUI open.
+              - >-
+                printf '%s\n' "$STGUI_PASSWORD" | syncthing --home=/var/syncthing/config generate --gui-user="$STGUI_USER" --gui-password=- && grep -q "<user>$STGUI_USER</user>" /var/syncthing/config/config.xml
+            env:
               TZ: ${TIMEZONE}
-              # Running as non-root (defaultPodOptions), the image entrypoint
-              # skips its su-exec/PUID path and execs syncthing directly.
-              # Without this, first start creates ~/Sync under /var/syncthing.
+              # generate writes the initial config on first start.
               STNODEFAULTFOLDER: "1"
-              STNOUPGRADE: "1"
               STGUI_USER:
                 valueFrom:
                   secretKeyRef:
@@ -58,6 +60,9 @@ spec:
             image: *image
             env:
               TZ: ${TIMEZONE}
+              # Running as non-root (defaultPodOptions), the image entrypoint
+              # skips its su-exec/PUID path and execs syncthing directly.
+              # Without this, first start creates ~/Sync under /var/syncthing.
               STNODEFAULTFOLDER: "1"
               STNOUPGRADE: "1"
             probes:
@@ -225,6 +230,11 @@ spec:
         type: secret
         name: vault-sync-secret
         defaultMode: 0400
+        # Only the deploy key; the GUI login in the same Secret is not the
+        # committer's business.
+        items:
+          - key: id_ed25519
+            path: id_ed25519
         advancedMounts:
           committer:
             app:
