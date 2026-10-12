@@ -6,3 +6,4 @@ resources:
   - ./externalsecrets.yaml
   - ./clusterrepository-local.yaml
   - ./clusterrepository-r2.yaml
+  - ./replication-pinas.yaml

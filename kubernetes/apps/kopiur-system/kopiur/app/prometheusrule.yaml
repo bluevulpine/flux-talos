@@ -72,3 +72,44 @@ spec:
           for: 2h
           labels:
             severity: warning
+    - name: kopiur-replication.rules
+      rules:
+        # A failed replication Job already pages through the stock
+        # KubeJobFailed. This catches the quiet case: no run at all (suspended
+        # CR, refused by the webhook, parked waiting for a slot, operator down).
+        # kopiur exports only a run counter with no CR label, so this keys off
+        # kube-state-metrics: completion_time is set only on a SUCCEEDED Job,
+        # and its VALUE is when it completed.
+        #
+        # Two branches. kopiur reaps replication Jobs 1h after they finish, so
+        # today the series simply vanishes and absent_over_time does the work.
+        # The age branch keeps the rule right if Jobs are ever retained longer
+        # (a ttlSecondsAfterFinished override), where a stale Job would
+        # otherwise keep the series present forever. Both branches are max()ed
+        # to the same empty label set so `or` yields ONE alert instance whose
+        # `for` timer carries across the hand-off between them; unwrapped, the
+        # absent branch keeps {namespace} and becomes a second instance that
+        # fires after the first resolves, mid-outage.
+        #
+        # 40h, not 48h: rules run against Prometheus's 2-day local window, and
+        # a daily cron that misses one run is ~48h old by its next slot. Pages
+        # ~52h after the last good mirror. The first seed is started by hand on
+        # deploy (run-requested annotation); if it has not succeeded within 12h,
+        # this pages, which is the right signal for a broken seed.
+        - alert: KopiurReplicationPinasStale
+          annotations:
+            summary: >-
+              The kopia-local mirror to pinas (RepositoryReplication
+              kopiur-system/kopia-local-to-pinas) has not completed a run in
+              over 40h. `kubectl -n kopiur-system describe
+              repositoryreplications.kopiur.home-operations.com
+              kopia-local-to-pinas`.
+          expr: |
+            (
+              time() - max(max_over_time(kube_job_status_completion_time{namespace="kopiur-system", job_name=~"kopia-local-to-pinas-.*"}[2d])) > 40 * 3600
+            )
+            or
+            max(absent_over_time(kube_job_status_completion_time{namespace="kopiur-system", job_name=~"kopia-local-to-pinas-.*"}[40h]))
+          for: 12h
+          labels:
+            severity: warning

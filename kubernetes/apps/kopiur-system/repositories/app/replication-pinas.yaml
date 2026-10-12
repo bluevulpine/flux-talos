@@ -1,0 +1,84 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/external-secrets.io/externalsecret_v1.json
+# Access key for the `kopia` bucket on pinas's Garage, scoped to that bucket
+# only (key `kopiur-replication`, read+write). No KOPIA_PASSWORD: sync-to copies
+# blobs verbatim, so the mirror is encrypted with kopia-local's own password.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: kopiur-pinas
+  namespace: kopiur-system
+spec:
+  secretStoreRef:
+    name: openbao
+    kind: ClusterSecretStore
+  refreshInterval: 5m
+  target:
+    name: kopiur-pinas-secret
+    template:
+      engineVersion: v2
+      data:
+        AWS_ACCESS_KEY_ID: "{{ .GaragePinas__Kopia__AccessKeyId }}"
+        AWS_SECRET_ACCESS_KEY: "{{ .GaragePinas__Kopia__SecretAccessKey }}"
+  dataFrom:
+    - extract:
+        key: garage-pinas
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/repositoryreplication_v1alpha1.json
+# The second copy in the 3-2-1 scheme: kopia-local (Garage on vault) mirrored
+# blob-for-blob to Garage on pinas. kopia-r2 is the offsite copy; this one is
+# a second machine and pool at home (and maybe offsite later).
+#
+# Only kopia-local is mirrored. It holds every app's hourly history; the R2
+# repository is the daily subset and is already off this hardware.
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: RepositoryReplication
+metadata:
+  name: kopia-local-to-pinas
+  namespace: kopiur-system
+spec:
+  sourceRef:
+    kind: ClusterRepository
+    name: kopia-local
+  destination:
+    s3:
+      bucket: kopia
+      # pinas's tailnet IP, not its LAN address, so the mirror keeps working
+      # if pinas moves offsite. Same route Prometheus already scrapes it by.
+      endpoint: 100.114.176.10:3900
+      region: us-east-1
+      tls:
+        # Garage serves plain HTTP. The path is a WireGuard tunnel and every
+        # blob is already kopia-encrypted.
+        disableTls: true
+      auth:
+        secretRef:
+          name: kopiur-pinas-secret
+          namespace: kopiur-system
+  schedule:
+    # Daily, UTC like every other kopiur cron here. Nothing reads the mirror
+    # until a disaster, so a day of lag costs nothing.
+    cron: "30 9 * * *"
+    jitter: 20m
+  sync:
+    # kopia's default is one blob at a time; the first run seeds ~350 GiB.
+    parallel: 8
+    # Exact mirror: blobs kopia maintenance deletes at the source are deleted
+    # here too. Without it the bucket only ever grows. The risk is that a
+    # damaged or emptied source is mirrored on the next run, so pinas takes 14
+    # daily ZFS snapshots of rastank/s3 (sanoid, meta+data atomically): that
+    # is the undo window, not this flag.
+    deleteExtra: true
+  mover:
+    # The mover only copies blobs and never reads a workload's files, so it
+    # does not need the root it would inherit from kopia-local's
+    # moverDefaults (root exists there for restores).
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 568
+      runAsGroup: 568
+      fsGroup: 568
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 568
+      runAsGroup: 568
