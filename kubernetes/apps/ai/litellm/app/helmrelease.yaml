@@ -392,8 +392,12 @@ spec:
               # vLLM's grammar. Hindsight validates and retries, so it costs a
               # retry, not a bad memory.
               #
-              # Not listed in any virtual key: it is reached only as a fallback,
-              # never by name.
+              # Listed in exactly ONE virtual key, `gatus`, for the "Nous Portal
+              # (LiteLLM fallback)" probe in gatus's resources/config.yaml, which
+              # sends a one-token completion here every 30 minutes so a lapsed
+              # key or spent credits page BEFORE the Spark goes down. Every other
+              # consumer reaches it only as a fallback, never by name. Renaming
+              # this route means updating that key's models and the probe body.
               - model_name: nous-qwen36-fallback
                 litellm_params:
                   model: openai/qwen/qwen3.6-35b-a3b
