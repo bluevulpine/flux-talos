@@ -5,10 +5,16 @@ metadata:
   name: brokkr02
 spec:
   disks:
-    data-1:
-      path: /var/mnt/data-1
-      allowScheduling: true
+    # No data-1 on purpose. /var/mnt/data-1 is on the AirDisk 1TB, which is also
+    # this node's Talos system disk (EPHEMERAL/IMAGECACHE). Its write latency climbs
+    # to tens or hundreds of ms at single-digit MB/s, and Longhorn drops any replica
+    # whose write stalls past its r/w timeout. 2026-10-04..11: 355 "Failed replica"
+    # events cluster-wide, every one on a data-1 disk and none on data-2; on this
+    # node openbao-0 lost its replica 148 times, mealie 125, lidarr 32. A CSI
+    # snapshot taken mid-rebuild is deleted by Longhorn, which is what failed
+    # mealie's kopiur backups. SMART is clean: the drive is slow, not failing.
+    # Its replicas were evicted in #2136 and the disk entry removed here; the
+    # AirDisk stays the system disk. Do not re-add it as a Longhorn disk.
     data-2:
       path: /var/mnt/data-2
       allowScheduling: true
-

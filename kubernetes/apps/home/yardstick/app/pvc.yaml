@@ -1,0 +1,24 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.36.2-standalone-strict/persistentvolumeclaim-v1.json
+# A plain claim, NOT components/volsync-claim. VolSync is retired; that
+# component's dataSourceRef names a ReplicationDestination that no longer
+# exists, so a NEW claim made from it would sit Pending forever
+# (docs/runbooks/kopiur-migration.md, "After the migration: the claim").
+# Until components/kopiur-claim exists, a rebuilt cluster gets this claim
+# empty and restores it with a kopiur Restore by hand. Name must stay ${APP}:
+# components/kopiur's SnapshotPolicy sources pvc ${APP}.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "${APP}"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      # SQLite: telemetry kept 90 days (recording_retention_days) plus one
+      # day of raw payloads. Grow by hand if it fills; Longhorn expands online.
+      storage: 5Gi
+  # Two replicas so a Talos drain does not leave the recorder without its
+  # volume until the node returns; kopiur only restores to the last slot.
+  storageClassName: longhorn-2-replica

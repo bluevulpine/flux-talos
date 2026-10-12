@@ -1,0 +1,14 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ./ocirepository.yaml
+  - ./registry-externalsecret.yaml
+  - ./pvc.yaml
+  - ./prometheusrule.yaml
+  - ./helmrelease.yaml
+  - ./ciliumnetworkpolicy.yaml
+components:
+  # kopiur backup (local every 2h, R2 daily). No volsync-claim: see pvc.yaml.
+  - ../../../../components/kopiur

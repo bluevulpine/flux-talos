@@ -22,7 +22,7 @@ spec:
     name: home-kubernetes
     namespace: flux-system
   # NO targetNamespace: the ClusterRepositories are cluster-scoped and the
-  # ExternalSecrets carry their own metadata.namespace (11 namespaces), so a
+  # ExternalSecrets carry their own metadata.namespace (12 namespaces), so a
   # targetNamespace would rewrite all of them into one.
   timeout: 5m
   wait: false

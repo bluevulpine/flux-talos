@@ -11,8 +11,6 @@ spec:
   dependsOn:
     - name: cloudnative-pg-cluster18
       namespace: database
-    - name: dragonfly-cluster
-      namespace: database
     - name: external-secrets-openbao-store
       namespace: external-secrets
   path: ./kubernetes/apps/identity/authentik/app

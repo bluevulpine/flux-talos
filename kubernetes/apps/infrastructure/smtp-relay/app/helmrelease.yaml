@@ -20,7 +20,7 @@ spec:
           app:
             image:
               repository: ghcr.io/foxcpp/maddy
-              tag: 0.9.5@sha256:de42151adff6388edb5e4ee88f60334fa1ab85e309485193ecb1c2db20203315
+              tag: 0.9.6@sha256:e1074e92a452b84d1135ebe8ab831c5f541d33dcbd39e38fab740a53bbf2f97c
             env:
               SMTP_RELAY_SMTP_PORT: &port 25
               SMTP_RELAY_METRICS_PORT: &metricsPort 8080
@@ -36,7 +36,7 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: {drop: ["ALL"]}
             resources:
               requests:
                 cpu: 10m
@@ -96,8 +96,18 @@ spec:
                 target &remote_smtp
             }
             target.smtp remote_smtp {
-                attempt_starttls yes
-                require_tls yes
+                # tls:// is IMPLICIT TLS (Fastmail :465): the socket is TLS,
+                # with certificate verification, before EHLO. STARTTLS must be
+                # off on top of it: maddy issues STARTTLS after EHLO whenever
+                # `starttls` is on (the default for SMTP targets; the old
+                # `attempt_starttls yes` forced it), and :465 does not offer
+                # it, so every delivery failed with "TLS required but
+                # unsupported by downstream". `require_tls` also had to go: it
+                # demands that STARTTLS succeeded, which an implicit-TLS
+                # connection never does. Downgrade-safe: a tls:// target
+                # cannot fall back to plaintext. (maddy 0.9.6,
+                # internal/smtpconn/smtpconn.go attemptConnect.)
+                starttls no
                 auth plain {env:SMTP_RELAY_USERNAME} {env:SMTP_RELAY_PASSWORD}
                 targets tls://{env:SMTP_RELAY_SERVER}:{env:SMTP_RELAY_SERVER_PORT}
             }

@@ -1,0 +1,153 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app yardstick
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: yardstick
+  interval: 1h
+  values:
+    controllers:
+      yardstick:
+        type: deployment
+        replicas: 1
+        # SQLite on a ReadWriteOnce volume, and one licence seat: a second pod
+        # could neither mount the claim nor be a second "computer".
+        strategy: Recreate
+        containers:
+          app:
+            # THIRD-PARTY commercial binary (Yardstick Technologies LLC),
+            # repackaged from the vendor .deb by
+            # https://gitea.derekjacobs.dev/bvn-homelab/yardstick-build. A daily
+            # Drone cron there pins new releases; Flux image automation rolls
+            # them out here.
+            image:
+              repository: gitea.derekjacobs.dev/bvn-homelab/yardstick
+              tag: 1-6952c30e # {"$imagepolicy": "flux-system:yardstick:tag"}
+            args:
+              - serve
+              - --port
+              - "8477"
+              - --note
+              - k8s
+              # Exactly the vendor unit's command (minus --note deb). No
+              # --robot-host / --record: Yarbo closed the local MQTT path, and
+              # Yardstick reaches the robot only through the signed-in Yarbo
+              # account (its Settings page: "Yarbo closed the connection
+              # Yardstick used to make over your own network"; measured
+              # 2026-10-12 from /proc/net/tcp: MQTT/TLS to Yarbo's AWS brokers
+              # on :8883, nothing to 192.168.50.x). Robots come from the account.
+              #
+              # Passing --robot-host anyway is actively harmful: it adds a
+              # second, serial-less core to config.json, and both cores then
+              # record the same robot stream (two "recorded N messages" lines
+              # a minute with near-identical counts). The entry is stored in
+              # config.json, so after dropping the flag it must also be removed
+              # once in the UI ("Remove this core" on the serial-less card).
+            env:
+              TZ: "${TIMEZONE}"
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/status
+                    port: 8477
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probes
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  # The PyInstaller binary unpacks ~100MB into /tmp before
+                  # Python starts.
+                  httpGet:
+                    path: /api/status
+                    port: 8477
+                  periodSeconds: 5
+                  timeoutSeconds: 5
+                  failureThreshold: 36
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 20m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+        # SIGINT (the image's STOPSIGNAL) ends the session and closes the WAL;
+        # measured well under a second, the vendor unit allows 30s.
+        pod:
+          terminationGracePeriodSeconds: 30
+    defaultPodOptions:
+      imagePullSecrets:
+        - name: yardstick-registry-creds
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+    service:
+      app:
+        controller: *app
+        # LoadBalancer for the Home Assistant integration (yardstickhome/
+        # yardstick), which speaks plain http://<host>:<port>/api/ha only: no
+        # TLS, no login, so it cannot go through the gateway and Authentik.
+        # Zeroconf discovery does not cross from the pod network either; add
+        # it in HA by hand with ${SVC_YARDSTICK_ADDR}:8477. NOT read-only
+        # despite the UI's claim: it POSTs /api/ha/control/<action> (dock,
+        # start plans). Exposure is fenced by ciliumnetworkpolicy.yaml.
+        type: LoadBalancer
+        annotations:
+          lbipam.cilium.io/ips: "${SVC_YARDSTICK_ADDR}"
+        # Local: BGP advertises the IP only from the backend's node (no extra
+        # hop). The client source IP the policy's fromCIDR rule relies on is
+        # kept by Cilium's DSR load-balancer mode (loadBalancer.mode: dsr).
+        externalTrafficPolicy: Local
+        ports:
+          http:
+            port: 8477
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Yardstick"
+          gethomepage.dev/group: "Home"
+          gethomepage.dev/icon: "mdi-robot-mower"
+          gethomepage.dev/description: "Yarbo telemetry recorder"
+        labels:
+          # The app has no login by default, shows the yard's GPS coordinates,
+          # and its manual-control and plan endpoints can drive the robot.
+          # Forward auth puts the whole host behind Authentik SSO.
+          auth: authentik
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - yardstick.${SECRET_DOMAIN}
+    persistence:
+      # All state: SQLite, config.json (install_id, licence key, Yarbo account
+      # tokens), TLS material. install_id, not the hostname, is what the
+      # licence seat follows, so this claim is what keeps the pod one "computer".
+      data:
+        existingClaim: *app
+        globalMounts:
+          - path: /var/lib/yardstick
+      # PyInstaller onefile extracts itself here on every start.
+      tmp:
+        type: emptyDir
+        sizeLimit: 1Gi
+        globalMounts:
+          - path: /tmp

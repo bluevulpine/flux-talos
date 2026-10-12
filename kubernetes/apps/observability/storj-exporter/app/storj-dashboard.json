@@ -1,6 +1,6 @@
 {
   "uid": "storj-node",
-  "title": "Storj Node (vault)",
+  "title": "Storj Nodes",
   "tags": [
     "storj",
     "storage"
@@ -14,7 +14,31 @@
     "to": "now"
   },
   "templating": {
-    "list": []
+    "list": [
+      {
+        "type": "query",
+        "name": "node",
+        "label": "Node",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values(storj_node_info, node)",
+          "refId": "node"
+        },
+        "definition": "label_values(storj_node_info, node)",
+        "current": {
+          "text": "vault",
+          "value": "vault"
+        },
+        "refresh": 2,
+        "multi": false,
+        "includeAll": false,
+        "sort": 1,
+        "hide": 0
+      }
+    ]
   },
   "annotations": {
     "list": []
@@ -40,7 +64,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "storj_node_info{type=\"version\"}",
+          "expr": "storj_node_info{node=\"$node\", type=\"version\"}",
           "legendFormat": "{{version}}",
           "instant": true
         }
@@ -88,7 +112,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "storj_node_info{type=\"quicStatus\"}",
+          "expr": "storj_node_info{node=\"$node\", type=\"quicStatus\"}",
           "legendFormat": "{{quicStatus}}",
           "instant": true
         }
@@ -136,7 +160,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "storj_node_info{type=\"upToDate\"}",
+          "expr": "storj_node_info{node=\"$node\", type=\"upToDate\"}",
           "legendFormat": "{{upToDate}}",
           "instant": true
         }
@@ -184,7 +208,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "storj_payout_currentMonth{type=\"payout\"} / 100",
+          "expr": "storj_payout_currentMonth{node=\"$node\", type=\"payout\"} / 100",
           "instant": true
         }
       ],
@@ -232,7 +256,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "storj_payout_currentMonth{type=\"held\"} / 100",
+          "expr": "storj_payout_currentMonth{node=\"$node\", type=\"held\"} / 100",
           "instant": true
         }
       ],
@@ -280,7 +304,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * storj_total_diskspace{type=\"used\"} / (storj_total_diskspace{type=\"used\"} + storj_total_diskspace{type=\"available\"})",
+          "expr": "100 * storj_total_diskspace{node=\"$node\", type=\"used\"} / (storj_total_diskspace{node=\"$node\", type=\"used\"} + storj_total_diskspace{node=\"$node\", type=\"available\"})",
           "instant": true
         }
       ],
@@ -344,7 +368,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "storj_total_diskspace",
+          "expr": "storj_total_diskspace{node=\"$node\"}",
           "legendFormat": "{{type}}",
           "instant": true
         }
@@ -394,7 +418,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "storj_total_bandwidth{type=\"used\"}",
+          "expr": "storj_total_bandwidth{node=\"$node\", type=\"used\"}",
           "instant": true
         }
       ],
@@ -442,7 +466,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "storj_sat_audit{type=\"auditScore\"}",
+          "expr": "storj_sat_audit{node=\"$node\", type=\"auditScore\"}",
           "legendFormat": "{{url}}",
           "instant": true
         }
@@ -510,7 +534,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "storj_sat_audit{type=\"suspensionScore\"}",
+          "expr": "storj_sat_audit{node=\"$node\", type=\"suspensionScore\"}",
           "legendFormat": "{{url}}",
           "instant": true
         }
@@ -578,7 +602,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "storj_sat_audit{type=\"onlineScore\"}",
+          "expr": "storj_sat_audit{node=\"$node\", type=\"onlineScore\"}",
           "legendFormat": "{{url}}",
           "instant": true
         }
@@ -646,7 +670,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "storj_sat_month_egress{type=\"usage\"}",
+          "expr": "storj_sat_month_egress{node=\"$node\", type=\"usage\"}",
           "legendFormat": "{{url}}"
         }
       ],
@@ -693,7 +717,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "storj_sat_summary{type=\"egressSummary\"}",
+          "expr": "storj_sat_summary{node=\"$node\", type=\"egressSummary\"}",
           "legendFormat": "egress {{url}}",
           "instant": true
         },
@@ -703,7 +727,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "storj_sat_summary{type=\"ingressSummary\"}",
+          "expr": "storj_sat_summary{node=\"$node\", type=\"ingressSummary\"}",
           "legendFormat": "ingress {{url}}",
           "instant": true
         }

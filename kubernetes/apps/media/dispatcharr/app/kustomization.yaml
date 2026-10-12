@@ -1,0 +1,29 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ./externalsecret.yaml
+  - ./ocirepository.yaml
+  - ./helmrelease.yaml
+components:
+  - ../../../../components/volsync-claim
+  - ../../../../components/kopiur
+patches:
+  # First app created AFTER the kopiur cutover, so its claim is born fresh.
+  # volsync-claim's dataSourceRef points at ReplicationDestination
+  # ${APP}-dst-local, which only components/volsync-backup creates; on a new
+  # PVC the VolSync populator would wait for it forever and the claim (and
+  # pod) would sit Pending. "Inert" in the other apps only because their
+  # claims were bound before the migration - docs/runbooks/kopiur-migration.md
+  # "After the migration: the claim". An empty 5Gi start restores nothing
+  # anyway. Keep this for the life of the claim: once it is bound, removing
+  # the patch makes SSA add dataSourceRef to an immutable PVC spec and the whole
+  # Kustomization stalls (components/volsync-claim explains). Move to
+  # components/kopiur-claim only when the PVC is next recreated.
+  - target:
+      kind: PersistentVolumeClaim
+      name: \$\{APP\}
+    patch: |-
+      - op: remove
+        path: /spec/dataSourceRef

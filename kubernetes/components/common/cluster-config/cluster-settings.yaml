@@ -30,7 +30,10 @@ data:
   SVC_MOSQUITTO_ADDR: 172.16.8.8
   SVC_PLEX_ADDR: 172.16.8.9
   SVC_XHA_ADDR: 172.16.8.10
-  SVC_SYNCTHING_ADDR: 172.16.8.11
+  # Reused 2026-10-12: was SVC_SYNCTHING_ADDR (syncthing removed 2025-03-14).
+  # Plain HTTP for the Home Assistant integration only; a CiliumNetworkPolicy
+  # in home/yardstick admits HA and the internal gateway, nothing else.
+  SVC_YARDSTICK_ADDR: 172.16.8.11
   SVC_VALHEIM_ADDR: 172.16.8.12
   SVC_UDPTEST_ADDR: 172.16.8.13
   SVC_JELLYFIN_ADDR: 172.16.8.14
@@ -40,3 +43,7 @@ data:
   # Tdarr's node port (8266), reached by the external transcode node on the DGX
   # Spark. Separate from the web UI, which stays cluster-internal.
   SVC_TDARR_NODE_ADDR: 172.16.8.18
+  # `external-direct` Envoy Gateway: the target of the UniFi WAN1 port forward
+  # for apps served straight to the internet (Jellyfin). Named NGINX_* only to
+  # sit with the other gateway addresses; it is Envoy.
+  SVC_NGINX_DIRECT: 172.16.8.19

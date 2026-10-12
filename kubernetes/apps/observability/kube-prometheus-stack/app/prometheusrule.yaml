@@ -113,20 +113,54 @@ spec:
           for: 5m
           labels:
             severity: critical
+        # pinas Garage is the second copy (3-2-1), not the write path for
+        # anything live, so losing it is a warning. It is scraped over the
+        # tailnet so this keeps working if pinas moves offsite; a long outage
+        # then usually means the remote site's link, not Garage itself.
+        - alert: PinasGarageDown
+          annotations:
+            summary: Garage on pinas (second backup copy) is unreachable over the tailnet.
+          expr: up{job="garage-pinas"} == 0
+          for: 30m
+          labels:
+            severity: warning
         - alert: GarageDataVolumeFilling
           annotations:
-            summary: Garage data volume is {{ $value | humanizePercentage }} full on {{ $labels.instance }} — backups will start failing soon.
+            summary: Garage data volume is {{ $value | humanizePercentage }} full on {{ $labels.instance }} ({{ $labels.job }}) — backups will start failing soon.
           expr: 1 - (garage_local_disk_avail{volume="data"} / garage_local_disk_total{volume="data"}) > 0.85
           for: 15m
           labels:
             severity: warning
+        # Critical only for vault, the live write path. pinas (job
+        # garage-pinas) is the second copy and gets the 85% warning above only.
         - alert: GarageDataVolumeCritical
           annotations:
             summary: Garage data volume is {{ $value | humanizePercentage }} full on {{ $labels.instance }} — backup writes about to fail.
-          expr: 1 - (garage_local_disk_avail{volume="data"} / garage_local_disk_total{volume="data"}) > 0.95
+          expr: 1 - (garage_local_disk_avail{job="garage", volume="data"} / garage_local_disk_total{job="garage", volume="data"}) > 0.95
           for: 5m
           labels:
             severity: critical
+    - name: storj
+      rules:
+        # One-time notice that the pinas Storj node (started 2026-10-12) has
+        # finished vetting: every satellite has set vettedAt, which lifts the
+        # reduced ingress new nodes get. storj-exporter does not expose
+        # vettedAt, so a timer on pinas (storj-vetting-textfile) publishes it
+        # through node-exporter's textfile collector.
+        #
+        # It fires only in the 3h after the LAST satellite vets the node, so it
+        # notifies once and then resolves by itself (3h < the 4h repeat
+        # interval). It cannot fire again for this node. Remove it, the timer
+        # and the script once it has fired, or keep it for the next new node.
+        - alert: StorjPinasVetted
+          annotations:
+            summary: The pinas Storj node is now vetted on all satellites.
+          expr: |
+            min(storj_satellite_vetted{job="node-exporter", instance="pinas"}) == 1
+            and on()
+            time() - max(storj_satellite_vetted_timestamp_seconds{job="node-exporter", instance="pinas"}) < 3 * 3600
+          labels:
+            severity: info
     - name: unifi
       rules:
         # ── Why these exist ───────────────────────────────────────────────────

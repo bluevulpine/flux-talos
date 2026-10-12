@@ -5,10 +5,8 @@ metadata:
   name: brokkr01
 spec:
   disks:
-    data-1:
-      path: /var/mnt/data-1
-      allowScheduling: true
+    # No data-1 on purpose: it is the AirDisk, too slow for Longhorn. See
+    # brokkr02.yaml. Its replicas were evicted in #2138 and the entry removed here.
     data-2:
       path: /var/mnt/data-2
       allowScheduling: true
-

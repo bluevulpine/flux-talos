@@ -63,7 +63,7 @@ spec:
       limits:
         memory: 1Gi
 
-    ## Persistence - use existing PVC from VolSync
+    ## Persistence - use the existing PVC (components/volsync-claim)
     persistence:
       enabled: true
       create: false

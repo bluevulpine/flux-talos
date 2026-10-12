@@ -10,9 +10,23 @@ resources:
   - ./media-nfs.yaml
 components:
   - ../../../../components/volsync-claim
-  - ../../../../components/volsync-backup
+  # kopiur backs this PVC up (W7 cutover, docs/runbooks/kopiur-migration.md).
+  # volsync-claim stays: it owns the PVC and its (now inert) dataSourceRef.
+  - ../../../../components/kopiur
 
 patches:
+  # Stage kopiur's snapshot clones on longhorn-1-replica, VolSync's old clone
+  # class. A staged PVC otherwise inherits the source class, longhorn-2-replica
+  # here, so every run would clone a 20Gi 2-replica volume only to read it once
+  # and delete it (runbook waves table, footnote 6; same patch as
+  # jellyfin/hermes). RWO already, so no accessModes patch (plex).
+  - target:
+      group: kopiur.home-operations.com
+      kind: SnapshotPolicy
+    patch: |-
+      - op: add
+        path: /spec/staging/storageClassName
+        value: longhorn-1-replica
   # Moving the data claim to longhorn-2-replica WITHOUT a restore: storageClassName
   # is immutable on a bound PVC, so the claim is deleted (PV on Retain) and Flux
   # re-creates it pre-bound to the SAME Longhorn volume (already live-patched to 2
@@ -25,6 +39,9 @@ patches:
   #  - The temporary `volumeName` pin used for the re-create was dropped once the
   #    swap was done (2026-10-03); a rebuilt cluster now re-creates the claim
   #    unpinned.
+  # kopiur app: the claim's dataSourceRef points at a VolSync RD that is no longer
+  # deployed (inert), so a rebuild restores via kopiur, NOT the VolSync DR path
+  # (docs/runbooks/kopiur-migration.md).
   # Targeted by NAME (the data claim is literally `${APP}` at build time) so any
   # other claim in this app (media NFS, caches) is left alone.
   - target:

@@ -62,11 +62,6 @@ spec:
             secretKeyRef:
               name: authentik
               key: AUTHENTIK_POSTGRESQL__PASSWORD
-        - name: AUTHENTIK_REDIS__HOST
-          valueFrom:
-            secretKeyRef:
-              name: authentik
-              key: AUTHENTIK_REDIS__HOST
 
     authentik:
       enabled: false # We manage secrets via ExternalSecret
@@ -79,7 +74,14 @@ spec:
         from: "Authentik <authentik@${SECRET_DOMAIN}>"
 
     server:
-      replicas: 1
+      # Two replicas so a pod restart or node drain does not take login (and
+      # every forward-auth'd app) down with it; the chart's default soft pod
+      # anti-affinity spreads them. The PDB keeps one up through voluntary
+      # disruptions. Both run init-db at start; postgres-init is idempotent.
+      replicas: 2
+      pdb:
+        enabled: true
+        minAvailable: 1
       initContainers:
         - name: init-db
           image: ghcr.io/home-operations/postgres-init:rolling
@@ -88,7 +90,11 @@ spec:
                 name: authentik
       resources:
         requests:
-          cpu: 50m
+          # Was 50m. Steady state is ~75m, but a 6.5 req/s oauth2 burst
+          # (2026-09-26) drove the single server to 1.1 cores and p50 latency
+          # to ~0.96 s; the request is what it gets under node contention.
+          # 250m x 2 replicas, since load now splits.
+          cpu: 250m
           memory: 512Mi
         limits:
           memory: 1Gi

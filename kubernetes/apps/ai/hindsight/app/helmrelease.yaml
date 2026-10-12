@@ -297,9 +297,10 @@ spec:
               # qwen2.5 was available as `spark-qwen25-14b` until 2026-09-29, when
               # it was removed, unused.
               #
-              # ⚠️ 2026-10-05: `spark-gpt-oss-20b` and `spark-gpt-oss-20b-long` are
-              # now Qwen3.6-35B-A3B behind LiteLLM, not gpt-oss (the route names are
-              # historical; see the litellm HelmRelease). So in this file:
+              # ⚠️ 2026-10-05: `spark-gpt-oss-20b` and `spark-gpt-oss-20b-long` became
+              # Qwen3.6-35B-A3B behind LiteLLM, not gpt-oss, and on 2026-10-12 those
+              # routes were deleted from LiteLLM altogether (every stage sends
+              # `spark-main`, below). So in this file:
               #  - everything measured about gpt-oss's speed, reasoning tokens and
               #    harmony 500s describes the previous model;
               #  - the gpt-oss-era *_REASONING_EFFORT: low settings are REMOVED for

@@ -8,6 +8,11 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
+  dependsOn:
+    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
+    # webhook until the ClusterRepositories exist.
+    - name: kopiur-repositories
+      namespace: kopiur-system
   path: ./kubernetes/apps/games/satisfactory/app
   prune: true
   sourceRef:
@@ -27,19 +32,22 @@ spec:
       APP_GID: "1000"
       VOLSYNC_CAPACITY: 2Gi
       VOLSYNC_ACCESSMODES: ReadWriteOnce
-      VOLSYNC_RUN_AS_USER: "1000"
-      VOLSYNC_RUN_AS_GROUP: "1000"
-      VOLSYNC_FS_GROUP: "1000"
       VOLSYNC_STORAGECLASS: tns-csi-nvmeof
-      VOLSYNC_CACHE_CLASS: longhorn-1-replica
-      VOLSYNC_CLONE_STORAGECLASS: tns-csi-nvmeof
-      VOLSYNC_SNAPSHOTCLASS: tns-csi-nvmeof-snapshot
-      # Direct reads the live PVC and never calls CreateVolume, so tns-csi's
-      # clone bug is unreachable. Same RWO/nvmeof profile as valheim, which
-      # canaried this on 2026-08-30 and proved the open question: VolSync
-      # schedules a Direct mover onto the source PVC's node by itself (mover
-      # landed on brokkr03 alongside the app), so no spec.kopia.moverAffinity
-      # is required. Backup completed; no clone PVC is created at all.
-      VOLSYNC_COPYMETHOD: Direct
-      VOLSYNC_LOCAL_SCHEDULE: "55 * * * *"
-      VOLSYNC_R2_SCHEDULE: "3 5 * * *"
+      # kopiur (components/kopiur), the only backup since the W8 cutover. These
+      # vars landed one PR BEFORE the component so the SnapshotSchedules were
+      # created with these crons, not the component's defaults (runbook trap: a
+      # cron change does not re-pin a pending slot).
+      # H picks a minute per schedule; the hours match VolSync's old ones.
+      KOPIUR_LOCAL_CRON: "H * * * *"
+      KOPIUR_R2_CRON: "H 5 * * *"
+      # Direct reads the live PVC and never stages a CSI snapshot/clone, so
+      # tns-csi's non-idempotent CreateVolume is never called. NEVER switch this
+      # to Snapshot (runbook: the tns-csi-nvmeof driver bug).
+      # The volume is RWO: kopiur co-locates a Direct mover onto its attach node
+      # by itself (moverDefaults.sourceColocation, default Auto). Verified W8,
+      # 2026-10-11: every mover landed on the app's node, no affinity set.
+      KOPIUR_COPYMETHOD: Direct
+      # Mover runs as the game server's own uid/gid, as VolSync's did.
+      KOPIUR_RUN_AS_USER: "1000"
+      KOPIUR_RUN_AS_GROUP: "1000"
+      KOPIUR_FS_GROUP: "1000"

@@ -16,7 +16,7 @@ spec:
       labels:
         instance: chronos
     - targets:
-        - 100.114.176.10:9100 # pinas (offline; will go green when back up)
+        - 100.114.176.10:9100 # pinas
       labels:
         instance: pinas
   metricsPath: /metrics
@@ -38,6 +38,28 @@ spec:
         - 10.0.10.11:30190
       labels:
         instance: garage
+  metricsPath: /metrics
+  relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: *name
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: &name garage-pinas
+spec:
+  staticConfigs:
+    # Single-node Garage on pinas, the second copy in the 3-2-1 backup scheme.
+    # Its own job (not `garage`) so the critical GarageDown, which is about the
+    # vault write path, does not fire for it. Scraped by tailnet IP like
+    # node-exporter above, so it keeps working if pinas moves offsite. /metrics
+    # is unauthenticated (no [admin] metrics_token), same as vault.
+    - targets:
+        - 100.114.176.10:3903
+      labels:
+        instance: pinas
   metricsPath: /metrics
   relabelings:
     - action: replace
@@ -133,8 +155,8 @@ metadata:
   name: &name vllm-spark
 spec:
   staticConfigs:
-    # vLLM on the DGX Spark (spark-setup roles/vllm), serving gpt-oss-20b for
-    # every spark-gpt-oss-20b route in LiteLLM. Its /metrics is unauthenticated
+    # vLLM on the DGX Spark (spark-setup roles/vllm), serving Qwen3.6 for every
+    # `spark-main*` route in LiteLLM. Its /metrics is unauthenticated
     # and bound to the LAN address, which pods already reach (LiteLLM calls the
     # same host:port). Addressed by IP for the same reason as the LiteLLM
     # api_base: the spark-ab23 name has not resolved reliably from pods.
