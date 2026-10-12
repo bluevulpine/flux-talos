@@ -53,7 +53,7 @@ it with `bao kv patch` (never `put`, which drops the other fields); Reloader rol
 - Only the pod pushes. If you push from the Mac by hand, do it only when Syncthing shows
   Up to Date, or the next run "reverts" your push to the replicated state.
 - Syncthing conflict copies (`*.sync-conflict-*`) are git-ignored by the repo's
-  `.gitignore`, so the committer fails loudly while one exists (above). Resolve them in
+  `.gitignore`, so the committer fails loudly while one exists (below). Resolve them in
   Obsidian, or on whichever device is handy.
 
 ## When the committer fails
@@ -69,6 +69,8 @@ Each schedule is one attempt (`backoffLimit: 0`); a failed Job means one of:
   still commits and pushes, then exits 1 listing them, and every run keeps failing until
   they are resolved. Without this the losing edit would just be gitignored away. Resolve
   on any device: keep what you want in the real file, delete the copy; the next run clears.
+  While this is firing, a stale-temp or deletion-guard failure looks the same to the
+  job-failure alert, so read the log (`failedJobsHistory: 3` keeps ~45 min of them).
 
 ## The deletion guard
 

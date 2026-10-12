@@ -64,7 +64,7 @@ fi
 # side's edit would vanish from Gitea with nothing to say so. The run still
 # commits and pushes what it can; it exits 1 at the end so the Job fails, and
 # keeps failing, until the copies are resolved. .trash is Obsidian's bin, where
-# a copy Derek already dealt with may sit.
+# a copy already dealt with may sit.
 conflicts=$(find . \( -path ./.git -o -path ./.stversions -o -path ./.trash \) -prune -o -name '*.sync-conflict-*' -print | head -20)
 finish() {
   if [ -n "$conflicts" ]; then
