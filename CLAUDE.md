@@ -40,8 +40,9 @@ Agent-Harness: hermes-agent
 ```
 
 Known agents: Fizz (`fizz-bot-bvn[bot]`, Buzz framework), Bosun
-(`bluevulpine-bot[bot]`, Hermes Agent harness). New agents should get their own
-GitHub App rather than silently joining a shared one.
+(`bluevulpine-bot[bot]`, Hermes Agent harness), Deckhand (`deckhand-bot-bvn[bot]`,
+Hermes Agent harness, Paperclip-driven Renovate triage). New agents should get
+their own GitHub App rather than silently joining a shared one.
 **Do not infer authorship convention from `git log`**: every non-Renovate commit
 before 2026-09-09 is authored `Derek Jacobs` because the bot account did not
 exist yet, not because human authorship is the convention. The point of bot

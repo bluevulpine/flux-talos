@@ -329,3 +329,24 @@ spec:
             app:
               - path: /run/hermes-profiles/wasp
                 readOnly: true
+      # deckhand: Paperclip dependency-triage engineer (Renovate PRs). See
+      # externalsecret-profile-deckhand.yaml.
+      deckhand-secrets:
+        type: secret
+        name: hermes-profile-deckhand
+        defaultMode: 0440
+        advancedMounts:
+          hermes:
+            app:
+              - path: /run/hermes-profiles/deckhand
+                readOnly: true
+      # aurelia: Paperclip chief of staff. See externalsecret-profile-aurelia.yaml.
+      aurelia-secrets:
+        type: secret
+        name: hermes-profile-aurelia
+        defaultMode: 0440
+        advancedMounts:
+          hermes:
+            app:
+              - path: /run/hermes-profiles/aurelia
+                readOnly: true
