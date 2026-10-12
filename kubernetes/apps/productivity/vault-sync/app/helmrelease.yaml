@@ -1,0 +1,204 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app vault-sync
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: vault-sync
+  interval: 1h
+  values:
+    controllers:
+      # Syncthing peer: holds a live replica of the Obsidian vault.
+      syncthing:
+        type: deployment
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/syncthing/syncthing
+              # renovate: datasource=docker depName=ghcr.io/syncthing/syncthing
+              tag: 2.1.6
+            env:
+              TZ: ${TIMEZONE}
+              # Running as non-root (defaultPodOptions), the image entrypoint
+              # skips its su-exec/PUID path and execs syncthing directly.
+              # Without this, first start creates ~/Sync under /var/syncthing.
+              STNODEFAULTFOLDER: "1"
+              STNOUPGRADE: "1"
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /rest/noauth/health
+                    port: &port 8384
+                  initialDelaySeconds: 20
+                  periodSeconds: 15
+              readiness: *probes
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /rest/noauth/health
+                    port: *port
+                  failureThreshold: 30
+                  periodSeconds: 5
+            securityContext: &securityContext
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+
+      # Committer: snapshots the replica into Gitea every 15 minutes.
+      committer:
+        type: cronjob
+        cronjob:
+          schedule: "*/15 * * * *"
+          concurrencyPolicy: Forbid
+          successfulJobsHistory: 3
+          failedJobsHistory: 3
+          ttlSecondsAfterFinished: 3600
+        pod:
+          # vault-sync-data is a Longhorn RWO volume attached to the Syncthing
+          # pod's node; a committer scheduled anywhere else hangs in
+          # ContainerCreating on Multi-Attach. Same pattern as plex-image-cleanup.
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: *app
+                      app.kubernetes.io/controller: syncthing
+                  topologyKey: kubernetes.io/hostname
+        containers:
+          app:
+            image:
+              repository: docker.io/alpine/git
+              # renovate: datasource=docker depName=docker.io/alpine/git
+              tag: v2.54.0
+            command:
+              - "/bin/sh"
+              - "/scripts/commit.sh"
+            env:
+              # In-cluster Service, port 22. gitea.${SECRET_DOMAIN} is the HTTP
+              # gateway and does not speak SSH; git.${SECRET_DOMAIN} is the
+              # LoadBalancer, which would hairpin out of the cluster.
+              GIT_REMOTE: ssh://git@gitea-ssh.develop.svc.cluster.local/bluevulpine/obsidian-vault.git
+              GIT_AUTHOR_NAME: vault-bot
+              GIT_AUTHOR_EMAIL: vault-bot@${SECRET_DOMAIN}
+            securityContext: *securityContext
+            resources:
+              requests:
+                cpu: 20m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
+
+    defaultPodOptions:
+      # Both pods share vault-sync-data, so both run as 568 and fsGroup makes the
+      # fresh Longhorn volume roots writable for that user.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+
+    # Only the GUI is a Service. The sync port is not exposed: the pod dials OUT
+    # to the NAS (introducer) and the Mac, and Syncthing connections are
+    # bidirectional once established.
+    service:
+      app:
+        controller: syncthing
+        ports:
+          http:
+            port: *port
+
+    route:
+      app:
+        annotations:
+          gatus.home-operations.com/endpoint: |
+            group: productivity
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Productivity
+          gethomepage.dev/name: Vault Sync
+          gethomepage.dev/description: Obsidian vault Syncthing peer + git committer
+          gethomepage.dev/icon: syncthing.png
+        labels:
+          # The Syncthing GUI starts with no login and can add devices and
+          # shares, i.e. hand the vault to anyone. Forward auth puts the whole
+          # host behind Authentik SSO.
+          auth: authentik
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - syncthing-vault.${SECRET_DOMAIN}
+        rules:
+          - backendRefs:
+              - name: *app
+                port: *port
+
+    persistence:
+      # HOME. The image's /var/syncthing is root-owned and not writable by 568.
+      home:
+        type: emptyDir
+        advancedMounts:
+          syncthing:
+            app:
+              - path: /var/syncthing
+      config:
+        existingClaim: vault-sync-config
+        advancedMounts:
+          syncthing:
+            app:
+              - path: /var/syncthing/config
+      # The vault is a SUBDIRECTORY (vault/) of this volume, created by Syncthing
+      # when the share is accepted. The volume root holds ext4's root-owned
+      # lost+found, which Syncthing and git would both trip over.
+      data:
+        existingClaim: vault-sync-data
+        advancedMounts:
+          syncthing:
+            app:
+              - path: /var/syncthing/data
+          committer:
+            app:
+              - path: /data
+      scripts:
+        type: configMap
+        name: vault-sync-scripts
+        defaultMode: 0755
+        advancedMounts:
+          committer:
+            app:
+              - path: /scripts
+                readOnly: true
+      secrets:
+        type: secret
+        name: vault-sync-secret
+        defaultMode: 0400
+        advancedMounts:
+          committer:
+            app:
+              - path: /secrets
+                readOnly: true
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp

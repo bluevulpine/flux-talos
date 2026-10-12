@@ -1,0 +1,29 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.36.2-standalone-strict/persistentvolumeclaim-v1.json
+# Plain PVCs, deliberately outside components/kopiur: the vault already lives in
+# Gitea, on the NAS and on the Mac, and Syncthing config is re-creatable by
+# re-pairing. Losing these volumes costs a re-pair and one ~726 MiB pull.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vault-sync-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-2-replica
+  resources:
+    requests:
+      storage: 5Gi
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.36.2-standalone-strict/persistentvolumeclaim-v1.json
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vault-sync-config
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-2-replica
+  resources:
+    requests:
+      storage: 1Gi
