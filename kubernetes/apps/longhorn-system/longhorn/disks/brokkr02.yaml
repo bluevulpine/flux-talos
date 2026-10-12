@@ -13,9 +13,11 @@ spec:
     # openbao-0 lost its replica 148 times, mealie 125, lidarr 32. A CSI snapshot
     # taken mid-rebuild is deleted by Longhorn, which is what failed mealie's
     # kopiur backups. SMART is clean: the drive is slow, not failing.
-    # So: no new replicas here, and evict the existing ones to data-2 on this
-    # same node (keeps node anti-affinity intact; data-2 has ~1.8TB free against
-    # ~1.2TB provisioned for the whole node). The AirDisk stays as the system disk.
+    # So: no new replicas here, and evict the existing ones. Longhorn places an
+    # evicted replica on ANY eligible disk, not the same node; data-1 is
+    # unschedulable on every brokkr, so the only targets are data-2 disks (each
+    # ~1.8TB free). 3-replica volumes already hold the other two nodes, so node
+    # anti-affinity keeps theirs on this node. The AirDisk stays the system disk.
     # Remove this disk entry once its replica count reaches 0.
     data-1:
       path: /var/mnt/data-1
