@@ -53,7 +53,8 @@ it with `bao kv patch` (never `put`, which drops the other fields); Reloader rol
 - Only the pod pushes. If you push from the Mac by hand, do it only when Syncthing shows
   Up to Date, or the next run "reverts" your push to the replicated state.
 - Syncthing conflict copies (`*.sync-conflict-*`) are git-ignored by the repo's
-  `.gitignore`. Resolve them in Obsidian.
+  `.gitignore`, so the committer fails loudly while one exists (above). Resolve them in
+  Obsidian, or on whichever device is handy.
 
 ## When the committer fails
 
@@ -63,6 +64,11 @@ Each schedule is one attempt (`backoffLimit: 0`); a failed Job means one of:
   keeps failing; the Job lists them. Fix the file in Syncthing (folder errors in the GUI).
   Temp files under 10 minutes old make the run skip; ones in between are ignored.
 - **The deletion guard,** below.
+- **Conflict copies.** A `*.sync-conflict-*` file anywhere in the vault (outside `.git`,
+  `.stversions` and `.trash`) means two devices changed one file while apart. The run
+  still commits and pushes, then exits 1 listing them, and every run keeps failing until
+  they are resolved. Without this the losing edit would just be gitignored away. Resolve
+  on any device: keep what you want in the real file, delete the copy; the next run clears.
 
 ## The deletion guard
 

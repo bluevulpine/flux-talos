@@ -58,6 +58,23 @@ if [ -n "$stale" ]; then
   exit 1
 fi
 
+# Syncthing writes a *.sync-conflict-* copy when two devices changed one file
+# while apart (Mac asleep while a hermes agent logged, say). The vault's
+# .gitignore keeps the copies out of the repo, so without this the losing
+# side's edit would vanish from Gitea with nothing to say so. The run still
+# commits and pushes what it can; it exits 1 at the end so the Job fails, and
+# keeps failing, until the copies are resolved. .trash is Obsidian's bin, where
+# a copy Derek already dealt with may sit.
+conflicts=$(find . \( -path ./.git -o -path ./.stversions -o -path ./.trash \) -prune -o -name '*.sync-conflict-*' -print | head -20)
+finish() {
+  if [ -n "$conflicts" ]; then
+    echo "sync-conflict copies present; resolve them on any device (git ignores them):" >&2
+    echo "$conflicts" >&2
+    exit 1
+  fi
+  exit 0
+}
+
 git fetch -q origin main
 # HEAD+index -> origin, working tree untouched. Adopts anything pushed since
 # (should be nothing: this is the only pusher).
@@ -65,7 +82,7 @@ git reset -q origin/main
 git add -A
 if git diff --cached --quiet; then
   echo "nothing to commit"
-  exit 0
+  finish
 fi
 
 deleted=$(git diff --cached --name-only --diff-filter=D | wc -l | tr -d ' ')
@@ -82,3 +99,4 @@ git commit -q -m "auto: $(date -u +%Y-%m-%dT%H:%M:%SZ) ($changed files)" \
   -m "$(git diff --cached --name-only | head -20)"
 git push -q origin main
 echo "pushed: $changed files"
+finish
