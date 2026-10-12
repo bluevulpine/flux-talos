@@ -43,12 +43,21 @@ spec:
   destination:
     s3:
       bucket: kopia
-      # pinas's tailnet IP, not its LAN address, so the mirror keeps working
-      # if pinas moves offsite. Same route Prometheus already scrapes it by.
-      endpoint: 100.114.176.10:3900
+      # pinas's LAN address (same VLAN as the nodes), NOT its tailnet IP
+      # 100.114.176.10, even though the tailnet would survive a move offsite.
+      # Over the tailnet, uploads from pods stall forever above a size that
+      # varies by node: measured 2026-10-12 with an rclone pod per node,
+      # brokkr01 hung at 500 KB, brokkr02 at 1.2 MB (it stalled the first seed
+      # on a 1.6 MB blob), brokkr03 passed. The same 3 MB upload from the Mac
+      # over the tailnet took 1 s, and every node moved 30-60 MB over the LAN
+      # in 1-2 s. Small requests are fine, which is why the Prometheus scrapes
+      # of pinas over the tailnet never showed it. Before pinas moves offsite,
+      # that node-side tailnet stall has to be found and fixed, and this
+      # switched back.
+      endpoint: 10.0.10.220:3900
       region: us-east-1
       tls:
-        # Garage serves plain HTTP. The path is a WireGuard tunnel and every
+        # Garage serves plain HTTP, as vault's does on the same LAN. Every
         # blob is already kopia-encrypted.
         disableTls: true
       auth:
