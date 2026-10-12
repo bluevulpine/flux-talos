@@ -1,37 +1,75 @@
 # vault
 
-The shared notes vault: plain Markdown in Obsidian format, mounted by the hermes
-pod at `/opt/data/vault` (`OBSIDIAN_VAULT_PATH`). Every Hermes profile served by
-the one gateway sees the same files.
+The Obsidian vault, as a live Syncthing replica inside the hermes pod. Hermes
+mounts it at `/opt/data/vault` (`OBSIDIAN_VAULT_PATH`); every Hermes profile
+served by the one gateway sees the same files, and agents read and write them
+directly. The whole vault is replicated, not only `_agents/`: Derek wants the
+agents able to help with the rest of his Obsidian work too.
 
-This app is only the volume and its backups. Hermes mounts it with
-`existingClaim: vault`; nothing here runs.
+This app is only the two volumes and the GUI login Secret. The Syncthing
+sidecar, its init container and the GUI route live in `ai/hermes`, because the
+vault claim is RWO and the peer has to share the pod that holds it.
 
-## Layout and write rules
+## How the vault moves
 
-The rule that keeps two agents from fighting over a file is structural: one
-writer per file.
+```
+Mac (aurelia) ──┐                                  ┌── productivity/vault-sync
+                ├── Syncthing ── NAS `vault` ───────┤      └─ committer → Gitea bluevulpine/obsidian-vault
+phone (LiveSync)┘   (introducer)                   └── ai/hermes sidecar (this)
+```
 
-- `agents/<name>/` — an agent's own notes and memory files. Only that agent writes here.
-- `inbox/<name>/` — an agent's proposals for shared notes. Only that agent writes
-  here; a human (or a designated curator) merges them into shared notes.
-- Everything else — human-authored and shared notes (the existing vault's tree:
-  `Timestamps/YYYY/MM-Month/YYYY-MM-DD-Weekday`, `Templates/`, `Storytime/`,
-  `joplin export/`, ...). Agents read it and do **not** edit in place. An agent's
-  own daily log goes under its own folder (`agents/<name>/daily/YYYY-MM-DD.md`),
-  never into the human `Timestamps/` tree, and the human links to it if wanted.
+- The NAS is the introducer; every peer pairs with it and it hands out the rest.
+- `productivity/vault-sync`'s committer is the **only** writer to the Gitea
+  repo. Nothing in this pod runs git against the vault. An agent's edit reaches
+  Gitea by Syncthing → NAS → vault-sync pod → its next 15-minute commit.
+- Backups: none here on purpose. The vault lives on the NAS, on the Mac, in the
+  vault-sync replica and in Gitea; a kopiur restore of this volume would only
+  hand Syncthing a stale tree to reconcile. Losing both claims costs a re-pair
+  and one ~730 MiB pull.
 
-## Backups
+## Who writes what
 
-- kopiur, local leg every 30 min (`:03/:33`) and R2 nightly (02:08 UTC), via
-  `components/kopiur`. Snapshot copy method (RWO volume held by hermes).
-- The claim is born on kopiur: no VolSync history, no `dataSourceRef`. A rebuild
-  restores through a kopiur Restore (docs/runbooks/kopiur-migration.md).
+The rules are the vault's own: `AGENTS.md` at the vault root, which every
+Hermes profile reads because the vault is its working directory for memory
+work. In short: agents write only under `_agents/`, one fact per line with a
+provenance tag, no secrets. Shared-file concurrency (the daily log, `context.md`)
+is a protocol question being settled in the vault, not here.
 
-## Not done here
+What this side keeps out, via the per-device `.stignore` the init container
+seeds (edit it on the volume; Syncthing never syncs ignore files):
 
-- Syncthing sidecar (NAS peer) and the commit-to-Gitea history job are separate PRs.
-  The volume starts empty; Syncthing populates it, receive-only on the cluster side
-  at first, and `agents/` and `inbox/` are created only after that first sync lands.
-- The existing `productivity/obsidian` + `couchdb` (LiveSync) apps are untouched
-  and hold their own copy of the vault.
+| pattern | why |
+| --- | --- |
+| `lost+found` | ext4's root-owned dir at the volume root; would otherwise be announced to every peer |
+| `.git`, `.qmd` | the Mac's local git checkout and search index |
+| `.obsidian/plugins/obsidian-livesync` | holds CouchDB credentials; the vault's `.gitignore` excludes it from git for the same reason |
+
+## One-time setup (after merge)
+
+1. **Get the sidecar's device ID**
+   `kubectl -n ai exec deploy/hermes -c syncthing -- syncthing --home=/var/syncthing/config device-id`
+2. **On the NAS's Syncthing** add it as a remote device (name it something
+   unambiguous, e.g. `k8s-hermes-vault`; the NAS itself is called `vault`) and
+   share the Obsidian folder (`ftk9p-v9mgn`) with it.
+3. **In the sidecar's GUI**, `https://syncthing-hermes.${SECRET_DOMAIN}` (Authentik,
+   then the login from OpenBao `secret/vault-sync`: `VaultSync__GuiUser` /
+   `VaultSync__GuiPassword`, the same as the vault-sync GUI):
+   - add the NAS (`LPIWKNK-CZJS3DZ-GZBOFFU-RZAUXEE-7KJVZJW-35C2FLR-2BRGPEE-YLJWCAE`)
+     as a remote device and tick **Introducer**;
+   - accept the shared folder with path **`/opt/data/vault`** and folder type
+     **Receive Only**. The NAS stays authoritative until the first sync has
+     landed and the tree has been inspected; agents cannot write until the
+     type is flipped to Send & Receive.
+4. Wait for Up to Date, check the tree from the hermes side
+   (`kubectl -n ai exec deploy/hermes -- ls -la /opt/data/vault`), then flip the
+   folder to **Send & Receive** when the agents may write.
+
+## Invariants
+
+- The sidecar runs as uid/gid 10000, the same as the gateway: Syncthing
+  replicates the Mac's 0600/0700 modes, so fsGroup alone would not let the
+  agents read what it writes.
+- Rotating the GUI login in OpenBao rolls the hermes pod (reloader on the
+  Deployment), not only the sidecar.
+- `.stignore` is seeded once and then owned by the volume; the init container
+  does not overwrite an existing one.

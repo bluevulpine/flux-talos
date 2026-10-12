@@ -11,10 +11,8 @@ spec:
   dependsOn:
     - name: longhorn
       namespace: longhorn-system
-    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
-    # webhook until the ClusterRepositories exist.
-    - name: kopiur-repositories
-      namespace: kopiur-system
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
   path: ./kubernetes/apps/ai/vault/app
   prune: true
   sourceRef:
@@ -22,9 +20,10 @@ spec:
     name: home-kubernetes
     namespace: flux-system
   targetNamespace: ai
-  # true: longhorn-2-replica binds Immediately, so the claim goes Bound as soon as it
-  # is created. Waiting makes hermes' dependsOn mean "the volume is Bound", not
-  # merely "the manifest was applied".
+  # true: longhorn-2-replica binds Immediately, so the claims go Bound as soon as
+  # they are created, and the ExternalSecret reports Ready once the Secret
+  # exists. Waiting makes hermes' dependsOn mean "the volumes and the GUI login
+  # exist", not merely "the manifests were applied".
   wait: true
   interval: 30m
   retryInterval: 1m
@@ -33,17 +32,3 @@ spec:
     substitute:
       APP: *app
       NS: ai
-      # Must equal the claim name in app/pvc.yaml: components/kopiur targets the
-      # PVC by ${APP}.
-      #
-      # Explicit minutes, not H: the vault is the one place human notes live, so
-      # the local leg runs every 30 min at a fixed offset. :3/:33 is free in the
-      # fleet's explicit-minute list (the :7..:29 odd ladder is taken).
-      KOPIUR_LOCAL_CRON: "3,33 * * * *"
-      # R2 pinned <= :39 in hour 02 (hour 03 is kopiur-maint-r2's); :8 is free
-      # between the :5 and :10 slots.
-      KOPIUR_R2_CRON: "8 2 * * *"
-      # RWO + Snapshot: the mover cannot co-mount an RWO volume hermes holds, and
-      # a Direct copy would read notes mid-write.
-      KOPIUR_COPYMETHOD: Snapshot
-      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass

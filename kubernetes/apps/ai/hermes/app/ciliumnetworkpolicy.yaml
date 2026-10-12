@@ -23,7 +23,8 @@ spec:
     # Selecting hermes makes it default-deny for ingress, so the dashboard's
     # existing path has to be re-allowed: the `internal` Gateway's Envoy pods
     # in `network`. Probes are exec (no kubelet traffic to re-allow); nothing
-    # scrapes hermes.
+    # scrapes hermes. 8384 is the Syncthing sidecar's GUI, behind the same
+    # gateway (Authentik forward auth on its HTTPRoute).
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: network
@@ -31,6 +32,8 @@ spec:
       toPorts:
         - ports:
             - port: "9119"
+              protocol: TCP
+            - port: "8384"
               protocol: TCP
     # The one new path.
     - fromEndpoints:
