@@ -111,8 +111,9 @@ spec:
         type: LoadBalancer
         annotations:
           lbipam.cilium.io/ips: "${SVC_YARDSTICK_ADDR}"
-        # Local keeps the client source IP, which the policy's fromCIDR rule
-        # for HA depends on; Cluster would SNAT it to a node address.
+        # Local: BGP advertises the IP only from the backend's node (no extra
+        # hop). The client source IP the policy's fromCIDR rule relies on is
+        # kept by Cilium's DSR load-balancer mode (loadBalancer.mode: dsr).
         externalTrafficPolicy: Local
         ports:
           http:
