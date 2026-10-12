@@ -5,6 +5,8 @@ kind: Kustomization
 resources:
   - ./externalsecret.yaml
   - ./externalsecret-profile-wasp.yaml
+  - ./externalsecret-profile-deckhand.yaml
+  - ./externalsecret-profile-aurelia.yaml
   - ./ocirepository.yaml
   - ./helmrelease.yaml
   - ./httproute.yaml
