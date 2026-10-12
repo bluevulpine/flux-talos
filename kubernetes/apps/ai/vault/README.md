@@ -32,8 +32,16 @@ phone (LiveSync)┘   (introducer)                   └── ai/hermes sidecar
 The rules are the vault's own: `AGENTS.md` at the vault root, which every
 Hermes profile reads because the vault is its working directory for memory
 work. In short: agents write only under `_agents/`, one fact per line with a
-provenance tag, no secrets. Shared-file concurrency (the daily log, `context.md`)
-is a protocol question being settled in the vault, not here.
+provenance tag, no secrets. The cross-device rules matter most here, because
+this replica and the Mac edit the same tree while apart:
+
+- one writer per file: the daily log is `_agents/log/YYYY-MM-DD-<agent>.md`,
+  never a shared file;
+- agents in this pod write only their log, their notebook and `_agents/inbox/`;
+  promotion into the curated `shared/` files happens from the Mac side (and
+  the weekly dreaming pass), so no file is rewritten from two devices;
+- a `*.sync-conflict-*` copy means the rule was broken. git ignores the copies,
+  so vault-sync's committer fails its run while one exists, which is the alert.
 
 What this side keeps out, via the per-device `.stignore` the init container
 seeds (edit it on the volume; Syncthing never syncs ignore files):
@@ -58,11 +66,17 @@ seeds (edit it on the volume; Syncthing never syncs ignore files):
      as a remote device and tick **Introducer**;
    - accept the shared folder with path **`/opt/data/vault`** and folder type
      **Receive Only**. The NAS stays authoritative until the first sync has
-     landed and the tree has been inspected; agents cannot write until the
-     type is flipped to Send & Receive.
+     landed and the tree has been inspected.
+
+   Receive Only limits Syncthing, not the agents: the mount is read-write and
+   `OBSIDIAN_VAULT_PATH` is set from the moment this merges. Anything an agent
+   writes before pairing, or while the folder is Receive Only, shows as
+   "Locally Changed", never reaches the NAS, and **Revert Local Changes**
+   deletes it. So until step 4, tell the Hermes profiles not to write to the
+   vault, and do not press Revert without reading what the cluster side holds.
 4. Wait for Up to Date, check the tree from the hermes side
    (`kubectl -n ai exec deploy/hermes -- ls -la /opt/data/vault`), then flip the
-   folder to **Send & Receive** when the agents may write.
+   folder to **Send & Receive**. Only then do agent writes propagate.
 
 ## Invariants
 

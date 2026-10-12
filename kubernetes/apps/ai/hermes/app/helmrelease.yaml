@@ -209,7 +209,12 @@ spec:
             probes:
               # exec, like the hermes container: keeps the probe off the
               # CiliumNetworkPolicy. Same check as the image's own HEALTHCHECK.
-              liveness: &syncthingProbes
+              # Liveness only. A readiness probe on a sidecar marks the whole
+              # pod NotReady, and the Service would drop 9119 (dashboard) and
+              # 8642 (paperclip -> hermes API) because Syncthing was slow to
+              # start. Liveness restarts just this container; the GUI route
+              # may 503 for a moment while it does.
+              liveness:
                 enabled: true
                 custom: true
                 spec:
@@ -223,7 +228,6 @@ spec:
                   initialDelaySeconds: 20
                   periodSeconds: 15
                   timeoutSeconds: 5
-              readiness: *syncthingProbes
             securityContext: *syncthingSecurityContext
             resources:
               requests:
