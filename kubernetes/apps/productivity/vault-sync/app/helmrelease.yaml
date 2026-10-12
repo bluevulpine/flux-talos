@@ -16,18 +16,48 @@ spec:
         type: deployment
         strategy: Recreate
         annotations:
+          # Rolls the pod when the GUI credentials in vault-sync-secret change.
           reloader.stakater.com/auto: "true"
-        containers:
-          app:
-            image:
+        initContainers:
+          # The GUI has no login on first boot, and the Service is reachable from
+          # any pod (no NetworkPolicy here). `syncthing generate` creates the
+          # config if absent and (re)sets the GUI user and password on every
+          # start, so OpenBao stays the source of truth.
+          gui-auth:
+            image: &image
               repository: ghcr.io/syncthing/syncthing
               # renovate: datasource=docker depName=ghcr.io/syncthing/syncthing
               tag: 2.1.6
-            env:
+            command:
+              - /bin/sh
+              - -c
+              - printf '%s\n' "$STGUI_PASSWORD" | syncthing generate --gui-user="$STGUI_USER" --gui-password=-
+            env: &env
               TZ: ${TIMEZONE}
               # Running as non-root (defaultPodOptions), the image entrypoint
               # skips its su-exec/PUID path and execs syncthing directly.
               # Without this, first start creates ~/Sync under /var/syncthing.
+              STNODEFAULTFOLDER: "1"
+              STNOUPGRADE: "1"
+              STGUI_USER:
+                valueFrom:
+                  secretKeyRef:
+                    name: vault-sync-secret
+                    key: STGUI_USER
+              STGUI_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: vault-sync-secret
+                    key: STGUI_PASSWORD
+            securityContext: &securityContext
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+        containers:
+          app:
+            image: *image
+            env:
+              TZ: ${TIMEZONE}
               STNODEFAULTFOLDER: "1"
               STNOUPGRADE: "1"
             probes:
@@ -50,10 +80,7 @@ spec:
                     port: *port
                   failureThreshold: 30
                   periodSeconds: 5
-            securityContext: &securityContext
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
-              capabilities: {drop: ["ALL"]}
+            securityContext: *securityContext
             resources:
               requests:
                 cpu: 50m
@@ -67,6 +94,9 @@ spec:
         cronjob:
           schedule: "*/15 * * * *"
           concurrencyPolicy: Forbid
+          # One attempt per schedule: a guard failure (deletion limit, stale temp
+          # files) fails the same way on retry, so retries only add noise.
+          backoffLimit: 0
           successfulJobsHistory: 3
           failedJobsHistory: 3
           ttlSecondsAfterFinished: 3600
@@ -160,14 +190,16 @@ spec:
         type: emptyDir
         advancedMounts:
           syncthing:
-            app:
+            app: &home
               - path: /var/syncthing
+            gui-auth: *home
       config:
         existingClaim: vault-sync-config
         advancedMounts:
           syncthing:
-            app:
+            app: &config
               - path: /var/syncthing/config
+            gui-auth: *config
       # The vault is a SUBDIRECTORY (vault/) of this volume, created by Syncthing
       # when the share is accepted. The volume root holds ext4's root-owned
       # lost+found, which Syncthing and git would both trip over.

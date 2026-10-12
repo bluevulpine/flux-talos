@@ -39,11 +39,23 @@ if [ ! -d .git ]; then
   git init -q -b main
 fi
 git remote set-url origin "$GIT_REMOTE" 2>/dev/null || git remote add origin "$GIT_REMOTE"
+# Syncthing's own files, excluded here rather than relying on the vault repo's
+# .gitignore (which covers .stignore and .stfolder/ today, not the rest).
+printf '%s\n' .stignore .stfolder/ .stversions/ '.syncthing.*' > .git/info/exclude
 
 # Skip this run if Syncthing is mid-transfer; the next one picks it up.
-if [ -n "$(find . -path ./.git -prune -o -name '.syncthing.*' -print | head -1)" ]; then
+if [ -n "$(find . -path ./.git -prune -o -name '.syncthing.*' -mmin -10 -print | head -1)" ]; then
   echo "syncthing has in-flight files; skipping this run"
   exit 0
+fi
+# Syncthing keeps temp files of failed pulls (24h by default) to resume them.
+# One that old means a file is stuck; fail so it alerts instead of the vault
+# silently drifting from what is committed.
+stale=$(find . -path ./.git -prune -o -name '.syncthing.*' -mmin +360 -print | head -5)
+if [ -n "$stale" ]; then
+  echo "stale syncthing temp files (failed pull?):" >&2
+  echo "$stale" >&2
+  exit 1
 fi
 
 git fetch -q origin main

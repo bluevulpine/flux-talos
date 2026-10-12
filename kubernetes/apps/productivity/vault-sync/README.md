@@ -10,6 +10,7 @@ the only writer to that repo.** The Mac and NAS are readers.
 | Vault on disk | PVC `vault-sync-data`, subdirectory `vault/` (Syncthing: `/var/syncthing/data/vault`, committer: `/data/vault`) |
 | Syncthing config | PVC `vault-sync-config` at `/var/syncthing/config` |
 | Push credential | OpenBao `secret/vault-sync` field `VaultSync__SshPrivateKey` = Gitea deploy key `vault-sync` (write) |
+| GUI login | OpenBao `secret/vault-sync` fields `VaultSync__GuiUser` / `VaultSync__GuiPassword`, applied on every pod start by the `gui-auth` init container |
 | Gitea host key | pinned in `app/resources/known_hosts` |
 
 Neither PVC is backed up by kopiur on purpose: the vault lives in Gitea, on the NAS and on
@@ -17,12 +18,12 @@ the Mac, and losing Syncthing's config costs only a re-pair.
 
 ## One-time setup
 
-Already done (2026-10-12): the deploy key exists on the repo and in OpenBao.
+Already done (2026-10-12): the deploy key exists on the repo and in OpenBao, and the GUI
+login is in OpenBao (`bao kv get -field=VaultSync__GuiPassword secret/vault-sync`). Change
+it with `bao kv patch` (never `put`, which drops the other fields); Reloader rolls the pod.
 
 1. **Pair Syncthing.** Get the pod's device ID:
-   `kubectl -n productivity exec deploy/vault-sync -- syncthing cli show system | jq -r .myID`
-   - In the pod's GUI, set a GUI user and password first (Settings → GUI). Forward auth
-     protects the route, but not `kubectl port-forward` or in-cluster callers.
+   `kubectl -n productivity exec deploy/vault-sync-syncthing -c app -- syncthing cli show system | jq -r .myID`
    - On the **NAS** (`vault` Syncthing, `LPIWKNK-…`): Add Remote Device → the pod's ID,
      name `k8s-vault-sync`, share folder `ftk9p-v9mgn` (Obsidian) with it.
    - In the **pod's** GUI: Add Remote Device →
@@ -51,6 +52,15 @@ Already done (2026-10-12): the deploy key exists on the repo and in OpenBao.
   Up to Date, or the next run "reverts" your push to the replicated state.
 - Syncthing conflict copies (`*.sync-conflict-*`) are git-ignored by the repo's
   `.gitignore`. Resolve them in Obsidian.
+
+## When the committer fails
+
+Each schedule is one attempt (`backoffLimit: 0`); a failed Job means one of:
+
+- **Stale Syncthing temp files.** A `.syncthing.*` temp file older than 6h is a pull that
+  keeps failing; the Job lists them. Fix the file in Syncthing (folder errors in the GUI).
+  Temp files under 10 minutes old make the run skip; ones in between are ignored.
+- **The deletion guard,** below.
 
 ## The deletion guard
 
