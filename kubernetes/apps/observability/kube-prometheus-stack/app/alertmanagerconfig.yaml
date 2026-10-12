@@ -35,6 +35,10 @@ spec:
             value: critical
             matchType: =
   inhibitRules:
+    # A firing critical mutes the warning of the same alertname+namespace (the
+    # usual warning/critical threshold pair). The warning matcher must be in
+    # targetMatch: with both in sourceMatch, a source had to be critical AND
+    # warning at once, so the rule never matched and both pages went out.
     - equal:
         - "alertname"
         - "namespace"
@@ -42,9 +46,10 @@ spec:
         - name: severity
           value: critical
           matchType: =
+      targetMatch:
         - name: severity
           value: warning
-          matchType: =~
+          matchType: =
   receivers:
     - name: "null"
     - name: heartbeat
