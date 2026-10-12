@@ -39,7 +39,7 @@ jobs:
         # cfc3eb2 shipped 2.1.278, and the API answers that version with "400 Claude Code
         # 2.1.278 does not support this model; version 2.1.280 or newer is required" - a
         # 0-token, ~300ms `is_error:true` failure whose message the action hides.
-        uses: anthropics/claude-code-action@9171db3e57d6a3140a37ddc2ba92788584e0ead6 # v1
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Without this the action refuses PRs opened by a GitHub App with
