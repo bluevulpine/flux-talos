@@ -45,7 +45,7 @@ spec:
         type: deployment
         replicas: 1
         containers:
-          app:
+          app: &container
             image:
               repository: docker.io/anclrii/storj-exporter
               tag: "2.1.3"
@@ -86,13 +86,28 @@ spec:
                 memory: 32Mi
               limits:
                 memory: 128Mi
-        pod:
+        pod: &pod
           securityContext:
             runAsUser: 65534
             runAsGroup: 65534
             runAsNonRoot: true
             seccompProfile:
               type: RuntimeDefault
+      # Second node on pinas (Pi 5, WAN2), added 2026-10-12. The exporter only
+      # reads one node's API, so each node gets its own controller. Addressed by
+      # tailnet IP, like the pinas node-exporter scrape, because pinas may move
+      # offsite; cluster CoreDNS cannot resolve *.ts.net.
+      storj-exporter-pinas:
+        type: deployment
+        replicas: 1
+        containers:
+          app:
+            <<: *container
+            env:
+              STORJ_HOST_ADDRESS: 100.114.176.10
+              STORJ_API_PORT: "14002"
+              STORJ_EXPORTER_PORT: "9651"
+        pod: *pod
     service:
       app:
         controller: storj-exporter
@@ -100,6 +115,14 @@ spec:
           http:
             port: 9651
             protocol: TCP
+      pinas:
+        controller: storj-exporter-pinas
+        ports:
+          http:
+            port: 9651
+            protocol: TCP
+    # The exporter's metrics carry no node identity, so each ServiceMonitor
+    # stamps a `node` label; the dashboard's node selector filters on it.
     serviceMonitor:
       app:
         serviceName: storj-exporter
@@ -108,3 +131,18 @@ spec:
             scheme: http
             path: /metrics
             interval: 60s
+            relabelings:
+              - action: replace
+                targetLabel: node
+                replacement: vault
+      pinas:
+        serviceName: storj-exporter-pinas
+        endpoints:
+          - port: http
+            scheme: http
+            path: /metrics
+            interval: 60s
+            relabelings:
+              - action: replace
+                targetLabel: node
+                replacement: pinas
