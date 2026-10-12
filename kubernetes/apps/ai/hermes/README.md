@@ -266,8 +266,10 @@ mount never receives Secret updates.
    pbpaste | bao kv put -mount=secret agents/<agent>/profile \
      <Agent>__ApiServerKey="$(openssl rand -hex 32)" <Agent>__Paperclip__APIKey=-
    ```
-   (`=-` reads stdin, so the key never appears on screen or in history; `bao` has no
-   `@file` syntax.) *Matrix agent:* the agent operating the cluster runs this itself. Derek
+   (`=-` reads stdin, so the key never touches disk, the screen or history.) An agent
+   that is both Matrix and Paperclip does **one** `put` and then `patch`es the rest: a
+   second `put` replaces every field. *Matrix agent:* the agent operating the cluster
+   runs this itself. Derek
    decided this on 2026-10-03, reversing the pilot spec's "Derek runs the token step". It is
    safe because `bao kv` is an approval-gated ask rule, and the token goes straight from
    `mas-cli` into OpenBao; it is never printed:
@@ -279,7 +281,8 @@ mount never receives Secret updates.
      mas-cli manage issue-compatibility-token <agent> <DEVICE> 2>&1 | grep -o 'mct_[A-Za-z0-9_]*' | head -1)
    # NEW path → put, seeding EVERY field the agent's profile.env template references:
    [ -n "$T" ] && bao kv put -mount=secret agents/<agent>/profile <Agent>__Matrix__AccessToken="$T" \
-     <Agent>__Matrix__RecoveryKey= <Agent>__OtherField=…; unset T
+     <Agent>__Matrix__RecoveryKey= <Agent>__ApiServerKey="$(openssl rand -hex 32)" \
+     <Agent>__OtherField=…; unset T
    ```
    - **`put` only creates.** On an existing path it **replaces every field**, so every
      later write (recovery key, rotation, other credentials) uses `patch`. `patch` fails
@@ -310,9 +313,11 @@ mount never receives Secret updates.
    "${H[@]}" profile create <agent>        # no --clone: copies no credentials
    # Gate and model FIRST. The token is already in the mounted file, and it reaches the
    # profile the moment secrets.command is enabled (every config set triggers a rescan).
-   "${H[@]}" -p <agent> config set platforms.matrix.device_id <DEVICE>              # Matrix agents only
+   # Matrix agents only (both lines):
+   "${H[@]}" -p <agent> config set platforms.matrix.device_id <DEVICE>
    "${H[@]}" -p <agent> config set platforms.matrix.allowed_users "@bluevulpine:bluevulpine.net"
-   "${H[@]}" -p <agent> config set approvals.mode off   # Paperclip-driven: nobody answers prompts
+   # Paperclip-driven agents: nobody answers approval prompts
+   "${H[@]}" -p <agent> config set approvals.mode off
    # ...set the agent's own model:/provider here (see below)...
    "${H[@]}" -p <agent> config set secrets.command.command "/bin/cat /run/hermes-profiles/<agent>/profile.env"
    "${H[@]}" -p <agent> config set secrets.command.override_existing true
