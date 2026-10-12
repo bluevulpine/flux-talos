@@ -52,7 +52,7 @@ jobs:
           # want reviewing, so they are allow-listed rather than skipped the
           # way renovate[bot] is in the job-level `if:` above. Comma-separated,
           # bot names without the [bot] suffix.
-          allowed_bots: 'fizz-bot-bvn,bluevulpine-bot'
+          allowed_bots: 'fizz-bot-bvn,bluevulpine-bot,deckhand-bot-bvn'
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           # Must be a form `gh pr view` accepts: a number, or a full URL.
