@@ -54,6 +54,7 @@ spec:
       auth:
         secretRef:
           name: kopiur-pinas-secret
+          namespace: kopiur-system
   schedule:
     # Daily, UTC like every other kopiur cron here. Nothing reads the mirror
     # until a disaster, so a day of lag costs nothing.
