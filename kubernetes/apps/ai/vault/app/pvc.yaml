@@ -1,8 +1,10 @@
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.36.2-standalone-strict/persistentvolumeclaim-v1.json
 # The Obsidian vault, as a Syncthing replica inside the hermes pod: mounted at
-# /opt/data/vault by hermes and by the syncthing sidecar (ai/hermes). See
-# ../README.md for what lives here and who may write where.
+# /opt/data/obsidian by hermes and at /opt/data/vault by the syncthing sidecar
+# (ai/hermes; the hermes path avoids Hermes' own credential store at
+# $HERMES_HOME/vault). See ../README.md for what lives here and who may write
+# where.
 #
 # Its own claim, deliberately NOT on hermes' data PVC: hermes runs `Recreate`
 # on a volsync-backed RWO volume, so co-locating would couple the notes'

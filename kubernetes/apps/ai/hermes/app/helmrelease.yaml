@@ -106,7 +106,14 @@ spec:
               # path from this. Named profiles do not inherit process env under
               # multiplexing, so a profile that needs it must list it in its own
               # env_passthrough.
-              OBSIDIAN_VAULT_PATH: /opt/data/vault
+              # NOT $HERMES_HOME/vault: that directory is Hermes' own encrypted
+              # credential store (vault_store.py: vault.key + vault.json.enc +
+              # .vault.lock under <HERMES_HOME>/vault/, not configurable), and
+              # file_safety.py denies the agent's file tools any read there. The
+              # first mount at /opt/data/vault made Bosun's read_file refuse every
+              # note and would have put the key and ciphertext into Syncthing and
+              # Gitea. Must stay under /opt/data: HERMES_WRITE_SAFE_ROOT.
+              OBSIDIAN_VAULT_PATH: /opt/data/obsidian
               HERMES_DASHBOARD: "1"
               HERMES_DASHBOARD_HOST: "0.0.0.0"
               HERMES_DASHBOARD_PORT: &port 9119
@@ -275,16 +282,26 @@ spec:
           hermes:
             app:
               - path: /opt/data
-      # The Obsidian vault (ai/vault), mounted INSIDE the data mount so profiles
-      # find it at $HERMES_HOME/vault, and at the same path in the sidecar so
-      # one path names the Syncthing folder everywhere. The hermes claim's
-      # backups do not include it (a nested mount is a different volume).
-      # The volume ROOT is the Syncthing folder: lost+found at that root is
-      # kept out by the .stignore the init container seeds.
+      # The Obsidian vault (ai/vault). Two paths for one volume, on purpose:
+      # - hermes sees it at /opt/data/obsidian (OBSIDIAN_VAULT_PATH above).
+      #   It must sit under /opt/data (HERMES_WRITE_SAFE_ROOT) and must NOT be
+      #   /opt/data/vault, which is Hermes' own credential store directory.
+      # - the sidecar and its init container keep /opt/data/vault: that is the
+      #   folder path in Syncthing's config (set at pairing time, on the config
+      #   claim), and HERMES_HOME means nothing in those containers.
+      # Nested inside the data mount, so the hermes claim's backups do not
+      # include it (a nested mount is a different volume). The volume ROOT is
+      # the Syncthing folder: lost+found at that root is kept out by the
+      # .stignore the init container seeds.
       vault:
         existingClaim: vault
-        globalMounts:
-          - path: /opt/data/vault
+        advancedMounts:
+          hermes:
+            app:
+              - path: /opt/data/obsidian
+            syncthing: &vaultMount
+              - path: /opt/data/vault
+            vault-syncthing: *vaultMount
       # Syncthing's HOME and state. The image's /var/syncthing is root-owned
       # and the sidecar's root filesystem is read-only, so HOME is an emptyDir
       # and the config (device key, index) sits on its own small claim.
