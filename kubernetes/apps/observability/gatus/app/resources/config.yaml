@@ -229,3 +229,7 @@ endpoints:
       - "[BODY].usage.completion_tokens >= 1"
     alerts:
       - type: pushover
+        # The default-alert threshold of 5 is tuned for 1m probes; at 30m it
+        # would be ~2.5h before anyone heard. 2 x 30m is about an hour, and a
+        # single Nous blip still does not page.
+        failure-threshold: 2
