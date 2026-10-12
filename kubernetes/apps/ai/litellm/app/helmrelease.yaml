@@ -204,13 +204,11 @@ spec:
               # without this an interactive reflect surfaces the 500. Two retries
               # take it to ~1 in 10,000.
               #
-              # ⚠️ THE NAME IS HISTORICAL. Since 2026-10-05 the model behind
-              # `spark-gpt-oss-20b` is Qwen3.6-35B-A3B (spark-setup
-              # group_vars: vllm_model), not gpt-oss-20b. This route is now a
-              # LEGACY ALIAS: use `spark-main` (defined below), which every
-              # consumer in git and mealie moved to the same day. It remains
-              # only for the Hermes agent, whose model config is on its PVC.
-              # Everything above about
+              # ⚠️ Since 2026-10-05 the model on the Spark is Qwen3.6-35B-A3B
+              # (spark-setup group_vars: vllm_model), not gpt-oss-20b. The routes
+              # named after gpt-oss (`spark-gpt-oss-20b`, `spark-gpt-oss-20b-long`)
+              # were legacy aliases of `spark-main` from that day and were deleted
+              # on 2026-10-12; see the route comment below. Everything above about
               # vLLM versus Ollama still holds; the gpt-oss harmony-header note
               # does not apply to Qwen, and num_retries stays as cheap insurance.
               #
@@ -228,33 +226,68 @@ spec:
               # produced 0). So a consumer tuned for gpt-oss with
               # reasoning_effort: low is asking Qwen to think. An explicit
               # `chat_template_kwargs: {"enable_thinking": false}` wins over both.
-              - model_name: spark-gpt-oss-20b
+              # --- the routes: spark-main, spark-main-vision ---
+              # Model-neutral on purpose. The first routes here were named after
+              # the models the Spark ran (spark-gpt-oss-20b, spark-gpt-oss-20b-long,
+              # spark-qwen25-vl-7b), which is what naming a route after its model
+              # gets you after one swap: three stale names aliasing one backend.
+              # These say what the route is FOR, so the next model change touches
+              # spark-setup and this file and no consumer.
+              #
+              # The three old names were kept as aliases from 2026-10-05 and
+              # deleted on 2026-10-12. Every consumer in git and mealie (admin UI)
+              # had moved on 2026-10-05; the Hermes agent, the suspected holdout,
+              # turned out to talk to Anthropic and Nous directly rather than
+              # through LiteLLM; and LiteLLM_DailyUserSpend grouped by model_group
+              # showed no request on any of the three after 2026-10-05 (the last
+              # were karakeep and hindsight mid-move that day). The virtual keys
+              # that still listed the old names had them stripped the same day.
+              #
+              # The -long name existed because reflect once needed a separate
+              # one-slot 98k ollama on :11435; vLLM's single instance serves the
+              # full 131,072-token window to any request (an ~87k-token prompt
+              # measured 18s to first token alongside short traffic), so one
+              # route covers reflect too.
+              #
+              #   spark-main          text. Falls back to the hosted copy when the
+              #                       Spark is down (router_settings.fallbacks).
+              #   spark-main-vision   the same model, for requests carrying
+              #                       images. NO fallback, so a photo never leaves
+              #                       the house: that is the whole reason it is a
+              #                       separate name.
+              #
+              # Both are thinking-off by default like every Spark route; see the
+              # reasoning_effort warning above.
+              - model_name: spark-main
                 litellm_params:
                   model: openai/qwen3.6-35b-a3b
                   api_base: http://10.0.10.237:8000/v1
                   api_key: unused-no-auth
                   num_retries: 2
 
-              # --- long-context alias for hindsight reflect ---
-              # The SAME vLLM instance as spark-gpt-oss-20b, kept as a separate
-              # model_name only so hindsight's reflect config and virtual key
-              # need no change. It used to be a second, hand-made ollama on
-              # :11435 (one slot, 98k window, ~17 GiB for a second copy of the
-              # weights), because reflect prompts on the flux-talos bank are
-              # 55-65k tokens and the main 32k window silently kept only the tail.
-              # vLLM's single instance serves the full 131,072-token window to
-              # any request: an ~87k-token prompt measured 18s to first token
-              # alongside short traffic.
+              # Vision: Qwen3.6 reads images itself. Checked side by side with the
+              # retired qwen2.5vl on five images: same or better tags, and a
+              # rendered receipt transcribed exactly. Images are capped at ~1 MP
+              # and FOUR PER REQUEST on the server (spark-setup vllm_extra_args:
+              # --limit-mm-per-prompt, --mm-processor-kwargs); a request with more
+              # gets a 400. homebox-companion's multi-photo detection is the
+              # consumer to check against that cap. vLLM fetches an http(s) image
+              # URL as well as taking a base64 `data:` URI; consumers send bytes.
               #
-              # It no longer has ONE slot, so the old "nothing else may point
-              # here" rule is gone -- but keep it reflect-only anyway, so the
-              # two can be split again without touching other consumers.
-              - model_name: spark-gpt-oss-20b-long
+              # Ollama is RETIRED on the Spark (stopped and disabled, 2026-10-05;
+              # spark-setup ollama_enabled). The binary and qwen2.5vl:7b are still
+              # on disk, so the rollback to a separate vision model is two steps:
+              # ollama_enabled: true with `--tags inference` there, then point this
+              # at model: openai/qwen2.5vl:7b, api_base: http://10.0.10.237:11434/v1.
+              # qwen2.5vl is DENSE, measured 20 GiB resident at OLLAMA_NUM_PARALLEL=8
+              # (1.3-2.7s warm per image): see the memory hazard below before
+              # bringing it back. Ollama does NOT fetch remote image URLs, only the
+              # base64 `data:` URI shape worked there.
+              - model_name: spark-main-vision
                 litellm_params:
                   model: openai/qwen3.6-35b-a3b
                   api_base: http://10.0.10.237:8000/v1
                   api_key: unused-no-auth
-                  # Reflect is the tool-calling stage; see num_retries above.
                   num_retries: 2
 
               # --- audio (spark-setup `audio` role) ---
@@ -310,94 +343,6 @@ spec:
               # holding a fixed ~36 GiB, the same load would reach earlyoom, whose
               # largest preferred target is vLLM. Before adding a dense model here,
               # size slots x context x its per-token KV against what is free.
-
-              # --- vision ---
-              # ⚠️ Since 2026-10-05 this route is the same Qwen3.6 on vLLM as the
-              # text routes (see the note above the route itself). The rest of this
-              # header describes qwen2.5vl on Ollama, which is now only the rollback.
-              #
-              # (Then:) The ONLY model here that can see an image. The gpt-oss entries above
-              # are text-only, which is why karakeep's image slot and
-              # homebox-companion's photo item-detection were dead after the
-              # Azure migration -- gpt-4.1-mini and gpt-5-mini were both
-              # vision-capable and nothing on the Spark replaced that.
-              #
-              # Measured on this box at OLLAMA_NUM_PARALLEL=8, not estimated:
-              # 20 GiB resident alongside gpt-oss's 13 GiB (54 of 121 GiB used,
-              # 67 free, when gpt-oss still ran in Ollama -- it is on vLLM now),
-              # 17.6s cold including model load, then 1.3-2.7s warm.
-              # It read two lines of rendered text exactly, including a currency
-              # amount, and identified two shapes and their colours.
-              #
-              # It is DENSE, unlike gpt-oss -- see the memory hazard above. At 7B
-              # that is affordable; it would not be at 14B+.
-              #
-              # ⚠️ Images must be sent as a base64 `data:` URI. Ollama does NOT
-              # fetch remote http(s) image URLs -- its own docs list "Image URL"
-              # as unsupported -- so a consumer that passes a link instead of
-              # bytes gets a failure that looks like a model problem. Verified
-              # working here through this exact OpenAI-compatible shape.
-              #
-              # ⚠️ ALSO A HISTORICAL NAME since 2026-10-05: this route now goes to
-              # the same Qwen3.6 on vLLM as the text routes, which reads images
-              # itself. Checked side by side with qwen2.5vl on five images: same
-              # or better tags, and a rendered receipt transcribed exactly. Images
-              # are capped at ~1 MP and TWO PER REQUEST on the server
-              # (spark-setup vllm_extra_args) -- a request with more gets a 400
-              # where Ollama accepted it. homebox-companion's multi-photo
-              # detection is the consumer to check. vLLM, unlike Ollama, will fetch an
-              # http(s) image URL, so the base64-only warning above no longer
-              # binds -- but consumers already send bytes.
-              #
-              # Ollama is RETIRED on the Spark (stopped and disabled, 2026-10-05;
-              # spark-setup ollama_enabled). The binary and qwen2.5vl:7b are still on
-              # disk, so the rollback is two steps: ollama_enabled: true with
-              # `--tags inference` there, then point this back at
-              #   model: openai/qwen2.5vl:7b, api_base: http://10.0.10.237:11434/v1
-              - model_name: spark-qwen25-vl-7b
-                litellm_params:
-                  model: openai/qwen3.6-35b-a3b
-                  api_base: http://10.0.10.237:8000/v1
-                  api_key: unused-no-auth
-                  # Kept as cheap insurance, as on the text routes.
-                  num_retries: 2
-
-              # --- the names to use: spark-main, spark-main-vision ---
-              # Model-neutral on purpose. The routes above are named after models
-              # the Spark no longer runs (gpt-oss-20b, qwen2.5vl), which is what
-              # naming a route after its model gets you after one swap. These say
-              # what the route is FOR, so the next model change touches
-              # spark-setup and this file and no consumer.
-              #
-              #   spark-main          text. Falls back to the hosted copy when the
-              #                       Spark is down (router_settings.fallbacks).
-              #   spark-main-vision   the same model, for requests carrying
-              #                       images. NO fallback, so a photo never leaves
-              #                       the house: that is the whole reason it is a
-              #                       separate name.
-              #
-              # Both are thinking-off by default like every Spark route; see the
-              # reasoning_effort warning on spark-gpt-oss-20b above.
-              #
-              # The three older names are LEGACY ALIASES of the same backend, kept
-              # while the last consumer moves: the Hermes agent (its model config
-              # is on its PVC, not in git). hindsight, karakeep, homebox-companion
-              # and mealie (in its admin UI) moved on 2026-10-05. Every virtual key
-              # already allows the new names. Once nothing sends the old ones,
-              # delete those three routes and their fallbacks entries.
-              - model_name: spark-main
-                litellm_params:
-                  model: openai/qwen3.6-35b-a3b
-                  api_base: http://10.0.10.237:8000/v1
-                  api_key: unused-no-auth
-                  num_retries: 2
-
-              - model_name: spark-main-vision
-                litellm_params:
-                  model: openai/qwen3.6-35b-a3b
-                  api_base: http://10.0.10.237:8000/v1
-                  api_key: unused-no-auth
-                  num_retries: 2
 
               # --- fallback: the SAME model, hosted (Nous Portal) ---
               # Used only when the Spark fails a request after its retries; see
@@ -581,8 +526,7 @@ spec:
               # LiteLLM's 600s default applies to each of three attempts and
               # hindsight's own 600s gives up first. Slow is not a fallback either.
               #
-              # Vision (spark-main-vision, and the legacy spark-qwen25-vl-7b) is
-              # deliberately NOT here: its callers
+              # Vision (spark-main-vision) is deliberately NOT here: its callers
               # are interactive (karakeep tagging, homebox photos), a failed tag
               # is retried by the app, and photos are a different thing to send
               # out than text. Add it only on purpose.
@@ -596,11 +540,6 @@ spec:
               # block rather than leave it.
               fallbacks:
                 - spark-main:
-                    - nous-qwen36-fallback
-                # Legacy aliases; remove with their routes.
-                - spark-gpt-oss-20b:
-                    - nous-qwen36-fallback
-                - spark-gpt-oss-20b-long:
                     - nous-qwen36-fallback
     persistence:
       config:
