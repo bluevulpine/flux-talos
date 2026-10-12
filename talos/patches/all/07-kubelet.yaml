@@ -16,9 +16,10 @@ machine:
       # exhaustion scenario the original 50/55 was set to avoid. 70% leaves
       # ~32 GB while roughly doubling usable image cache (59 -> 75 GB).
       #
-      # Safe because Longhorn does NOT live here: it uses the u-data-1
-      # (916 GB) and u-data-2 (2 TB) user volumes on separate partitions, so
-      # EPHEMERAL holds only images, logs and containerd state.
+      # Safe because Longhorn does NOT live here: it uses only the u-data-2
+      # (2 TB) user volume on a separate disk (u-data-1 on the AirDisk stopped
+      # being a Longhorn disk in #2136/#2138/#2140/#2141), so EPHEMERAL holds
+      # only images, logs and containerd state.
       image-gc-low-threshold: 65
       image-gc-high-threshold: 70
     nodeIP:
