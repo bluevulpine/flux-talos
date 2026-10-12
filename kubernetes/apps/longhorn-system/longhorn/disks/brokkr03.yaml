@@ -5,13 +5,8 @@ metadata:
   name: brokkr03
 spec:
   disks:
-    # data-1 is the AirDisk, too slow for Longhorn: see brokkr02.yaml. Unschedulable,
-    # and its replicas are evicted to data-2 disks (data-1 is unschedulable on every
-    # brokkr, so no other target exists). Remove this entry once it holds 0 replicas.
-    data-1:
-      path: /var/mnt/data-1
-      allowScheduling: false
-      evictionRequested: true
+    # No data-1 on purpose: it is the AirDisk, too slow for Longhorn. See
+    # brokkr02.yaml. Its replicas were evicted in #2140 and the entry removed here.
     data-2:
       path: /var/mnt/data-2
       allowScheduling: true
