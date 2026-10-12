@@ -22,3 +22,4 @@ resources:
   - ./ev-charge-ledger/ks.yaml
   - ./minnkota-collector/ks.yaml
   - ./wican-bridge/ks.yaml
+  - ./yardstick/ks.yaml

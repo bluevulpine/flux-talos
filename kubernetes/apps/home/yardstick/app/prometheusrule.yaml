@@ -1,0 +1,43 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: yardstick
+spec:
+  groups:
+    - name: yardstick.rules
+      rules:
+        # The whole point of hosting this in the cluster is that it is always
+        # recording; a dead pod silently loses mowing telemetry.
+        # Not covered: the pod up but not recording (signed out of Yarbo, robot
+        # unreachable). Yardstick raises those itself — configure its
+        # Notifications (ntfy) in the UI.
+        - alert: YardstickDown
+          annotations:
+            summary: >-
+              Yardstick has no ready replicas, so the Yarbo is not being
+              recorded. Check `kubectl -n home logs deploy/yardstick`.
+          expr: |
+            kube_deployment_status_replicas_ready{namespace="home", deployment="yardstick"} == 0
+          for: 15m
+          labels:
+            severity: critical
+
+        # Names the cause directly instead of leaving it to YardstickDown
+        # (docs/runbooks/flux-image-automation.md, Gotcha 3). A bad tag here
+        # would come from the yardstick-build cron or image automation.
+        - alert: YardstickImagePullFailing
+          annotations:
+            summary: >-
+              Yardstick pod {{ $labels.pod }} can't pull its image
+              ({{ $labels.reason }}). Check the tag in
+              kubernetes/apps/home/yardstick/app/helmrelease.yaml and the image
+              automation in kubernetes/apps/flux-system/yardstick/.
+          expr: |
+            max by (pod, reason) (
+              kube_pod_container_status_waiting_reason{namespace="home", pod=~"yardstick-.*", reason=~"ImagePullBackOff|ErrImagePull|InvalidImageName"}
+            ) > 0
+          for: 15m
+          labels:
+            severity: critical
