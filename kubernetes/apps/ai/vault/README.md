@@ -1,10 +1,15 @@
 # vault
 
 The Obsidian vault, as a live Syncthing replica inside the hermes pod. Hermes
-mounts it at `/opt/data/vault` (`OBSIDIAN_VAULT_PATH`); every Hermes profile
+mounts it at `/opt/data/obsidian` (`OBSIDIAN_VAULT_PATH`); every Hermes profile
 served by the one gateway sees the same files, and agents read and write them
-directly. The whole vault is replicated, not only `_agents/`: Derek wants the
-agents able to help with the rest of his Obsidian work too.
+directly. Not `/opt/data/vault`: that is `$HERMES_HOME/vault`, Hermes' own
+encrypted credential store (key and ciphertext side by side, path not
+configurable), and its file tools refuse to read anything there. The sidecar
+still sees the volume at `/opt/data/vault`, which is the folder path in its
+Syncthing config; the two paths are the same volume. The whole vault is
+replicated, not only `_agents/`: Derek wants the agents able to help with the
+rest of his Obsidian work too.
 
 This app is only the two volumes and the GUI login Secret. The Syncthing
 sidecar, its init container and the GUI route live in `ai/hermes`, because the
@@ -65,7 +70,8 @@ seeds (edit it on the volume; Syncthing never syncs ignore files):
    `VaultSync__GuiPassword`, the same as the vault-sync GUI):
    - add the NAS (`LPIWKNK-CZJS3DZ-GZBOFFU-RZAUXEE-7KJVZJW-35C2FLR-2BRGPEE-YLJWCAE`)
      as a remote device and tick **Introducer**;
-   - accept the shared folder with path **`/opt/data/vault`** and folder type
+   - accept the shared folder with path **`/opt/data/vault`** (the sidecar's
+     view of the volume; hermes sees it at `/opt/data/obsidian`) and folder type
      **Receive Only**. The NAS stays authoritative until the first sync has
      landed and the tree has been inspected.
 
@@ -76,7 +82,7 @@ seeds (edit it on the volume; Syncthing never syncs ignore files):
    deletes it. So until step 4, tell the Hermes profiles not to write to the
    vault, and do not press Revert without reading what the cluster side holds.
 4. Wait for Up to Date, check the tree from the hermes side
-   (`kubectl -n ai exec deploy/hermes -- ls -la /opt/data/vault`), then flip the
+   (`kubectl -n ai exec deploy/hermes -- ls -la /opt/data/obsidian`), then flip the
    folder to **Send & Receive**. Only then do agent writes propagate.
 
 ## Invariants
