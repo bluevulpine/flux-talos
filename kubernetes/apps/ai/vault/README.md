@@ -7,8 +7,9 @@ directly. Not `/opt/data/vault`: that is `$HERMES_HOME/vault`, Hermes' own
 encrypted credential store (key and ciphertext side by side, path not
 configurable), and its file tools refuse to read anything there. The sidecar
 still sees the volume at `/opt/data/vault`, which is the folder path in its
-Syncthing config; the two paths are the same volume. The whole vault is replicated, not only `_agents/`: Derek wants the
-agents able to help with the rest of his Obsidian work too.
+Syncthing config; the two paths are the same volume. The whole vault is
+replicated, not only `_agents/`: Derek wants the agents able to help with the
+rest of his Obsidian work too.
 
 This app is only the two volumes and the GUI login Secret. The Syncthing
 sidecar, its init container and the GUI route live in `ai/hermes`, because the
