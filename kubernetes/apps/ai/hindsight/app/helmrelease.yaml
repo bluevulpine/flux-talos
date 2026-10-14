@@ -308,9 +308,10 @@ spec:
               #    reasoning_effort other than "none" switches thinking ON,
               #    overriding the server default of off -- "low" meant 118s retains
               #    instead of 13s. Unset, hindsight sends no effort at all and the
-              #    server default applies. Two stages DO set it, each on a
-              #    measurement recorded beside it: reflect (`low`) and the
-              #    mental-model refresh chain (`low`, since 2026-10-05 evening);
+              #    server default applies. Reflect sets it (`low`, on the
+              #    measurement recorded beside it); the mental-model refresh chain
+              #    sets `none` explicitly (it was `low` from 2026-10-05 evening to
+              #    2026-10-14, see the note there for why it went back);
               #  - the "omits every OPTIONAL field" gap is closed: on 50 replayed
               #    retains Qwen filled `entities` on all 189 facts;
               #  - the KV budget arithmetic carries over: the Spark pins Qwen's KV
@@ -421,7 +422,7 @@ spec:
               # sign the backend is down. 3 is still the better trade: at 1 the
               # same call queued behind any backlog for minutes and missed the cap
               # every time; at 3 it misses only under sustained load. The
-              # server-side limits (LLM_TIMEOUT 600, REFLECT_WALL_TIMEOUT) are
+              # server-side limits (LLM_TIMEOUT 1800, REFLECT_WALL_TIMEOUT) are
               # nowhere near either. If hook aborts become routine, the lever is
               # fewer retain/consolidation in flight, not a larger reflect share.
               #
@@ -615,8 +616,9 @@ spec:
               # 4.0k -> 2.2k), so it may carry fewer page edits. Spot-read refreshed
               # pages for thinning, and revert these two lines if it shows.
               # (Also gpt-oss, also removed for Qwen. A rollback to gpt-oss restores
-              # HINDSIGHT_API_CONSOLIDATION_LLM_REASONING_EFFORT: low here; the
-              # refresh chain's effort is already `low` further down.)
+              # HINDSIGHT_API_CONSOLIDATION_LLM_REASONING_EFFORT: low here and
+              # HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_REASONING_EFFORT: low further
+              # down, which is `none` since 2026-10-14.)
 
               # A retain failover member to Azure was tried here on 2026-09-07
               # and REMOVED the same evening: it never worked, and it made
@@ -695,8 +697,9 @@ spec:
               # effort is set deliberately, further down:
               #   - reasoning_effort is passed through VERBATIM, and since
               #     2026-10-05 retain and consolidation do not send it (unset means
-              #     thinking off on Qwen). Reflect and the refresh chain both send
-              #     `low`; both are set, with the measurements, beside
+              #     thinking off on Qwen). Reflect sends `low`; the refresh chain
+              #     sends `none` (it sent `low` from 2026-10-05 to 2026-10-14). Both
+              #     are set, with the measurements, beside
               #     HINDSIGHT_API_REFLECT_LLM_MODEL and
               #     HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL below;
               #   - temperature falls back to reflect's intended 0.9
@@ -842,8 +845,7 @@ spec:
               # Thinking OFF for the automatic page refreshes since 2026-10-14; it was
               # ON from 2026-10-05 evening (#2086) on the quality result below, with
               # the condition that failed refresh_mental_model rows be watched for a
-              # week. A week later they climbed, exactly as the last paragraph here
-              # said to expect: 12 distinct refresh ops cycled as [STUCK_STACK] for
+              # week. A week later they climbed: 12 distinct refresh ops cycled as [STUCK_STACK] for
               # up to 12h, 161 LLM read timeouts in 24h, and with the Spark pinned
               # at 6-8 concurrent requests the worker completed zero retains for
               # ~2h. The trigger was the coding-agent plugin's page refresh going
@@ -872,8 +874,9 @@ spec:
               # reach ~15k, never clip. A runaway costs ~460s of GPU and one retry
               # of the refresh (WORKER_MAX_RETRIES is 10), not the refresh itself.
               #
-              # That condition was met on 2026-10-14 (see the top of this block), so
-              # this is `none` again.
+              # Set back to `none` when HindsightConsolidationFailing fires or failed
+              # refresh_mental_model rows in async_operations climb. They climbed on
+              # 2026-10-14 (see the top of this block), so this is `none` again.
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_REASONING_EFFORT: none
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "2"
               # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
