@@ -467,7 +467,18 @@ spec:
               # which accounts for 22,338 of the failed operations in the table.
               # Timing those out to protect a client cap that does not apply to
               # them is how that number got so large.
-              HINDSIGHT_API_LLM_TIMEOUT: "600"
+              #
+              # 1800 since 2026-10-14. With the Spark saturated (6-8 concurrent
+              # requests for 24h, p50 e2e 780s, p95 5,376s) 600s sat BELOW the
+              # median call, and a timeout here does not stop vLLM: the abandoned
+              # generation keeps running while the worker retries (WORKER_MAX_RETRIES
+              # 10), so every timeout added load and made the next call slower.
+              # 161 read timeouts and 25 final failures in 24h, all on
+              # refresh_mental_model, and zero retains completed for ~2h. Letting a
+              # slow call finish costs wall-clock; killing it costs the GPU time
+              # already spent plus a duplicate. Still well under the stage wall
+              # timeouts below, which are what actually bound a runaway.
+              HINDSIGHT_API_LLM_TIMEOUT: "1800"
               # Raising LLM_TIMEOUT alone is NOT enough, and leaving this at its
               # default makes the pair incoherent. REFLECT_WALL_TIMEOUT is a
               # deadline on the WHOLE reflect operation (DEFAULT 300s,
@@ -828,7 +839,19 @@ spec:
               # note beside HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_BASE_URL.
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_PROVIDER: openai
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL: spark-main
-              # Thinking ON for the automatic page refreshes, since 2026-10-05 evening.
+              # Thinking OFF for the automatic page refreshes since 2026-10-14; it was
+              # ON from 2026-10-05 evening (#2086) on the quality result below, with
+              # the condition that failed refresh_mental_model rows be watched for a
+              # week. A week later they climbed, exactly as the last paragraph here
+              # said to expect: 12 distinct refresh ops cycled as [STUCK_STACK] for
+              # up to 12h, 161 LLM read timeouts in 24h, and with the Spark pinned
+              # at 6-8 concurrent requests the worker completed zero retains for
+              # ~2h. The trigger was the coding-agent plugin's page refresh going
+              # hourly for one evening (13 pages x thinking-on synthesis), but the
+              # mechanism is this setting: thinking-on calls of 3-15 minutes
+              # overrun the LLM timeout under any contention, and vLLM does not
+              # stop the abandoned ones. Re-enable only with a per-call cost that
+              # fits inside HINDSIGHT_API_LLM_TIMEOUT at full concurrency.
               # Set explicitly either way: unset, this chain INHERITS reflect's
               # effort (memory_engine: mental_model_refresh_llm_reasoning_effort or
               # reflect_llm_reasoning_effort).
@@ -849,9 +872,9 @@ spec:
               # reach ~15k, never clip. A runaway costs ~460s of GPU and one retry
               # of the refresh (WORKER_MAX_RETRIES is 10), not the refresh itself.
               #
-              # Set back to `none` if HindsightConsolidationFailing or failed
-              # refresh_mental_model rows in async_operations climb.
-              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_REASONING_EFFORT: low
+              # That condition was met on 2026-10-14 (see the top of this block), so
+              # this is `none` again.
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_REASONING_EFFORT: none
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "2"
               # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
               # floor at all — which is how 232 refreshes ran in ~2h on
