@@ -24,6 +24,11 @@ phone (LiveSync)┘   (introducer)                   └── ai/hermes sidecar
 ```
 
 - The NAS is the introducer; every peer pairs with it and it hands out the rest.
+  Introductions are one-way, though: the far side still gets an "Add Device"
+  prompt that must be approved, and until it is, the near side's connections
+  complete TLS and then EOF every ~20s — flapping, not a clear rejection (seen
+  2026-10-16: vault-sync had never approved the hermes sidecar, and the two
+  cluster peers had synced the vault only via the NAS meanwhile).
 - `productivity/vault-sync`'s committer is the **only** writer to the Gitea
   repo. Nothing in this pod runs git against the vault. An agent's edit reaches
   Gitea by Syncthing → NAS → vault-sync pod → its next 15-minute commit.
