@@ -74,6 +74,21 @@ spec:
           for: 2m
           labels:
             severity: critical
+    - name: thanos
+      rules:
+        # The compactor runs compaction, then downsampling, then retention, in
+        # that order. A compaction error halts it (thanos_compact_halted=1 stays
+        # set until the pod restarts) and the later stages never run. That went
+        # unnoticed for months in 2026 (ENOSPC on its 20Gi PVC): the bucket grew
+        # to 1,148 raw blocks and the store-gateway OOMKilled loading them, while
+        # the symptom was chased with memory-limit bumps.
+        - alert: ThanosCompactHalted
+          annotations:
+            summary: Thanos compactor is halted on a critical error; retention and downsampling are not running. Cause is in VictoriaLogs (k_pod_name:"thanos-compact-0" AND "critical error detected"); fix it, then restart the pod.
+          expr: thanos_compact_halted == 1
+          for: 30m
+          labels:
+            severity: critical
     - name: zfs
       rules:
         - alert: ZfsUnexpectedPoolState

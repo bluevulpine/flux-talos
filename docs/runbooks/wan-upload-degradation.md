@@ -358,7 +358,7 @@ WAN throughput **is** collected: `unpoller` → Prometheus → Thanos
 It does **not** go to InfluxDB — `UP_INFLUXDB_DISABLE: true` in the
 HelmRelease; Influx here carries Home Assistant data, not network telemetry.
 
-Retention and resolution: Prometheus 2d, Thanos raw 14d / 5m 30d / 1h 60d.
+Retention and resolution: Prometheus 2d, Thanos raw 30d / 5m 1y / 1h 3y (14d/30d/60d before 2026-10-16).
 
 The real ceiling is the **2-minute scrape interval**, and it is not a tuning
 mistake — UniFi's own API only refreshes every 2 minutes

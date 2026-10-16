@@ -165,7 +165,7 @@ Long-term history lives in Thanos:
 | | endpoint | retention |
 | --- | --- | --- |
 | Prometheus (local) | `kube-prometheus-stack-prometheus.observability.svc:9090` | **2d only** |
-| **Thanos (use this)** | `thanos-query-frontend.observability.svc:10902` | raw 14d / 5m 30d / **1h 60d** |
+| **Thanos (use this)** | `thanos-query-frontend.observability.svc:10902` | raw 30d / 5m 1y / **1h 3y** (since 2026-10-16) |
 
 Both speak the same `/api/v1/query` and `/api/v1/query_range` API, so the only
 difference is the host. Querying Prometheus for anything older than 48h returns
@@ -176,6 +176,16 @@ concluded there was no history, when 60 days of it existed in Thanos.
 Do **not** "fix" this by raising `retention:` in the kube-prometheus-stack
 HelmRelease. It would duplicate what Thanos already stores. (For sizing context
 if it ever does come up: ~2.2 GB/day, on a 105 GB PVC using 5.8 GB.)
+
+**If long ranges come back short, or the store-gateway OOMKills, check
+`thanos_compact_halted` before touching memory limits.** The compactor runs
+compaction, then downsampling, then retention; a compaction error halts it for
+good (until a pod restart) and the later stages never run. That is how the
+bucket silently grew to ten months of raw in 1,148 blocks during 2026 (ENOSPC on
+a 20Gi PVC) while the store-gateway's limit was raised three times. The halt
+message is in VictoriaLogs (`k_pod_name:"thanos-compact-0" AND "critical error
+detected"`); the pod's own log rotates it away within days. `ThanosCompactHalted`
+now alerts on it.
 
 Two traps when reading the results:
 
