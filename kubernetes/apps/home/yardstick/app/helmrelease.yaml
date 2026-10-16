@@ -1,3 +1,4 @@
+---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -80,8 +81,15 @@ spec:
               requests:
                 cpu: 20m
                 memory: 256Mi
+              # 2Gi (was 1Gi). The vendor binary's RSS grows ~8 MiB/h from start,
+              # mowing or not; the 2026-10-13..16 pod sat at 905-915 MiB for 30+ h
+              # with the cgroup's max_usage exactly at the 1Gi limit, and only an
+              # image bump replaced it. Unknown whether the heap sizes itself to
+              # the cgroup (then it plateaus near 2Gi too) or leaks (then it
+              # eventually OOMs). An OOM is a SIGKILL and skips the SIGINT WAL
+              # close below, so the headroom buys a clean recording either way.
               limits:
-                memory: 1Gi
+                memory: 2Gi
         # SIGINT (the image's STOPSIGNAL) ends the session and closes the WAL;
         # measured well under a second, the vendor unit allows 30s.
         pod:
