@@ -51,6 +51,16 @@ spec:
           labels:
             severity: critical
     - name: memory
+      # Working set is what the kernel OOM-kills on, but it also counts
+      # reclaimable kernel slab (dentry/inode cache). ipmi-exporter accrues
+      # ~6 MiB/day of it from the freeipmi helpers it execs every scrape, with
+      # 10 MiB of RSS, and would nag forever at 80%. The second clause requires
+      # the non-reclaimable part (resident + active file, which includes hot
+      # mmapped index headers) to be substantial too: thanos-store sat at 0.64-0.89
+      # on that ratio through its 2026-10-16 OOMs and still fires; ipmi-exporter
+      # is at 0.16 and does not. cadvisor here does not export
+      # container_memory_mapped_file, hence active_file. $value stays the
+      # working-set ratio.
       rules:
         - alert: ContainerMemoryNearLimit
           annotations:
@@ -60,6 +70,14 @@ spec:
               container_memory_working_set_bytes{container!="", container!="POD"}
               / on(namespace, pod, container) kube_pod_container_resource_limits{resource="memory"}
             ) > 0.80
+            and on(namespace, pod, container)
+            (
+              (
+                container_memory_rss{container!="", container!="POD"}
+                + container_memory_total_active_file_bytes{container!="", container!="POD"}
+              )
+              / on(namespace, pod, container) kube_pod_container_resource_limits{resource="memory"}
+            ) > 0.60
           for: 5m
           labels:
             severity: warning
@@ -71,6 +89,14 @@ spec:
               container_memory_working_set_bytes{container!="", container!="POD"}
               / on(namespace, pod, container) kube_pod_container_resource_limits{resource="memory"}
             ) > 0.90
+            and on(namespace, pod, container)
+            (
+              (
+                container_memory_rss{container!="", container!="POD"}
+                + container_memory_total_active_file_bytes{container!="", container!="POD"}
+              )
+              / on(namespace, pod, container) kube_pod_container_resource_limits{resource="memory"}
+            ) > 0.60
           for: 2m
           labels:
             severity: critical
