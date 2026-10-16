@@ -18,6 +18,9 @@ spec:
     # hermes mounts the vault claims; without them the pod sits Pending.
     - name: vault
       namespace: ai
+    # ...and the documents claim (~/Documents share; without it, same story).
+    - name: documents
+      namespace: ai
   interval: 30m
   retryInterval: 1m
   timeout: 5m
