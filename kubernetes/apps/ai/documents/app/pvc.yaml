@@ -1,0 +1,25 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.36.2-standalone-strict/persistentvolumeclaim-v1.json
+# Derek's ~/Documents, as a Syncthing replica inside the hermes pod: mounted at
+# /opt/data/documents by both hermes and the syncthing sidecar (ai/hermes). See
+# ../README.md for the topology, the per-device .stignore rules and who may
+# write where.
+#
+# Plain claim, outside components/kopiur, same reasoning as ai/vault: the tree
+# already lives on the Mac (source of truth), the NAS and — via the NAS's Storj
+# sync job — off-site. A kopiur restore would only hand Syncthing a stale tree
+# to reconcile. Losing this volume costs a re-pair and one ~24 GiB pull.
+#
+# 50Gi for a ~24 GiB tree today: the manuscript grows, and agent-written
+# archives (reader-email harvest) accrete under it.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: documents
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: longhorn-2-replica

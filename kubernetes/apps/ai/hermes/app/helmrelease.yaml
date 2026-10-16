@@ -52,7 +52,10 @@ spec:
           # lost+found is ext4's root-owned dir at the volume root, .git/.qmd
           # are the Mac's local-only trees, and the LiveSync plugin dir holds
           # CouchDB credentials that the vault's .gitignore already keeps out
-          # of git for the same reason. Agents do not need any of them.
+          # of git for the same reason. Agents do not need any of them. For
+          # the documents share it seeds lost+found, .git and /Obsidian — the
+          # vault is already its own share, and two Syncthing folders over the
+          # same bytes corrupt indexes (ai/documents/README.md).
           vault-syncthing:
             image: &syncthingImage
               repository: ghcr.io/syncthing/syncthing
@@ -62,7 +65,7 @@ spec:
               - /bin/sh
               - -c
               - >-
-                printf '%s\n' "$STGUI_PASSWORD" | syncthing --home=/var/syncthing/config generate --gui-user="$STGUI_USER" --gui-password=- && grep -q "<user>$STGUI_USER</user>" /var/syncthing/config/config.xml && { [ -f /opt/data/vault/.stignore ] || printf '%s\n' lost+found .git .qmd .obsidian/plugins/obsidian-livesync > /opt/data/vault/.stignore; }
+                printf '%s\n' "$STGUI_PASSWORD" | syncthing --home=/var/syncthing/config generate --gui-user="$STGUI_USER" --gui-password=- && grep -q "<user>$STGUI_USER</user>" /var/syncthing/config/config.xml && { [ -f /opt/data/vault/.stignore ] || printf '%s\n' lost+found .git .qmd .obsidian/plugins/obsidian-livesync > /opt/data/vault/.stignore; } && { [ -f /opt/data/documents/.stignore ] || printf '%s\n' lost+found .git /Obsidian > /opt/data/documents/.stignore; }
             env:
               TZ: "${TIMEZONE}"
               STNODEFAULTFOLDER: "1"
@@ -302,6 +305,23 @@ spec:
             syncthing: &vaultMount
               - path: /opt/data/vault
             vault-syncthing: *vaultMount
+      # ~/Documents (ai/documents), the vault pattern one level up the tree.
+      # Same path for every container that sees it — no credential-store
+      # collision to route around. Nested inside the data mount for hermes
+      # (so the hermes claim's backups exclude it), volume root = the
+      # Syncthing folder. The init container above seeds its .stignore:
+      # /Obsidian is the hard one (the vault is already its own share; two
+      # folders over the same bytes corrupt indexes), .git keeps the Fiction
+      # repo Mac-git-only. Who-writes-what: ai/documents/README.md.
+      documents:
+        existingClaim: documents
+        advancedMounts:
+          hermes:
+            app:
+              - path: /opt/data/documents
+            syncthing: &documentsMount
+              - path: /opt/data/documents
+            vault-syncthing: *documentsMount
       # Syncthing's HOME and state. The image's /var/syncthing is root-owned
       # and the sidecar's root filesystem is read-only, so HOME is an emptyDir
       # and the config (device key, index) sits on its own small claim.
