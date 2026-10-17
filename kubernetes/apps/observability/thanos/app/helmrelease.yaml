@@ -59,28 +59,44 @@ spec:
       extraArgs:
         - --compact.concurrency=4
         - --delete-delay=30m
-        - --retention.resolution-raw=14d
-        - --retention.resolution-5m=30d
-        - --retention.resolution-1h=60d
-      persistence: &persistence
+        # Retention (decided 2026-10-16). raw 30d: incident forensics at scrape
+        # resolution. 5m 1y: every long-range investigation so far wanted a
+        # 60d window, and a year allows same-month comparisons; a 5m block holds
+        # 5% of its raw sibling's samples (measured). 1h 3y: ~2% of raw, so the
+        # years are free. Raw grows ~1.2 GB/day; the whole policy is ~150 GB.
+        - --retention.resolution-raw=30d
+        - --retention.resolution-5m=1y
+        - --retention.resolution-1h=3y
+      # Not the shared 20Gi &persistence below: merging seven 2.3 GB two-day
+      # blocks into one 14d block needs ~30 GB of scratch, plus room to
+      # downsample the result. At 20Gi the compactor hit ENOSPC on 2026-10-03
+      # and halted (thanos_compact_halted=1 is permanent until a restart, and
+      # every restart halted again on the same group). Retention and
+      # downsampling never ran: the bucket held ~10 months of raw in 1,148
+      # blocks and the store-gateway OOMKilled loading them. The PVC was
+      # expanded online (kubectl patch); this value keeps the chart in sync.
+      # volumeClaimTemplates are immutable, so any further change needs
+      # `kubectl delete sts thanos-compact --cascade=orphan` before Flux can
+      # apply it (the orphaned pod is re-adopted and rolled).
+      persistence:
         enabled: true
         storageClass: longhorn-1-replica
-        size: 20Gi
+        size: 100Gi
     query:
       replicas: 2
       extraArgs:
         - "--alert.query-url=https://thanos.${SECRET_DOMAIN}"
         # Let range queries read downsampled blocks. Without it Query reads raw
-        # only (max_source_resolution=0s), and raw is deleted at 14d by the
-        # compactor above -- so any range past 14 days silently comes back short
+        # only (max_source_resolution=0s), and raw is deleted at 30d by the
+        # compactor above -- so any range past 30 days silently comes back short
         # (a plausible, low number; no error), even though 5m/1h blocks exist to
-        # 30d/60d. With it, a request that names no resolution uses step/5: a
+        # 1y/3y. With it, a request that names no resolution uses step/5: a
         # query at step >= 25m may fall back to 5m/1h data where raw is gone,
         # while fine-step and recent queries still read raw.
         #
         # Instant queries are NOT covered (this Thanos, 0.42, has no
         # default-max-source-resolution flag for them): a [60d] instant query
-        # still tops out at 14d. Ask long windows as a range query with a coarse
+        # still tops out at 30d. Ask long windows as a range query with a coarse
         # step, or pass max_source_resolution=1h explicitly.
         - "--query.auto-downsampling"
     queryFrontend:
@@ -124,7 +140,10 @@ spec:
                   for: 5m
                   labels:
                     severity: critical
-      persistence: *persistence
+      persistence: &persistence
+        enabled: true
+        storageClass: longhorn-1-replica
+        size: 20Gi
     storeGateway:
       # Single replica: Thanos v0.41.0 regression (thanos-io/thanos#8711) makes
       # Query's /metrics return HTTP 500 when two store-gateways read the same
