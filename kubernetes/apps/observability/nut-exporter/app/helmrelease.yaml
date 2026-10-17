@@ -1,0 +1,83 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2beta2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app nut-exporter
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: nut-exporter
+  dependsOn:
+    - name: kube-prometheus-stack
+      namespace: observability
+  values:
+    defaultPodOptions:
+      # Same placement as ipmi-exporter: small and stateless, prefers the Pi
+      # workers, falls back to brokkr. The image is multi-arch.
+      tolerations:
+        - key: "node.kubernetes.io/low-power"
+          operator: "Equal"
+          value: "raspberry-pi"
+          effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: "kubernetes.io/arch"
+                    operator: "In"
+                    values:
+                      - "arm64"
+    controllers:
+      nut-exporter:
+        type: deployment
+        replicas: 1
+        containers:
+          app:
+            image:
+              repository: ghcr.io/druggeri/nut_exporter
+              tag: 3.3.0
+            args:
+              # Export every numeric variable the UPS reports. vault's Smart-UPS
+              # 2200 on usbhid-ups exposes no ups.load or ups.realpower, so the
+              # exporter's default list would mostly come back empty; "all
+              # numeric" picks up whatever this (or a future) UPS does report.
+              - "--nut.vars_enable="
+            env:
+              TZ: "${TIMEZONE}"
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: /metrics, port: 9199}
+                  initialDelaySeconds: 5
+                  periodSeconds: 30
+              readiness: *probe
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 5m
+                memory: 16Mi
+              limits:
+                memory: 64Mi
+        pod:
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+    service:
+      app:
+        controller: nut-exporter
+        ports:
+          http:
+            port: 9199
+            protocol: TCP
