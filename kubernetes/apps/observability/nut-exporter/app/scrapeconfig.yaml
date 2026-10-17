@@ -1,0 +1,39 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+#
+# Multi-target pattern, as ipmi-exporter: Prometheus scrapes the exporter's
+# /ups_metrics and passes the NUT server as ?server= and the UPS name as ?ups=.
+#
+# vault (TrueNAS) runs NUT for the APC Smart-UPS 2200 it is plugged into over
+# USB (usbhid-ups, UPS name SmartUPS2200). Its upsd already listens on *:3493
+# and lets anonymous clients LIST VAR, so no credentials are needed. Checked
+# 2026-10-17 from the LAN.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: &name nut
+spec:
+  metricsPath: /ups_metrics
+  params:
+    ups:
+      - SmartUPS2200
+  scrapeInterval: 60s
+  scrapeTimeout: 15s
+  staticConfigs:
+    - targets:
+        # vault's upsd. Relabeled into ?server= below; Prometheus connects to
+        # the exporter service, not to vault.
+        - 10.0.10.10
+  relabelings:
+    - sourceLabels:
+        - __address__
+      targetLabel: __param_server
+    - action: replace
+      targetLabel: __address__
+      replacement: nut-exporter.observability.svc.cluster.local:9199
+    - action: replace
+      targetLabel: instance
+      replacement: vault-smartups2200
+    - action: replace
+      targetLabel: job
+      replacement: *name

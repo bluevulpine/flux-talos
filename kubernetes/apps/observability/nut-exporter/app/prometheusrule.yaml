@@ -1,0 +1,69 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+#
+# vault's APC Smart-UPS 2200 (SMT2200RM2U, made 2013-12, bought renewed with
+# new batteries in 2022-11). Until this exporter it was watched only by upsmon
+# on vault itself, so nothing outside vault would notice it on battery or
+# asking for a new battery.
+#
+# Not alerted on: load or watts. This UPS reports neither over USB HID.
+# vault's own draw comes from ipmi_dcmi_power_consumption_watts.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: nut-exporter
+spec:
+  groups:
+    - name: nut.rules
+      rules:
+        # Mains is out (or the UPS is testing). vault and whatever else is on
+        # this UPS have minutes, not hours. 1m rides out a self-test blip.
+        - alert: UpsOnBattery
+          annotations:
+            summary: >-
+              UPS {{ $labels.instance }} is on battery. Battery charge is
+              {{ with printf "network_ups_tools_battery_charge{instance='%s'}" $labels.instance | query }}{{ . | first | value }}{{ end }}%.
+          expr: |
+            network_ups_tools_ups_status{flag="OB"} == 1
+          for: 1m
+          labels:
+            severity: critical
+
+        # The UPS itself says the battery is low: shutdown is imminent.
+        - alert: UpsLowBattery
+          annotations:
+            summary: >-
+              UPS {{ $labels.instance }} reports LOW BATTERY. upsmon on vault
+              will start its shutdown.
+          expr: |
+            network_ups_tools_ups_status{flag="LB"} == 1
+          for: 0m
+          labels:
+            severity: critical
+
+        # The UPS failed its own battery test. Lead-acid packs last roughly 3-5
+        # years, and these went in 2022-11, so expect this one first.
+        - alert: UpsReplaceBattery
+          annotations:
+            summary: >-
+              UPS {{ $labels.instance }} reports REPLACE BATTERY. Its runtime
+              on battery is no longer what it reports.
+          expr: |
+            network_ups_tools_ups_status{flag="RB"} == 1
+          for: 1h
+          labels:
+            severity: warning
+
+        # The exporter cannot reach vault's upsd, or vault is down. Without
+        # this, a dead scrape would silently hide every rule above.
+        - alert: UpsScrapeDown
+          annotations:
+            summary: >-
+              Cannot read UPS {{ $labels.instance }} from vault's NUT server
+              for 15m. The on-battery and battery alerts are blind until this
+              recovers.
+          expr: |
+            up{job="nut"} == 0
+          for: 15m
+          labels:
+            severity: warning
