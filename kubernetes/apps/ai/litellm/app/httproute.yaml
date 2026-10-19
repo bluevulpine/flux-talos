@@ -1,18 +1,52 @@
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
-# ONE HTTPRoute covering `/`, entirely behind Authentik — deliberately NOT the
-# two-object split-posture shape that `hindsight` next door uses.
+# TWO HTTPRoute objects on ONE hostname, split by AUTHENTICATION POSTURE — the
+# same shape as `hindsight` next door and media/calibre-web.
 #
-# Hindsight needs that split because the Claude Code plugin talks to its /v1 and
-# /mcp paths with a bearer token and cannot complete an interactive OIDC
-# redirect, so those paths must stay unlabelled. LiteLLM has no such consumer:
-# every client of its API (hindsight today; mealie, karakeep, n8n, node-red and
-# homebox-companion when they migrate) is IN-CLUSTER and reaches it over
-# `litellm.ai.svc.cluster.local:4000`, never through this gateway. Nothing
-# outside the cluster has any business calling /v1 here.
+# Until 2026-10-18 this was ONE route covering `/`, entirely behind Authentik,
+# on the reasoning that every API client was in-cluster and reached LiteLLM
+# over `litellm.ai.svc.cluster.local:4000`. That stopped being true when Wisp
+# (the Hermes desktop instance on Derek's Mac) was given a LiteLLM virtual key
+# to reach `spark-main`: a bearer-token client outside the cluster cannot
+# complete the interactive OIDC redirect, so every call to /v1 died at the
+# outpost with a 302 to the SSO page (changed 2026-10-18).
 #
-# So the whole hostname goes behind SSO, which is both simpler and strictly
-# safer than carving out an exception nothing needs.
+# components/common renders a SecurityPolicy whose
+# `targetSelectors.matchLabels: {auth: authentik}` selects whole HTTPRoute
+# OBJECTS, so the label cannot be scoped to one rule — hence two objects.
+# Gateway API precedence is exact path, then longest prefix by character count;
+# `/v1` (3 chars) beats `/` (1 char) regardless of object or list order.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: litellm-api
+  # NO `auth: authentik` label, deliberately. /v1 is protected by LiteLLM's own
+  # virtual-key auth instead: with LITELLM_MASTER_KEY set, every /v1 request
+  # whose Authorization header lacks a valid virtual key returns 401, and each
+  # key carries its own model allow-list and spend cap, which is a tighter
+  # boundary than SSO gives an API caller anyway.
+  #
+  # ONLY /v1. The admin UI, /ui, /health/*, /metrics, /key/* and /model/*
+  # management endpoints stay on the control-plane route below, behind SSO —
+  # the master key is proxy-admin and the UI is where it is used.
+spec:
+  hostnames:
+    - litellm.${SECRET_DOMAIN}
+  # Internal gateway only, same as the control plane. Tailnet clients reach it
+  # the way the Mac does — ts-exit-node advertises 172.16.8.0/24.
+  parentRefs:
+    - name: internal
+      namespace: network
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /v1
+      backendRefs:
+        - name: litellm
+          port: 4000
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
