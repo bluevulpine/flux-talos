@@ -1,0 +1,32 @@
+---
+# Postgres data volume for mail-archiver. Mail bodies AND attachments live in
+# Postgres (no blob volume), so this is the archive. Sizing: ~8 GB raw export
+# (316k msgs, may grow) -> roughly 1.5-2x in the DB with the full-text index,
+# plus WAL; 40Gi leaves >2x headroom and Longhorn volumes expand online.
+# Named ${APP} so components/kopiur targets it. Plain claim (no dataSourceRef):
+# see ai/paperclip/app/pvc.yaml for why not volsync-claim.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mail-archiver
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 40Gi
+  storageClassName: longhorn-2-replica
+---
+# ASP.NET DataProtection keys (cookie/antiforgery keys). Small, but losing it
+# logs everyone out, so it is persistent. Not kopiur-backed (regenerable).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mail-archiver-keys
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: longhorn-2-replica
