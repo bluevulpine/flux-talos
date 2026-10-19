@@ -84,3 +84,32 @@ spec:
           for: 5m
           labels:
             severity: critical
+
+        # An account that lists no chargers keeps polling "successfully": the
+        # loop writes nothing, consecutive_errors stays 0, and the staleness
+        # alerts above stay quiet. On 2026-10-17 the home charger moved to
+        # another ChargePoint account and ~46 h of sessions went unrecorded with
+        # every other signal green. The gauge is the count from the account's
+        # last successful listing (absent until the first one, so a cold start
+        # cannot fire this). Both configured accounts hold one charger today, so
+        # 0 means a charger moved or was removed from that account; the fix is
+        # the credential swap in chargepoint-collector/docs/runbooks/
+        # session-token-refresh.md plus the username/password in OpenBao item
+        # chargepoint-collector. Needs the collector image that exports
+        # chargepoint_account_chargers; until it rolls out there is no series
+        # and nothing fires.
+        - alert: ChargepointAccountHasNoChargers
+          annotations:
+            summary: >-
+              ChargePoint account {{ $labels.account }} lists no chargers but
+              is still polling "successfully", so no sessions are being
+              recorded. Most likely the charger was moved to another
+              ChargePoint account: switch that account's credentials in
+              OpenBao (item chargepoint-collector) and re-seed its session
+              token, then restart the collector. Home sessions missed meanwhile
+              can be back-filled from Kia telemetry.
+          expr: |
+            max by (account) (chargepoint_account_chargers{namespace="home"}) == 0
+          for: 30m
+          labels:
+            severity: critical
