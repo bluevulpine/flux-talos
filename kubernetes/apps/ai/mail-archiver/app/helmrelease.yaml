@@ -1,0 +1,203 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app mail-archiver
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: mail-archiver
+  values:
+    controllers:
+      # Dedicated Postgres 17, NOT the shared CNPG cluster18: upstream tests
+      # against PG17 only and the app installs a DB trigger for archive
+      # immutability. Revisit (move to cluster18) once PG18 is proven.
+      db:
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        pod:
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 70
+            runAsGroup: 70
+            fsGroup: 70
+            fsGroupChangePolicy: OnRootMismatch
+        containers:
+          postgres:
+            image:
+              repository: docker.io/library/postgres
+              # renovate: datasource=docker depName=docker.io/library/postgres versioning=docker
+              tag: 17.9-alpine
+            env:
+              PGDATA: /var/lib/postgresql/data/pgdata
+            envFrom:
+              - secretRef:
+                  name: mail-archiver-secret
+            probes:
+              liveness: &pgprobe
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: ["/bin/sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d MailArchiver"]
+                  initialDelaySeconds: 20
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 6
+              readiness: *pgprobe
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 2Gi
+      mail-archiver:
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        pod:
+          securityContext:
+            # 1654 = the `app` user baked into mcr.microsoft.com/dotnet/aspnet
+            # (the image itself defaults to root; we override).
+            runAsNonRoot: true
+            runAsUser: 1654
+            runAsGroup: 1654
+            fsGroup: 1654
+            fsGroupChangePolicy: OnRootMismatch
+        initContainers:
+          wait-db:
+            image:
+              repository: docker.io/library/postgres
+              tag: 17.9-alpine
+            command: ["/bin/sh", "-c", "until pg_isready -h mail-archiver-db -p 5432; do sleep 2; done"]
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: {drop: ["ALL"]}
+        containers:
+          app:
+            image:
+              repository: docker.io/s1t5/mailarchiver
+              # renovate: datasource=docker depName=docker.io/s1t5/mailarchiver
+              tag: 2610.1
+            env:
+              TZ: "${TIMEZONE}"
+              AllowedHosts: mail-archiver.${SECRET_DOMAIN}
+              TimeZone__DisplayTimeZoneId: "${TIMEZONE}"
+              # Archive posture: manual delete stays allowed during the
+              # phase-1 delete test; flip to "false" for production.
+              DeletionPolicy__DeletionAllowed: "true"
+              # Upload cap is irrelevant for the NAS import (CLI local import),
+              # keep upstream default.
+              # Native OIDC with Authentik. Client id/secret/admin email come
+              # from the ExternalSecret. Local password login stays on as
+              # break-glass (DisablePasswordLogin=false).
+              OAuth__Enabled: "true"
+              OAuth__Authority: https://sso.${SECRET_DOMAIN}/application/o/mail-archiver/
+              OAuth__DisplayName: Authentik
+              OAuth__ClientScopes__0: openid
+              OAuth__ClientScopes__1: profile
+              OAuth__ClientScopes__2: email
+              OAuth__AutoApproveUsers: "false"
+              OAuth__DisablePasswordLogin: "false"
+              OAuth__AutoRedirect: "false"
+            envFrom:
+              - secretRef:
+                  name: mail-archiver-secret
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: &port 5000
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 6
+              readiness: *probes
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: *port
+                  periodSeconds: 5
+                  failureThreshold: 60
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 1Gi
+    service:
+      app:
+        controller: mail-archiver
+        ports:
+          http:
+            port: *port
+      db:
+        controller: db
+        ports:
+          postgres:
+            port: 5432
+    route:
+      app:
+        annotations:
+          # Native OIDC, so deliberately NO `auth: authentik` label (a second
+          # forward-auth gate would double-login and block the bearer-key
+          # API/MCP). Direct gatus probe is the in-cluster check: gatus
+          # follows the redirect to the login page either way.
+          gatus.home-operations.com/endpoint: |
+            group: ai
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Mail Archiver"
+          gethomepage.dev/group: "AI"
+          gethomepage.dev/icon: "mdi-email-lock"
+          gethomepage.dev/description: "Email archive"
+        # Internal gateway only: mail archive, no case for public exposure.
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - mail-archiver.${SECRET_DOMAIN}
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
+    persistence:
+      pgdata:
+        existingClaim: *app
+        advancedMounts:
+          db:
+            postgres:
+              - path: /var/lib/postgresql/data
+      keys:
+        existingClaim: mail-archiver-keys
+        advancedMounts:
+          mail-archiver:
+            app:
+              - path: /app/DataProtection-Keys
+      logs:
+        type: emptyDir
+        advancedMounts:
+          mail-archiver:
+            app:
+              - path: /app/logs
+      tmp:
+        type: emptyDir
+        advancedMounts:
+          mail-archiver:
+            app:
+              - path: /tmp
