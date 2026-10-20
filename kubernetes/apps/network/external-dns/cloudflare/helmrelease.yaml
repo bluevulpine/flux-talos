@@ -36,10 +36,13 @@ spec:
     policy: sync
     # v0.22.0 (bundled in this chart bump) drops the external-dns.alpha.kubernetes.io/
     # fallback and makes the annotation prefix a required, no-default setting — the
-    # release notes warn the change "can delete all your DNS records". The `crd`
-    # source here reads that exact key as a literal providerSpecific property name on
-    # every DNSEndpoint (e.g. cloudflare-proxied: false on pangolin, echo-server-pangolin),
-    # so pin it explicitly or every record silently falls back to --cloudflare-proxied=true.
+    # release notes warn the change "can delete all your DNS records". The
+    # `target` annotation on the `external` Gateway and the HTTPRoute annotations
+    # (this instance's gateway-httproute source) still use this prefix, so keep it pinned. The DNSEndpoints no longer depend on it: since
+    # v0.23 their providerSpecific property is `cloudflare/proxied` (the old
+    # `external-dns.alpha.kubernetes.io/cloudflare-proxied` name is deprecated and
+    # only rewritten). A property name neither form recognises silently falls back
+    # to --cloudflare-proxied=true, so orange-clouds a DNS-only record.
     annotationPrefix: "external-dns.alpha.kubernetes.io/"
     sources:
       - "crd"

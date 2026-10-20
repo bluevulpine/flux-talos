@@ -10,7 +10,7 @@ spec:
     # instance has no `crd` source), so the LAN A record published from the
     # `internal` Gateway is untouched -- split horizon preserved.
     #
-    # DNS-only (cloudflare-proxied: false) is mandatory here, not cosmetic:
+    # DNS-only (cloudflare/proxied: false) is mandatory here, not cosmetic:
     # orange-clouding this record would put CF back in the path and restore the
     # 100MB upload cap and per-stream throttle this whole setup exists to avoid.
     - dnsName: "photos.${SECRET_DOMAIN}"
@@ -18,5 +18,5 @@ spec:
       targets:
         - "pangolin.${SECRET_DOMAIN}"
       providerSpecific:
-        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+        - name: cloudflare/proxied
           value: "false"

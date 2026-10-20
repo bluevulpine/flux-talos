@@ -10,7 +10,7 @@ spec:
     # LAN A record published from the `internal` Gateway is untouched and split
     # horizon still sends on-network clients straight to Envoy.
     #
-    # DNS-only (cloudflare-proxied: false) is required, not cosmetic: orange
+    # DNS-only (cloudflare/proxied: false) is required, not cosmetic: orange
     # clouding would put CF back in the path and restore the 100MB upload cap and
     # per-stream throttle this migration exists to avoid.
     - dnsName: "mealie.${SECRET_DOMAIN}"
@@ -18,5 +18,5 @@ spec:
       targets:
         - "pangolin.${SECRET_DOMAIN}"
       providerSpecific:
-        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+        - name: cloudflare/proxied
           value: "false"

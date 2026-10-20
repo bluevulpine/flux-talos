@@ -15,5 +15,5 @@ spec:
       targets:
         - "wheels.${SECRET_DOMAIN}"
       providerSpecific:
-        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+        - name: cloudflare/proxied
           value: "false"

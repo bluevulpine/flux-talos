@@ -7,7 +7,8 @@ spec:
   endpoints:
     - dnsName: "satisfactory.${SECRET_DOMAIN}"
       recordType: CNAME
-      targets: ["wheels.${SECRET_DOMAIN}"]
+      targets:
+        - "wheels.${SECRET_DOMAIN}"
       providerSpecific:
-      - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
-        value: "false"
+        - name: cloudflare/proxied
+          value: "false"

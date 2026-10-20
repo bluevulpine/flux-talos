@@ -7,7 +7,8 @@ spec:
   endpoints:
     - dnsName: "valheim.${SECRET_DOMAIN_MEDIA}"
       recordType: CNAME
-      targets: ["wheels.${SECRET_DOMAIN_MEDIA}"]
+      targets:
+        - "wheels.${SECRET_DOMAIN_MEDIA}"
       providerSpecific:
-      - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
-        value: "false"
+        - name: cloudflare/proxied
+          value: "false"
