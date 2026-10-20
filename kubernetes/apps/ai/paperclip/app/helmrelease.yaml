@@ -9,6 +9,28 @@ spec:
   chartRef:
     kind: OCIRepository
     name: paperclip
+  # Default is 5m. The image is ~2.6 GB and a new tag pulled cold in 4m40s on
+  # 2026-10-20, so the pull alone used up the wait and the upgrade was marked
+  # failed while the pod was still coming up. 15m covers a cold pull plus the
+  # startup probe's 10 min allowance below. Two other clocks run in the same
+  # chain and must not be shorter: the Deployment's progress deadline (patched
+  # below) and the Flux Kustomization timeout (ks.yaml).
+  timeout: 15m
+  # app-template has no progressDeadlineSeconds value. The default 600 s counts
+  # from rollout start, Recreate teardown and image pull included; once it
+  # passes, kstatus reports the Deployment "Failed" and helm-controller fails
+  # the upgrade early, whatever `timeout` says ("failed early due to stalled
+  # resources: [Deployment/ai/paperclip status: 'Failed']", 2026-10-20).
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: paperclip
+            patch: |-
+              - op: add
+                path: /spec/progressDeadlineSeconds
+                value: 900
   install:
     createNamespace: true
     remediation:
@@ -72,7 +94,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
+                  httpGet: &healthGet
                     path: /api/health
                     port: *port
                     # kubelet probes the pod IP, and Paperclip rejects any Host
@@ -88,6 +110,20 @@ spec:
                   timeoutSeconds: 2
                   failureThreshold: 3
               readiness: *probes
+              # Liveness alone gives the server 45 s to answer. On the 2026.1012.0
+              # upgrade, startup (which applies pending DB migrations first) took
+              # longer, so liveness killed it four times mid-start and the Deployment hit
+              # its progress deadline (FluxHelmReleaseUpgradefailed, 2026-10-20).
+              # The startup probe holds liveness off for up to 10 min, then
+              # hands over; a hung server is still caught after startup.
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: *healthGet
+                  periodSeconds: 10
+                  timeoutSeconds: 2
+                  failureThreshold: 60
             securityContext:
               runAsUser: 1000
               runAsGroup: 1000
