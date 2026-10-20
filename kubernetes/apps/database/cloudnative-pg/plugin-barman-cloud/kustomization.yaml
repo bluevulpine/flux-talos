@@ -7,8 +7,13 @@
 #
 # Vendored (not a GitRepository) because the upstream ./kubernetes kustomize dir is
 # the e2e/testing config (main-tag images); only the release manifest.yaml carries
-# the pinned :v0.13.0 images. Re-vendor on a bump with `just kubernetes barman-plugin`;
-# Renovate opens a PR when a new release drops (see .renovate/customManagers.json5).
+# the pinned release images. Renovate opens a PR when a new release drops (see
+# .renovate/customManagers.json5), but it only bumps the version below and the
+# plain `image:` line in manifest.yaml. The sidecar image that gets injected into
+# every Postgres pod lives base64-encoded in the SIDECAR_IMAGE Secret, which no
+# manager can read. Merging those PRs as-is left the v0.13.0 sidecar running under
+# a v0.15.1 controller (#2001/#2004). Before merging a bump, check out its branch and
+# run `just kube barman-plugin` to re-vendor the whole manifest, then yamlfmt it.
 #
 # renovate: datasource=github-releases depName=cloudnative-pg/plugin-barman-cloud
 # barman-plugin-version: v0.15.1
