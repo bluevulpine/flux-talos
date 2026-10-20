@@ -9,7 +9,7 @@ resources:
   # the whole kustomize build and fired FluxKustomizationBuildfailed.
   #
   # Vendored from, and must be re-vendored when the operator is upgraded:
-  #   https://raw.githubusercontent.com/dragonflydb/dragonfly-operator/v1.6.1/manifests/crd.yaml
+  #   https://raw.githubusercontent.com/dragonflydb/dragonfly-operator/v1.7.1/manifests/crd.yaml
   # Note the operator is deployed via the generic bjw-s app-template chart,
   # which ships no CRDs of its own, so this file is the only source for them.
   - ./crd.yaml

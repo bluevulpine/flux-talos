@@ -72,3 +72,44 @@ spec:
       ports:
         - port: 6379
           protocol: TCP
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/networking.k8s.io/networkpolicy_v1.json
+# Replaces the NetworkPolicy that operator v1.6.x generated for this instance
+# (named `dragonfly`, owned by the Dragonfly CR). Operator v1.7.0 dropped that
+# feature and neither reconciles nor deletes the old object, so these rules are
+# now ours to keep. Same rules, codified: 6379 from any pod in `database`, and
+# the admin port 9999 from the operator (it probes it to verify readiness during
+# rolling updates; see the control-plane label in app/helmrelease.yaml) and from
+# the Dragonfly pods themselves (replication). The orphan was deleted by hand
+# once this was live.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dragonfly-allow-database
+  namespace: database
+spec:
+  podSelector:
+    matchLabels:
+      app: dragonfly
+      app.kubernetes.io/name: dragonfly
+      app.kubernetes.io/part-of: dragonfly
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+      ports:
+        - port: 6379
+          protocol: TCP
+    - from:
+        - podSelector:
+            matchLabels:
+              control-plane: controller-manager
+        - podSelector:
+            matchLabels:
+              app: dragonfly
+              app.kubernetes.io/name: dragonfly
+              app.kubernetes.io/part-of: dragonfly
+      ports:
+        - port: 9999
+          protocol: TCP

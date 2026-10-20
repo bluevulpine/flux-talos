@@ -4,40 +4,109 @@ kind: ClusterRole
 metadata:
   name: dragonfly-operator
 rules:
-  - apiGroups: ["coordination.k8s.io"]
-    resources: ["leases"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: [""]
-    resources: ["events"]
-    verbs: ["create", "patch"]
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - "leases"
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
+      - "create"
+      - "update"
+      - "patch"
+      - "delete"
+  - apiGroups:
+      - ""
+    resources:
+      - "events"
+    verbs:
+      - "create"
+      - "patch"
   # configmaps required since operator v1.6.x: the Dragonfly controller
   # watches/manages a ConfigMap, and its informer cache cannot sync without
   # list/watch — missing it crashloops the operator on cache-sync timeout.
-  - apiGroups: [""]
-    resources: ["configmaps", "pods", "services"]
-    verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
-  - apiGroups: ["apps"]
-    resources: ["statefulsets"]
-    verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
-  - apiGroups: ["dragonflydb.io"]
-    resources: ["dragonflies"]
-    verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
-  - apiGroups: ["dragonflydb.io"]
-    resources: ["dragonflies/finalizers"]
-    verbs: ["update"]
-  - apiGroups: ["dragonflydb.io"]
-    resources: ["dragonflies/status"]
-    verbs: ["get", "patch", "update"]
-  - apiGroups: ["networking.k8s.io"]
-    resources: ["networkpolicies"]
-    verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+  - apiGroups:
+      - ""
+    resources:
+      - "configmaps"
+      - "pods"
+      - "services"
+    verbs:
+      - "create"
+      - "delete"
+      - "get"
+      - "list"
+      - "patch"
+      - "update"
+      - "watch"
+  # pods/status required since operator v1.7.x (upstream config/rbac/role.yaml).
+  # As the v1.6.x entries in this file show, a missing permission does not fail loudly:
+  # it stalls reconciles and rolling updates. Keep this list in step with
+  # upstream on every bump. (networkpolicies was dropped with v1.7.0, which no
+  # longer manages them.)
+  - apiGroups:
+      - ""
+    resources:
+      - "pods/status"
+    verbs:
+      - "get"
+      - "patch"
+      - "update"
+  - apiGroups:
+      - "apps"
+    resources:
+      - "statefulsets"
+    verbs:
+      - "create"
+      - "delete"
+      - "get"
+      - "list"
+      - "patch"
+      - "update"
+      - "watch"
+  - apiGroups:
+      - "dragonflydb.io"
+    resources:
+      - "dragonflies"
+    verbs:
+      - "create"
+      - "delete"
+      - "get"
+      - "list"
+      - "patch"
+      - "update"
+      - "watch"
+  - apiGroups:
+      - "dragonflydb.io"
+    resources:
+      - "dragonflies/finalizers"
+    verbs:
+      - "update"
+  - apiGroups:
+      - "dragonflydb.io"
+    resources:
+      - "dragonflies/status"
+    verbs:
+      - "get"
+      - "patch"
+      - "update"
   # poddisruptionbudgets required since operator v1.6.x: the controller now
   # provisions a PDB per Dragonfly cluster. Without list/watch its informer
   # cache never syncs, crashlooping the operator (observed: 1400+ restarts) so
   # it silently stops reconciling — spec image bumps never roll the StatefulSet.
-  - apiGroups: ["policy"]
-    resources: ["poddisruptionbudgets"]
-    verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+  - apiGroups:
+      - "policy"
+    resources:
+      - "poddisruptionbudgets"
+    verbs:
+      - "create"
+      - "delete"
+      - "get"
+      - "list"
+      - "patch"
+      - "update"
+      - "watch"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
