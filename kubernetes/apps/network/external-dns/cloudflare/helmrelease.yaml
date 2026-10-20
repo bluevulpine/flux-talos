@@ -37,8 +37,8 @@ spec:
     # v0.22.0 (bundled in this chart bump) drops the external-dns.alpha.kubernetes.io/
     # fallback and makes the annotation prefix a required, no-default setting — the
     # release notes warn the change "can delete all your DNS records". The
-    # `hostname`/`target` annotations on Services and HTTPRoutes still use this
-    # prefix, so keep it pinned. The DNSEndpoints no longer depend on it: since
+    # `target` annotation on the `external` Gateway and the HTTPRoute annotations
+    # (this instance's gateway-httproute source) still use this prefix, so keep it pinned. The DNSEndpoints no longer depend on it: since
     # v0.23 their providerSpecific property is `cloudflare/proxied` (the old
     # `external-dns.alpha.kubernetes.io/cloudflare-proxied` name is deprecated and
     # only rewritten). A property name neither form recognises silently falls back
