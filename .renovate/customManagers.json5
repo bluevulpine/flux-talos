@@ -20,6 +20,14 @@
         // # renovate: datasource=docker depName=ghcr.io/prometheus-operator/prometheus-operator
         // https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.80.0/example/prometheus-operator-crd/monitoring.coreos.com_alertmanagerconfigs.yaml
         "datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n.+/(?<currentValue>(v|\\d)[^/]+)",
+        // # renovate: datasource=docker depName=ghcr.io/controlplaneio-fluxcd/flux-operator-manifests
+        // artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:v0.53.0
+        // Neither pattern above can take an `oci://repo:tag` value: the first
+        // captures the whole URL as the version (invalid, so the dep is skipped)
+        // and the second needs a `/` right before the version. That left the
+        // flux-instance distribution artifact, which sets the running Flux
+        // version, frozen at v0.53.0 while the operator moved on to v0.61.
+        "datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n.+oci://\\S+:(?<currentValue>\\S+)",
       ],
       datasourceTemplate: "{{#if datasource}}{{{datasource}}}{{else}}github-releases{{/if}}",
     },
