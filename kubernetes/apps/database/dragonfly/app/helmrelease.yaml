@@ -28,7 +28,8 @@ spec:
             image:
               repository: ghcr.io/dragonflydb/operator
               tag: v1.6.1@sha256:b11411142935f92ed0ec30a5ddeb31680e09ab66beecb827cb0224f1c4238638
-            command: ["/manager"]
+            command:
+              - "/manager"
             args:
               - --health-probe-bind-address=:8081
               - --metrics-bind-address=:8080
@@ -64,12 +65,12 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: {drop: ["ALL"]}
         pod:
-          # The operator generates a NetworkPolicy (owned by the Dragonfly CR)
-          # that only admits the admin port 9999 from pods labelled
-          # control-plane=controller-manager — the label upstream's kustomize
-          # deployment uses. This chart (app-template) labels pods
+          # The `dragonfly-allow-database` NetworkPolicy (cluster/networkpolicy.yaml,
+          # inherited from the policy operator v1.6.x generated) only admits the
+          # admin port 9999 from pods labelled control-plane=controller-manager,
+          # the label upstream's kustomize deployment uses. This chart (app-template) labels pods
           # app.kubernetes.io/name=dragonfly-operator instead, so without this
           # the operator cannot reach 9999 to verify pod readiness, stalling
           # every rolling update with an orphaned (role-less) replica.
