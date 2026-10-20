@@ -41,7 +41,7 @@ spec:
             image:
               repository: ghcr.io/karakeep-app/karakeep
               # renovate: datasource=docker depName=ghcr.io/karakeep-app/karakeep
-              tag: 0.33.2
+              tag: 0.34.0
             env:
               TZ: "${TIMEZONE}"
               # Server configuration
