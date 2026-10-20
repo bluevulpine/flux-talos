@@ -72,7 +72,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
+                  httpGet: &healthGet
                     path: /api/health
                     port: *port
                     # kubelet probes the pod IP, and Paperclip rejects any Host
@@ -88,6 +88,20 @@ spec:
                   timeoutSeconds: 2
                   failureThreshold: 3
               readiness: *probes
+              # Liveness alone gives the server 45 s to answer. On the 2026.1012.0
+              # upgrade, startup (which applies pending DB migrations first) took
+              # longer, so liveness killed it four times mid-start and the Deployment hit
+              # its progress deadline (FluxHelmReleaseUpgradefailed, 2026-10-20).
+              # The startup probe holds liveness off for up to 10 min, then
+              # hands over; a hung server is still caught after startup.
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: *healthGet
+                  periodSeconds: 10
+                  timeoutSeconds: 2
+                  failureThreshold: 60
             securityContext:
               runAsUser: 1000
               runAsGroup: 1000
