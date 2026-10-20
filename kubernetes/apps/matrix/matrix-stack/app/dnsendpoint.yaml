@@ -10,7 +10,7 @@ spec:
     # external-dns-cloudflare reads `crd` sources, so the LAN A records published
     # from the `internal` Gateway are untouched — split horizon preserved.
     #
-    # DNS-only (cloudflare-proxied: false) is mandatory, not cosmetic: orange
+    # DNS-only (cloudflare/proxied: false) is mandatory, not cosmetic: orange
     # clouding would put Cloudflare back in the path, restoring the 100MB upload cap
     # and putting bot challenges in front of federation.
     #
@@ -21,21 +21,21 @@ spec:
       targets:
         - "pangolin.${SECRET_DOMAIN}"
       providerSpecific:
-        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+        - name: cloudflare/proxied
           value: "false"
     - dnsName: "account.${SECRET_DOMAIN}"
       recordType: CNAME
       targets:
         - "pangolin.${SECRET_DOMAIN}"
       providerSpecific:
-        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+        - name: cloudflare/proxied
           value: "false"
     - dnsName: "chat.${SECRET_DOMAIN}"
       recordType: CNAME
       targets:
         - "pangolin.${SECRET_DOMAIN}"
       providerSpecific:
-        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+        - name: cloudflare/proxied
           value: "false"
     # chat.${SECRET_DOMAIN_BLOG}: the shared Element Web (see ./element-web-bluevulpine.yaml).
     - dnsName: "chat.${SECRET_DOMAIN_BLOG}"
@@ -43,5 +43,5 @@ spec:
       targets:
         - "pangolin.${SECRET_DOMAIN_BLOG}"
       providerSpecific:
-        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+        - name: cloudflare/proxied
           value: "false"

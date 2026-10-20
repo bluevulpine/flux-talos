@@ -10,7 +10,7 @@ spec:
   # app is a CNAME to one of these, this file is the single place that decides
   # which addresses (v4 and v6) all of them resolve to.
   #
-  # All DNS-only (cloudflare-proxied: false): the VPS must answer ACME/HTTP
+  # All DNS-only (cloudflare/proxied: false): the VPS must answer ACME/HTTP
   # directly for Traefik's Let's Encrypt certs and serve connector traffic itself
   # -- CF-proxying would re-impose the upload cap and per-stream throttle that
   # this whole setup exists to avoid.
@@ -27,40 +27,40 @@ spec:
       targets:
         - "134.209.70.159"
       providerSpecific:
-        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+        - name: cloudflare/proxied
           value: "false"
     - dnsName: "pangolin.${SECRET_DOMAIN}"
       recordType: AAAA
       targets:
         - "2604:a880:400:d1:0:4:c54f:1"
       providerSpecific:
-        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+        - name: cloudflare/proxied
           value: "false"
     - dnsName: "pangolin.${SECRET_DOMAIN_MEDIA}"
       recordType: A
       targets:
         - "134.209.70.159"
       providerSpecific:
-        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+        - name: cloudflare/proxied
           value: "false"
     - dnsName: "pangolin.${SECRET_DOMAIN_MEDIA}"
       recordType: AAAA
       targets:
         - "2604:a880:400:d1:0:4:c54f:1"
       providerSpecific:
-        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+        - name: cloudflare/proxied
           value: "false"
     - dnsName: "pangolin.${SECRET_DOMAIN_BLOG}"
       recordType: A
       targets:
         - "134.209.70.159"
       providerSpecific:
-        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+        - name: cloudflare/proxied
           value: "false"
     - dnsName: "pangolin.${SECRET_DOMAIN_BLOG}"
       recordType: AAAA
       targets:
         - "2604:a880:400:d1:0:4:c54f:1"
       providerSpecific:
-        - name: external-dns.alpha.kubernetes.io/cloudflare-proxied
+        - name: cloudflare/proxied
           value: "false"
