@@ -55,10 +55,10 @@ spec:
               CORS_ORIGIN: "https://tracearr.${SECRET_DOMAIN}"
               GZIP_ENABLED: "false" # Envoy already compresses
               # The image sets IMAGE_CACHE_DIR=/data/tracearr/image-cache (docker/Dockerfile
-              # at v2.9.0), which is on the container filesystem. The
-              # PVC is mounted at /app/data/image-cache (see persistence below), so
-              # without this the poster cache would quietly move off the claim and be
-              # rebuilt from the media servers on every pod restart.
+              # at v2.9.0), on the container filesystem. The PVC is mounted at
+              # /app/data/image-cache (see persistence below), so without this the poster
+              # cache leaves the claim and is rebuilt from the media servers on every
+              # restart. BACKUP_DIR still defaults to /data/backup (services/backup.ts).
               IMAGE_CACHE_DIR: /app/data/image-cache
             envFrom:
               - secretRef:
