@@ -20,6 +20,12 @@ spec:
   # manager's versioning pins the flavor, and majors need dashboard approval.
   imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie
   primaryUpdateStrategy: unsupervised
+  # When a rolling update reaches the primary (image bump, barman sidecar bump,
+  # spec change), promote an already-updated replica instead of restarting the
+  # primary in place. The default `restart` cost ~3 min of write downtime for
+  # every app on this cluster on 2026-10-20 (barman sidecar v0.15.1, #2202);
+  # a switchover is a few seconds of dropped connections on the -rw service.
+  primaryUpdateMethod: switchover
 
   storage:
     size: 50Gi
