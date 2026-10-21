@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Fetch new TWiT.tv transcripts into ~/Documents/twit-transcripts on aurelia.
+
+  This only fetches. Indexing is the hourly com.qmd-sessions.refresh LaunchAgent, which runs
+  `qmd update` + `qmd embed` over every collection, so a new episode is searchable at most
+  ~7 h after it is published (6 h fetch interval + 1 h index interval).
+
+  Every 6 h rather than daily: a calendar slot missed while the Mac sleeps fires once on wake,
+  and four slots a day keep the "within a day" target even when some are coalesced. An idle
+  run is one listing request.
+
+  Install: docs/runbooks/twit-transcripts.md
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>net.bluevulpine.twit-transcripts</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/python3</string>
+        <string>-I</string>
+        <string>/Users/bluevulpine/.local/bin/twit_transcripts.py</string>
+        <string>update</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Hour</key><integer>0</integer><key>Minute</key><integer>40</integer></dict>
+        <dict><key>Hour</key><integer>6</integer><key>Minute</key><integer>40</integer></dict>
+        <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>40</integer></dict>
+        <dict><key>Hour</key><integer>18</integer><key>Minute</key><integer>40</integer></dict>
+    </array>
+
+    <key>RunAtLoad</key>
+    <false/>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LowPriorityIO</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/bluevulpine/Library/Logs/twit-transcripts.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/bluevulpine/Library/Logs/twit-transcripts.log</string>
+</dict>
+</plist>
