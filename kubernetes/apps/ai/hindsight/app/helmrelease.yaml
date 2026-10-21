@@ -150,6 +150,32 @@ spec:
               # would fail to parse its own port. app-template defaults
               # enableServiceLinks to false, so this is belt-and-braces.
               HINDSIGHT_API_PORT: &apiPort 8888
+              # --- recall: the in-process reranker ---
+              # The FULL image reranks every recall in-process on CPU with
+              # cross-encoder/ms-marco-MiniLM-L-6-v2, up to 300 candidates per
+              # call (RERANKER_MAX_CANDIDATES default), inside this container.
+              # Measured over the 2026-10-17 re-gate window (Thanos
+              # hindsight_recall_phase_duration_seconds by phase, 777 recalls):
+              # reranking 2,463 s of 3,002 s of recall time, 82%. Inside reflect
+              # that is 26-30 s per search_observations / recall tool call, and a
+              # high-budget reflect (what the MCP tool sends) makes about five of
+              # them, so ~140 s of a 216 s reflect measured 2026-10-21 on 1.0.0
+              # is this stage, not the Spark. The container burst to 3.6-7.1
+              # cores while doing it. Two knobs that do not change which
+              # candidates are considered come first; a lower candidate cap or
+              # another provider (flashrank, in-cluster tei) are the next steps
+              # if these are not enough.
+              #
+              # Sort pairs by length before batching, so a batch is not padded
+              # to its longest pair. Upstream measures 36-54% faster; the scores
+              # are identical by construction (engine/cross_encoder.py).
+              HINDSIGHT_API_RERANKER_LOCAL_BUCKET_BATCHING: "true"
+              # The model's window is 512 tokens and stored chunks run to 1,000,
+              # so without a cap every long candidate costs a full 512-token
+              # forward pass. 256 keeps the first 256 tokens of each candidate
+              # and halves the worst-case work. Applied before the pairs reach
+              # the model, for every provider.
+              HINDSIGHT_API_RERANKER_MAX_TOKENS_PER_CANDIDATE: "256"
               # --- api / worker split ---
               # Read by the API only (api/http.py starts the in-process poller
               # when this is true). The `hindsight-worker` entrypoint never
