@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  Fetch new TWiT.tv transcripts into ~/Documents/twit-transcripts on aurelia.
+  Fetch new TWiT.tv transcripts, and new GRC.com Security Now transcripts, into
+  ~/Documents/twit-transcripts on aurelia.
 
   This only fetches. Indexing is the hourly com.qmd-sessions.refresh LaunchAgent, which runs
   `qmd update` + `qmd embed` over every collection, so a new episode is searchable at most

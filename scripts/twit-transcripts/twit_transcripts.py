@@ -7,15 +7,23 @@ LaunchAgent already runs `qmd update` + `qmd embed` over all collections. Writin
 into a local directory is therefore all it takes to become searchable; a CronJob would still
 need a way to ship files back here. See docs/runbooks/twit-transcripts.md.
 
-  update    walk https://twit.tv/posts/transcripts?page=N from page 1 and fetch slugs not
-            yet on disk, stopping at the first page with nothing new (the scheduled mode)
-  backfill  list every transcript URL from the sitemap and fetch the missing ones matching
-            --show (a regex on the slug); the listing only paginates newest-first, so the
-            sitemap is the cheap way to reach the back catalogue
+  update        the scheduled mode: walk https://twit.tv/posts/transcripts?page=N from page 1
+                and fetch slugs not yet on disk, stopping at the first page with nothing new;
+                then fetch any new GRC Security Now transcript (see below)
+  backfill      gather every transcript slug from the full listing plus the sitemap and fetch
+                the missing ones matching --show (a regex on the slug)
+  grc-backfill  fetch GRC's Security Now transcripts 1..latest that are not on disk
 
-Politeness: twit.tv's robots.txt sets `Crawl-delay: 10`, so every request (listing, sitemap,
-transcript) is spaced at least 10 s apart. A full Security Now backfill is ~3 h for that
-reason; it is a one-off and runs in the background.
+Second source, Security Now only: GRC.com publishes its own transcripts of every episode at
+https://www.grc.com/sn/sn-NNN.txt (1 onward; twit.tv's start at ~847). They are human-made,
+unlike TWiT's AI ones, so they are the better text to quote, but have no timecodes. Both are
+kept: TWiT's under security-now/, GRC's under security-now-grc/. GRC licenses them CC BY-NC-SA
+2.5; the licence footer is kept in each file.
+
+Politeness: twit.tv's robots.txt sets `Crawl-delay: 10`; GRC's sets none (checked
+2026-10-21), and gets the same 10 s anyway. Every request is spaced at least that far apart,
+so a full Security Now backfill from either site is ~3 h; it is a one-off in the background.
+Each site has its own lock, so a backfill of one does not hold up the other's update.
 
 State is the output directory itself: a slug is "known" when <out>/<show>/<slug>.md exists.
 Slugs that 404 or carry no transcript body go to <out>/.state/skip.json so they are not
@@ -36,6 +44,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import IO
 
 BASE = "https://twit.tv"
 LISTING = BASE + "/posts/transcripts?page={page}"
@@ -43,6 +52,8 @@ SITEMAP_INDEX = "https://sitemap.twit.tv/sitemap.xml"
 USER_AGENT = "twit-transcripts-mirror/1.0 (personal search index; honours Crawl-delay)"
 CRAWL_DELAY = 10.0
 DEFAULT_OUT = Path.home() / "Documents" / "twit-transcripts"
+GRC_URL = "https://www.grc.com/sn/sn-{n:03d}.txt"
+GRC_DIR = "security-now-grc"
 
 SLUG_HREF = re.compile(r'href="/posts/transcripts/([a-z0-9][a-z0-9-]*)"')
 SITEMAP_LOC = re.compile(r"<loc>\s*([^<\s]+)\s*</loc>")
@@ -190,9 +201,8 @@ class Store:
     def has(self, slug: str) -> bool:
         return slug in self.known or slug in self.skip
 
-    def save(self, slug: str, md: str) -> Path:
-        show, _ = classify(slug)
-        path = self.out / show / f"{slug}.md"
+    def save(self, slug: str, md: str, show: str | None = None) -> Path:
+        path = self.out / (show or classify(slug)[0]) / f"{slug}.md"
         path.parent.mkdir(exist_ok=True)
         tmp = path.with_suffix(".md.tmp")
         tmp.write_text(md, encoding="utf-8")
@@ -287,29 +297,137 @@ def cmd_backfill(store: Store, show_patterns: list[str], limit: int | None) -> i
     return 0
 
 
+GRC_FIELD = re.compile(r"^([A-Z][A-Z ]*[A-Z]):\t+(.*?)\s*$", re.M)
+
+
+def render_grc(n: int, text: str) -> str | None:
+    """Markdown for a GRC transcript, or None if it does not look like one."""
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    fields = {k: v for k, v in GRC_FIELD.findall(text[:3000])}
+    desc_m = re.search(r"^DESCRIPTION:\s+(.*)$", text, re.M)
+    if "TITLE" not in fields or not desc_m:
+        return None
+    # The body is everything from DESCRIPTION on: it stays searchable, and the speaker turns
+    # (`STEVE:  text`, one paragraph per line) need no conversion.
+    body = "\n".join(ln.rstrip() for ln in text[desc_m.start():].split("\n")).strip()
+    if len(body) < 500:
+        return None
+    date = None
+    try:
+        date = dt.datetime.strptime(fields.get("DATE", ""), "%B %d, %Y").date().isoformat()
+    except ValueError:
+        pass
+    title = f"Security Now {n}: {fields['TITLE']}"
+    front = {
+        "title": title,
+        "show": "security-now",
+        "show_name": "Security Now",
+        "episode": n,
+        "date": date,
+        "url": GRC_URL.format(n=n),
+        "slug": f"sn-{n:04d}",
+        "source": "grc.com",
+        "fetched": dt.date.today().isoformat(),
+        "description": desc_m.group(1).strip(),
+        "note": "Human-made GRC transcript; no timecodes. Licensed CC BY-NC-SA 2.5 (see footer).",
+    }
+    fm = "\n".join(f"{k}: {json.dumps(v)}" for k, v in front.items())
+    return f"---\n{fm}\n---\n\n# {title}\n\n{body}\n"
+
+
+def grc_known(store: Store) -> set[int]:
+    return {int(p.stem[3:]) for p in (store.out / GRC_DIR).glob("sn-*.md")}
+
+
+def grc_fetch_one(store: Store, n: int) -> bool | None:
+    """True saved, False unusable, None 404 (not published, or never transcribed)."""
+    text = fetch(GRC_URL.format(n=n))
+    if text is None:
+        return None
+    md = render_grc(n, text)
+    if md is None:
+        log(f"grc sn-{n}: not a transcript")
+        return False
+    log(f"saved {store.save(f'sn-{n:04d}', md, GRC_DIR).relative_to(store.out)}")
+    return True
+
+
+def cmd_grc_update(store: Store) -> int:
+    known = grc_known(store)
+    if not known:
+        log("grc: nothing on disk yet; run grc-backfill first")
+        return 0
+    # GRC posts the transcript a few days after the episode, so the next number 404s until
+    # then. That is the normal idle case, one request, and is never recorded as a gap.
+    n, saved = max(known) + 1, 0
+    while saved < 5 and grc_fetch_one(store, n):
+        n, saved = n + 1, saved + 1
+    log(f"grc update done: {saved} saved")
+    return 0
+
+
+def cmd_grc_backfill(store: Store) -> int:
+    known = grc_known(store)
+    gaps_path = store.state / "grc-missing.json"
+    gaps = set(json.loads(gaps_path.read_text())) if gaps_path.exists() else set()
+    # Upper bound: the newest Security Now number seen from either source; grc-update then
+    # walks past it. TWiT's files give it without probing GRC.
+    twit_sn = [classify(p.stem)[1] or 0 for p in (store.out / "security-now").glob("*.md")]
+    upper = max([*twit_sn, *known, 1])
+    todo = [n for n in range(1, upper + 1) if n not in known and n not in gaps]
+    log(f"grc backfill: {len(todo)} to fetch (~{len(todo) * CRAWL_DELAY / 60:.0f} min)")
+    saved = 0
+    for n in todo:
+        result = grc_fetch_one(store, n)
+        if result:
+            saved += 1
+        elif result is None and n == upper:
+            pass  # TWiT is usually ahead of GRC; the newest number is unpublished, not a gap
+        else:
+            gaps.add(n)
+            gaps_path.write_text(json.dumps(sorted(gaps)))
+            log(f"grc sn-{n}: recorded as missing")
+    log(f"grc backfill done: {saved} saved")
+    return cmd_grc_update(store)
+
+
+def locked(store: Store, name: str) -> IO[str] | None:
+    # One writer per site: a multi-hour backfill and the scheduled update would otherwise
+    # double the request rate to that site. The update just skips its turn; the next one
+    # catches up. twit.tv's lock keeps its original name, `.lock`.
+    lock = open(store.state / name, "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        lock.close()
+        log(f"another run holds {name}; skipping")
+        return None
+    return lock
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", type=Path, default=Path(os.environ.get("TWIT_TRANSCRIPTS_DIR", DEFAULT_OUT)))
     sub = ap.add_subparsers(dest="cmd", required=True)
-    up = sub.add_parser("update", help="fetch new transcripts from the listing")
+    up = sub.add_parser("update", help="fetch new transcripts from twit.tv, then GRC")
     up.add_argument("--max-pages", type=int, default=10)
-    bf = sub.add_parser("backfill", help="fetch the back catalogue from the sitemap")
+    bf = sub.add_parser("backfill", help="fetch the twit.tv back catalogue")
     bf.add_argument("--show", action="append", default=[], help="slug regex; repeatable; omit for all")
     bf.add_argument("--limit", type=int)
+    sub.add_parser("grc-backfill", help="fetch GRC's Security Now transcripts 1..latest")
     args = ap.parse_args()
 
     store = Store(args.out.expanduser())
-    # One writer at a time: a multi-hour backfill and the scheduled update would otherwise
-    # double the request rate. The update just skips its turn; the next one catches up.
-    lock = open(store.state / ".lock", "w")
-    try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        log("another run holds the lock; skipping")
-        return 0
-    if args.cmd == "update":
-        return cmd_update(store, args.max_pages)
-    return cmd_backfill(store, args.show, args.limit)
+    if args.cmd == "grc-backfill":
+        return cmd_grc_backfill(store) if locked(store, "grc.lock") else 0
+    if args.cmd == "backfill":
+        return cmd_backfill(store, args.show, args.limit) if locked(store, ".lock") else 0
+    if lock := locked(store, ".lock"):
+        cmd_update(store, args.max_pages)
+        lock.close()
+    if locked(store, "grc.lock"):
+        cmd_grc_update(store)
+    return 0
 
 
 if __name__ == "__main__":

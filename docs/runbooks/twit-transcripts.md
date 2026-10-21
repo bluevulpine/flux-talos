@@ -2,7 +2,8 @@
 
 TWiT.tv episode transcripts (Security Now, AI User Group, Intelligent Machines, This Week in
 Tech and every other show TWiT transcribes) are mirrored as markdown on **aurelia** and
-indexed by qmd, so any agent session on the Mac can search them.
+indexed by qmd, so any agent session on the Mac can search them. Security Now has a second,
+better source: GRC.com's own human-made transcripts of every episode, from #1.
 
 | | |
 | --- | --- |
@@ -10,8 +11,8 @@ indexed by qmd, so any agent session on the Mac can search them.
 | Schedule | `net.bluevulpine.twit-transcripts` LaunchAgent, 00:40 / 06:40 / 12:40 / 18:40 local |
 | Files | `~/Documents/twit-transcripts/<show>/<slug>.md` |
 | Index | qmd collection `twit-transcripts`, refreshed hourly by `com.qmd-sessions.refresh` |
-| Logs | `~/Library/Logs/twit-transcripts.log` (scheduled), `twit-transcripts-backfill.log` |
-| Latency | ≤ ~7 h from publication to searchable (6 h fetch + 1 h index) |
+| Logs | `~/Library/Logs/twit-transcripts.log` (scheduled), `twit-transcripts-backfill.log`, `twit-transcripts-grc-backfill.log` |
+| Latency | ≤ ~7 h from publication to searchable (6 h fetch + 1 h index); GRC itself posts its transcript a few days after the episode |
 
 ## Why on the Mac, not a CronJob
 
@@ -58,6 +59,15 @@ Use the qmd MCP tool with `collections: ["twit-transcripts"]`:
   labels and names are sometimes wrong, e.g. "Micah" for Mikah Sargent). Cite the episode URL
   and the timecode, and say it is from the transcript, not a verbatim quote. Timecodes are for
   the ad-free edition.
+- **Security Now has two copies** from episode 847 on:
+  - `security-now/`: TWiT's AI text, with timecodes.
+  - `security-now-grc/sn-NNNN.md`: GRC's human-made text, every episode from 1. No
+    timecodes; turns are `STEVE:  text` / `LEO:  text`. Front matter adds the episode
+    `description`, and the `title` carries the episode name.
+
+  Quote from the GRC copy (`source: "grc.com"`). Use the TWiT copy when you need a timecode.
+  Both often rank together for the same query; that is expected, not a duplicate bug. GRC
+  licenses them CC BY-NC-SA 2.5: fine to quote with attribution, not for commercial reuse.
 
 ## What it fetches, and how politely
 
@@ -71,8 +81,8 @@ Use the qmd MCP tool with `collections: ["twit-transcripts"]`:
   for a day in `.state/catalogue-slugs.json`.
 - Every request is ≥ 10 s apart: twit.tv's `robots.txt` sets `Crawl-delay: 10`. 429/5xx back
   off (honouring `Retry-After`) and retry 4×.
-- One run at a time (`flock` on `.state/.lock`); a scheduled update that finds the backfill
-  running skips its turn.
+- One run at a time per site (`flock` on `.state/.lock` for twit.tv, `.state/grc.lock` for
+  GRC); a scheduled update that finds that site's backfill running skips that site's turn.
 - A slug that 404s or has no transcript body goes in `.state/skip.json` and is not retried.
   Delete the entry, or a `.md`, to force a re-fetch.
 
@@ -84,6 +94,20 @@ directory.
 
 Coverage on twit.tv: transcripts start around Security Now 847 (late 2021); there is no
 twit.tv transcript for earlier episodes.
+
+### GRC (Security Now only)
+
+- Source: `https://www.grc.com/sn/sn-NNN.txt` (zero-padded to 3 digits; `sn-1100.txt` from
+  1000 on). Plain text with a `SERIES: / EPISODE: / DATE: / TITLE:` header, then one
+  paragraph per line. The CC BY-NC-SA footer is kept in each file.
+- robots.txt (checked 2026-10-21) has **no Crawl-delay** and disallows nothing under `/sn/`.
+  It gets the same 10 s spacing as twit.tv anyway: whichever is stricter wins, and if GRC
+  ever sets a Crawl-delay above 10, raise `CRAWL_DELAY`.
+- `update` also asks GRC for `max on disk + 1`. Until GRC posts it (a few days after the
+  episode) that is a 404, one request per run, and is not recorded anywhere.
+- `grc-backfill` fetches 1..the newest Security Now number seen from either source (~3 h for
+  all 1,100). Numbers that 404 inside that range go in `.state/grc-missing.json` and are
+  not retried.
 
 ## Install / reinstall
 
@@ -102,7 +126,10 @@ The collection entry in `~/.config/qmd/index.yml`:
     pattern: "*/*.md"
 ```
 
-`*/*.md` (not `**`) keeps `.state/` out of the index.
+`*/*.md` (not `**`) keeps `.state/` out of the index. The root context string and a
+second one for the GRC directory are set with
+`qmd context add qmd://twit-transcripts/security-now-grc "..."`. Without that, every hit,
+GRC's included, would be described to agents as AI-generated.
 
 ## Operating it
 
@@ -113,6 +140,8 @@ nohup python3 -I ~/.local/bin/twit_transcripts.py backfill --show '^windows-week
   >> ~/Library/Logs/twit-transcripts-backfill.log 2>&1 &              # more back catalogue
 nohup python3 -I ~/.local/bin/twit_transcripts.py backfill \
   >> ~/Library/Logs/twit-transcripts-backfill.log 2>&1 &              # everything (~10 h)
+nohup python3 -I ~/.local/bin/twit_transcripts.py grc-backfill \
+  >> ~/Library/Logs/twit-transcripts-grc-backfill.log 2>&1 &          # GRC Security Now (~3 h)
 qmd update && qmd embed -c twit-transcripts                            # index now, not at :xx
 ```
 
