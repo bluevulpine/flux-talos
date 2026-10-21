@@ -119,6 +119,13 @@ spec:
 
         security:
           INSTALL_LOCK: true
+          # Moved from [webhook] in Gitea 28, which deprecates that key and falls
+          # back to this one. drone resolves to the internal gateway (172.16.8.2,
+          # split-horizon), and the default EGRESS_MODE=lax only lets private
+          # targets through when they are listed. Public hosts need no entry.
+          # Besides webhooks, this list also governs OAuth2 avatar fetches and
+          # OpenID 2.0, but not the Authentik OAuth2 login itself.
+          ALLOWED_HOST_LIST: drone.${SECRET_DOMAIN}
 
         service:
           DISABLE_REGISTRATION: true
@@ -145,9 +152,6 @@ spec:
 
         actions:
           ENABLED: true
-
-        webhook:
-          ALLOWED_HOST_LIST: drone.${SECRET_DOMAIN}
 
         cache:
           ADAPTER: memory
