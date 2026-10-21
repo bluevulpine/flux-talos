@@ -273,12 +273,6 @@ spec:
           gnetId: 1860
           revision: 45
           datasource: Prometheus
-        spegel:
-          # renovate: depName="Spegel"
-          gnetId: 18089
-          revision: 1
-          datasource:
-            - {name: DS_PROMETHEUS, value: Prometheus}
         unpackerr:
           # renovate: depName="Unpackerr"
           gnetId: 18817

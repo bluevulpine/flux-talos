@@ -5,3 +5,16 @@ kind: Kustomization
 resources:
   - ./helmrelease.yaml
   - ./ocirepository.yaml
+# Grafana dashboard, provisioned via the sidecar (label grafana_dashboard=1).
+# This Kustomization has postBuild substitution, so every Grafana "${...}" in
+# the JSON is escaped as "$${...}" (envsubst turns it back into "${...}").
+# Not named `spegel-dashboard`: that is the chart 0.7.x ConfigMap, which Helm
+# deletes on the 0.8.0 upgrade and would take a same-named copy with it.
+configMapGenerator:
+  - name: spegel-grafana-dashboard
+    files:
+      - spegel-dashboard.json
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    grafana_dashboard: "1"
