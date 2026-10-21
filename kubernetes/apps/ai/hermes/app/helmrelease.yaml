@@ -60,7 +60,7 @@ spec:
             image: &syncthingImage
               repository: ghcr.io/syncthing/syncthing
               # renovate: datasource=docker depName=ghcr.io/syncthing/syncthing
-              tag: 2.1.6
+              tag: 2.1.7
             command:
               - /bin/sh
               - -c
