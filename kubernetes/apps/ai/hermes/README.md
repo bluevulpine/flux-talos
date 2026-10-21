@@ -61,9 +61,14 @@ because a `Direct` copy would read a live SQLite `state.db` mid-write. (Not beca
 RWO: kopiur co-locates a `Direct` mover onto the volume's node, verified in W8.)
 
 **A ServiceAccount token, with RBAC.** app-template defaults
-`automountServiceAccountToken` to `false`; the HelmRelease turns it on so kubectl's
-in-cluster config works. What the `hermes` SA can do is set in two places, and widening
-either is a deliberate, reviewed change:
+`automountServiceAccountToken` to `false`; the HelmRelease sets
+`defaultPodOptions.automountServiceAccountToken: true` and enables the chart-created
+`serviceAccount.app` (`hermes`), so the pod gets a projected SA token and kubectl inside it
+uses in-cluster config. That was chosen over a kubeconfig Secret: nothing long-lived to
+mint, store in OpenBao or rotate, and the token is short-lived and bound to the pod. The
+chart-created SA is required because app-template's controller does not adopt a
+same-name SA declared outside the chart. What the `hermes` SA can do is set in two places,
+and widening either is a deliberate, reviewed change:
 
 - `app/rbac.yaml`: cluster-wide **read-only** (`hermes-agent-reader`): workloads, events,
   PVCs, Flux, Gateway API, metrics, and backup state (kopiur, VolSync until it is
@@ -73,11 +78,18 @@ either is a deliberate, reviewed change:
   creating kopiur Snapshots (a backup before a reset). Its jobs/exec rights can reach
   `games` Secrets; the file says so.
 
+What it **cannot** do with the token: read any Secret outside `games`, or change anything
+outside `games`. It cannot apply, delete, patch or reconcile workloads or Flux objects
+anywhere else, and it has no Talos access at all. A cluster change still goes through git
+and Flux. If it needs more than this, widen the role in git; never hand-apply with an
+admin kubeconfig.
+
 ## First boot is not zero-touch
 
 The image ships `docker-cli`, `openssh-client`, node 26 and `uv`, but **no kubectl, helm,
-or talosctl**, and `/opt/hermes` is read-only. There is also no provider config until you
-create one.
+or talosctl**, and `/opt/hermes` is read-only. The SA token is mounted regardless; a kubectl
+binary the agent downloads (to `/tmp` or `/opt/data`) picks up in-cluster config with no
+kubeconfig. There is also no provider config until you create one.
 
 ```sh
 kubectl -n ai exec -it deploy/hermes -- hermes setup
@@ -163,7 +175,10 @@ gateway. That is switched on by `GATEWAY_MULTIPLEX_PROFILES: "true"` in the
 HelmRelease env, **not** left to the implicit default, which refuses under s6. See
 "Adding an agent profile" below.
 
-## Before giving it cluster access
+## Before giving it more cluster access
+
+It already holds the read-only SA token above. This section is about anything beyond that:
+a wider role, an admin kubeconfig, or a talosconfig.
 
 `approvals.unattended_mode` defaults to `deny` for `api_server` / `webhook` sessions —
 there is no human to answer, so dangerous commands are refused instantly. Interactive
