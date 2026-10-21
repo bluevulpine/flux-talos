@@ -45,6 +45,19 @@
       allowedVersions: "/^v?1\\.36\\./",
     },
     {
+      // LinuxServer tags like v4.5.0-ls311 carry a per-build suffix. Renovate's default docker
+      // versioning only moves between tags with an IDENTICAL suffix, so -ls311 -> -ls346 was
+      // never proposed: grocy sat 35 builds behind (missing a PHP RCE fix, 2026-10-21) and
+      // obsidian was only ever bumped by hand. This regex makes the ls number the build part.
+      // Scoped to current values ending in -lsNNN so the bare-semver linuxserver tags
+      // (calibre, calibre-web) keep their own tag style.
+      description: "LinuxServer -lsNNN tags: treat the ls number as a build number",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["/^(lscr|ghcr)\\.io\\/linuxserver\\//"],
+      matchCurrentValue: "/^v\\d+\\.\\d+\\.\\d+-ls\\d+$/",
+      versioning: "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-ls(?<build>\\d+)$",
+    },
+    {
       description: "Calibre-Web: Only allow 0.x versions (5.x is a different versioning scheme)",
       matchDatasources: ["docker"],
       matchPackageNames: ["ghcr.io/linuxserver/calibre-web"],
