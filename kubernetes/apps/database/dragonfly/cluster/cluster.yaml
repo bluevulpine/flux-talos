@@ -18,6 +18,9 @@ spec:
     - --proactor_threads=2
     - --cluster_mode=emulated
     - --default_lua_flags=allow-undeclared-keys
+    # Since v2.0.2 the daily version check also reports anonymous deployment
+    # info upstream. Renovate already tells us about new releases.
+    - --version_check=false
   resources:
     requests:
       cpu: 100m
