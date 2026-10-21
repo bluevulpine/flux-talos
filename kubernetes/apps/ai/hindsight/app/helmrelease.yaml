@@ -1013,7 +1013,7 @@ spec:
               repository: ghcr.io/vectorize-io/hindsight-control-plane
               # See the warning on the api image above — bump both
               # together; they are one release.
-              tag: 1.0.0
+              tag: 1.1.0
             envFrom: *envFrom
             env:
               TZ: "${TIMEZONE}"
