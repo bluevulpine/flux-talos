@@ -126,6 +126,10 @@ spec:
           # Besides webhooks, this list also governs OAuth2 avatar fetches and
           # OpenID 2.0, but not the Authentik OAuth2 login itself.
           ALLOWED_HOST_LIST: drone.${SECRET_DOMAIN}
+          # Explicit, not a change: lax is the default, but Gitea 28 warns at every
+          # start when ALLOWED_HOST_LIST is set without EGRESS_MODE. lax keeps public
+          # webhook targets allowed; strict would allow only the listed hosts.
+          EGRESS_MODE: lax
 
         service:
           DISABLE_REGISTRATION: true
