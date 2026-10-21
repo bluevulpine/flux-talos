@@ -21,6 +21,11 @@ spec:
   # barmanObjectStore method is gone on 18.x). Uses the ObjectStore referenced by
   # the cluster's spec.plugins.
   method: plugin
+  # target: primary. The default (prefer-standby) runs the base backup on a
+  # replica, where a long backup query gets cancelled by WAL replay ("canceling
+  # statement due to conflict with recovery"); that is how the 2026-10-18
+  # weekly failed. The primary has no recovery conflicts to lose to.
+  target: primary
   pluginConfiguration:
     name: barman-cloud.cloudnative-pg.io
   cluster:
