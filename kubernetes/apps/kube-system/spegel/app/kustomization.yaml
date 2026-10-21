@@ -5,3 +5,18 @@ kind: Kustomization
 resources:
   - ./helmrelease.yaml
   - ./ocirepository.yaml
+# Grafana dashboard, provisioned via the sidecar (label grafana_dashboard=1).
+# This Kustomization has postBuild substitution, and drone/envsubst expands bare
+# "$VAR" as well as "${VAR}", so EVERY "$" in the JSON is doubled ("$$pod",
+# "$${datasource}"); envsubst collapses "$$" back to "$". An unescaped one still
+# applies cleanly and silently empties the query (same trap as pangolin-newt).
+# Not named `spegel-dashboard`: that is the chart 0.7.x ConfigMap, which Helm
+# deletes on the 0.8.0 upgrade and would take a same-named copy with it.
+configMapGenerator:
+  - name: spegel-grafana-dashboard
+    files:
+      - spegel-dashboard.json
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    grafana_dashboard: "1"

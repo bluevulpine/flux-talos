@@ -10,16 +10,40 @@ spec:
     kind: OCIRepository
     name: spegel
   values:
-    grafanaDashboard:
-      enabled: true
-    service:
-      registry:
-        hostPort: 29999
+    # The chart dropped its dashboard in 0.8.0. A copy adapted to 0.8's metrics is
+    # vendored as spegel-dashboard.json (see kustomization.yaml).
+    #
+    # 0.8.0 also dropped hostPort: the mirror target containerd uses is now the
+    # registry Service's NodePort (default 30020, PreferSameNode), so the old
+    # `service.registry.hostPort: 29999` is gone.
     serviceMonitor:
       enabled: true
     spegel:
       containerdSock: /run/containerd/containerd.sock
       containerdRegistryConfigPath: /etc/cri/conf.d/hosts
-      # Keep existing mirror configuration (Nexus) and prepend Spegel
-      # This creates the chain: Spegel → Nexus → Upstream
+      # Keep existing mirror configuration (Nexus) and prepend Spegel, giving
+      # Spegel -> Nexus -> upstream. prependExisting only works per registry: with
+      # an empty list Spegel writes a single `_default` hosts.toml, moves the Talos
+      # Nexus entries into `_backup/` where containerd never reads them, and the
+      # Nexus tier silently drops out (found 2026-10-20). So every registry the
+      # cluster pulls from is listed. A registry left off still pulls, from
+      # upstream only, with no peer-to-peer and no Nexus.
+      #
+      # Literal hostnames, not ${SECRET_DOMAIN}: bootstrap/helmfile.d reads these
+      # values raw, with no Flux substitution.
       prependExisting: true
+      mirroredRegistries:
+        # Nexus-backed (talos/patches/all/12-registry-mirrors.yaml.tpl)
+        - https://docker.io
+        - https://ghcr.io
+        - https://quay.io
+        - https://registry.k8s.io
+        - https://gcr.io
+        - https://lscr.io
+        - https://public.ecr.aws
+        - https://cgr.dev
+        # Peer-to-peer only (no Nexus repository for these)
+        - https://oci.element.io
+        - https://cr.fluentbit.io
+        - https://mirror.gcr.io
+        - https://gitea.derekjacobs.dev

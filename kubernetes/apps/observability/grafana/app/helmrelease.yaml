@@ -273,12 +273,6 @@ spec:
           gnetId: 1860
           revision: 45
           datasource: Prometheus
-        spegel:
-          # renovate: depName="Spegel"
-          gnetId: 18089
-          revision: 1
-          datasource:
-            - {name: DS_PROMETHEUS, value: Prometheus}
         unpackerr:
           # renovate: depName="Unpackerr"
           gnetId: 18817
@@ -297,7 +291,7 @@ spec:
         node-feature-discovery:
           url: https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/examples/grafana-dashboard.json
           # This dashboard uses a ${DS_PROMETHEUS} input variable — it needs the
-          # list form (like cloudflared/spegel/unpackerr) to bind it; the bare
+          # list form (like cloudflared/unpackerr) to bind it; the bare
           # `datasource: Prometheus` string form leaves it unresolved ("not found").
           datasource:
             - {name: DS_PROMETHEUS, value: Prometheus,}
