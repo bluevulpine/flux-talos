@@ -28,7 +28,9 @@ spec:
               # grocy 4.7.0 moved the auth middlewares into Grocy\Middleware\Auth\ and
               # deleted the old classes. config.php on the PVC (written by 4.5) still
               # names Grocy\Middleware\DefaultAuthMiddleware, which would 500 every
-              # request. A GROCY_<setting> env var takes precedence over config.php.
+              # request. A GROCY_<setting> env var takes precedence over config.php, so
+              # AUTH_CLASS edits in config.php are now ignored: change it here (e.g. to
+              # ...\Auth\ReverseProxyAuthMiddleware, which the header below needs).
               GROCY_AUTH_CLASS: Grocy\Middleware\Auth\DefaultAuthMiddleware
               GROCY_REVERSE_PROXY_AUTH_HEADER: Remote-User
             probes:
