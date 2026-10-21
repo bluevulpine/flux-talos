@@ -22,7 +22,8 @@ kept: TWiT's under security-now/, GRC's under security-now-grc/. GRC licenses th
 
 Politeness: twit.tv's robots.txt sets `Crawl-delay: 10`; GRC's sets none (checked
 2026-10-21), and gets the same 10 s anyway. Every request is spaced at least that far apart,
-so a full Security Now backfill from either site is ~3 h; it is a one-off in the background.
+so backfills are slow: ~40 min to walk twit.tv's listing before any fetching, ~3 h for
+GRC's 1,100 Security Now episodes, ~10 h for every twit.tv show. They run in the background.
 Each site has its own lock, so a backfill of one does not hold up the other's update.
 
 State is the output directory itself: a slug is "known" when <out>/<show>/<slug>.md exists.
@@ -218,7 +219,15 @@ class Store:
 
 
 def fetch_one(store: Store, slug: str) -> bool:
-    page = fetch(f"{BASE}/posts/transcripts/{slug}")
+    # A failure that outlasts fetch()'s retries (403, persistent 5xx, timeouts) is logged and
+    # skipped for this run only. Raising would end the run at the same slug every time, which
+    # would stall `update` (the slug stays "new") and every restarted backfill. It is not put
+    # in skip.json because these failures are usually temporary; the next run retries it.
+    try:
+        page = fetch(f"{BASE}/posts/transcripts/{slug}")
+    except (urllib.error.URLError, RuntimeError) as e:
+        log(f"error {slug}: {e}; will retry next run")
+        return False
     if page is None:
         store.mark_skip(slug, "404")
         log(f"skip {slug}: 404")
@@ -360,8 +369,11 @@ def cmd_grc_update(store: Store) -> int:
     # GRC posts the transcript a few days after the episode, so the next number 404s until
     # then. That is the normal idle case, one request, and is never recorded as a gap.
     n, saved = max(known) + 1, 0
-    while saved < 5 and grc_fetch_one(store, n):
-        n, saved = n + 1, saved + 1
+    try:
+        while saved < 5 and grc_fetch_one(store, n):
+            n, saved = n + 1, saved + 1
+    except (urllib.error.URLError, RuntimeError) as e:
+        log(f"grc sn-{n}: {e}; will retry next run")
     log(f"grc update done: {saved} saved")
     return 0
 
@@ -378,7 +390,12 @@ def cmd_grc_backfill(store: Store) -> int:
     log(f"grc backfill: {len(todo)} to fetch (~{len(todo) * CRAWL_DELAY / 60:.0f} min)")
     saved = 0
     for n in todo:
-        result = grc_fetch_one(store, n)
+        try:
+            result = grc_fetch_one(store, n)
+        except (urllib.error.URLError, RuntimeError) as e:
+            # Not a gap: the next backfill retries it (see fetch_one for why not raise).
+            log(f"grc sn-{n}: {e}; will retry next run")
+            continue
         if result:
             saved += 1
         elif result is None and n == upper:
