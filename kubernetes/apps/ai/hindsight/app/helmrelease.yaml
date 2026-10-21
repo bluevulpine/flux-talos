@@ -176,6 +176,17 @@ spec:
               # and halves the worst-case work. Applied before the pairs reach
               # the model, for every provider.
               HINDSIGHT_API_RERANKER_MAX_TOKENS_PER_CANDIDATE: "256"
+              # Rerank fewer of the merged candidates. Measured after the two
+              # settings above (2026-10-21, API pods only, Thanos recall phases):
+              # reranking was still 85% of retrieval, 11-20 s per reflect tool
+              # call. The cost is linear in pairs: 300 candidates x 256 tokens
+              # through a 22M-parameter cross-encoder is ~3.4 TFLOP per call, and
+              # this CPU does roughly 250 GFLOPS at it. 100 candidates is ~1.1
+              # TFLOP, about 5 s. The candidates are the RRF merge of the
+              # semantic, keyword, graph and temporal arms, so the reranker still
+              # sees the top 100 of that merge; items ranked 101-300 by RRF
+              # rarely reach the token budget that cuts the final list anyway.
+              HINDSIGHT_API_RERANKER_MAX_CANDIDATES: "100"
               # --- api / worker split ---
               # Read by the API only (api/http.py starts the in-process poller
               # when this is true). The `hindsight-worker` entrypoint never
