@@ -17,9 +17,9 @@ spec:
         # v2.7.2) and had no renovate annotation, so operator/chart bumps never
         # rolled the control plane. Annotate it so it tracks with the
         # flux-operator group (the /flux-operator/ rule matches this depName).
-        # v0.53.0 bundles Flux v2.9.0; `version: 2.x` resolves to it.
+        # v0.61.0 bundles Flux up to v2.9.6; `version: 2.x` resolves to it.
         # renovate: datasource=docker depName=ghcr.io/controlplaneio-fluxcd/flux-operator-manifests
-        artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:v0.53.0
+        artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:v0.61.0
         version: 2.x
       cluster:
         networkPolicy: false
