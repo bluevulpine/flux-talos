@@ -13,6 +13,12 @@ spec:
   dnsNames:
     - "${SECRET_DOMAIN:=temp}"
     - "*.${SECRET_DOMAIN:=temp}"
+    # Nexus registry mirrors (docker-hub.nexus., ghcr.nexus., ...) are one label
+    # deeper than *.${SECRET_DOMAIN} covers, so without this the internal gateway
+    # served them a cert with no matching SAN and containerd's mirror requests to
+    # Nexus failed TLS (found 2026-10-20). Talos points every node at these hosts
+    # in talos/patches/all/12-registry-mirrors.yaml.tpl.
+    - "*.nexus.${SECRET_DOMAIN:=temp}"
     - "${SECRET_DOMAIN_BLOG:=temp}"
     - "*.${SECRET_DOMAIN_BLOG:=temp}"
     - "${SECRET_DOMAIN_BLOGCOM:=temp}"
