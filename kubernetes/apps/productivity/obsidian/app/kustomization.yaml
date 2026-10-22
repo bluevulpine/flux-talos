@@ -29,7 +29,7 @@ patches:
   # (docs/runbooks/kopiur-migration.md).
   # The kind-only target is safe ONLY while this app has exactly one
   # PersistentVolumeClaim -- a second claim would silently get IfNotPresent too
-  # (nextcloud has two and targets the data claim by name).
+  # (an app with two claims must target the data claim by name instead).
   - target: {kind: PersistentVolumeClaim}
     patch: |-
       apiVersion: v1

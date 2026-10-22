@@ -15,7 +15,6 @@ resources:
   - ./karakeep/ks.yaml
   - ./mealie/ks.yaml
   - ./n8n/ks.yaml
-  - ./nextcloud/ks.yaml
   - ./node-red/ks.yaml
   - ./obsidian/ks.yaml
   - ./vault-sync/ks.yaml
