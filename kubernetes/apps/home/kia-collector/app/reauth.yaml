@@ -59,7 +59,7 @@ spec:
         - name: reauth
           # Same image and ImagePolicy as the CronJob (flux-system:kia-collector); the marker
           # has no ":tag" suffix because this is a combined image:repo:tag scalar.
-          image: gitea.derekjacobs.dev/bvn-homelab/kia-collector:26-951e8fa2 # {"$imagepolicy": "flux-system:kia-collector"}
+          image: gitea.derekjacobs.dev/bvn-homelab/kia-collector:35-4f1f28ff # {"$imagepolicy": "flux-system:kia-collector"}
           imagePullPolicy: Always
           command:
             - python
