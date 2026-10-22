@@ -7,6 +7,7 @@ resources:
   - ./externalsecret.yaml
   - ./serviceaccount.yaml
   - ./cronjob.yaml
+  - ./reauth.yaml
   - ./prometheusrule.yaml
 # Grafana dashboard, provisioned via the sidecar (label grafana_dashboard=1).
 # Reads the Postgres-KiaTrips datasource declared in the Grafana HelmRelease.

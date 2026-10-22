@@ -23,7 +23,6 @@ rules:
       - cronjobs
     resourceNames:
       - kia-collector-cached
-      - kia-collector-force
       - kia-trip-archiver
     verbs:
       - get

@@ -1,0 +1,149 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/external-secrets.io/externalsecret_v1.json
+# The server's bearer, kept out of kia-trip-archiver-secret so the CronJobs (and the Job copies the
+# ops console makes of them) never receive it. OpenBao item "kia-trip-archiver", field
+# KiaTripArchiver__ReauthBearer; the console reads the same field into OPS_*_BEARER.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: &name kia-trip-archiver-reauth-bearer
+spec:
+  secretStoreRef:
+    name: openbao
+    kind: ClusterSecretStore
+  target:
+    name: *name
+    template:
+      engineVersion: v2
+      data:
+        REAUTH_BEARER_TOKEN: "{{ .KiaTripArchiver__ReauthBearer }}"
+  dataFrom:
+    - extract:
+        key: kia-trip-archiver
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/apps/deployment_v1.json
+# Reauth HTTP server for the ops console: python -m archiver.reauth_server.
+# Runs under the same ServiceAccount as the CronJob it re-enrols (kia-trip-archiver), so it
+# has exactly that component's OpenBao policy and no other: the collector and
+# archiver servers can never write each other's path. Single replica and Recreate
+# on purpose: a pending login lives in memory, so a restart means the user starts
+# the login over, which is acceptable and simpler than persisting it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kia-trip-archiver-reauth
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kia-trip-archiver-reauth
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kia-trip-archiver-reauth
+    spec:
+      serviceAccountName: kia-trip-archiver
+      automountServiceAccountToken: true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: reauth
+          # Same image and ImagePolicy as the CronJob (flux-system:kia-trip-archiver); the marker
+          # has no ":tag" suffix because this is a combined image:repo:tag scalar.
+          image: gitea.derekjacobs.dev/bvn-homelab/kia-trip-archiver:26-951e8fa2 # {"$imagepolicy": "flux-system:kia-trip-archiver"}
+          imagePullPolicy: Always
+          command:
+            - python
+            - -m
+            - archiver.reauth_server
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: kia-trip-archiver-config
+            - secretRef:
+                name: kia-trip-archiver-secret
+            - secretRef:
+                name: kia-trip-archiver-reauth-bearer
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 3
+            failureThreshold: 20
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 192Mi
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/core/service_v1.json
+apiVersion: v1
+kind: Service
+metadata:
+  name: kia-trip-archiver-reauth
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: kia-trip-archiver-reauth
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/networking.k8s.io/networkpolicy_v1.json
+# Only the ops console may reach this server. Not the auth boundary (the bearer is);
+# it keeps every other pod off the login endpoints. Kubelet probes come from the node,
+# which Cilium admits whatever the ingress policy says.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kia-trip-archiver-reauth-allow-console
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kia-trip-archiver-reauth
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ops-console
+      ports:
+        - port: 8080
+          protocol: TCP
