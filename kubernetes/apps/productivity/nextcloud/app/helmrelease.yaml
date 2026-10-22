@@ -28,7 +28,12 @@ spec:
             image:
               repository: nextcloud
               # renovate: datasource=docker depName=nextcloud
-              tag: 35.0.2-apache
+              # Digest-pinned because the official image rebuilds the same tag for
+              # PHP security releases (35.0.2-apache was rebuilt 2026-10-21 with
+              # PHP 8.5.12 for CVE-2026-109618/109619). With a bare tag and
+              # IfNotPresent, nodes keep the old build and Renovate cannot see the
+              # rebuild; with a digest, Renovate opens a PR for each one.
+              tag: 35.0.2-apache@sha256:3f05f4d5eded9d3d029e617926500645cca6344710364737a374088f6811095a
             env:
               TZ: "${TIMEZONE}"
               # Database configuration

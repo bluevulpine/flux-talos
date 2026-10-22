@@ -20,11 +20,18 @@ spec:
             image:
               repository: lscr.io/linuxserver/grocy
               # renovate: datasource=docker depName=lscr.io/linuxserver/grocy
-              tag: v4.5.0-ls311
+              tag: v4.7.1-ls346
             env:
               TZ: "${TIMEZONE}"
               PUID: "568"
               PGID: "568"
+              # grocy 4.7.0 moved the auth middlewares into Grocy\Middleware\Auth\ and
+              # deleted the old classes. config.php on the PVC (written by 4.5) still
+              # names Grocy\Middleware\DefaultAuthMiddleware, which would 500 every
+              # request. A GROCY_<setting> env var takes precedence over config.php, so
+              # AUTH_CLASS edits in config.php are now ignored: change it here (e.g. to
+              # ...\Auth\ReverseProxyAuthMiddleware, which the header below needs).
+              GROCY_AUTH_CLASS: Grocy\Middleware\Auth\DefaultAuthMiddleware
               GROCY_REVERSE_PROXY_AUTH_HEADER: Remote-User
             probes:
               liveness: &probes
