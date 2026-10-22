@@ -14,7 +14,10 @@
 # break them. Verified by server-side dry-run as a user the policy matched: the real
 # CronJob templates (collector cached/force, archiver) are admitted; each rule below
 # rejects its counter-example (2026-09-28; command/entrypoint and cross-workload rules
-# 2026-10-06).
+# 2026-10-06). The console's Role no longer reads kia-collector-force (2026-10-22: no
+# card runs it), so only the cached and archiver templates are reachable in practice;
+# the force template stays admissible here so a force card can be added with an RBAC
+# change alone.
 #
 # When a CronJob legitimately changes shape (a new Secret, another init image) this
 # policy must change with it, or the console's test run is refused with a message
