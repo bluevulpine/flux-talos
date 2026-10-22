@@ -162,7 +162,9 @@ spec:
         # kia-vehicle bucket on a scrape (token unset or revoked, bucket changed,
         # InfluxDB down). Measured against that consequence rather than a guessed
         # cause, like the odometer alert above. `for: 2h` rides out a rollout, in
-        # which the new image can run before this app has the token.
+        # which the new image can run before this app has the token. Keep it equal
+        # to EvChargeLedgerDcSessionUnreceipted's keep_firing_for: shorter than
+        # that and an outage between the two is covered by neither alert.
         - alert: EvChargeLedgerDcCheckFailing
           annotations:
             summary: >-
