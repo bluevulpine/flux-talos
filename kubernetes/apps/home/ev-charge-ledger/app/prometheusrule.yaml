@@ -149,9 +149,11 @@ spec:
           # A rollout (the Deployment is Recreate), a failed scrape or a telemetry
           # outage drops the episode series, and without this Pushover would say
           # RESOLVED as if the receipt had been added, then make Derek wait out
-          # `for` again. 30 min covers a rollout and a short Influx blip; a longer
-          # outage is EvChargeLedgerDcCheckFailing's job.
-          keep_firing_for: 30m
+          # `for` again. Equal to EvChargeLedgerDcCheckFailing's `for` on purpose:
+          # shorter leaves an outage between the two that neither alert covers and
+          # that opens with a false RESOLVED. The cost is that a real receipt
+          # clears the alert up to 2 h late, which is harmless here.
+          keep_firing_for: 2h
           labels:
             severity: warning
 
