@@ -42,10 +42,8 @@ spec:
               HOST: 0.0.0.0
               PORT: &port 3000
               LOG_LEVEL: info
-              # dragonfly is shared with immich, litellm and thanos (nextcloud is
-              # configured for it too, but productivity is not in dragonfly's
-              # NetworkPolicy allow-list, so it cannot connect as of 2026-10-11);
-              # upstream offers this prefix for exactly that case.
+              # dragonfly is shared with immich, litellm and thanos; upstream
+              # offers this prefix for exactly that case.
               REDIS_URL: redis://dragonfly.database.svc.cluster.local:6379
               REDIS_PREFIX: "tracearr:"
               # Behind Envoy. TRUST_PROXY makes client IPs and the Secure

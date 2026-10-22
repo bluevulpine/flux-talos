@@ -204,7 +204,6 @@ alert storm that masks real problems during the window.
 | `media` | `Deployment/sonarr` | NFS (in-tree PV) | 1 |
 | `media` | `Deployment/sportarr` | NFS (in-tree PV) | 1 |
 | `media` | `Deployment/tdarr` | NFS (in-tree PV + tns-csi) | 1 |
-| `productivity` | `Deployment/nextcloud` | NFS (in-tree PV) | 1 |
 
 **Already idle — no action needed** (verify, don't assume):
 `home/frigate` is at 0 replicas and has been since it was left unconfigured; its
@@ -277,7 +276,6 @@ printf '%s\n' \
  "media audiobookshelf" "media bazarr" "media calibre" "media calibre-web" "media immich" \
  "media jellyfin" "media lidarr" "media plex" "media radarr" "media readarr-audiobooks" \
  "media readarr-ebooks" "media sonarr" "media sportarr" "media tdarr" \
- "productivity nextcloud" \
 | while read -r ns name; do
     kc -n "$ns" patch hr "$name" --type=merge -p '{"spec":{"suspend":true}}'
   done
@@ -325,7 +323,6 @@ kc -n download     scale deploy cross-seed qbittorrent sabnzbd unpackerr --repli
 kc -n media        scale deploy audiobookshelf bazarr calibre calibre-web immich \
                                 immich-microservices jellyfin lidarr plex radarr \
                                 readarr-audiobooks readarr-ebooks sonarr sportarr tdarr --replicas=0
-kc -n productivity scale deploy nextcloud --replicas=0
 
 # Tier 1 — block
 kc -n games scale deploy valheim --replicas=0
@@ -403,7 +400,6 @@ printf '%s\n' \
  "media audiobookshelf" "media bazarr" "media calibre" "media calibre-web" "media immich" \
  "media jellyfin" "media lidarr" "media plex" "media radarr" "media readarr-audiobooks" \
  "media readarr-ebooks" "media sonarr" "media sportarr" "media tdarr" \
- "productivity nextcloud" \
 | while read -r ns name; do
     kc -n "$ns" patch hr "$name" --type=merge -p '{"spec":{"suspend":false}}'
   done
@@ -427,7 +423,6 @@ kc -n download     scale deploy cross-seed qbittorrent sabnzbd unpackerr --repli
 kc -n media        scale deploy audiobookshelf bazarr calibre calibre-web immich \
                                 immich-microservices jellyfin lidarr plex radarr \
                                 readarr-audiobooks readarr-ebooks sonarr sportarr tdarr --replicas=1
-kc -n productivity scale deploy nextcloud --replicas=1
 ```
 
 Use the pre-flight snapshot for the counts rather than assuming everything was 1 —
