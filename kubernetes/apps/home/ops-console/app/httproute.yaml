@@ -1,0 +1,34 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# Internal gateway only. The console starts credential re-enrolments, so it has no
+# business on `external`. Sign-in is the app's own Authentik OIDC login (callback
+# /oauth/callback), restricted to the `admins` group at the provider; there is no
+# gateway forward-auth, so this route deliberately has no `auth:` label.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ops-console
+  annotations:
+    # No gatus annotation on purpose: unauthenticated requests are redirected to the
+    # Authentik login, so a probe would stay green with the app dead. OpsConsoleUnavailable
+    # (prometheusrule.yaml) watches the Deployment instead.
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Ops Console"
+    gethomepage.dev/group: "Home"
+    gethomepage.dev/icon: "mdi-toolbox"
+    gethomepage.dev/description: "Credential refreshes and ops actions"
+spec:
+  hostnames:
+    - ops.${SECRET_DOMAIN}
+  parentRefs:
+    - name: internal
+      namespace: network
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: ops-console
+          port: 8000
