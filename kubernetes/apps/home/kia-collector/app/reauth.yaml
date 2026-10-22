@@ -70,10 +70,23 @@ spec:
           envFrom:
             - configMapRef:
                 name: kia-collector-config
-            - secretRef:
-                name: kia-collector-secret
-            - secretRef:
-                name: kia-collector-reauth-bearer
+          # Per-key, not envFrom: this long-lived, network-reachable server needs the Kia login only, not INFLUXDB_TOKEN.
+          env:
+            - name: KIA_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: kia-collector-secret
+                  key: KIA_USERNAME
+            - name: KIA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kia-collector-secret
+                  key: KIA_PASSWORD
+            - name: REAUTH_BEARER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: kia-collector-reauth-bearer
+                  key: REAUTH_BEARER_TOKEN
           startupProbe:
             httpGet:
               path: /healthz

@@ -71,10 +71,59 @@ spec:
           envFrom:
             - configMapRef:
                 name: kia-trip-archiver-config
-            - secretRef:
-                name: kia-trip-archiver-secret
-            - secretRef:
-                name: kia-trip-archiver-reauth-bearer
+          # Per-key, not envFrom: the secret also holds INIT_POSTGRES_SUPER_PASS (for the CronJob's init container), which this
+          # server must never receive. It needs the Kia login, the fingerprint and the trips DB URL.
+          env:
+            - name: KIA_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: kia-trip-archiver-secret
+                  key: KIA_USERNAME
+            - name: KIA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kia-trip-archiver-secret
+                  key: KIA_PASSWORD
+            - name: KIA_FP_FPV
+              valueFrom:
+                secretKeyRef:
+                  name: kia-trip-archiver-secret
+                  key: KIA_FP_FPV
+            - name: KIA_FP_UA
+              valueFrom:
+                secretKeyRef:
+                  name: kia-trip-archiver-secret
+                  key: KIA_FP_UA
+            - name: KIA_FP_PT
+              valueFrom:
+                secretKeyRef:
+                  name: kia-trip-archiver-secret
+                  key: KIA_FP_PT
+            - name: KIA_FP_LN
+              valueFrom:
+                secretKeyRef:
+                  name: kia-trip-archiver-secret
+                  key: KIA_FP_LN
+            - name: KIA_FP_HC
+              valueFrom:
+                secretKeyRef:
+                  name: kia-trip-archiver-secret
+                  key: KIA_FP_HC
+            - name: KIA_FP_WFH
+              valueFrom:
+                secretKeyRef:
+                  name: kia-trip-archiver-secret
+                  key: KIA_FP_WFH
+            - name: KIA_TRIPS_DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: kia-trip-archiver-secret
+                  key: KIA_TRIPS_DB_URL
+            - name: REAUTH_BEARER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: kia-trip-archiver-reauth-bearer
+                  key: REAUTH_BEARER_TOKEN
           startupProbe:
             httpGet:
               path: /healthz
