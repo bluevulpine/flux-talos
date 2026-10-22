@@ -52,6 +52,17 @@ spec:
       # procedure completed brokkr03 with zero corruption. Flipping this to
       # always-allow for an unattended roll is what causes silent data damage.
       nodeDrainPolicy: "block-if-contains-last-replica"
+      # Longhorn's default of 0 turns automatic engine upgrades off: a chart
+      # upgrade moves the manager and instance managers, but each volume keeps
+      # the engine image it was created with until someone upgrades it by hand.
+      # After the 1.13.0 upgrade (#1989) that left 177 of 178 engines spread
+      # over v1.10.1-v1.12.1, and an engine image older than a new release's
+      # minimum supported version can block that release's upgrade.
+      #
+      # 1 upgrades one engine per node at a time: attached V1 volumes live
+      # (no detach), detached ones on their next attach. Kept at 1 afterwards
+      # so every future Longhorn upgrade brings the engines along.
+      concurrentAutomaticEngineUpgradePerNodeLimit: "1"
     # Longhorn exposes longhorn_volume_*/node_*/disk_* on the manager port,
     # but the chart ships the ServiceMonitor disabled -- so there were ZERO
     # longhorn_* series in Prometheus and volume health (robustness, degraded
