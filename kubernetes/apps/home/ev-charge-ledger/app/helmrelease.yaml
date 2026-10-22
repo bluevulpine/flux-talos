@@ -66,6 +66,10 @@ spec:
             envFrom:
               - secretRef:
                   name: ev-charge-ledger-sync-secret
+                  # Optional so a missing secret costs the DC check (reported by
+                  # EvChargeLedgerDcCheckFailing) and not the whole ledger, which
+                  # would otherwise sit in CreateContainerConfigError.
+                  optional: true
             probes:
               liveness:
                 enabled: true
