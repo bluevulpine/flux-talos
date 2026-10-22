@@ -2,10 +2,10 @@
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/networking.k8s.io/networkpolicy_v1.json
 # Only the internal gateway's Envoy pods may reach the console.
 #
-# This is a security control, not tidiness: the app trusts the X-authentik-username
-# header, and that header is only trustworthy if the request came through the
-# gateway's forward auth. Any pod that could reach this Service directly could set
-# the header itself and be "derek". Do not widen this without changing the auth model.
+# Defence in depth, not the auth boundary: the app authenticates users itself via
+# Authentik OIDC and does not trust any identity header. This keeps other pods from
+# reaching the login and session endpoints directly, and keeps the console off the
+# pod network so only the gateway (TLS, internal listener) fronts it.
 # kubelet probes originate from the node, and Cilium admits host-to-pod traffic
 # whatever the ingress policy says (expected, checked at deploy: if the pod never
 # becomes Ready, suspect this policy first).

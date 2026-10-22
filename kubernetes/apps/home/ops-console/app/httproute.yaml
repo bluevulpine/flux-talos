@@ -1,26 +1,22 @@
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
-# The whole host is behind Authentik SSO, on the internal gateway only. The console
-# starts credential re-enrolments, so it has no business on `external`.
+# Internal gateway only. The console starts credential re-enrolments, so it has no
+# business on `external`. Sign-in is the app's own Authentik OIDC login (callback
+# /oauth/callback), restricted to the `admins` group at the provider; there is no
+# gateway forward-auth, so this route deliberately has no `auth:` label.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: ops-console
   annotations:
-    # No gatus annotation on purpose: this route is behind SSO, so a probe would see
-    # the Authentik redirect and stay green with the app dead. OpsConsoleUnavailable
+    # No gatus annotation on purpose: unauthenticated requests are redirected to the
+    # Authentik login, so a probe would stay green with the app dead. OpsConsoleUnavailable
     # (prometheusrule.yaml) watches the Deployment instead.
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Ops Console"
     gethomepage.dev/group: "Home"
     gethomepage.dev/icon: "mdi-toolbox"
     gethomepage.dev/description: "Credential refreshes and ops actions"
-  labels:
-    # NOT optional. The app trusts X-authentik-username, which only the forward-auth
-    # SecurityPolicy on this label sets. Without the label the route serves the app
-    # with no user, which it answers 401 -- fails closed -- but do not rely on that.
-    # `home` is already in identity/authentik/app/referencegrant.yaml.
-    auth: authentik
 spec:
   hostnames:
     - ops.${SECRET_DOMAIN}
