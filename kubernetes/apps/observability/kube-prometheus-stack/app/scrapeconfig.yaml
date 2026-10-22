@@ -19,6 +19,19 @@ spec:
         - 100.114.176.10:9100 # pinas
       labels:
         instance: pinas
+    # The two GB10 boxes (spark-setup roles/node_exporter), by LAN IP like
+    # vllm-spark below: the exporter binds lan_ip only, and pods already reach
+    # it. node_memory_MemAvailable_bytes is the headroom figure on their unified
+    # memory -- GPU allocations come out of the same pool and nvidia-smi
+    # reports GPU memory as unsupported.
+    - targets:
+        - 10.0.10.237:9100
+      labels:
+        instance: spark-ab23
+    - targets:
+        - 10.0.10.117:9100
+      labels:
+        instance: gx10-7ac6
   metricsPath: /metrics
   relabelings:
     - action: replace
