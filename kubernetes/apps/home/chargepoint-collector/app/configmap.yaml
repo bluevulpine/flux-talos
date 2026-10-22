@@ -5,6 +5,10 @@ metadata:
   name: chargepoint-collector-config
 data:
   CHARGEPOINT_ACCOUNTS: "primary,guest"
+  # Pre-cut stop experiment (chargepoint-collector #4): send stop() ~5 min before the
+  # scheduled power cut. Primary (charger 16330161) is the one Derek is charging on;
+  # guest's 18316031 last showed CHARGING 2026-10-16 17:24Z. Remove to turn it off.
+  PRE_CUT_STOP_ACCOUNTS: "primary"
   POLL_INTERVAL_S: "60"
   SCHEDULE_PATH: "/config/schedule.yaml"
   INFLUX_URL: "http://influxdb.database.svc.cluster.local:8086"
