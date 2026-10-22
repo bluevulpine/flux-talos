@@ -44,6 +44,14 @@ spec:
       # is reserved for kopia-maint-r2, so R2 takes H 6.
       KOPIUR_LOCAL_CRON: "H */2 * * *"
       KOPIUR_R2_CRON: "H 6 * * *"
-      # The data volume is small; 16Gi (the component default) of kopia cache
-      # would be larger than what it caches.
-      KOPIUR_CACHE_CAPACITY: 2Gi
+      # No KOPIUR_CACHE_CAPACITY override: the kopia cache is not sized by this
+      # app's data. A 2Gi override on that assumption filled up and every local
+      # run from 2026-10-21T23:02Z failed with ENOSPC before kopia could connect
+      # (KubeJobFailed, 2026-10-22). What fills it is the shared kopia-local
+      # repository's index: index-blobs/ 748 MiB + indexes/ 669 MiB + metadata/
+      # 422 MiB, contents/ ~0, with the repo at 1,617 index blobs. Every client
+      # caches that index whatever its source holds, which is why every local
+      # cache PVC in the fleet sits at 5-9 GiB (ev-charge-tracker's few-MB
+      # volume: 5.9 GiB). The component's 16Gi default is thin on Longhorn, so
+      # it costs what is used. An existing cache PVC does not grow with this
+      # value; delete it and kopiur recreates it, kopia rebuilds the cache.
