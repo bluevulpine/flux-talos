@@ -61,21 +61,31 @@ spec:
       - matrix-bluevulpine
       - media
       - productivity
-  # DELIBERATELY ABSENT: spec.parameters.epoch.
-  #
-  # This repository needs `epoch.minDuration: 1h` — it carries ~4,500 index
-  # blobs against a 1,000 warn threshold and prints "Found too many index blobs"
-  # on every run, at a measured ~97/hr across 46 sources with maintenance
-  # healthy. But declaring it REWRITES THE KOPIA FORMAT BLOB, which invalidates
-  # every other kopia client's cached copy for ~15 minutes — and live VolSync
-  # movers are other clients for the whole parallel run.
-  #
-  # So it ships as its own change, applied into a gap in the backup grid, after
-  # adoption reads Ready. Two things to know when it does:
-  #   - "Removing a value does not restore kopia's default" — set it once,
-  #     deliberately.
-  #   - minDuration must be >= 10m AND >= 3x refreshFrequency (default 20m), so
-  #     1h is exactly at the floor: raising refreshFrequency later rejects it.
+  parameters:
+    epoch:
+      # minDuration mirrors what the repository already reports (set out of
+      # band in the fork era; kopia's default is 24h). Declared so the live
+      # value is in git and a drift would show in status.parameters.epoch;
+      # equal values mean no set-parameters call. It sits exactly at kopia's
+      # floor (>= 10m and >= 3x refreshFrequency 20m): raising
+      # refreshFrequency later rejects it.
+      minDuration: 1h
+      # 48, not kopia's default 7, because epochs are now hourly (the fork's
+      # kopia-maintenance-local runs every hour and epochs advance only inside
+      # maintenance). kopia writes one range-checkpoint index blob per
+      # checkpointFrequency epochs and NEVER merges ranges afterwards
+      # (getRangeToCompact starts at the last range's MaxEpoch+1, v0.22.3 and
+      # master alike): at 7 that is ~3 new permanent blobs a day, ~1,100 a
+      # year, which alone crosses the 1,000-blob warning. 48 = one range per
+      # ~2 days, ~180 a year, the same cadence the 4 h epochs produced.
+      # Measured 2026-10-23: 61 ranges carry 707 of the index's 722 MB.
+      #
+      # Applying this rewrites the kopia format blob; other clients re-read
+      # it within ~15 min and kopiur only calls set-parameters on drift. The
+      # VolSync movers that made this hazardous during the parallel run are
+      # gone (0 ReplicationSources); kopiur movers connect fresh each run.
+      # "Removing a value does not restore kopia's default": set deliberately.
+      checkpointFrequency: 48
   catalog:
     # IGNORE, NOT the default Adopt. Adopt re-attaches every discovered row
     # whose identity matches a live SnapshotPolicy and puts it under GFS, and
@@ -134,6 +144,27 @@ spec:
     podSecurityContext:
       fsGroup: 0
       fsGroupChangePolicy: OnRootMismatch
+    cache:
+      # MiB; kopia's `--metadata-cache-size-mb` (<<20). This one number caps
+      # TWO cache directories per mover: `metadata` (directory manifests) and
+      # `index-blobs`, which kopia sweeps under the same budget. kopia's
+      # default is 5,000, and that is what fills the 16Gi cache PVCs:
+      # influxdb-local measured 2026-10-23 at 8.8 GB = metadata 5,002 MiB
+      # (budget, full) + index-blobs 1,563 MiB (82 k files; the live index
+      # is 693 MiB, the rest stale blobs kept up to the budget) + indexes
+      # 693 MiB + kopia logs 1,189 MiB. The half-hourly apps all sit at
+      # 8.4-9.9 GB regardless of data size; the fleet's local caches were
+      # 236 GiB across 32 sampled PVCs. Content cache stays default: nothing
+      # on the backup path reads contents, it measured ~0.
+      #
+      # 2048 is chosen above the live index, not for the metadata: a budget
+      # BELOW the live index makes the sweep evict blobs every run is about to
+      # touch, so each run re-downloads the index (~700 MB). The index grows
+      # ~10 MB/day in range checkpoints that are never merged, so this needs
+      # raising (or a new repository) when it passes ~1.5 GiB; kopia logs are
+      # capped separately at 1,000 files / 1,000 MB per log kind and kopiur
+      # passes no env through to lower them.
+      metadataCacheSizeMb: 2048
   scheduleDefaults:
     # Applied to every consuming cron that does not set its own. Deliberately
     # no `timezone` — kopiur falls back to UTC, which is the only frame

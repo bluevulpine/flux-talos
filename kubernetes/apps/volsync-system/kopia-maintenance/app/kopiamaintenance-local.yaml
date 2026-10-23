@@ -10,11 +10,27 @@ spec:
     repository: kopia-maintenance-local-secret
     repositoryType: s3
 
-  # Run maintenance every 4 hours to keep up with high backup frequency
-  # (~30 apps × every 30 min = ~1,440 index blobs/day)
-  # R2 maintenance stays daily since it only gets 1 backup/app/day
+  # HOURLY, because the trigger interval IS the kopia epoch length. kopia only
+  # advances the write epoch inside a maintenance run (maintenance_run.go calls
+  # MaybeAdvanceWriteEpoch; nothing else does), and it cannot compact an index
+  # blob until its epoch closes. At 0 */4 every epoch was 4 h long and the
+  # uncompacted count climbed from ~250 to ~1,200 inside each window: measured
+  # 2026-10-23, epoch 493 held 743 blobs after 3h58m (~187/h, about 4 per
+  # mover run at 1,135 local runs/day), against kopia's hard-coded warning
+  # threshold of 1,000 ("Found too many index blobs", error-level, on every
+  # connect). Hourly keeps the peak near 200-400 plus ~70 compacted blobs.
+  #
+  # Cost, accepted: the fork's entry.sh runs `maintenance run` AND
+  # `maintenance run --full` on every trigger (it has no quick-only mode), so
+  # this is hourly full maintenance, ~6.5 min a run against a 4Gi limit. It
+  # is the interim until the VolSync decommission, when kopiur's managed
+  # Maintenance takes this repository over with quick hourly / full daily.
+  #
+  # Pair: clusterrepository-local.yaml raises epoch.checkpointFrequency, or
+  # hourly epochs would mint a range-checkpoint blob every 8 h and those are
+  # never merged. R2 stays daily: ~1.8 writes/hour, 472 index blobs.
   trigger:
-    schedule: "0 */4 * * *"
+    schedule: "0 * * * *"
 
   # Keep history of maintenance jobs for debugging
   successfulJobsHistoryLimit: 3
