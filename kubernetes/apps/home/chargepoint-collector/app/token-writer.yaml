@@ -1,0 +1,163 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/external-secrets.io/externalsecret_v1.json
+# The writer's bearer, kept out of chargepoint-collector-secret so the poller (which holds
+# both accounts' passwords) never receives it. OpenBao item "chargepoint-collector", field
+# ChargePointCollector__TokenWriterBearer; the ops console reads the same field.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: &name chargepoint-token-writer-bearer
+spec:
+  secretStoreRef:
+    name: openbao
+    kind: ClusterSecretStore
+  target:
+    name: *name
+    template:
+      engineVersion: v2
+      data:
+        TOKEN_WRITER_BEARER: "{{ .ChargePointCollector__TokenWriterBearer }}"
+  dataFrom:
+    - extract:
+        key: chargepoint-collector
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/core/serviceaccount_v1.json
+# Its own ServiceAccount, bound to its own OpenBao role (chargepoint-token-writer): create/update on
+# secret/data/chargepoint/tokens/* and nothing else. The poller's role also reads those paths, so
+# sharing it would hand a network-reachable server read access to live session tokens.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chargepoint-token-writer
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/apps/deployment_v1.json
+# Internal HTTP server for the ops console's ChargePoint card: python -m
+# chargepoint_collector.token_writer. Stores a browser-captured coulomb_sess where the poller
+# looks for it; the poller picks it up on its next relogin attempt, no restart. No state, so a
+# restart loses nothing.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chargepoint-token-writer
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: chargepoint-token-writer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: chargepoint-token-writer
+    spec:
+      serviceAccountName: chargepoint-token-writer
+      automountServiceAccountToken: true # OpenBao Kubernetes auth needs the SA token
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: token-writer
+          # Same image and ImagePolicy as the poller (flux-system:chargepoint-collector); the marker
+          # has no ":tag" suffix because this is a combined image:repo:tag scalar.
+          image: gitea.derekjacobs.dev/bvn-homelab/chargepoint-collector:19-ece43332 # {"$imagepolicy": "flux-system:chargepoint-collector"}
+          imagePullPolicy: Always
+          command:
+            - python
+            - -m
+            - chargepoint_collector.token_writer
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: CHARGEPOINT_ACCOUNTS
+              value: primary,guest
+            - name: OPENBAO_URL
+              value: http://openbao-active.openbao.svc.cluster.local:8200
+            - name: OPENBAO_KV_MOUNT
+              value: secret
+            - name: OPENBAO_K8S_ROLE
+              value: chargepoint-token-writer
+            - name: TOKEN_WRITER_BEARER
+              valueFrom:
+                secretKeyRef:
+                  name: chargepoint-token-writer-bearer
+                  key: TOKEN_WRITER_BEARER
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 3
+            failureThreshold: 20
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 192Mi
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/core/service_v1.json
+apiVersion: v1
+kind: Service
+metadata:
+  name: chargepoint-token-writer
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: chargepoint-token-writer
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/networking.k8s.io/networkpolicy_v1.json
+# Only the ops console may reach this server. Not the auth boundary (the bearer is); it keeps
+# every other pod off the token endpoint. Kubelet probes come from the node, which Cilium
+# admits whatever the ingress policy says.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: chargepoint-token-writer-allow-console
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: chargepoint-token-writer
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ops-console
+      ports:
+        - port: 8080
+          protocol: TCP
