@@ -82,6 +82,14 @@ spec:
         barmanObjectName: postgres18-backup
         serverName: postgres18-v1
 
+  # Default target for every base backup of this cluster. scheduledbackup.yaml already
+  # sets target: primary, but a Backup created by hand (or another ScheduledBackup) with no
+  # target falls back to the CNPG default, prefer-standby, which runs on a replica and loses
+  # to WAL replay: that is how the 2026-10-18 weekly failed ("canceling statement due to
+  # conflict with recovery"; replicas run hot_standby_feedback=off, max_standby_streaming_delay=30s).
+  backup:
+    target: primary
+
   # One-shot logical import of ALL databases + roles from the live postgres16.
   # Runs once, at initial creation only; read-only (pg_dump) on the source.
   bootstrap:
