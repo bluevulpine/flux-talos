@@ -8,6 +8,7 @@ resources:
   - deployment.yaml
   - podmonitor.yaml
   - prometheusrule.yaml
+  - token-writer.yaml
 # Grafana dashboard, provisioned via the sidecar (label grafana_dashboard=1).
 configMapGenerator:
   - name: chargepoint-collector-dashboard
