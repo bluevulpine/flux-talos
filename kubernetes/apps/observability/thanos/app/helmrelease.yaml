@@ -57,7 +57,10 @@ spec:
     compact:
       enabled: true
       extraArgs:
-        - --compact.concurrency=4
+        # 1, not the 4 this carried until 2026-10-22: a group compaction keeps
+        # its inputs and its output on the data PVC at once, and four groups
+        # in flight multiply that. Sizing is in the persistence note below.
+        - --compact.concurrency=1
         - --delete-delay=30m
         # Retention (decided 2026-10-16). raw 30d: incident forensics at scrape
         # resolution. 5m 1y: every long-range investigation so far wanted a
@@ -67,21 +70,30 @@ spec:
         - --retention.resolution-raw=30d
         - --retention.resolution-5m=1y
         - --retention.resolution-1h=3y
-      # Not the shared 20Gi &persistence below: merging seven 2.3 GB two-day
-      # blocks into one 14d block needs ~30 GB of scratch, plus room to
-      # downsample the result. At 20Gi the compactor hit ENOSPC on 2026-10-03
-      # and halted (thanos_compact_halted=1 is permanent until a restart, and
-      # every restart halted again on the same group). Retention and
-      # downsampling never ran: the bucket held ~10 months of raw in 1,148
-      # blocks and the store-gateway OOMKilled loading them. The PVC was
-      # expanded online (kubectl patch); this value keeps the chart in sync.
-      # volumeClaimTemplates are immutable, so any further change needs
+      # Not the shared 20Gi &persistence below. Sized from the second ENOSPC
+      # halt (2026-10-22T01:09Z, at 100Gi): the compactor merges seven two-day
+      # raw blocks into one 14d block, and a two-day block here is 7-14 GB on
+      # disk (2.5-5 G samples, 0.4-1.3 M series), not the 2.3 GB the
+      # 2026-10-16 sizing assumed. One group is ~65 GB of inputs plus an
+      # output of about the same, ~130 GB, and --compact.concurrency=4 ran
+      # several at once. 250Gi holds one group with room; concurrency is 1.
+      # The first halt was at 20Gi on 2026-10-03 (thanos_compact_halted=1 is
+      # permanent until a restart, and every restart halted again on the same
+      # group); retention and downsampling never ran, the bucket held ~10
+      # months of raw in 1,148 blocks and the store-gateway OOMKilled loading
+      # them. On 2026-10-22 the 151 raw blocks already past the 30d retention
+      # were marked no-compact (`thanos tools bucket mark`), so the backlog is
+      # downsampled and deleted rather than compacted first; the marks stay
+      # with the blocks and go when retention deletes them.
+      # The live PVC is grown online, `kubectl patch pvc data-thanos-compact-0`
+      # (Longhorn allowVolumeExpansion); this value keeps the chart in sync.
+      # volumeClaimTemplates are immutable, so any change here needs
       # `kubectl delete sts thanos-compact --cascade=orphan` before Flux can
       # apply it (the orphaned pod is re-adopted and rolled).
       persistence:
         enabled: true
         storageClass: longhorn-1-replica
-        size: 100Gi
+        size: 250Gi
     query:
       replicas: 2
       extraArgs:
