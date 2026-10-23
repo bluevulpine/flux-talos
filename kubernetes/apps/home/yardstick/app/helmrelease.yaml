@@ -25,7 +25,7 @@ spec:
             # them out here.
             image:
               repository: gitea.derekjacobs.dev/bvn-homelab/yardstick
-              tag: 11-5b7d708a # {"$imagepolicy": "flux-system:yardstick:tag"}
+              tag: 17-38e8aef1 # {"$imagepolicy": "flux-system:yardstick:tag"}
             args:
               - serve
               - --port
