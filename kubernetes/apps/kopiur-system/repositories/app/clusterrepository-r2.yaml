@@ -64,5 +64,10 @@ spec:
     podSecurityContext:
       fsGroup: 0
       fsGroupChangePolicy: OnRootMismatch
+    cache:
+      # Same bound as kopia-local; the reasoning is there. Changes nothing
+      # today (R2 index 184 MB, its caches <= 1.8 GB against a 5,000 MiB
+      # default) and stops them growing to it.
+      metadataCacheSizeMb: 2048
   scheduleDefaults:
     jitter: 20m
