@@ -120,3 +120,60 @@ spec:
           for: 6h
           labels:
             severity: warning
+
+        # A DC-fast session with no receipt row. A DC session is priced by its
+        # receipt, so one without a row is a total that is quietly wrong; the car's
+        # telemetry knows it happened (ev-charge-ledger
+        # docs/superpowers/specs/2026-10-22-dc-prompt.md).
+        #
+        # One series per open episode, so the message names the session: the labels
+        # print in the Pushover body. The series disappears when a `dc` row starts
+        # near the episode, which resolves the alert.
+        #
+        # "Until receipted" (Derek, 2026-10-22) is Alertmanager's repeatInterval
+        # (4 h) re-notifying while this fires, not a counter in the ledger. The
+        # ledger only reports an episode once it has closed, so `for` is how long
+        # Derek has after the car stops charging before the first page.
+        - alert: EvChargeLedgerDcSessionUnreceipted
+          annotations:
+            description: >-
+              DC fast charge on {{ $labels.start }} (to {{ $labels.end }}) has no
+              receipt row. Peak {{ $labels.peak_kw }} kW, charging seen:
+              {{ $labels.charging_seen }}, SOC {{ $labels.soc_before }}% to
+              {{ $labels.soc_after }}%, at least {{ $labels.est_kwh_floor }} kWh
+              (a floor: receipts ran 2-23% higher). Near
+              {{ $labels.lat }}, {{ $labels.lon }}. Add the receipt to the ledger.
+          expr: |
+            ev_charge_ledger_unreceipted_dc_episode == 1
+          for: 30m
+          # A rollout (the Deployment is Recreate), a failed scrape or a telemetry
+          # outage drops the episode series, and without this Pushover would say
+          # RESOLVED as if the receipt had been added, then make Derek wait out
+          # `for` again. Equal to EvChargeLedgerDcCheckFailing's `for` on purpose:
+          # shorter leaves an outage between the two that neither alert covers and
+          # that opens with a false RESOLVED. The cost is that a real receipt
+          # clears the alert up to 2 h late, which is harmless here.
+          keep_firing_for: 2h
+          labels:
+            severity: warning
+
+        # The check itself failing, because a missing episode series reads as
+        # "everything receipted". dc_check_ok is 0 when the app cannot read the
+        # kia-vehicle bucket on a scrape (token unset or revoked, bucket changed,
+        # InfluxDB down). Measured against that consequence rather than a guessed
+        # cause, like the odometer alert above. `for: 2h` rides out a rollout, in
+        # which the new image can run before this app has the token. Keep it no
+        # longer than EvChargeLedgerDcSessionUnreceipted's keep_firing_for: past
+        # that, the session alert resolves (a false RESOLVED page) before this one
+        # fires, and an outage between the two is covered by neither.
+        - alert: EvChargeLedgerDcCheckFailing
+          annotations:
+            summary: >-
+              EV charge ledger cannot read kia-vehicle telemetry, so unreceipted
+              DC sessions are not being detected. Check ECL_KIA_INFLUX_TOKEN and
+              ECL_SYNC_KIA_TAG on `deploy/ev-charge-ledger` and InfluxDB.
+          expr: |
+            ev_charge_ledger_dc_check_ok == 0
+          for: 2h
+          labels:
+            severity: warning

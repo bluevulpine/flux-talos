@@ -1,3 +1,4 @@
+---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -57,6 +58,18 @@ spec:
               repository: gitea.derekjacobs.dev/bvn-homelab/ev-charge-ledger
               tag: 38-af3c4161 # {"$imagepolicy": "flux-system:ev-charge-ledger:tag"}
             env: *env
+            # The Kia read-only token and tag, for the DC-session prompt on
+            # /metrics (ev-charge-ledger docs/superpowers/specs/2026-10-22-dc-prompt.md).
+            # The same secret the sync CronJob reads: it also carries the chargepoint
+            # token and the VIN, which the app never uses. Splitting it would buy
+            # nothing the pod boundary does not already give.
+            envFrom:
+              - secretRef:
+                  name: ev-charge-ledger-sync-secret
+                  # Optional so a missing secret costs the DC check (reported by
+                  # EvChargeLedgerDcCheckFailing) and not the whole ledger, which
+                  # would otherwise sit in CreateContainerConfigError.
+                  optional: true
             probes:
               liveness:
                 enabled: true
