@@ -1,4 +1,3 @@
----
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/apps/deployment_v1.json
 # The ops console: UI and forwarder only. Source: bvn-homelab/ops-console.
 # No state of its own (a pending login lives in the reauth servers), so a restart
@@ -41,7 +40,7 @@ spec:
           # Full ref auto-updated by Flux image automation (ImagePolicy flux-system:ops-console).
           # NOTE: no ":tag" suffix on the marker — this is a combined image:repo:tag scalar,
           # so Flux must write the whole ref. ":tag" would overwrite the scalar with the bare tag.
-          image: gitea.derekjacobs.dev/bvn-homelab/ops-console:6-d369d988 # {"$imagepolicy": "flux-system:ops-console"}
+          image: gitea.derekjacobs.dev/bvn-homelab/ops-console:9-adc281e8 # {"$imagepolicy": "flux-system:ops-console"}
           imagePullPolicy: Always
           ports:
             - name: http
