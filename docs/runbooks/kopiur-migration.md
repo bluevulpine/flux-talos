@@ -792,6 +792,9 @@ sit there, with no alert covering a stuck Restore.
       4. `volsync-claim`'s inert `dataSourceRef` (see "After the migration: the claim").
 - [ ] At decommission: flip `catalog.adoption` to `Adopt`? and decide on the pre-120 d
       VolSync tail
+- [ ] **After decommission: split the shared repositories per app.** Plan, measurements
+      (index 722 MB / 11× bloated and unmergeable; cross-app dedup 4 %) and cutover order in
+      `docs/runbooks/kopiur-per-app-repositories.md` (2026-10-23)
 - [x] The cluster runs kopiur **0.10.9**. The repositories patch (2 ClusterRepositories with
       `adoption: Ignore`, 18 ExternalSecrets) re-passed server dry-run against it on
       2026-09-22. The translator results above are still from 0.10.8
