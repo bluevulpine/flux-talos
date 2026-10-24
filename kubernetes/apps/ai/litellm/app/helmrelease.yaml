@@ -250,8 +250,9 @@ spec:
               # measured 18s to first token alongside short traffic), so one
               # route covers reflect too.
               #
-              #   spark-main          text. Falls back to the hosted copy when the
-              #                       Spark is down (router_settings.fallbacks).
+              #   spark-main          text. Falls back to the hosted copy, then to
+              #                       Haiku, when the Spark is down
+              #                       (router_settings.fallbacks).
               #   spark-main-vision   the same model, for requests carrying
               #                       images. NO fallback, so a photo never leaves
               #                       the house: that is the whole reason it is a
@@ -266,15 +267,18 @@ spec:
                   api_key: unused-no-auth
                   num_retries: 2
 
-              # hindsight's own name for the SAME Spark backend. It exists only so
-              # the fallback chain can differ: `router_settings.fallbacks` is per
+              # hindsight's own name for the SAME Spark backend. It exists so the
+              # fallback chain CAN differ: `router_settings.fallbacks` is per
               # route name and all-or-nothing, and the deployed LiteLLM does NOT
               # check a fallback target against the calling key's model list (the
               # hindsight key lists only spark-main and still reached Nous 123
-              # times on 2026-10-24; #2280 review). So the paid Anthropic stage
-              # below is attached to this name and nothing else: karakeep, mealie,
-              # n8n and node-red keep spark-main with its Nous-only fallback. The
-              # "one more rename" the privacy note describes.
+              # times on 2026-10-24; #2280 review). The paid Anthropic stage was
+              # attached to this name alone at first; later the same day
+              # spark-main got it too while Nous is out of credit (~2026-11-05),
+              # so today the two chains are identical. The name stays: it is
+              # cheap, and dropping Haiku from spark-main again once Nous has
+              # credit is a one-line change that leaves hindsight's chain alone.
+              # The "one more rename" the privacy note describes.
               - model_name: hindsight-main
                 litellm_params:
                   model: openai/qwen3.6-35b-a3b
@@ -379,19 +383,21 @@ spec:
               # consumer of the text routes (spark-main and hindsight-main), not
               # only hindsight:
               #   hindsight   session transcripts, commit diffs, knowledge pages
-              #               -- and, on `hindsight-main` only, a second stage to
-              #               Anthropic (claude-haiku-5-5) when Nous fails too
               #   karakeep    bookmark text being summarised/tagged
               #   mealie      recipe text (its settings live in its database)
               #   n8n, node-red   whatever a flow sends (none use it today)
+              # and since 2026-10-24 BOTH text routes have a second stage to
+              # Anthropic (claude-haiku-5-5) when Nous fails too, so any of the
+              # above can reach Anthropic as well as Nous's upstream.
               # homebox-companion is not affected: it uses the vision route for
               # everything, and vision does not fall back. This is the price of
               # not losing the memory, taken deliberately; the only off switch is
               # the fallbacks block, and it is all-or-nothing per route name.
               # karakeep and mealie share `spark-main`; hindsight has its own name
-              # (`hindsight-main`, since 2026-10-24) precisely so its chain can
-              # differ. Keeping karakeep or mealie local means the same rename for
-              # it: its own route name, falling back only as far as it should.
+              # (`hindsight-main`, since 2026-10-24) so its chain can differ when
+              # it needs to. Keeping karakeep or mealie local means the same
+              # rename for it: its own route name with no fallbacks entry, or one
+              # that falls back only as far as it should.
               #
               # `reasoning: {enabled: false}` is NOT optional. Hosted, the model
               # thinks by default: a one-word reply spent its whole 200-token cap
@@ -518,11 +524,13 @@ spec:
                   max_tokens: 32768
                   num_retries: 2
 
-              # Claude Haiku 5.5: the LAST stage of the `hindsight-main` fallback
-              # chain below, nothing else. What reaches it is Hindsight's
-              # background retain/consolidation/refresh (bulk fact extraction, the
-              # job Qwen3.6-35B does on the Spark) during a Spark outage, so the
-              # cheap tier is the right one: $0.10 in / $0.50 out per million
+              # Claude Haiku 5.5: the LAST stage of both text routes' fallback
+              # chains below (`hindsight-main` from the start, `spark-main` since
+              # later on 2026-10-24 while Nous is out of credit), nothing else.
+              # What reaches it is Hindsight's background retain/consolidation/
+              # refresh (bulk fact extraction, the job Qwen3.6-35B does on the
+              # Spark) and the other consumers' light traffic during a Spark
+              # outage, so the cheap tier is the right one: $0.10 in / $0.50 out per million
               # tokens on the pricing page as of 2026-10 (prompts up to 100k),
               # a fortieth of Opus. Added 2026-10-24 after the TensorFold test
               # window showed the Nous stage failing every request with
@@ -533,12 +541,14 @@ spec:
               # dropped: hindsight sends its per-stage effort (`none` for the
               # refresh chain) in the body and a fallback replays it, and LiteLLM
               # would turn it into Anthropic thinking parameters this model may
-              # reject. Spend is bounded by the hindsight key's max_budget per 30
-              # days (budget_duration 30d, set 2026-10-24; $25, raised to $95 the
-              # same day for the accuracy sweep, resets 2026-11-01). That cap is
-              # on the KEY, so once hit it also blocks hindsight's free Spark
-              # route until the window resets; the duration is what makes that a
-              # pause rather than a permanent lockout.
+              # reject. Hindsight's spend here is bounded by its key's max_budget
+              # per 30 days (budget_duration 30d, set 2026-10-24; $25, raised to
+              # $95 the same day for the accuracy sweep, resets 2026-11-01). That
+              # cap is on the KEY, so once hit it also blocks hindsight's free
+              # Spark route until the window resets; the duration is what makes
+              # that a pause rather than a permanent lockout. The spark-main
+              # consumers' keys carry no budget, so their fallback traffic is
+              # uncapped -- cents at their volumes, see the fallbacks comment.
               - model_name: claude-haiku-5-5
                 litellm_params:
                   model: anthropic/claude-haiku-5-5

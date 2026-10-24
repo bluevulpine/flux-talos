@@ -212,7 +212,7 @@ spec:
               async_operations where status='failed' and operation_type in
               ('retain','batch_retain') order by updated_at desc`.
           expr: |
-            sum(increase(hindsight_operation_operations_total{namespace="ai", operation="retain", success="false"}[30m])) >= 3
+            sum(increase(hindsight_operation_operations_total{namespace="ai", operation="retain", source="worker", success="false"}[30m])) >= 3
           for: 15m
           labels:
             severity: warning
