@@ -495,6 +495,25 @@ spec:
                   max_tokens: 32768
                   num_retries: 2
 
+              # GLM-5.3-Flash on TensorFold across both GB10s (spark-ab23 head,
+              # gx10-7ac6 worker; recipe ~/GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold
+              # on the spark, served on :8888 as `GLM-5.3-Flash-EXL3`). The third
+              # leg of the re-gate reflect comparison, after the Spark's Qwen3.6
+              # and claude-opus-5-5 above: same 12 questions, same grading. It is
+              # UP ONLY DURING A TEST WINDOW -- it needs ~110 GiB free per box, so
+              # production vLLM (spark-main) is stopped while it runs, and the
+              # route answers connection-refused the rest of the time. No fallback
+              # on purpose: a reflect that silently went to Nous would be graded
+              # as TensorFold. max_tokens matches the other two legs; thinking is
+              # the engine default, as it was for both of them.
+              - model_name: tensorfold-glm53-flash
+                litellm_params:
+                  model: openai/GLM-5.3-Flash-EXL3
+                  api_base: http://10.0.10.237:8888/v1
+                  api_key: unused-no-auth
+                  max_tokens: 32768
+                  num_retries: 2
+
             litellm_settings:
               drop_params: true
               # Response cache in the shared dragonfly, OPT-IN ONLY (default_off).
