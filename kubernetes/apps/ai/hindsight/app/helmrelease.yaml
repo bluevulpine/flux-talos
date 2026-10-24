@@ -375,7 +375,16 @@ spec:
               # name; both were the same backend, and the separate -long route for
               # reflect is gone with them.
               HINDSIGHT_API_LLM_PROVIDER: openai
-              HINDSIGHT_API_LLM_MODEL: hindsight-main
+              # 2026-10-24, TEMPORARY: pass 3 of the accuracy sweep re-extracts
+              # 812 documents (flux-talos, .buzz, spark-setup) on Claude Sonnet
+              # 5.5 through the `claude-sonnet-5-5-reextract` alias (litellm
+              # HelmRelease). Every retain rides it for the window, the Stop
+              # hook's included, at ~$0.02 per session retain. No fallback chain
+              # on the alias: a 429/529 is a failed op with the worker's retries,
+              # and HindsightRetainFailing now pages on that. Back to
+              # `hindsight-main` when the pass is graded (same PR as removing the
+              # alias). Was `hindsight-main` (`spark-main` before 2026-10-24).
+              HINDSIGHT_API_LLM_MODEL: claude-sonnet-5-5-reextract
 
               # --- retain concurrency: bounded against the account rate limit ---
               # DEFAULT_LLM_MAX_CONCURRENT is 32 (config.py:1126), i.e. up to 32
