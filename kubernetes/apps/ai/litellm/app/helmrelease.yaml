@@ -386,6 +386,8 @@ spec:
               #   karakeep    bookmark text being summarised/tagged
               #   mealie      recipe text (its settings live in its database)
               #   n8n, node-red   whatever a flow sends (none use it today)
+              #   hermes-agent    Wisp's prompts and tool output (the `spark`
+              #                   alias; the one consumer with real traffic)
               # and since 2026-10-24 BOTH text routes have a second stage to
               # Anthropic (claude-haiku-5-5) when Nous fails too, so any of the
               # above can reach Anthropic as well as Nous's upstream.
@@ -530,8 +532,9 @@ spec:
               # What reaches it is Hindsight's background retain/consolidation/
               # refresh (bulk fact extraction, the job Qwen3.6-35B does on the
               # Spark) and the other consumers' light traffic during a Spark
-              # outage, so the cheap tier is the right one: $0.10 in / $0.50 out per million
-              # tokens on the pricing page as of 2026-10 (prompts up to 100k),
+              # outage, so the cheap tier is the right one: $0.10 in / $0.50 out
+              # per million tokens on the pricing page as of 2026-10 (prompts up
+              # to 100k),
               # a fortieth of Opus. Added 2026-10-24 after the TensorFold test
               # window showed the Nous stage failing every request with
               # "Insufficient available credits" (balance $0.04 until 2026-11-05)
@@ -689,8 +692,9 @@ spec:
               # because Nous was empty and stays so until ~2026-11-05: during
               # the GB10 reboot that morning every spark-main consumer failed
               # outright while hindsight-main already had Haiku behind it. The
-              # consumers here (n8n, node-red, karakeep, homebox-companion,
-              # mealie, hermes-agent) carry no key budget, so an outage bills
+              # consumers here (n8n, node-red, karakeep, mealie, hermes-agent;
+              # homebox-companion's key lists spark-main but it only ever calls
+              # the vision route) carry no key budget, so an outage bills
               # Haiku uncapped -- acceptable at $0.10/$0.50 per million for
               # their volumes (hermes-agent is the only one with real traffic:
               # $0.05 lifetime on the Spark's API-equivalent price). The
