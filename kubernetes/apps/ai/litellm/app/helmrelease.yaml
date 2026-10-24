@@ -668,15 +668,28 @@ spec:
               #
               # Per route name, all-or-nothing, and NOT filtered by the calling
               # key's model list in the deployed version (see hindsight-main).
-              # spark-main keeps the single Nous stage. hindsight-main gets two,
-              # tried in order (LiteLLM: "fallbacks are done in-order"): Nous
-              # first because its credits are already paid for ($0.05/$0.70 per
-              # million); when they are spent it fails fast ("Insufficient
-              # available credits", seen 2026-10-24 at a $0.04 balance) and the
-              # request moves on to Haiku, which bills the Anthropic account.
+              # Both text routes get two stages, tried in order (LiteLLM:
+              # "fallbacks are done in-order"): Nous first because its credits
+              # are already paid for ($0.05/$0.70 per million); when they are
+              # spent it fails fast ("Insufficient available credits", seen
+              # 2026-10-24 at a $0.04 balance) and the request moves on to
+              # Haiku, which bills the Anthropic account.
+              #
+              # spark-main gained the Haiku stage on 2026-10-24 (Derek's call)
+              # because Nous was empty and stays so until ~2026-11-05: during
+              # the GB10 reboot that morning every spark-main consumer failed
+              # outright while hindsight-main already had Haiku behind it. The
+              # consumers here (n8n, node-red, karakeep, homebox-companion,
+              # mealie, hermes-agent) carry no key budget, so an outage bills
+              # Haiku uncapped -- acceptable at $0.10/$0.50 per million for
+              # their volumes (hermes-agent is the only one with real traffic:
+              # $0.05 lifetime on the Spark's API-equivalent price). The
+              # `claude-haiku-5-5` route does not need to be on their keys:
+              # fallback targets are not key-filtered in this version.
               fallbacks:
                 - spark-main:
                     - nous-qwen36-fallback
+                    - claude-haiku-5-5
                 - hindsight-main:
                     - nous-qwen36-fallback
                     - claude-haiku-5-5
