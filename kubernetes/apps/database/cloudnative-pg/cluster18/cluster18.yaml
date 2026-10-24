@@ -60,8 +60,10 @@ spec:
       # On 2026-10-24 an orphaned pg_dump on postgres18-2 stalled its replay for
       # ~21 h; its inactive slot held 8.4 GB on the primary, which climbed to 91 %
       # and would have filled in hours, taking every app on this cluster down with
-      # it. With a cap, a standby that falls this far behind loses its slot and
-      # must be rebuilt instead, which costs one replica rather than the primary.
+      # it. With a cap, a standby that falls this far behind loses its slot instead.
+      # It can usually still catch up from the barman WAL archive (replicas have a
+      # restore_command), and needs a rebuild only if the WAL it wants is missing
+      # there: at worst one replica, never the primary.
       # Reload-only (sighup): no restart.
       max_slot_wal_keep_size: 15GB
 
