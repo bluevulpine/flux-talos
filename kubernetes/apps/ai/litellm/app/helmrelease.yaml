@@ -474,10 +474,25 @@ spec:
               # Only in the `hindsight` virtual key, added with /key/update together
               # with a max_budget on that key so a runaway loop cannot spend the
               # credit. Remove the route, or keep it, once the comparison is graded.
+              #
+              # Measured 2026-10-24 against the API with LiteLLM's default
+              # anthropic-version: `temperature: 0.9` (hindsight's reflect default,
+              # DEFAULT_LLM_TEMPERATURE_REFLECT) returns 400 "`temperature` is
+              # deprecated for this model"; `temperature: 1` returns 200 WITH
+              # thinking tokens, so thinking is on without any thinking parameter.
+              # `drop_params` does not catch it (LiteLLM lists temperature as
+              # supported for Anthropic), hence the explicit list. max_tokens
+              # matches the Spark's 32k cap so a long synthesis is not cut at
+              # LiteLLM's small Anthropic default and misread as a worse answer.
               - model_name: claude-opus-5-5
                 litellm_params:
                   model: anthropic/claude-opus-5-5
                   api_key: os.environ/ANTHROPIC_API_KEY
+                  additional_drop_params:
+                    - temperature
+                    - top_p
+                    - top_k
+                  max_tokens: 32768
                   num_retries: 2
 
             litellm_settings:
