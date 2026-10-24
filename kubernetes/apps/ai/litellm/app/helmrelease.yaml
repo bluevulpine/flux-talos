@@ -388,9 +388,10 @@ spec:
               # everything, and vision does not fall back. This is the price of
               # not losing the memory, taken deliberately; the only off switch is
               # the fallbacks block, and it is all-or-nothing per route name.
-              # hindsight, karakeep and mealie share `spark-main`, so keeping one
-              # of them local means one more rename: give it (or hindsight) its
-              # own route name and fall back only the one that should.
+              # karakeep and mealie share `spark-main`; hindsight has its own name
+              # (`hindsight-main`, since 2026-10-24) precisely so its chain can
+              # differ. Keeping karakeep or mealie local means the same rename for
+              # it: its own route name, falling back only as far as it should.
               #
               # `reasoning: {enabled: false}` is NOT optional. Hosted, the model
               # thinks by default: a one-word reply spent its whole 200-token cap

@@ -337,8 +337,9 @@ spec:
               #
               # ⚠️ 2026-10-05: `spark-gpt-oss-20b` and `spark-gpt-oss-20b-long` became
               # Qwen3.6-35B-A3B behind LiteLLM, not gpt-oss, and on 2026-10-12 those
-              # routes were deleted from LiteLLM altogether (every stage sends
-              # `spark-main`, below). So in this file:
+              # routes were deleted from LiteLLM altogether (every Spark-bound stage
+              # sends `hindsight-main` since 2026-10-24, `spark-main` before that;
+              # see the route-names note further down). So in this file:
               #  - everything measured about gpt-oss's speed, reasoning tokens and
               #    harmony 500s describes the previous model;
               #  - the gpt-oss-era *_REASONING_EFFORT: low settings are REMOVED for
@@ -694,6 +695,12 @@ spec:
               # retain/consolidation into parse-retry storms — see the
               # STRICT_SCHEMA comment below), a litellm-routed member with the
               # forced-tool option, or an Anthropic-compatible second endpoint.
+              # 2026-10-24: a hosted stage is back -- `hindsight-main`'s chain in
+              # the litellm HelmRelease ends at `claude-haiku-5-5`, reached
+              # through LiteLLM's own Anthropic translation of response_format,
+              # not Azure's. Checked before merging #2280 with a strict
+              # FactExtractionResponse-shaped request ($ref with a sibling
+              # description) through the sibling Opus route: see that PR.
               # --- reflect -> DGX Spark via LiteLLM ---
               # As of 2026-09-24 this stage is the user-invoked `reflect` tool ONLY.
               # Automatic refresh (`refresh_mental_model` and
