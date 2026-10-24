@@ -29,15 +29,31 @@ spec:
           - name: alertname
             value: Watchdog
             matchType: =
-      # Critical alerts get their own receiver so they page differently from warnings:
-      # until 2026-10-24 every alert went out at priority 1 with one sound, and the
-      # critical "postgres18-2 volume full" (09:22Z) looked exactly like the ~160
-      # warning pushes a day around it. It sat for ~10 h.
+      # Three tiers, so severity is visible on the phone. Until 2026-10-24 every alert
+      # went out at priority 1 with one sound, and the critical "postgres18-2 volume
+      # full" (09:22Z) looked exactly like the ~160 warning pushes a day around it.
+      # It sat for ~10 h.
+      #
+      # 1. Emergency: an opt-in list of criticals that cannot wait for morning. Most
+      #    criticals here are data-loss-within-days (collector jobs, upstream
+      #    retention windows) and some stay firing for days; paging those as
+      #    emergencies would have sirened ~3x a day over the 30 days to 2026-10-24.
+      #    This list fired 6 times in that window. Add an alert by name.
+      - receiver: pushover-emergency
+        matchers:
+          - name: severity
+            value: critical
+            matchType: =
+          - name: alertname
+            value: PGReplication|KubePersistentVolumeFillingUp|etcdInsufficientMembers|KubeAPIDown|FluxInstanceAbsent|FluxComponentAbsent
+            matchType: =~
+      # 2. Every other critical: high priority, as all alerts were before.
       - receiver: pushover-critical
         matchers:
           - name: severity
             value: critical
             matchType: =
+            # 3. Warnings and anything unlabelled fall through to the default receiver.
   inhibitRules:
     # A firing critical mutes the warning of the same alertname+namespace (the
     # usual warning/critical threshold pair). The warning matcher must be in
@@ -61,7 +77,8 @@ spec:
         - urlSecret:
             name: &secret alertmanager-secret
             key: ALERTMANAGER_HEARTBEAT_URL
-    # Warnings (the default route): normal priority.
+    # Warnings (the default route): normal priority. The other two Pushover
+    # receivers merge this one (<<: *pushover) and override priority/sound.
     - name: pushover
       pushoverConfigs:
         - &pushover
@@ -98,10 +115,17 @@ spec:
             name: *secret
             key: PUSHOVER_USER_KEY
           urlTitle: View in Alertmanager
-    # Critical: Pushover emergency priority (2), which re-alerts every `retry` until
-    # acknowledged or `expire` passes; the route's repeatInterval (4h) pages again
-    # if it is still firing after that. Resolved notices drop to normal priority.
     - name: pushover-critical
+      pushoverConfigs:
+        - <<: *pushover
+          priority: |-
+            {{ if eq .Status "firing" }}1{{ else }}0{{ end }}
+    # Pushover emergency priority (2) re-alerts every `retry` until acknowledged or
+    # `expire` passes, and the route's repeatInterval (4h) pages again while it is
+    # still firing. The resolved notice is a separate normal message: it does NOT
+    # cancel the retries, so a siren after the resolve is not proof it still fires.
+    # Each new notification for a group (a new alert joining) is its own emergency.
+    - name: pushover-emergency
       pushoverConfigs:
         - <<: *pushover
           priority: |-
