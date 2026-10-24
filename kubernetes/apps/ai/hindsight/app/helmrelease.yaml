@@ -337,8 +337,9 @@ spec:
               #
               # ⚠️ 2026-10-05: `spark-gpt-oss-20b` and `spark-gpt-oss-20b-long` became
               # Qwen3.6-35B-A3B behind LiteLLM, not gpt-oss, and on 2026-10-12 those
-              # routes were deleted from LiteLLM altogether (every stage sends
-              # `spark-main`, below). So in this file:
+              # routes were deleted from LiteLLM altogether (every Spark-bound stage
+              # sends `hindsight-main` since 2026-10-24, `spark-main` before that;
+              # see the route-names note further down). So in this file:
               #  - everything measured about gpt-oss's speed, reasoning tokens and
               #    harmony 500s describes the previous model;
               #  - the gpt-oss-era *_REASONING_EFFORT: low settings are REMOVED for
@@ -360,13 +361,19 @@ spec:
               # call on the same 15 inputs). Pages that only ever grew will now
               # also shrink. Spot-read a refreshed page for over-removal.
               #
-              # Route names: every stage uses `spark-main` since 2026-10-05, a
-              # model-neutral LiteLLM name (see the litellm HelmRelease). Wherever
-              # this file says spark-gpt-oss-20b or spark-gpt-oss-20b-long it means
-              # the route these stages USED to name; both were the same backend,
-              # and the separate -long route for reflect is gone with them.
+              # Route names: every Spark-bound stage uses `hindsight-main` since
+              # 2026-10-24, hindsight's own LiteLLM name for the same backend as
+              # `spark-main` (used 2026-10-05..24). The rename exists so hindsight's
+              # fallback chain (Nous, then claude-haiku-5-5 on the Anthropic
+              # account) can differ from everyone else's Nous-only one: LiteLLM
+              # fallbacks are per route name and the deployed version does not
+              # filter targets by the calling key. Reflect names its model directly
+              # below. Wherever this file says spark-gpt-oss-20b or
+              # spark-gpt-oss-20b-long it means the route these stages USED to
+              # name; both were the same backend, and the separate -long route for
+              # reflect is gone with them.
               HINDSIGHT_API_LLM_PROVIDER: openai
-              HINDSIGHT_API_LLM_MODEL: spark-main
+              HINDSIGHT_API_LLM_MODEL: hindsight-main
 
               # --- retain concurrency: bounded against the account rate limit ---
               # DEFAULT_LLM_MAX_CONCURRENT is 32 (config.py:1126), i.e. up to 32
@@ -688,6 +695,12 @@ spec:
               # retain/consolidation into parse-retry storms — see the
               # STRICT_SCHEMA comment below), a litellm-routed member with the
               # forced-tool option, or an Anthropic-compatible second endpoint.
+              # 2026-10-24: a hosted stage is back -- `hindsight-main`'s chain in
+              # the litellm HelmRelease ends at `claude-haiku-5-5`, reached
+              # through LiteLLM's own Anthropic translation of response_format,
+              # not Azure's. Checked before merging #2280 with a strict
+              # FactExtractionResponse-shaped request ($ref with a sibling
+              # description) through the sibling Opus route: see that PR.
               # --- reflect -> DGX Spark via LiteLLM ---
               # As of 2026-09-24 this stage is the user-invoked `reflect` tool ONLY.
               # Automatic refresh (`refresh_mental_model` and
@@ -799,16 +812,19 @@ spec:
               # The virtual key must allow this model_name before this deploys; see
               # the note above HINDSIGHT_API_LLM_API_KEY in the ExternalSecret.
               #
-              # 2026-10-24, TEMPORARY: reflect goes to Claude Opus 5.5 through
-              # LiteLLM's `claude-opus-5-5` route (see that HelmRelease) for the
-              # re-gate comparison; every other stage stays on spark-main. Put
-              # `spark-main` back, and restore the REASONING_EFFORT line below,
-              # when the comparison is graded. Was `spark-main`.
-              #
-              # Third leg: `tensorfold-glm53-flash` (GLM-5.3-Flash on TensorFold
-              # across both GB10s) for one test window only -- the route is dead
-              # outside it, so this goes back to `claude-opus-5-5` the same day.
-              HINDSIGHT_API_REFLECT_LLM_MODEL: tensorfold-glm53-flash
+              # 2026-10-24: reflect goes to Claude Opus 5.5 through LiteLLM's
+              # `claude-opus-5-5` route (see that HelmRelease); every other stage
+              # is on `hindsight-main`. The three-leg comparison (vault
+              # Evals/2026-10-17-hindsight-regate-set2.md) on the same 12
+              # questions: Spark Qwen3.6 9 wrong facts / 91 s median, Opus 5 /
+              # 72 s, TensorFold GLM-5.3-Flash 10 / 200 s (03:19-04:24Z, needs
+              # production vLLM off). Whether reflect stays here is Derek's call
+              # on those numbers. To move it back to the Spark: set this to
+              # `hindsight-main` (NOT `spark-main`: that name carries the
+              # Nous-only fallback and would split hindsight across two chains)
+              # and restore the REASONING_EFFORT line below. Was `spark-main`
+              # until 2026-10-24.
+              HINDSIGHT_API_REFLECT_LLM_MODEL: claude-opus-5-5
               # Thinking ON for user-invoked reflect. On Qwen any effort but "none"
               # switches thinking on (see the note above HINDSIGHT_API_LLM_PROVIDER).
               #
@@ -894,7 +910,7 @@ spec:
               # virtual key to api.openai.com (it did, once, on 2026-09-24); see the
               # note beside HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_BASE_URL.
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_PROVIDER: openai
-              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL: spark-main
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL: hindsight-main
               # Thinking OFF for the automatic page refreshes since 2026-10-14; it was
               # ON from 2026-10-05 evening (#2086) on the quality result below, with
               # the condition that failed refresh_mental_model rows be watched for a
@@ -983,7 +999,7 @@ spec:
               # natively. Only the model name and the base URL in the
               # ExternalSecret change.
               HINDSIGHT_API_CONSOLIDATION_LLM_PROVIDER: openai
-              HINDSIGHT_API_CONSOLIDATION_LLM_MODEL: spark-main
+              HINDSIGHT_API_CONSOLIDATION_LLM_MODEL: hindsight-main
               # HINDSIGHT_API_LLM_TEMPERATURE_CONSOLIDATION: none was here, and
               # removing it is REQUIRED, not cleanup. It existed solely because
               # the gpt-5 family rejects an explicit temperature and would 400 on
