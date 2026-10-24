@@ -545,6 +545,13 @@ spec:
                     - reasoning_effort
                   max_tokens: 32768
                   num_retries: 2
+                # Pinned so the key budget counts this route even if the deployed
+                # LiteLLM's cost map predates the model (a $0 price would make the
+                # $25 cap a no-op here). Anthropic list price as of 2026-10 for
+                # prompts up to 100k tokens: $0.10 / $0.50 per million.
+                model_info:
+                  input_cost_per_token: 0.0000001
+                  output_cost_per_token: 0.0000005
 
               # GLM-5.3-Flash on TensorFold across both GB10s (spark-ab23 head,
               # gx10-7ac6 worker; recipe ~/GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold
