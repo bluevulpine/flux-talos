@@ -29,7 +29,11 @@ spec:
           - name: alertname
             value: Watchdog
             matchType: =
-      - receiver: pushover
+      # Critical alerts get their own receiver so they page differently from warnings:
+      # until 2026-10-24 every alert went out at priority 1 with one sound, and the
+      # critical "postgres18-2 volume full" (09:22Z) looked exactly like the ~160
+      # warning pushes a day around it. It sat for ~10 h.
+      - receiver: pushover-critical
         matchers:
           - name: severity
             value: critical
@@ -57,9 +61,11 @@ spec:
         - urlSecret:
             name: &secret alertmanager-secret
             key: ALERTMANAGER_HEARTBEAT_URL
+    # Warnings (the default route): normal priority.
     - name: pushover
       pushoverConfigs:
-        - html: true
+        - &pushover
+          html: true
           message: |-
             {{- range .Alerts }}
               {{- if ne .Annotations.description "" }}
@@ -79,8 +85,7 @@ spec:
                 </small>
               {{- end }}
             {{- end }}
-          priority: |-
-            {{ if eq .Status "firing" }}1{{ else }}0{{ end }}
+          priority: "0"
           sendResolved: true
           sound: gamelan
           title: >-
@@ -93,3 +98,14 @@ spec:
             name: *secret
             key: PUSHOVER_USER_KEY
           urlTitle: View in Alertmanager
+    # Critical: Pushover emergency priority (2), which re-alerts every `retry` until
+    # acknowledged or `expire` passes; the route's repeatInterval (4h) pages again
+    # if it is still firing after that. Resolved notices drop to normal priority.
+    - name: pushover-critical
+      pushoverConfigs:
+        - <<: *pushover
+          priority: |-
+            {{ if eq .Status "firing" }}2{{ else }}0{{ end }}
+          retry: 5m
+          expire: 1h
+          sound: siren
