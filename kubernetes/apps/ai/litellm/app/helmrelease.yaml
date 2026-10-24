@@ -474,7 +474,8 @@ spec:
                   api_key: os.environ/NOUS_API_KEY
 
               # Claude Opus 5.5 at Anthropic, for ONE consumer: hindsight's reflect
-              # stage, as a controlled comparison. The set-2 re-gate rerun of
+              # stage, as a controlled comparison (the refresh/consolidation sweep
+              # of 2026-10-24 uses the `-sweep` alias below, not this name). The set-2 re-gate rerun of
               # 2026-10-23 (Evals/2026-10-17-hindsight-regate-set2.md in the vault)
               # passed the novelty bar (16/20) but asserted 9 wrong facts; some are
               # stale records in the bank, some are synthesis errors. Running only
@@ -511,13 +512,34 @@ spec:
                     - temperature
                     - top_p
                     - top_k
-                    # The refresh and consolidation stages send their own effort
-                    # (`none` for refresh), which LiteLLM would turn into
-                    # "thinking disabled" -- a 400 on Opus 5.5 at every effort
-                    # level. Dropped here as on the Haiku route (2026-10-24).
+                  max_tokens: 32768
+                  num_retries: 2
+
+              # The same model under a second name for the 2026-10-24 accuracy
+              # sweep (hindsight's refresh and consolidation stages, TEMPORARY --
+              # see that HelmRelease). Separate from the reflect route above so
+              # the one difference stays scoped: those stages send their own
+              # `reasoning_effort` (`none` for refresh), which LiteLLM would turn
+              # into "thinking disabled", a 400 on Opus 5.5 at every effort level
+              # (measured 2026-10-24); reflect's parameters are left exactly as
+              # they were for the graded comparison. Price pinned as on the Haiku
+              # route so the key cap counts ~70 % of hindsight's calls for sure:
+              # $4 / $20 per million, list price as of 2026-10. Remove with the
+              # sweep, or keep it if a stage stays on Opus.
+              - model_name: claude-opus-5-5-sweep
+                litellm_params:
+                  model: anthropic/claude-opus-5-5
+                  api_key: os.environ/ANTHROPIC_API_KEY
+                  additional_drop_params:
+                    - temperature
+                    - top_p
+                    - top_k
                     - reasoning_effort
                   max_tokens: 32768
                   num_retries: 2
+                model_info:
+                  input_cost_per_token: 0.000004
+                  output_cost_per_token: 0.00002
 
               # Claude Haiku 5.5: the LAST stage of the `hindsight-main` fallback
               # chain below, nothing else. What reaches it is Hindsight's
@@ -534,11 +556,12 @@ spec:
               # dropped: hindsight sends its per-stage effort (`none` for the
               # refresh chain) in the body and a fallback replays it, and LiteLLM
               # would turn it into Anthropic thinking parameters this model may
-              # reject. Spend is bounded by the hindsight key's max_budget: $25
-              # per 30 days (budget_duration 30d, set 2026-10-24). That cap is on
-              # the KEY, so once hit it also blocks hindsight's free Spark route
-              # until the window resets; the duration is what makes that a pause
-              # rather than a permanent lockout.
+              # reject. Spend is bounded by the hindsight key's max_budget per 30
+              # days (budget_duration 30d, set 2026-10-24; $25, raised to $95 the
+              # same day for the accuracy sweep, resets 2026-11-01). That cap is
+              # on the KEY, so once hit it also blocks hindsight's free Spark
+              # route until the window resets; the duration is what makes that a
+              # pause rather than a permanent lockout.
               - model_name: claude-haiku-5-5
                 litellm_params:
                   model: anthropic/claude-haiku-5-5
