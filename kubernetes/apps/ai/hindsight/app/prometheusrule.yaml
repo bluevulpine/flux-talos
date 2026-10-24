@@ -185,3 +185,34 @@ spec:
           for: 1h
           labels:
             severity: warning
+
+        # Retains failing while everything above reads healthy. On 2026-10-24
+        # the Spark was rebooted and Nous had no credit: 123 retains failed in
+        # ~80 minutes, the pods stayed Ready, the backlog never reached 50
+        # (failed ops leave the queue), Gatus kept the LLM route green on its
+        # one-token probe, and nothing paged. The retain counter carries a
+        # `success` label (verified on the worker's /metrics 2026-10-24:
+        # hindsight_operation_operations_total{operation="retain",
+        # source="worker", success="true"|"false"}), so this is a rate: it
+        # resolves on its own once retains succeed again, unlike
+        # hindsight_async_operations{status="failed"}, which counts ops that
+        # exhausted their retries and stays up until someone deletes or
+        # requeues them (`…/operations/{id}/delete`). Three in 30 minutes
+        # clears the odd oversized document that fails on its own.
+        - alert: HindsightRetainFailing
+          annotations:
+            summary: >-
+              {{ $value | printf "%.0f" }} Hindsight retains failed in the last
+              30m while the pods read healthy — memory is silently not being
+              written. The LLM path is the usual cause: check LiteLLM
+              (`kubectl logs -n ai deploy/litellm | grep -i fallback`), vLLM on
+              the Spark, and the fallback chain's credit (Nous "Insufficient
+              available credits"). The failed ops themselves:
+              `select operation_id, bank_id, error_message from
+              async_operations where status='failed' and operation_type in
+              ('retain','batch_retain') order by updated_at desc`.
+          expr: |
+            sum(increase(hindsight_operation_operations_total{namespace="ai", operation="retain", success="false"}[30m])) >= 3
+          for: 15m
+          labels:
+            severity: warning
