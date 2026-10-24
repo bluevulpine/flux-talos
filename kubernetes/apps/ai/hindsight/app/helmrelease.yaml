@@ -804,7 +804,11 @@ spec:
               # re-gate comparison; every other stage stays on spark-main. Put
               # `spark-main` back, and restore the REASONING_EFFORT line below,
               # when the comparison is graded. Was `spark-main`.
-              HINDSIGHT_API_REFLECT_LLM_MODEL: claude-opus-5-5
+              #
+              # Third leg: `tensorfold-glm53-flash` (GLM-5.3-Flash on TensorFold
+              # across both GB10s) for one test window only -- the route is dead
+              # outside it, so this goes back to `claude-opus-5-5` the same day.
+              HINDSIGHT_API_REFLECT_LLM_MODEL: tensorfold-glm53-flash
               # Thinking ON for user-invoked reflect. On Qwen any effort but "none"
               # switches thinking on (see the note above HINDSIGHT_API_LLM_PROVIDER).
               #
