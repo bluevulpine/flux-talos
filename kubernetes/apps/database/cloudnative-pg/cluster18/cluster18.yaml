@@ -27,8 +27,12 @@ spec:
   # a switchover is a few seconds of dropped connections on the -rw service.
   primaryUpdateMethod: switchover
 
+  # 70Gi since 2026-10-24: at 50Gi all three sat at ~91 % (~37 GB data + ~8 GB WAL),
+  # and postgres18-2 filled up when its replay stalled (see max_slot_wal_keep_size
+  # below). Its PVC was expanded by hand during that incident; this brings the
+  # spec and the other two to match. resizeInUseVolumes (default) grows them online.
   storage:
-    size: 50Gi
+    size: 70Gi
     storageClass: longhorn-1-replica-local
 
   # Required (not CNPG's default preferred/soft) anti-affinity. With the soft rule,
@@ -52,6 +56,14 @@ spec:
     parameters:
       max_connections: "400"
       shared_buffers: 256MB
+      # Cap the WAL a replication slot can pin on the primary (default -1: no cap).
+      # On 2026-10-24 an orphaned pg_dump on postgres18-2 stalled its replay for
+      # ~21 h; its inactive slot held 8.4 GB on the primary, which climbed to 91 %
+      # and would have filled in hours, taking every app on this cluster down with
+      # it. With a cap, a standby that falls this far behind loses its slot and
+      # must be rebuilt instead, which costs one replica rather than the primary.
+      # Reload-only (sighup): no restart.
+      max_slot_wal_keep_size: 15GB
 
   resources:
     requests:
