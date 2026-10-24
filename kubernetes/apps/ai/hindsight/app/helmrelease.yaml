@@ -910,7 +910,16 @@ spec:
               # virtual key to api.openai.com (it did, once, on 2026-09-24); see the
               # note beside HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_BASE_URL.
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_PROVIDER: openai
-              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL: hindsight-main
+              # 2026-10-24, TEMPORARY for the accuracy sweep (vault
+              # Evals/2026-10-17-hindsight-regate-set2.md, "sweep"): every bank's
+              # knowledge pages are re-synthesised once on Claude Opus 5.5, paid
+              # from the monthly API credit, because the Spark's pages carried
+              # stale facts and duplicated sections that three graded legs kept
+              # tripping on. Back to `hindsight-main` when the sweep is graded.
+              # The `-sweep` alias (litellm HelmRelease) is Opus with this stage's
+              # `reasoning_effort: none` dropped; reflect keeps the plain route.
+              # Was `hindsight-main` (`spark-main` before 2026-10-24).
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL: claude-opus-5-5-sweep
               # Thinking OFF for the automatic page refreshes since 2026-10-14; it was
               # ON from 2026-10-05 evening (#2086) on the quality result below, with
               # the condition that failed refresh_mental_model rows be watched for a
@@ -999,7 +1008,16 @@ spec:
               # natively. Only the model name and the base URL in the
               # ExternalSecret change.
               HINDSIGHT_API_CONSOLIDATION_LLM_PROVIDER: openai
-              HINDSIGHT_API_CONSOLIDATION_LLM_MODEL: hindsight-main
+              # 2026-10-24, TEMPORARY with the refresh stage above: consolidation
+              # on Opus for the sweep window, so the observations the re-synthesised
+              # pages draw on are rebuilt by the same model. Every retain's
+              # consolidation rides this for the window, not only the sweep, and
+              # an Anthropic 429/529 is a failed op with worker retries (no
+              # fallback chain on the Opus routes): keep the window short, and
+              # move this line back first if spend outruns the refresh count.
+              # Back to `hindsight-main` with the refresh line above. Was
+              # `hindsight-main` (`spark-main` before 2026-10-24).
+              HINDSIGHT_API_CONSOLIDATION_LLM_MODEL: claude-opus-5-5-sweep
               # HINDSIGHT_API_LLM_TEMPERATURE_CONSOLIDATION: none was here, and
               # removing it is REQUIRED, not cleanup. It existed solely because
               # the gpt-5 family rejects an explicit temperature and would 400 on
