@@ -511,6 +511,11 @@ spec:
                     - temperature
                     - top_p
                     - top_k
+                    # The refresh and consolidation stages send their own effort
+                    # (`none` for refresh), which LiteLLM would turn into
+                    # "thinking disabled" -- a 400 on Opus 5.5 at every effort
+                    # level. Dropped here as on the Haiku route (2026-10-24).
+                    - reasoning_effort
                   max_tokens: 32768
                   num_retries: 2
 
