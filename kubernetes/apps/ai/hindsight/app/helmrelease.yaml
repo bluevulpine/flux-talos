@@ -887,7 +887,8 @@ spec:
               # Four reflects at ~119k would not fit the KV cache beside the other
               # stages, which is why REFLECT_LLM_MAX_CONCURRENT dropped to 3 with it.
               HINDSIGHT_API_REFLECT_MAX_CONTEXT_TOKENS: "100000"
-              # Keep automatic mental-model refreshes on spark-gpt-oss-20b. Unset,
+              # Keep automatic mental-model refreshes on their own route (today
+              # `hindsight-main`; it was spark-gpt-oss-20b until 2026-10-12). Unset,
               # the refresh chain inherits reflect's config (memory_engine, #4463).
               # That mattered while -long was a one-slot ollama: a daily refresh of
               # 7 pages at ~10 minutes each would have held the slot and queued every
