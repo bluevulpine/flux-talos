@@ -495,6 +495,32 @@ spec:
                   max_tokens: 32768
                   num_retries: 2
 
+              # Claude Haiku 5.5: the LAST stage of the `spark-main` fallback chain
+              # below, nothing else. What reaches it is Hindsight's background
+              # retain/consolidation (bulk fact extraction, the job Qwen3.6-35B
+              # does on the Spark) during a Spark outage, so the cheap tier is the
+              # right one: $0.10/$0.50 per million tokens, about 40x under Opus.
+              # Added 2026-10-24 after the TensorFold test window showed the Nous
+              # stage failing every request with "Insufficient available credits"
+              # (balance $0.04 until 2026-11-05) while Gatus's one-token probe on
+              # it kept passing: 123 retains failed in an hour with no fallback.
+              # Same Anthropic key and the same parameter hygiene as the Opus
+              # route. Fallback targets are authorised against the CALLING key's
+              # model list and budget (LiteLLM docs, "targets the caller may not
+              # use are skipped"), so a consumer opts into this stage by having
+              # `claude-haiku-5-5` in its virtual key; today only `hindsight` does,
+              # under its $25 max_budget.
+              - model_name: claude-haiku-5-5
+                litellm_params:
+                  model: anthropic/claude-haiku-5-5
+                  api_key: os.environ/ANTHROPIC_API_KEY
+                  additional_drop_params:
+                    - temperature
+                    - top_p
+                    - top_k
+                  max_tokens: 32768
+                  num_retries: 2
+
               # GLM-5.3-Flash on TensorFold across both GB10s (spark-ab23 head,
               # gx10-7ac6 worker; recipe ~/GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold
               # on the spark, served on :8888 as `GLM-5.3-Flash-EXL3`). The third
@@ -601,11 +627,19 @@ spec:
               # in a nested error ("Connection error.. Error doing the fallback:
               # AuthenticationError.."), so a Spark outage reads as an auth
               # problem somewhere else. That is what an exhausted Azure member did
-              # here in 2026-09. If the Nous key or credits lapse, remove this
-              # block rather than leave it.
+              # here in 2026-09.
+              #
+              # Two stages, tried in order (LiteLLM: "fallbacks are done
+              # in-order"). Nous stays first because it is free while it has
+              # credit; when it is spent it fails fast ("Insufficient available
+              # credits", seen 2026-10-24 at a $0.04 balance) and the request
+              # moves on to Haiku, which costs money but answers. Each target is
+              # checked against the calling key's model list and budget, so a key
+              # without `claude-haiku-5-5` stops at Nous as before.
               fallbacks:
                 - spark-main:
                     - nous-qwen36-fallback
+                    - claude-haiku-5-5
     persistence:
       config:
         type: configMap

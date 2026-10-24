@@ -805,10 +805,13 @@ spec:
               # `spark-main` back, and restore the REASONING_EFFORT line below,
               # when the comparison is graded. Was `spark-main`.
               #
-              # Third leg: `tensorfold-glm53-flash` (GLM-5.3-Flash on TensorFold
-              # across both GB10s) for one test window only -- the route is dead
-              # outside it, so this goes back to `claude-opus-5-5` the same day.
-              HINDSIGHT_API_REFLECT_LLM_MODEL: tensorfold-glm53-flash
+              # Third leg done 2026-10-24 03:19-04:24Z: `tensorfold-glm53-flash`
+              # (GLM-5.3-Flash on TensorFold across both GB10s) answered the same
+              # 12 questions with 10 wrong facts and a 200 s median, against the
+              # Spark's 9 / 91 s and Opus's 5 / 72 s (vault Evals/2026-10-17-
+              # hindsight-regate-set2.md). Back on Opus; whether it stays here or
+              # returns to `spark-main` is Derek's call on those numbers.
+              HINDSIGHT_API_REFLECT_LLM_MODEL: claude-opus-5-5
               # Thinking ON for user-invoked reflect. On Qwen any effort but "none"
               # switches thinking on (see the note above HINDSIGHT_API_LLM_PROVIDER).
               #
