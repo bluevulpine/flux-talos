@@ -454,6 +454,32 @@ spec:
                   api_base: https://inference-api.nousresearch.com/v1
                   api_key: os.environ/NOUS_API_KEY
 
+              # Claude Opus 5.5 at Anthropic, for ONE consumer: hindsight's reflect
+              # stage, as a controlled comparison. The set-2 re-gate rerun of
+              # 2026-10-23 (Evals/2026-10-17-hindsight-regate-set2.md in the vault)
+              # passed the novelty bar (16/20) but asserted 9 wrong facts; some are
+              # stale records in the bank, some are synthesis errors. Running only
+              # reflect on Claude, with the bank untouched, separates the two: a
+              # wrong fact that survives here is the bank's, one that vanishes was
+              # the Spark model's. Paid for by the account's monthly API credit.
+              #
+              # Why through LiteLLM and not hindsight's own `anthropic` provider:
+              # one place for the key and spend, and `drop_params` strips whatever
+              # the OpenAI-shaped caller sends that Anthropic rejects. LiteLLM
+              # sends its own `anthropic-version`, so the 2026-10-21 API version's
+              # refusal of `temperature` does not apply. No reasoning_effort pinned:
+              # Opus 5.5 thinks adaptively on its own, and the Qwen rule that "any
+              # effort but none switches thinking on" is not this model's.
+              #
+              # Only in the `hindsight` virtual key, added with /key/update together
+              # with a max_budget on that key so a runaway loop cannot spend the
+              # credit. Remove the route, or keep it, once the comparison is graded.
+              - model_name: claude-opus-5-5
+                litellm_params:
+                  model: anthropic/claude-opus-5-5
+                  api_key: os.environ/ANTHROPIC_API_KEY
+                  num_retries: 2
+
             litellm_settings:
               drop_params: true
               # Response cache in the shared dragonfly, OPT-IN ONLY (default_off).

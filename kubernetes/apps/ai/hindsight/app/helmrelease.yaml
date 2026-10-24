@@ -798,7 +798,13 @@ spec:
               #
               # The virtual key must allow this model_name before this deploys; see
               # the note above HINDSIGHT_API_LLM_API_KEY in the ExternalSecret.
-              HINDSIGHT_API_REFLECT_LLM_MODEL: spark-main
+              #
+              # 2026-10-24, TEMPORARY: reflect goes to Claude Opus 5.5 through
+              # LiteLLM's `claude-opus-5-5` route (see that HelmRelease) for the
+              # re-gate comparison; every other stage stays on spark-main. Put
+              # `spark-main` back, and restore the REASONING_EFFORT line below,
+              # when the comparison is graded. Was `spark-main`.
+              HINDSIGHT_API_REFLECT_LLM_MODEL: claude-opus-5-5
               # Thinking ON for user-invoked reflect. On Qwen any effort but "none"
               # switches thinking on (see the note above HINDSIGHT_API_LLM_PROVIDER).
               #
@@ -816,7 +822,12 @@ spec:
               # on a short clock any more -- autoReflect is off in the plugin and
               # the reflect tool's timeout is 10 minutes. If the session-start
               # hook's reflect is ever turned back on, this has to go.
-              HINDSIGHT_API_REFLECT_LLM_REASONING_EFFORT: low
+              #
+              # Unset while reflect runs on Claude (above): the Qwen measurement
+              # does not transfer, Opus 5.5 reasons adaptively without being asked,
+              # and LiteLLM would otherwise translate `low` into Anthropic thinking
+              # parameters this model may reject. Restore with the model line.
+              # HINDSIGHT_API_REFLECT_LLM_REASONING_EFFORT: low
               # Sized when reflect's window was 98,304 (it is 131,072 on vLLM now),
               # NOT to the default of 100,000, which was past it. The cap bounds the
               # context reflect accumulates before it is forced to answer, and the
