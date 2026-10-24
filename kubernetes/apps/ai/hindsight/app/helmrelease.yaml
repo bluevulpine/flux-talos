@@ -887,7 +887,8 @@ spec:
               # Four reflects at ~119k would not fit the KV cache beside the other
               # stages, which is why REFLECT_LLM_MAX_CONCURRENT dropped to 3 with it.
               HINDSIGHT_API_REFLECT_MAX_CONTEXT_TOKENS: "100000"
-              # Keep automatic mental-model refreshes on spark-gpt-oss-20b. Unset,
+              # Keep automatic mental-model refreshes on their own route (today
+              # `hindsight-main`; it was spark-gpt-oss-20b until 2026-10-12). Unset,
               # the refresh chain inherits reflect's config (memory_engine, #4463).
               # That mattered while -long was a one-slot ollama: a daily refresh of
               # 7 pages at ~10 minutes each would have held the slot and queued every
@@ -910,16 +911,18 @@ spec:
               # virtual key to api.openai.com (it did, once, on 2026-09-24); see the
               # note beside HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_BASE_URL.
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_PROVIDER: openai
-              # 2026-10-24, TEMPORARY for the accuracy sweep (vault
-              # Evals/2026-10-17-hindsight-regate-set2.md, "sweep"): every bank's
-              # knowledge pages are re-synthesised once on Claude Opus 5.5, paid
-              # from the monthly API credit, because the Spark's pages carried
-              # stale facts and duplicated sections that three graded legs kept
-              # tripping on. Back to `hindsight-main` when the sweep is graded.
-              # The `-sweep` alias (litellm HelmRelease) is Opus with this stage's
-              # `reasoning_effort: none` dropped; reflect keeps the plain route.
-              # Was `hindsight-main` (`spark-main` before 2026-10-24).
-              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL: claude-opus-5-5-sweep
+              # On 2026-10-24 this ran for one day on Claude Opus 5.5 (the
+              # `claude-opus-5-5-sweep` LiteLLM alias, #2282) so every bank's
+              # pages were re-synthesised once after a correction pass: the
+              # accuracy sweep in vault Evals/2026-10-17-hindsight-regate-set2.md.
+              # 97 pages across 16 banks; a full refresh cost ~$0.45 (5 calls,
+              # ~91k input tokens), a refresh with little new ~$0.10. The
+              # re-ask moved the four re-tested questions from 5 wrong facts to 1,
+              # and that one came from stale memory units the pages faithfully
+              # summarised; curating the units fixed it, not the model. So the
+              # stage is back on the Spark: `hindsight-main` (`spark-main`
+              # before 2026-10-24).
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL: hindsight-main
               # Thinking OFF for the automatic page refreshes since 2026-10-14; it was
               # ON from 2026-10-05 evening (#2086) on the quality result below, with
               # the condition that failed refresh_mental_model rows be watched for a
@@ -990,7 +993,7 @@ spec:
               # this migration, not assumed — see the retain block above.
               HINDSIGHT_API_LLM_STRICT_SCHEMA: "true"
 
-              # --- consolidation -> DGX Spark via LiteLLM ---
+              # --- consolidation -> DGX Spark via LiteLLM (hindsight-main) ---
               # Consolidation is the bulk of the volume: on 2026-09-07 it was 700
               # of 997 LLM calls (~70%), against 266 for retain. It is also the
               # LOWEST-judgment stage — it merges and dedupes units retain has
@@ -1008,16 +1011,15 @@ spec:
               # natively. Only the model name and the base URL in the
               # ExternalSecret change.
               HINDSIGHT_API_CONSOLIDATION_LLM_PROVIDER: openai
-              # 2026-10-24, TEMPORARY with the refresh stage above: consolidation
-              # on Opus for the sweep window, so the observations the re-synthesised
-              # pages draw on are rebuilt by the same model. Every retain's
-              # consolidation rides this for the window, not only the sweep, and
-              # an Anthropic 429/529 is a failed op with worker retries (no
-              # fallback chain on the Opus routes): keep the window short, and
-              # move this line back first if spend outruns the refresh count.
-              # Back to `hindsight-main` with the refresh line above. Was
-              # `hindsight-main` (`spark-main` before 2026-10-24).
-              HINDSIGHT_API_CONSOLIDATION_LLM_MODEL: claude-opus-5-5-sweep
+              # Rode Opus with the refresh stage for the 2026-10-24 sweep window
+              # (#2282) so the observations the re-synthesised pages draw on were
+              # rebuilt by the same model. Measured over that day: consolidation
+              # plus the refresh stage's delta ops cost ~$1.1/h of ordinary
+              # traffic on Opus, about a fifth of the day's spend -- the number
+              # to budget if this ever moves to a paid model again. Back on the
+              # Spark with the refresh stage: `hindsight-main` (`spark-main`
+              # before 2026-10-24).
+              HINDSIGHT_API_CONSOLIDATION_LLM_MODEL: hindsight-main
               # HINDSIGHT_API_LLM_TEMPERATURE_CONSOLIDATION: none was here, and
               # removing it is REQUIRED, not cleanup. It existed solely because
               # the gpt-5 family rejects an explicit temperature and would 400 on
