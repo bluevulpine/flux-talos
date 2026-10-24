@@ -197,7 +197,8 @@ endpoints:
     alerts:
       - type: pushover
 
-  # The hosted fallback behind `spark-main`: Nous Portal, probed THROUGH LiteLLM
+  # The hosted fallback behind `spark-main` and `hindsight-main` (whose chain
+  # continues to claude-haiku-5-5): Nous Portal, probed THROUGH LiteLLM
   # on the `nous-qwen36-fallback` route with a key that can reach nothing else
   # (LITELLM_GATUS_KEY, alias `gatus`, $1/30d budget). Nothing exercises this
   # path until the Spark is down, which is exactly when a lapsed key or spent

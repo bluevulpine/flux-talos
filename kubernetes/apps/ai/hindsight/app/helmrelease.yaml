@@ -805,18 +805,18 @@ spec:
               # The virtual key must allow this model_name before this deploys; see
               # the note above HINDSIGHT_API_LLM_API_KEY in the ExternalSecret.
               #
-              # 2026-10-24, TEMPORARY: reflect goes to Claude Opus 5.5 through
-              # LiteLLM's `claude-opus-5-5` route (see that HelmRelease) for the
-              # re-gate comparison; every other stage stays on spark-main. Put
-              # `spark-main` back, and restore the REASONING_EFFORT line below,
-              # when the comparison is graded. Was `spark-main`.
-              #
-              # Third leg done 2026-10-24 03:19-04:24Z: `tensorfold-glm53-flash`
-              # (GLM-5.3-Flash on TensorFold across both GB10s) answered the same
-              # 12 questions with 10 wrong facts and a 200 s median, against the
-              # Spark's 9 / 91 s and Opus's 5 / 72 s (vault Evals/2026-10-17-
-              # hindsight-regate-set2.md). Back on Opus; whether it stays here or
-              # returns to `spark-main` is Derek's call on those numbers.
+              # 2026-10-24: reflect goes to Claude Opus 5.5 through LiteLLM's
+              # `claude-opus-5-5` route (see that HelmRelease); every other stage
+              # is on `hindsight-main`. The three-leg comparison (vault
+              # Evals/2026-10-17-hindsight-regate-set2.md) on the same 12
+              # questions: Spark Qwen3.6 9 wrong facts / 91 s median, Opus 5 /
+              # 72 s, TensorFold GLM-5.3-Flash 10 / 200 s (03:19-04:24Z, needs
+              # production vLLM off). Whether reflect stays here is Derek's call
+              # on those numbers. To move it back to the Spark: set this to
+              # `hindsight-main` (NOT `spark-main`: that name carries the
+              # Nous-only fallback and would split hindsight across two chains)
+              # and restore the REASONING_EFFORT line below. Was `spark-main`
+              # until 2026-10-24.
               HINDSIGHT_API_REFLECT_LLM_MODEL: claude-opus-5-5
               # Thinking ON for user-invoked reflect. On Qwen any effort but "none"
               # switches thinking on (see the note above HINDSIGHT_API_LLM_PROVIDER).

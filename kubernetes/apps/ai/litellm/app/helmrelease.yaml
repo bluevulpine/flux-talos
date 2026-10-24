@@ -376,8 +376,8 @@ spec:
               # resells OpenRouter capacity (its usage block reports
               # `cost_details.source: openrouter_list`), so the prompt goes to
               # whichever upstream provider serves it. That applies to EVERY
-              # consumer of the text routes (spark-main, hindsight-main and the
-              # two legacy names), not only hindsight:
+              # consumer of the text routes (spark-main and hindsight-main), not
+              # only hindsight:
               #   hindsight   session transcripts, commit diffs, knowledge pages
               #               -- and, on `hindsight-main` only, a second stage to
               #               Anthropic (claude-haiku-5-5) when Nous fails too
@@ -528,8 +528,11 @@ spec:
               # dropped: hindsight sends its per-stage effort (`none` for the
               # refresh chain) in the body and a fallback replays it, and LiteLLM
               # would turn it into Anthropic thinking parameters this model may
-              # reject. Spend is bounded by the hindsight key's max_budget ($25),
-              # the only key whose route carries this stage.
+              # reject. Spend is bounded by the hindsight key's max_budget: $25
+              # per 30 days (budget_duration 30d, set 2026-10-24). That cap is on
+              # the KEY, so once hit it also blocks hindsight's free Spark route
+              # until the window resets; the duration is what makes that a pause
+              # rather than a permanent lockout.
               - model_name: claude-haiku-5-5
                 litellm_params:
                   model: anthropic/claude-haiku-5-5
