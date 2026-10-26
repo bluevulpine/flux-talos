@@ -1,0 +1,76 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: litellm
+spec:
+  groups:
+    - name: litellm.rules
+      rules:
+        # The two gauge rules below read router_settings.provider_budget_config in
+        # helmrelease.yaml: the Anthropic monthly credit ($100, renews on the
+        # 29th) is modelled as a $99 LiteLLM provider budget, and when it is
+        # spent the anthropic/ routes fall back to the Spark instead of failing.
+        # The gauge is remaining dollars in the current window. LiteLLM writes
+        # it while FILTERING deployments for a request that could reach an
+        # anthropic/ one (router_strategy/budget_limiter.py), before the budget
+        # check, so it keeps updating while the budget is exhausted as long as
+        # hindsight keeps asking for Opus or Haiku; it is per replica and goes
+        # stale when a replica routes no such request, including right after
+        # the window resets, until that replica sees one. `min` across the
+        # replicas takes the most recent trip. There is no series until the
+        # first routed anthropic/ request after the callback is on.
+        - alert: LiteLLMAnthropicCreditLow
+          annotations:
+            summary: >-
+              Anthropic credit is nearly spent: {{ $value | printf "%.2f" }} USD left
+              of the $99 LiteLLM window. When it reaches zero every
+              anthropic/ route (reflect on Opus, retain and the Spark chains'
+              Haiku stage) fails over to the Spark. Anthropic's own allotment
+              renews on the 29th; the LiteLLM window starts at the first call
+              after rollout (Redis start-time key) and must be re-anchored to
+              that day (procedure in helmrelease.yaml, provider_budget_config).
+          expr: |
+            min(litellm_provider_remaining_budget_metric{api_provider="anthropic"}) < 15
+          for: 30m
+          labels:
+            severity: warning
+
+        - alert: LiteLLMAnthropicBudgetExhausted
+          annotations:
+            summary: >-
+              The Anthropic provider budget is spent; LiteLLM is skipping every
+              anthropic/ deployment and the fallbacks carry reflect and retain to
+              the Spark (spark-direct), so hindsight's reflect answers come from
+              Qwen until the window resets. Check `GET /provider/budgets` on the
+              gateway for the reset time; the re-anchor procedure is in
+              helmrelease.yaml under provider_budget_config.
+          expr: |
+            min(litellm_provider_remaining_budget_metric{api_provider="anthropic"}) <= 0
+          for: 10m
+          labels:
+            severity: warning
+
+        # Independent of the gauge: counts requests that actually came back from
+        # the Spark after an Anthropic route failed, whatever the reason (budget,
+        # 429/529, outage). Fires alongside BudgetExhausted when the budget is
+        # the cause, and alone during an Anthropic outage. `spark-direct` is
+        # only ever a fallback target (helmrelease.yaml), so any count is a
+        # failover. The series carries prometheus_client's `_total` suffix
+        # that LiteLLM's docs table leaves off; without it the selector
+        # matches nothing and the alert can never fire (#2305 review). A
+        # series is created on its first count, so increase() misses the very
+        # first fallback after a pod start per label set; fine at warning.
+        - alert: LiteLLMAnthropicFallbackActive
+          annotations:
+            summary: >-
+              {{ $value | printf "%.0f" }} requests to an Anthropic route were
+              served by the Spark (spark-direct) in the last 30 minutes: reflect
+              and retain are degrading to Qwen. If LiteLLMAnthropicBudgetExhausted
+              is not also firing, Anthropic itself is failing (429/529/outage).
+          expr: |
+            sum(increase(litellm_deployment_successful_fallbacks_total{fallback_model="spark-direct"}[30m])) > 0
+          for: 5m
+          labels:
+            severity: warning

@@ -1,0 +1,24 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/servicemonitor_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: litellm
+spec:
+  # LiteLLM serves /metrics on its app port only when `callbacks: [prometheus]`
+  # is set in litellm_settings (helmrelease.yaml); before 2026-10-26 it was not,
+  # and this cluster had no litellm_* series at all. Both replicas export, and
+  # gauges such as litellm_provider_remaining_budget_metric are per process,
+  # updated on each request that process handles, so rules take min/max across
+  # pods rather than a sum. Same label note as hindsight's monitor: app-template
+  # stamps the Service `app.kubernetes.io/service: <release>-<serviceKey>`, and
+  # with the service key `app` that collapses to plain `litellm`. Prometheus here
+  # runs serviceMonitorSelector: {}, so no `release:` label is needed.
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: litellm
+      app.kubernetes.io/service: litellm
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
