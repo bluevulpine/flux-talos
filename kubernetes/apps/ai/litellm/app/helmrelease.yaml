@@ -260,10 +260,30 @@ spec:
               #
               # Both are thinking-off by default like every Spark route; see the
               # reasoning_effort warning above.
+              # TWO deployments per Spark route since 2026-10-26: spark-ab23
+              # (10.0.10.237) and gx10-7ac6 (10.0.10.117) each run their own
+              # vLLM replica of the same model, image and flags (spark-setup
+              # `vllm_serving`; the GX10 reads the weights from spark-ab23
+              # over NFS). LiteLLM's default simple-shuffle spreads requests
+              # across a model group's deployments, and a deployment that keeps
+              # failing is cooled down so its retries land on the other -- a
+              # dead box costs the group capacity, not the route. Only when
+              # BOTH are down do the fallbacks below fire.
+              #
+              # Each replica keeps its own prefix cache, so a long shared
+              # system prompt is cached twice and a request hitting the cold
+              # one pays the prefill again; at hindsight's volume that was
+              # judged cheaper than session affinity.
               - model_name: spark-main
                 litellm_params:
                   model: openai/qwen3.6-35b-a3b
                   api_base: http://10.0.10.237:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
+              - model_name: spark-main   # gx10-7ac6 replica, see spark-main
+                litellm_params:
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.117:8000/v1
                   api_key: unused-no-auth
                   num_retries: 2
 
@@ -285,6 +305,12 @@ spec:
                   api_base: http://10.0.10.237:8000/v1
                   api_key: unused-no-auth
                   num_retries: 2
+              - model_name: hindsight-main   # gx10-7ac6 replica, see spark-main
+                litellm_params:
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.117:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
 
               # The SAME Spark backend a third time, as the fallback TARGET for
               # the Anthropic routes (router_settings.fallbacks). It must be a
@@ -299,6 +325,12 @@ spec:
                 litellm_params:
                   model: openai/qwen3.6-35b-a3b
                   api_base: http://10.0.10.237:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
+              - model_name: spark-direct   # gx10-7ac6 replica, see spark-main
+                litellm_params:
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.117:8000/v1
                   api_key: unused-no-auth
                   num_retries: 2
 
@@ -324,6 +356,12 @@ spec:
                 litellm_params:
                   model: openai/qwen3.6-35b-a3b
                   api_base: http://10.0.10.237:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
+              - model_name: spark-main-vision   # gx10-7ac6 replica, see spark-main
+                litellm_params:
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.117:8000/v1
                   api_key: unused-no-auth
                   num_retries: 2
 

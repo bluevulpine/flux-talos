@@ -184,6 +184,12 @@ spec:
         - 10.0.10.237:8000
       labels:
         instance: spark-ab23
+    # The second replica, on gx10-7ac6 (2026-10-26). Same job, so the
+    # spark-llm recording rules (sum over the job) count both boxes' tokens.
+    - targets:
+        - 10.0.10.117:8000
+      labels:
+        instance: gx10-7ac6
   metricsPath: /metrics
   relabelings:
     - action: replace
