@@ -251,7 +251,7 @@ spec:
               # route covers reflect too.
               #
               #   spark-main          text. Falls back to the hosted copy, then to
-              #                       Haiku, when the Spark is down
+              #                       Haiku, when BOTH replicas are down
               #                       (router_settings.fallbacks).
               #   spark-main-vision   the same model, for requests carrying
               #                       images. NO fallback, so a photo never leaves
@@ -260,6 +260,7 @@ spec:
               #
               # Both are thinking-off by default like every Spark route; see the
               # reasoning_effort warning above.
+              #
               # TWO deployments per Spark route since 2026-10-26: spark-ab23
               # (10.0.10.237) and gx10-7ac6 (10.0.10.117) each run their own
               # vLLM replica of the same model, image and flags (spark-setup
@@ -273,6 +274,13 @@ spec:
               # goes straight to the fallbacks (Nous, then Haiku: paid) while
               # the other box sits healthy -- the LiteLLM default, caught in
               # the #2308 review.
+              #
+              # A replica that HANGS (accepts, never answers) is not an error,
+              # so failover does not see it: requests that land there wait out
+              # LiteLLM's default timeout. A per-deployment timeout would fix
+              # that, but thinking-on hindsight page refreshes legitimately run
+              # for minutes (32k-token cap; hindsight itself waits 600s), so it
+              # needs a measured ceiling first, not a guess.
               #
               # ⚠️ This covers a restart or a dead ENGINE on spark-ab23, not a
               # spark-ab23 HOST outage: the GX10 loads its weights from
@@ -828,7 +836,9 @@ spec:
               # failure there still goes straight to its fallbacks as before.
               enable_weighted_failover: true
               # Text routes only. A fallback fires after the route's own
-              # num_retries are spent on errors that come back FAST: connection
+              # num_retries are spent -- on the Spark routes, after BOTH
+              # replicas' (enable_weighted_failover above) -- on errors that come
+              # back FAST: connection
               # refused, 5xx. That covers the Spark being down, restarting or its
               # engine having crashed. It does NOT cover an engine that accepts
               # the connection and then hangs: no route sets a timeout, so
