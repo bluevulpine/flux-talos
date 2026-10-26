@@ -40,8 +40,7 @@ spec:
       #    retention windows) and some stay firing for days; paging those as
       #    emergencies would have sirened ~3x a day over the 30 days to 2026-10-24.
       #    This list fired 6 times in that window. Add an alert by name.
-      #    FluxComponentAbsent comes from the live flux-system/flux-rules
-      #    PrometheusRule, which is not defined in this repo.
+      #    The Flux alerts are in flux-system/flux-instance/app/prometheusrule.yaml.
       - receiver: pushover-emergency
         matchers:
           - name: severity

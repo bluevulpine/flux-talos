@@ -28,3 +28,24 @@ spec:
               Flux instance {{ $labels.name }} is not ready
           labels:
             severity: critical
+
+        # Moved here 2026-10-26 from the hand-applied flux-system/flux-rules, which
+        # was never in the repo. Its other rule, FluxReconciliationFailure, was
+        # dropped: it read gotk_reconcile_condition, which current Flux no longer
+        # exports, so it could never fire. Reconcile errors reach Alertmanager
+        # through the Flux notification Alerts (components/common/alerts/alertmanager).
+        # Paged as an emergency (alertmanagerconfig.yaml); depends on podmonitor.yaml.
+        # The old expression, absent(up == 1), fired only when ALL controllers were
+        # gone; a lone dead kustomize-controller (no deploys at all) stayed silent.
+        # 6 = the controllers podmonitor.yaml selects; change both together.
+        - alert: FluxComponentAbsent
+          expr: |-
+            count(up{job="flux-system/flux-system"} == 1) < 6
+              or
+            absent(up{job="flux-system/flux-system"} == 1)
+          for: 15m
+          annotations:
+            summary: >-
+              Flux component has disappeared from Prometheus target discovery
+          labels:
+            severity: critical

@@ -1,0 +1,35 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/podmonitor_v1.json
+# Scrapes the Flux controllers (job "flux-system/flux-system"). Hand-applied on
+# 2025-10-25 and never committed until 2026-10-26; FluxComponentAbsent in
+# prometheusrule.yaml depends on it, so a lost PodMonitor would page as an
+# emergency for a healthy Flux.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: flux-system
+  labels:
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: flux
+spec:
+  namespaceSelector:
+    matchNames:
+      - flux-system
+  podMetricsEndpoints:
+    - port: http-prom
+      relabelings:
+        - action: keep
+          regex: Running
+          sourceLabels:
+            - __meta_kubernetes_pod_phase
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - helm-controller
+          - source-controller
+          - kustomize-controller
+          - notification-controller
+          - image-automation-controller
+          - image-reflector-controller
