@@ -351,6 +351,59 @@ spec:
                   api_base: http://10.0.10.237:8000/v1
                   api_key: unused-no-auth
                   num_retries: 2
+
+              # Derek's Claude Code sessions, routed through the gateway for
+              # tracking only (2026-10-26). Claude Code keeps its claude.ai
+              # subscription login and sends `Authorization: Bearer sk-ant-oat…`
+              # with every request; since v1.81.14 LiteLLM forwards that token
+              # to `anthropic/` deployments, adds the oauth anthropic-beta, and
+              # it takes precedence over any configured api_key
+              # (llms/anthropic/common_utils.py, resolve_used_client_oauth_token).
+              # The gateway authenticates the request by the `x-litellm-api-key`
+              # header (the `claude-code` virtual key), so the row carries that
+              # key's alias and `metadata.used_client_oauth_token: true`.
+              #
+              # Three deliberate choices:
+              # - NO api_key. A deployment without one serves subscription
+              #   traffic only; a request without the OAuth token (an expired
+              #   login) fails with 401 instead of quietly billing the account
+              #   key. count_tokens uses the configured key and so has none
+              #   here; Claude Code falls back to its own estimate (/context is
+              #   approximate), accepted.
+              # - Its own public name, `claude-code/*` -> `anthropic/*`, not the
+              #   `anthropic/*` wildcard LiteLLM's tutorial uses. The wildcard
+              #   router rewrites the suffix (router_utils/pattern_match_deployments.py,
+              #   set_deployment_model_name), and bare ids the client might send
+              #   (`claude-opus-5-5`, `claude-haiku-5-5`) would otherwise match
+              #   the paid named routes above exactly; the `claude-code` key is
+              #   limited to this pattern, so a bare id is a loud 401 rather than
+              #   a silent hit on the credit's accounting. Claude Code is pointed
+              #   at the prefixed names through ANTHROPIC_DEFAULT_*_MODEL.
+              # - A near-zero price pin. LiteLLM costs subscription traffic at
+              #   Anthropic LIST price even though Anthropic bills the seat, and
+              #   the provider budget below sums that cost blind to the token's
+              #   origin, so unpinned these sessions would spend the $99 window
+              #   in days and fail hindsight over to the Spark for nothing. A
+              #   literal 0 is not honoured (cost_calculator.py,
+              #   _has_token_or_tiered_pricing needs > 0 to treat a pin as
+              #   custom pricing, else it falls back to the list-price map), so
+              #   1e-12 per token: a million tokens is a millionth of a cent,
+              #   invisible to the budget and to the key, while the token counts
+              #   stay in the spend tables and the Prometheus series.
+              # Same parameter hygiene as the other Anthropic routes is NOT
+              # applied: the /v1/messages path whitelists the Anthropic-native
+              # fields Claude Code sends (thinking, output_config,
+              # context_management, compaction, speed, safeguards, ...) and
+              # forwards anthropic-beta headers for the anthropic provider
+              # (llms/anthropic/pass_through/messages/transformation.py).
+              - model_name: claude-code/*
+                litellm_params:
+                  model: anthropic/*
+                model_info:
+                  input_cost_per_token: 0.000000000001
+                  output_cost_per_token: 0.000000000001
+                  cache_creation_input_token_cost: 0.000000000001
+                  cache_read_input_token_cost: 0.000000000001
               - model_name: spark-direct   # gx10-7ac6 replica, see spark-main
                 litellm_params:
                   model: openai/qwen3.6-35b-a3b
@@ -743,6 +796,18 @@ spec:
               # in-cluster and the public host is Authentik-gated, so no auth
               # here, like hindsight's /metrics. Second roll of #2305/#2307.
               require_auth_for_metrics_endpoint: false
+              # Forward the client's `x-*` (not x-stainless) and `anthropic-beta`
+              # headers to the provider for the Claude Code route: Claude Code's
+              # features ride on anthropic-beta values that change per release,
+              # and its gateway guide says to pass them verbatim rather than
+              # allow-list them (code.claude.com/docs/en/llm-gateway-protocol).
+              # The /v1/messages path keeps anthropic-beta for the anthropic
+              # provider on its own; this also covers the x-* ones and
+              # /chat/completions. Matched through the model-access helper, so
+              # the wildcard pattern works (proxy/litellm_pre_call_utils.py).
+              model_group_settings:
+                forward_client_headers_to_llm_api:
+                  - claude-code/*
               # Anthropic prompt caching, injected here for every `anthropic/`
               # route. Nothing upstream asks for it: hindsight reaches these
               # routes through its OpenAI-shaped provider (its own `anthropic`
