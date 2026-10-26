@@ -37,15 +37,19 @@ spec:
         # Paged as an emergency (alertmanagerconfig.yaml); depends on podmonitor.yaml.
         # The old expression, absent(up == 1), fired only when ALL controllers were
         # gone; a lone dead kustomize-controller (no deploys at all) stayed silent.
-        # 6 = the controllers podmonitor.yaml selects; change both together.
+        # `or vector(0)` keeps one label-less series for every case, including no
+        # targets at all, so the `for` timer never restarts when a partial outage
+        # becomes a total one.
+        # 6 = instance.components in helmrelease.yaml, which podmonitor.yaml also
+        # lists; change all three together or this pages for a healthy Flux.
         - alert: FluxComponentAbsent
           expr: |-
-            count(up{job="flux-system/flux-system"} == 1) < 6
-              or
-            absent(up{job="flux-system/flux-system"} == 1)
+            (count(up{job="flux-system/flux-system"} == 1) or vector(0)) < 6
           for: 15m
           annotations:
             summary: >-
-              Flux component has disappeared from Prometheus target discovery
+              Flux controllers down
+            description: >-
+              {{ $value }} of 6 Flux controllers are up and scraped
           labels:
             severity: critical
