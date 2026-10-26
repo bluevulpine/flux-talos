@@ -585,14 +585,24 @@ spec:
                 model_info:
                   input_cost_per_token: 0.0000001
                   output_cost_per_token: 0.0000005
-                  # Cache prices too (write 1.25x, read 0.1x of input): a pinned
-                  # model_info replaces the cost map's entry wholesale, so without
-                  # these LiteLLM priced cache writes at the plain input rate and
-                  # under-counted 2026-10-26's Sonnet calls by ~3 %. The provider
-                  # budget below is only as good as this arithmetic.
+                  # Cache prices too (write 1.25x, read 0.1x of input), here and
+                  # on the Sonnet pin below: a pinned model_info replaces the cost
+                  # map's entry wholesale, so without them LiteLLM priced cache
+                  # writes at the plain input rate on every pinned route (the
+                  # Sonnet re-extract calls of 2026-10-26 came out ~3 % under).
+                  # The provider budget below is only as good as this arithmetic.
                   cache_creation_input_token_cost: 0.000000125
                   cache_read_input_token_cost: 0.00000001
 
+              # PARKED since 2026-10-26 (#2304): retain moved to claude-haiku-5-5
+              # after 72 documents here, when the measured cost (~$6 per million
+              # characters, output-token bound; hindsight HelmRelease, retain
+              # model comment) put the 838-document pass at ~$115. Nothing names
+              # this route now; it goes with the revert PR. It keeps a Spark
+              # fallback below so that if retain is ever pointed back here an
+              # exhausted budget degrades it instead of failing it. The
+              # paragraph below is the original plan, kept for the record.
+              #
               # Claude Sonnet 5.5, TEMPORARY, for ONE job: pass 3 of the 2026-10-24
               # accuracy sweep (vault Evals/2026-10-17-hindsight-regate-set2.md),
               # re-extracting 812 documents in the flux-talos, .buzz and
@@ -622,6 +632,7 @@ spec:
                 model_info:
                   input_cost_per_token: 0.000002
                   output_cost_per_token: 0.00001
+                  # Same cache prices as the Haiku pin, same reason.
                   cache_creation_input_token_cost: 0.0000025
                   cache_read_input_token_cost: 0.0000002
 
@@ -663,7 +674,8 @@ spec:
               # provider does mark cache_control, but we route through LiteLLM
               # for the single key and `drop_params`, see the Opus route), and
               # that provider sends no cache_control. LiteLLM forwards markers
-              # only when the caller sends them or this is on, so every Claude
+              # only when the caller sends them or injection is configured (this
+              # flag, or per-route cache_control_injection_points), so every Claude
               # call ran uncached: LiteLLM_DailyUserSpend for 2026-10-24 shows
               # 669 claude-opus-5-5 requests, 10.6M prompt tokens, $54.85, and
               # cache_read_input_tokens = cache_creation_input_tokens = 0, which
@@ -800,9 +812,12 @@ spec:
               # so that an exhausted Anthropic budget degrades reflect and retain
               # instead of failing them: when provider_budget_config below trips,
               # every anthropic/ deployment is skipped, a route with no other
-              # deployment raises "No deployments available - crossed budget"
-              # (a RouterRateLimitError), and that is handed to this list like
-              # any other failure. The Haiku stage inside the two Spark chains
+              # deployment raises "No deployments available - crossed budget",
+              # a plain ValueError from router_strategy/budget_limiter.py; the
+              # route's num_retries may re-attempt it (no cost: nothing is
+              # called) and async_function_with_fallbacks' broad `except
+              # Exception` then hands it to this list like any other failure.
+              # The Haiku stage inside the two Spark chains
               # above drops out the same way. The target is `spark-direct`, not
               # hindsight-main, so the chains cannot loop (see that route). This
               # also fires on ordinary Anthropic 429/529s, so a reflect can land
@@ -820,6 +835,8 @@ spec:
                     - spark-direct
                 - claude-haiku-5-5:
                     - spark-direct
+                - claude-sonnet-5-5-reextract:
+                    - spark-direct
 
               # Fail-safe for the Anthropic monthly credit ($100, renews on the
               # 29th; next 2026-10-29). Until 2026-10-26 the only guard was the
@@ -831,26 +848,34 @@ spec:
               # dragonfly, the usage object priced by LiteLLM's cost map or the
               # model_info pins above) and, once over the limit, removes the
               # anthropic/ deployments from routing so the fallbacks above carry
-              # the traffic to the Spark. $99.50, not $100: overshooting the
-              # credit by cents has in the past forced a $5 top-up to clear the
-              # balance (Derek). Not counted here, because it never touches
-              # LiteLLM: the claude-code-review GitHub workflow and any direct
-              # use of the account key; lower the limit once their monthly share
-              # is known from the Anthropic console.
+              # the traffic to the Spark. $99, not $100: overshooting the credit
+              # by cents has in the past forced a $5 top-up to clear the balance
+              # (Derek asked for $99.50); the extra half dollar covers calls in
+              # flight when the limit trips, since the check is before the call
+              # and the charge after it, and up to three Opus reflect calls plus
+              # four Haiku retains can be running. Not counted here, because it
+              # never touches LiteLLM: direct use of the account key. The
+              # claude-code-review GitHub workflow is NOT such a case: it runs on
+              # the Claude Code OAuth token (the subscription), not the API key.
               #
               # The window is a Redis TTL from the FIRST anthropic/ call after
               # this applies, "1mo" = same day next month, not a calendar
               # anchor: deployed on 2026-10-26 it ends 2026-11-26, three days
               # before Anthropic's 11-29 renewal, and in that gap LiteLLM would
-              # see a fresh $99.50 while the real credit is nearly spent. Re-anchor
-              # on the renewal day by deleting the Redis key (then the first call
-              # of the 29th starts a 29th-to-29th window): to do on 2026-10-29
-              # (vault context.md). Spend from before this applies is not
+              # see a fresh $99 while the real credit is nearly spent. Re-anchor
+              # on the renewal day (to do 2026-10-29, vault context.md): the
+              # window lives in TWO Redis keys, `provider_spend:anthropic:1mo`
+              # and `provider_budget_start_time:anthropic`, plus each replica's
+              # in-memory copy, so delete both keys and `kubectl rollout restart
+              # deploy/litellm`, then check `budget_reset_at` in GET
+              # /provider/budgets reads the 29th. Deleting the spend key alone
+              # zeroes the spend but keeps the old window end (#2305 review).
+              # Spend from before this applies is not
               # counted either, so the hindsight key's $95 cap stays as the
               # guard for the current allotment until that reset.
               provider_budget_config:
                 anthropic:
-                  budget_limit: 99.5
+                  budget_limit: 99
                   time_period: 1mo
     persistence:
       config:

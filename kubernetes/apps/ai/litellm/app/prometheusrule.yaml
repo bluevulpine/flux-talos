@@ -12,15 +12,20 @@ spec:
         # helmrelease.yaml: the Anthropic monthly credit ($100, renews on the
         # 29th) is modelled as a $99.50 LiteLLM provider budget, and when it is
         # spent the anthropic/ routes fall back to the Spark instead of failing.
-        # The gauge is remaining dollars in the current window and is written on
-        # each request a replica handles, so it goes stale when nothing calls
-        # Anthropic; `min` across the replicas takes the most recent trip. There
-        # is no series until the first anthropic/ call after the callback is on.
+        # The gauge is remaining dollars in the current window. LiteLLM writes
+        # it while FILTERING deployments for a request that could reach an
+        # anthropic/ one (router_strategy/budget_limiter.py), before the budget
+        # check, so it keeps updating while the budget is exhausted as long as
+        # hindsight keeps asking for Opus or Haiku; it is per replica and goes
+        # stale when a replica routes no such request, including right after
+        # the window resets, until that replica sees one. `min` across the
+        # replicas takes the most recent trip. There is no series until the
+        # first routed anthropic/ request after the callback is on.
         - alert: LiteLLMAnthropicCreditLow
           annotations:
             summary: >-
               Anthropic credit is nearly spent: {{ $value | printf "%.2f" }} USD left
-              of the $99.50 LiteLLM window. When it reaches zero every
+              of the $99 LiteLLM window. When it reaches zero every
               anthropic/ route (reflect on Opus, retain and the Spark chains'
               Haiku stage) fails over to the Spark. Anthropic's own allotment
               renews on the 29th; the LiteLLM window is a Redis TTL and must be
@@ -38,10 +43,31 @@ spec:
               anthropic/ deployment and the fallbacks carry reflect and retain to
               the Spark (spark-direct), so hindsight's reflect answers come from
               Qwen until the window resets. Check `GET /provider/budgets` on the
-              gateway for the reset time, or delete the Redis key
-              provider_spend:anthropic:1mo to re-anchor on a renewal day.
+              gateway for the reset time; to re-anchor on a renewal day delete
+              BOTH Redis keys (provider_spend:anthropic:1mo and
+              provider_budget_start_time:anthropic) and restart the LiteLLM
+              pods (procedure in helmrelease.yaml, provider_budget_config).
           expr: |
             min(litellm_provider_remaining_budget_metric{api_provider="anthropic"}) <= 0
           for: 10m
+          labels:
+            severity: warning
+
+        # Independent of the gauge: counts requests that actually came back from
+        # the Spark after an Anthropic route failed, whatever the reason (budget,
+        # 429/529, outage). Fires alongside BudgetExhausted when the budget is
+        # the cause, and alone during an Anthropic outage. `spark-direct` is
+        # only ever a fallback target (helmrelease.yaml), so any count is a
+        # failover.
+        - alert: LiteLLMAnthropicFallbackActive
+          annotations:
+            summary: >-
+              {{ $value | printf "%.0f" }} requests to an Anthropic route were
+              served by the Spark (spark-direct) in the last 30 minutes: reflect
+              and retain are degrading to Qwen. If LiteLLMAnthropicBudgetExhausted
+              is not also firing, Anthropic itself is failing (429/529/outage).
+          expr: |
+            sum(increase(litellm_deployment_successful_fallbacks{fallback_model="spark-direct"}[30m])) > 0
+          for: 5m
           labels:
             severity: warning
