@@ -8,7 +8,7 @@ spec:
   groups:
     - name: litellm.rules
       rules:
-        # Both rules read router_settings.provider_budget_config in
+        # The two gauge rules below read router_settings.provider_budget_config in
         # helmrelease.yaml: the Anthropic monthly credit ($100, renews on the
         # 29th) is modelled as a $99 LiteLLM provider budget, and when it is
         # spent the anthropic/ routes fall back to the Spark instead of failing.
@@ -28,8 +28,9 @@ spec:
               of the $99 LiteLLM window. When it reaches zero every
               anthropic/ route (reflect on Opus, retain and the Spark chains'
               Haiku stage) fails over to the Spark. Anthropic's own allotment
-              renews on the 29th; the LiteLLM window is a Redis TTL and must be
-              re-anchored to that day (helmrelease.yaml, provider_budget_config).
+              renews on the 29th; the LiteLLM window starts at the first call
+              after rollout (Redis start-time key) and must be re-anchored to
+              that day (procedure in helmrelease.yaml, provider_budget_config).
           expr: |
             min(litellm_provider_remaining_budget_metric{api_provider="anthropic"}) < 15
           for: 30m
@@ -43,10 +44,8 @@ spec:
               anthropic/ deployment and the fallbacks carry reflect and retain to
               the Spark (spark-direct), so hindsight's reflect answers come from
               Qwen until the window resets. Check `GET /provider/budgets` on the
-              gateway for the reset time; to re-anchor on a renewal day delete
-              BOTH Redis keys (provider_spend:anthropic:1mo and
-              provider_budget_start_time:anthropic) and restart the LiteLLM
-              pods (procedure in helmrelease.yaml, provider_budget_config).
+              gateway for the reset time; the re-anchor procedure is in
+              helmrelease.yaml under provider_budget_config.
           expr: |
             min(litellm_provider_remaining_budget_metric{api_provider="anthropic"}) <= 0
           for: 10m
