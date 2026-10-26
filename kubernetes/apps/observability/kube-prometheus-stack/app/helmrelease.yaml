@@ -166,6 +166,21 @@ spec:
         # the place for the fan-out is an OpenTelemetry Collector, since
         # Claude Code sends each signal to exactly one endpoint.
         #
+        # Two things every exporter pointed here must get right (#2318
+        # review): send CUMULATIVE temporality, because this receiver rejects
+        # delta sums with "invalid temporality and type combination" unless
+        # the `otlp-deltatocumulative` feature is on, and Claude Code's
+        # default is delta (OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=
+        # cumulative on the client); and look for the translated names, since
+        # the default UnderscoreEscapingWithSuffixes strategy appends the
+        # unit and `_total`: claude_code_session_count_total,
+        # claude_code_token_usage_tokens_total, claude_code_cost_usage_USD_total.
+        # Per-session series are kept out of Prometheus
+        # (OTEL_METRICS_INCLUDE_SESSION_ID=false on the client): Thanos holds
+        # the 1h downsample for three years and a new label set per session
+        # would pile up for nothing, while the per-session detail lives in
+        # the VictoriaLogs events anyway.
+        #
         # Resource attributes land in `target_info` unless promoted; these
         # three are the ones worth a label (`host.name` tells aurelia from a
         # future second machine). The per-request attributes Claude Code puts
