@@ -719,9 +719,9 @@ spec:
 
             litellm_settings:
               drop_params: true
-              # Prometheus metrics (/metrics on the app port, unauthenticated by
-              # LiteLLM; the public hosts sit behind Authentik and the in-cluster
-              # scrape needs none). Off by default, and until 2026-10-26 nothing
+              # Prometheus metrics (/metrics on the app port; the public hosts sit
+              # behind Authentik and the in-cluster scrape needs none). Off by
+              # default, and until 2026-10-26 nothing
               # exported a litellm_* series, so the only spend record was the
               # database. Wanted for one gauge first:
               # litellm_provider_remaining_budget_metric{api_provider="anthropic"},
@@ -735,6 +735,14 @@ spec:
               # catch-all 401, which is what the first roll of #2305 showed.
               success_callback:
                 - prometheus
+              # v1.106.2 also guards the mounted /metrics with the proxy's key
+              # auth by default (litellm/__init__.py:191,
+              # proxy/auth/user_api_key_auth.py `_route_requires_auth_despite_public`):
+              # without this the scrape gets 401 "Unauthorized access to metrics
+              # endpoint", and a virtual key is not enough either. The scrape is
+              # in-cluster and the public host is Authentik-gated, so no auth
+              # here, like hindsight's /metrics. Second roll of #2305/#2307.
+              require_auth_for_metrics_endpoint: false
               # Anthropic prompt caching, injected here for every `anthropic/`
               # route. Nothing upstream asks for it: hindsight reaches these
               # routes through its OpenAI-shaped provider (its own `anthropic`
