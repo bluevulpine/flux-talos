@@ -177,18 +177,32 @@ spec:
       extraArgs:
         - "--index-cache.config=$(THANOS_CACHE_CONFIG)"
         - --store.enable-index-header-lazy-reader
+        # Set GOMEMLIMIT to 0.75 of the cgroup limit. Without it Go
+        # runs GOGC=100 only, so heap garbage is never collected early: at the
+        # 2026-10-24 09:55Z OOMKill heap_inuse climbed 0.21 -> 1.38GiB in two
+        # minutes of one query burst and the cgroup killed it before a GC came.
+        # 0.75, not the 0.9 default: the rest is page cache and non-heap memory.
+        - --enable-auto-gomemlimit
+        - --auto-gomemlimit.ratio=0.75
       persistence: *persistence
       podAnnotations: *podAnnotations
-      # 1.5Gi limit. The lazy reader above fixed the eager-mmap page-cache problem,
-      # but a single replica now serves all store-API load and it OOMKilled
-      # repeatedly 2026-09-26..10-01: working_set peaked at 0.96GiB against the
-      # old 1Gi limit (Thanos, kube_pod_container_status_last_terminated_reason).
-      # The earlier "~400Mi for months" figure was likely the two-replica era.
-      # A 2Gi limit was tried before and just gave reclaimable index-header page
-      # cache room to grow into (OOM-imminent alert), so step to 1.5Gi and watch.
+      # 2Gi since 2026-10-26: it still OOMKilled at 1.5Gi (2026-10-20, -24), and
+      # those kills are query bursts of Go heap (anonymous RSS 0.3 -> 1.4GiB), not
+      # page cache. The bucket is now 56 blocks, not 1,223 (the compactor runs
+      # again), so index-header cache is far smaller than when 2Gi was last tried,
+      # and GOMEMLIMIT (extraArgs above) makes GC run before the heap hits the
+      # limit. That only helps if a burst is garbage; if a single query holds
+      # more live heap than this, cap it with --store.limits.request-samples.
+      # History: the lazy reader fixed the eager-mmap page-cache problem, but a
+      # single replica serves all store-API load and it OOMKilled repeatedly
+      # 2026-09-26..10-01: working_set peaked at 0.96GiB against the old 1Gi
+      # limit (Thanos, kube_pod_container_status_last_terminated_reason). The
+      # earlier "~400Mi for months" figure was likely the two-replica era. A 2Gi
+      # limit tried then just gave reclaimable index-header page cache room to
+      # grow into (OOM-imminent alert), so it went to 1.5Gi.
       resources:
         requests:
           cpu: 10m
           memory: 512Mi
         limits:
-          memory: 1536Mi
+          memory: 2Gi
