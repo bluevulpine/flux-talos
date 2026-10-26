@@ -177,6 +177,13 @@ spec:
       extraArgs:
         - "--index-cache.config=$(THANOS_CACHE_CONFIG)"
         - --store.enable-index-header-lazy-reader
+        # Set GOMEMLIMIT to 0.75 of the cgroup limit (1.5Gi of 2Gi). Without it Go
+        # runs GOGC=100 only, so heap garbage is never collected early: at the
+        # 2026-10-24 09:55Z OOMKill heap_inuse climbed 0.21 -> 1.38GiB in two
+        # minutes of one query burst and the cgroup killed it before a GC came.
+        # 0.75, not the 0.9 default: the rest is page cache and non-heap memory.
+        - --enable-auto-gomemlimit
+        - --auto-gomemlimit.ratio=0.75
       persistence: *persistence
       podAnnotations: *podAnnotations
       # 1.5Gi limit. The lazy reader above fixed the eager-mmap page-cache problem,
@@ -186,9 +193,14 @@ spec:
       # The earlier "~400Mi for months" figure was likely the two-replica era.
       # A 2Gi limit was tried before and just gave reclaimable index-header page
       # cache room to grow into (OOM-imminent alert), so step to 1.5Gi and watch.
+      # 2Gi since 2026-10-26: still OOMKilled at 1.5Gi (2026-10-20, -24), and the
+      # kills are query bursts of Go heap (anonymous RSS 0.3 -> 1.4GiB), not page
+      # cache. With the compactor running again the bucket is 56 blocks, not 1,223,
+      # so index-header cache is far smaller than when 2Gi was last tried, and
+      # GOMEMLIMIT (extraArgs above) now caps the heap below the limit.
       resources:
         requests:
           cpu: 10m
           memory: 512Mi
         limits:
-          memory: 1536Mi
+          memory: 2Gi
