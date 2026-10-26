@@ -364,12 +364,19 @@ spec:
               # key's alias and `metadata.used_client_oauth_token: true`.
               #
               # Three deliberate choices:
-              # - NO api_key. A deployment without one serves subscription
-              #   traffic only; a request without the OAuth token (an expired
-              #   login) fails with 401 instead of quietly billing the account
-              #   key. count_tokens uses the configured key and so has none
-              #   here; Claude Code falls back to its own estimate (/context is
-              #   approximate), accepted.
+              # - A deliberately INVALID api_key. Leaving api_key off does not
+              #   make the route subscription-only here: the pod has
+              #   ANTHROPIC_API_KEY in its env (envFrom litellm-secret) and
+              #   LiteLLM's Anthropic provider falls through to it, so a request
+              #   without the OAuth token (an expired login, or anyone else
+              #   holding the claude-code key) would go out on the account
+              #   credit, costed at the pin below and invisible to the provider
+              #   budget (#2317 review). The placeholder blocks that fallback:
+              #   the client's OAuth token still wins over it for real
+              #   sessions, and a token-less request gets Anthropic's 401.
+              #   count_tokens uses the configured key, i.e. this placeholder,
+              #   so it fails and Claude Code falls back to its own estimate
+              #   (/context is approximate), accepted.
               # - Its own public name, `claude-code/*` -> `anthropic/*`, not the
               #   `anthropic/*` wildcard LiteLLM's tutorial uses. The wildcard
               #   router rewrites the suffix (router_utils/pattern_match_deployments.py,
@@ -399,6 +406,7 @@ spec:
               - model_name: claude-code/*
                 litellm_params:
                   model: anthropic/*
+                  api_key: subscription-only-no-account-key
                 model_info:
                   input_cost_per_token: 0.000000000001
                   output_cost_per_token: 0.000000000001
