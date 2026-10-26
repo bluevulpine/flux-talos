@@ -245,13 +245,13 @@ spec:
               # that still listed the old names had them stripped the same day.
               #
               # The -long name existed because reflect once needed a separate
-              # one-slot 98k ollama on :11435; vLLM's single instance serves the
+              # one-slot 98k ollama on :11435; each vLLM replica serves the
               # full 131,072-token window to any request (an ~87k-token prompt
               # measured 18s to first token alongside short traffic), so one
               # route covers reflect too.
               #
               #   spark-main          text. Falls back to the hosted copy, then to
-              #                       Haiku, when the Spark is down
+              #                       Haiku, when BOTH replicas are down
               #                       (router_settings.fallbacks).
               #   spark-main-vision   the same model, for requests carrying
               #                       images. NO fallback, so a photo never leaves
@@ -260,10 +260,54 @@ spec:
               #
               # Both are thinking-off by default like every Spark route; see the
               # reasoning_effort warning above.
+              #
+              # TWO deployments per Spark route since 2026-10-26: spark-ab23
+              # (10.0.10.237) and gx10-7ac6 (10.0.10.117) each run their own
+              # vLLM replica of the same model, image and flags (spark-setup
+              # `vllm_serving`; the GX10 reads the weights from spark-ab23
+              # over NFS). LiteLLM's default simple-shuffle spreads requests
+              # across a model group's deployments. On an error, the
+              # deployment's own num_retries go to the SAME box; then
+              # `enable_weighted_failover` (router_settings) re-picks the other
+              # deployment of the group, and only when both have failed do the
+              # route's fallbacks fire. Without that flag a failed deployment
+              # goes straight to the fallbacks (Nous, then Haiku: paid) while
+              # the other box sits healthy -- the LiteLLM default, caught in
+              # the #2308 review.
+              #
+              # A replica that HANGS (accepts, never answers) is not an error,
+              # so failover does not see it: requests that land there wait out
+              # LiteLLM's default timeout. A per-deployment timeout would fix
+              # that, but thinking-on hindsight page refreshes legitimately run
+              # for minutes (32k-token cap; hindsight itself waits 600s), so it
+              # needs a measured ceiling first, not a guess.
+              #
+              # ⚠️ This covers a restart or a dead ENGINE on spark-ab23, not a
+              # spark-ab23 HOST outage: the GX10 loads its weights from
+              # spark-ab23 over NFS, so with that host down the GX10 replica
+              # keeps serving only until it restarts, and a hard NFS mount can
+              # hang its file reads meanwhile.
+              #
+              # Each replica keeps its own prefix cache (--enable-prefix-caching).
+              # A shared system prompt costs one cold miss per replica, but a
+              # multi-turn call (hindsight reflect re-sends the whole growing
+              # conversation each tool turn) lands on the cold replica about
+              # half the time and pays the full prefill again. NOT measured yet:
+              # spark-ab23 alone served 28% of prompt tokens from cache
+              # (4.64M of 16.39M, 2026-10-26). Compare
+              # spark:vllm_cached_prompt_tokens / spark:vllm_prompt_tokens a
+              # day after this change; if it drops well below that, look at
+              # prefix-aware routing before pinning hindsight-main to one box.
               - model_name: spark-main
                 litellm_params:
                   model: openai/qwen3.6-35b-a3b
                   api_base: http://10.0.10.237:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
+              - model_name: spark-main   # gx10-7ac6 replica, see spark-main
+                litellm_params:
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.117:8000/v1
                   api_key: unused-no-auth
                   num_retries: 2
 
@@ -285,6 +329,12 @@ spec:
                   api_base: http://10.0.10.237:8000/v1
                   api_key: unused-no-auth
                   num_retries: 2
+              - model_name: hindsight-main   # gx10-7ac6 replica, see spark-main
+                litellm_params:
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.117:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
 
               # The SAME Spark backend a third time, as the fallback TARGET for
               # the Anthropic routes (router_settings.fallbacks). It must be a
@@ -299,6 +349,12 @@ spec:
                 litellm_params:
                   model: openai/qwen3.6-35b-a3b
                   api_base: http://10.0.10.237:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
+              - model_name: spark-direct   # gx10-7ac6 replica, see spark-main
+                litellm_params:
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.117:8000/v1
                   api_key: unused-no-auth
                   num_retries: 2
 
@@ -324,6 +380,12 @@ spec:
                 litellm_params:
                   model: openai/qwen3.6-35b-a3b
                   api_base: http://10.0.10.237:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
+              - model_name: spark-main-vision   # gx10-7ac6 replica, see spark-main
+                litellm_params:
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.117:8000/v1
                   api_key: unused-no-auth
                   num_retries: 2
 
@@ -771,8 +833,17 @@ spec:
             router_settings:
               redis_host: dragonfly.database.svc.cluster.local
               redis_port: 6379
+              # Retry a failed request on ANOTHER deployment of the same model
+              # group before any fallback (LiteLLM >= v1.86, simple-shuffle
+              # only, async paths -- the proxy's). It matters only for the
+              # Spark routes, which have two deployments each (spark-ab23 and
+              # the gx10-7ac6 replica); every other group has one, so a
+              # failure there still goes straight to its fallbacks as before.
+              enable_weighted_failover: true
               # Text routes only. A fallback fires after the route's own
-              # num_retries are spent on errors that come back FAST: connection
+              # num_retries are spent -- on the Spark routes, after BOTH
+              # replicas' (enable_weighted_failover above) -- on errors that come
+              # back FAST: connection
               # refused, 5xx. That covers the Spark being down, restarting or its
               # engine having crashed. It does NOT cover an engine that accepts
               # the connection and then hangs: no route sets a timeout, so
