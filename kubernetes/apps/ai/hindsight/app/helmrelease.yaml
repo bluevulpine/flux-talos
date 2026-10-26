@@ -365,9 +365,11 @@ spec:
               # 2026-10-24, hindsight's own LiteLLM name for the same backend as
               # `spark-main` (used 2026-10-05..24). The rename exists so hindsight's
               # fallback chain (Nous, then claude-haiku-5-5 on the Anthropic
-              # account) can differ from everyone else's Nous-only one: LiteLLM
+              # account) can differ from everyone else's when it needs to: LiteLLM
               # fallbacks are per route name and the deployed version does not
-              # filter targets by the calling key. Reflect names its model directly
+              # filter targets by the calling key. (spark-main got the same Haiku
+              # stage later on 2026-10-24 while Nous is out of credit, so the two
+              # chains are identical for now.) Reflect names its model directly
               # below. Wherever this file says spark-gpt-oss-20b or
               # spark-gpt-oss-20b-long it means the route these stages USED to
               # name; both were the same backend, and the separate -long route for
@@ -820,8 +822,8 @@ spec:
               # 72 s, TensorFold GLM-5.3-Flash 10 / 200 s (03:19-04:24Z, needs
               # production vLLM off). Whether reflect stays here is Derek's call
               # on those numbers. To move it back to the Spark: set this to
-              # `hindsight-main` (NOT `spark-main`: that name carries the
-              # Nous-only fallback and would split hindsight across two chains)
+              # `hindsight-main` (NOT `spark-main`: that name's chain can differ
+              # from hindsight's and would split hindsight across two chains)
               # and restore the REASONING_EFFORT line below. Was `spark-main`
               # until 2026-10-24.
               HINDSIGHT_API_REFLECT_LLM_MODEL: claude-opus-5-5
