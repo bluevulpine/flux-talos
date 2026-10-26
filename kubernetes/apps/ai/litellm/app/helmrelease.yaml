@@ -270,10 +270,16 @@ spec:
               # dead box costs the group capacity, not the route. Only when
               # BOTH are down do the fallbacks below fire.
               #
-              # Each replica keeps its own prefix cache, so a long shared
-              # system prompt is cached twice and a request hitting the cold
-              # one pays the prefill again; at hindsight's volume that was
-              # judged cheaper than session affinity.
+              # Each replica keeps its own prefix cache (--enable-prefix-caching).
+              # A shared system prompt costs one cold miss per replica, but a
+              # multi-turn call (hindsight reflect re-sends the whole growing
+              # conversation each tool turn) lands on the cold replica about
+              # half the time and pays the full prefill again. NOT measured yet:
+              # spark-ab23 alone served 28% of prompt tokens from cache
+              # (4.64M of 16.39M, 2026-10-26). Compare
+              # spark:vllm_cached_prompt_tokens / spark:vllm_prompt_tokens a
+              # day after this change; if it drops well below that, look at
+              # prefix-aware routing before pinning hindsight-main to one box.
               - model_name: spark-main
                 litellm_params:
                   model: openai/qwen3.6-35b-a3b
