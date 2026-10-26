@@ -866,10 +866,12 @@ spec:
               # on the renewal day (to do 2026-10-29, vault context.md): the
               # window lives in TWO Redis keys, `provider_spend:anthropic:1mo`
               # and `provider_budget_start_time:anthropic`, plus each replica's
-              # in-memory copy, so delete both keys and `kubectl rollout restart
-              # deploy/litellm`, then check `budget_reset_at` in GET
-              # /provider/budgets reads the 29th. Deleting the spend key alone
-              # zeroes the spend but keeps the old window end (#2305 review).
+              # in-memory copy, so `kubectl rollout restart deploy/litellm`
+              # FIRST (a live replica's periodic sync would otherwise write the
+              # old spend back), then delete both keys, then check that
+              # `budget_reset_at` in GET /provider/budgets reads the 29th.
+              # Deleting the spend key alone zeroes the spend but keeps the old
+              # window end (#2305 review).
               # Spend from before this applies is not
               # counted either, so the hindsight key's $95 cap stays as the
               # guard for the current allotment until that reset.

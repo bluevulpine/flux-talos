@@ -10,7 +10,7 @@ spec:
       rules:
         # Both rules read router_settings.provider_budget_config in
         # helmrelease.yaml: the Anthropic monthly credit ($100, renews on the
-        # 29th) is modelled as a $99.50 LiteLLM provider budget, and when it is
+        # 29th) is modelled as a $99 LiteLLM provider budget, and when it is
         # spent the anthropic/ routes fall back to the Spark instead of failing.
         # The gauge is remaining dollars in the current window. LiteLLM writes
         # it while FILTERING deployments for a request that could reach an
@@ -58,7 +58,11 @@ spec:
         # 429/529, outage). Fires alongside BudgetExhausted when the budget is
         # the cause, and alone during an Anthropic outage. `spark-direct` is
         # only ever a fallback target (helmrelease.yaml), so any count is a
-        # failover.
+        # failover. The series carries prometheus_client's `_total` suffix
+        # that LiteLLM's docs table leaves off; without it the selector
+        # matches nothing and the alert can never fire (#2305 review). A
+        # series is created on its first count, so increase() misses the very
+        # first fallback after a pod start per label set; fine at warning.
         - alert: LiteLLMAnthropicFallbackActive
           annotations:
             summary: >-
@@ -67,7 +71,7 @@ spec:
               and retain are degrading to Qwen. If LiteLLMAnthropicBudgetExhausted
               is not also firing, Anthropic itself is failing (429/529/outage).
           expr: |
-            sum(increase(litellm_deployment_successful_fallbacks{fallback_model="spark-direct"}[30m])) > 0
+            sum(increase(litellm_deployment_successful_fallbacks_total{fallback_model="spark-direct"}[30m])) > 0
           for: 5m
           labels:
             severity: warning
