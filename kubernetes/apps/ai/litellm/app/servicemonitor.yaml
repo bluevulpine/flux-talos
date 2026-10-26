@@ -5,8 +5,10 @@ kind: ServiceMonitor
 metadata:
   name: litellm
 spec:
-  # LiteLLM serves /metrics on its app port only when `callbacks: [prometheus]`
-  # is set in litellm_settings (helmrelease.yaml); before 2026-10-26 it was not,
+  # LiteLLM serves /metrics on its app port only when `prometheus` is listed
+  # under litellm_settings.success_callback (helmrelease.yaml; the `callbacks`
+  # key registers the logger without mounting the endpoint, #2307); before
+  # 2026-10-26 it was not,
   # and this cluster had no litellm_* series at all. Both replicas export, and
   # gauges such as litellm_provider_remaining_budget_metric are per process,
   # updated on each request that process handles, so rules take min/max across
