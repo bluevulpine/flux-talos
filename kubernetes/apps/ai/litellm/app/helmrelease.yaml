@@ -286,6 +286,22 @@ spec:
                   api_key: unused-no-auth
                   num_retries: 2
 
+              # The SAME Spark backend a third time, as the fallback TARGET for
+              # the Anthropic routes (router_settings.fallbacks). It must be a
+              # name with no fallbacks of its own: the two Spark chains above end
+              # in claude-haiku-5-5, and LiteLLM nests fallbacks (run_async_fallback
+              # recurses up to max_fallbacks=5), so pointing claude-haiku-5-5 at
+              # hindsight-main would, with the Spark down and the Anthropic budget
+              # spent, bounce haiku -> hindsight-main -> nous -> haiku -> ... five
+              # deep before failing. Nothing calls this name directly and no key
+              # lists it; fallback targets are not key-filtered.
+              - model_name: spark-direct
+                litellm_params:
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.237:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
+
               # Vision: Qwen3.6 reads images itself. Checked side by side with the
               # retired qwen2.5vl on five images: same or better tags, and a
               # rendered receipt transcribed exactly. Images are capped at ~1 MP
@@ -569,6 +585,13 @@ spec:
                 model_info:
                   input_cost_per_token: 0.0000001
                   output_cost_per_token: 0.0000005
+                  # Cache prices too (write 1.25x, read 0.1x of input): a pinned
+                  # model_info replaces the cost map's entry wholesale, so without
+                  # these LiteLLM priced cache writes at the plain input rate and
+                  # under-counted 2026-10-26's Sonnet calls by ~3 %. The provider
+                  # budget below is only as good as this arithmetic.
+                  cache_creation_input_token_cost: 0.000000125
+                  cache_read_input_token_cost: 0.00000001
 
               # Claude Sonnet 5.5, TEMPORARY, for ONE job: pass 3 of the 2026-10-24
               # accuracy sweep (vault Evals/2026-10-17-hindsight-regate-set2.md),
@@ -599,6 +622,8 @@ spec:
                 model_info:
                   input_cost_per_token: 0.000002
                   output_cost_per_token: 0.00001
+                  cache_creation_input_token_cost: 0.0000025
+                  cache_read_input_token_cost: 0.0000002
 
               # GLM-5.3-Flash on TensorFold across both GB10s (spark-ab23 head,
               # gx10-7ac6 worker; recipe ~/GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold
@@ -621,6 +646,17 @@ spec:
 
             litellm_settings:
               drop_params: true
+              # Prometheus metrics (/metrics on the app port, unauthenticated by
+              # LiteLLM; the public hosts sit behind Authentik and the in-cluster
+              # scrape needs none). Off by default, and until 2026-10-26 nothing
+              # exported a litellm_* series, so the only spend record was the
+              # database. Wanted for one gauge first:
+              # litellm_provider_remaining_budget_metric{api_provider="anthropic"},
+              # which prometheusrule.yaml turns into "credit is running low" and
+              # "Anthropic is failed over to the Spark" alerts. Request and spend
+              # counters per model/key come along for free; servicemonitor.yaml.
+              callbacks:
+                - prometheus
               # Anthropic prompt caching, injected here for every `anthropic/`
               # route. Nothing upstream asks for it: hindsight reaches these
               # routes through its OpenAI-shaped provider (its own `anthropic`
@@ -759,6 +795,20 @@ spec:
               # $0.05 lifetime on the Spark's API-equivalent price). The
               # `claude-haiku-5-5` route does not need to be on their keys:
               # fallback targets are not key-filtered in this version.
+              #
+              # The Anthropic routes fall back to the Spark (Derek, 2026-10-26)
+              # so that an exhausted Anthropic budget degrades reflect and retain
+              # instead of failing them: when provider_budget_config below trips,
+              # every anthropic/ deployment is skipped, a route with no other
+              # deployment raises "No deployments available - crossed budget"
+              # (a RouterRateLimitError), and that is handed to this list like
+              # any other failure. The Haiku stage inside the two Spark chains
+              # above drops out the same way. The target is `spark-direct`, not
+              # hindsight-main, so the chains cannot loop (see that route). This
+              # also fires on ordinary Anthropic 429/529s, so a reflect can land
+              # on Qwen quietly; LiteLLMAnthropicBudgetExhausted names the budget
+              # case, and a graded comparison window should remove these two
+              # lines for its duration, as the TensorFold leg did.
               fallbacks:
                 - spark-main:
                     - nous-qwen36-fallback
@@ -766,6 +816,42 @@ spec:
                 - hindsight-main:
                     - nous-qwen36-fallback
                     - claude-haiku-5-5
+                - claude-opus-5-5:
+                    - spark-direct
+                - claude-haiku-5-5:
+                    - spark-direct
+
+              # Fail-safe for the Anthropic monthly credit ($100, renews on the
+              # 29th; next 2026-10-29). Until 2026-10-26 the only guard was the
+              # hindsight key's max_budget, enforced before routing, so tripping
+              # it blocks every route on that key, the free Spark one included,
+              # and the spark-main consumers' uncapped keys could still spend
+              # through Haiku. This counts every anthropic/ call from every key
+              # (Redis key `provider_spend:anthropic:1mo` in the router's
+              # dragonfly, the usage object priced by LiteLLM's cost map or the
+              # model_info pins above) and, once over the limit, removes the
+              # anthropic/ deployments from routing so the fallbacks above carry
+              # the traffic to the Spark. $99.50, not $100: overshooting the
+              # credit by cents has in the past forced a $5 top-up to clear the
+              # balance (Derek). Not counted here, because it never touches
+              # LiteLLM: the claude-code-review GitHub workflow and any direct
+              # use of the account key; lower the limit once their monthly share
+              # is known from the Anthropic console.
+              #
+              # The window is a Redis TTL from the FIRST anthropic/ call after
+              # this applies, "1mo" = same day next month, not a calendar
+              # anchor: deployed on 2026-10-26 it ends 2026-11-26, three days
+              # before Anthropic's 11-29 renewal, and in that gap LiteLLM would
+              # see a fresh $99.50 while the real credit is nearly spent. Re-anchor
+              # on the renewal day by deleting the Redis key (then the first call
+              # of the 29th starts a 29th-to-29th window): to do on 2026-10-29
+              # (vault context.md). Spend from before this applies is not
+              # counted either, so the hindsight key's $95 cap stays as the
+              # guard for the current allotment until that reset.
+              provider_budget_config:
+                anthropic:
+                  budget_limit: 99.5
+                  time_period: 1mo
     persistence:
       config:
         type: configMap
