@@ -850,13 +850,14 @@ spec:
               enable_weighted_failover: true
               # Text routes only. A fallback fires after the route's own
               # num_retries are spent -- on the Spark routes, after BOTH
-              # replicas' (enable_weighted_failover above) -- on errors that come
-              # back FAST: connection
-              # refused, 5xx. That covers the Spark being down, restarting or its
-              # engine having crashed. It does NOT cover an engine that accepts
-              # the connection and then hangs: no route sets a timeout, so
-              # LiteLLM's 600s default applies to each of three attempts and
-              # hindsight's own 600s gives up first. Slow is not a fallback either.
+              # replicas' (enable_weighted_failover above) -- on errors that
+              # come back FAST: connection refused, 5xx. That covers the Spark
+              # being down, restarting or its engine having crashed. It does
+              # NOT cover an engine that accepts the connection and then hangs:
+              # no route sets a timeout, so LiteLLM's 600s default applies per
+              # attempt (with weighted failover a hung box can be followed by
+              # attempts on the other one), and hindsight's own 600s gives up
+              # first. Slow is not a fallback either.
               #
               # Vision (spark-main-vision) is deliberately NOT here: its callers
               # are interactive (karakeep tagging, homebox photos), a failed tag
