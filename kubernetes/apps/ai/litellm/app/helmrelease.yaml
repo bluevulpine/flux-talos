@@ -534,8 +534,7 @@ spec:
               # Spark) and the other consumers' light traffic during a Spark
               # outage, so the cheap tier is the right one: $0.10 in / $0.50 out
               # per million tokens on the pricing page as of 2026-10 (prompts up
-              # to 100k),
-              # a fortieth of Opus. Added 2026-10-24 after the TensorFold test
+              # to 100k), a fortieth of Opus. Added 2026-10-24 after the TensorFold test
               # window showed the Nous stage failing every request with
               # "Insufficient available credits" (balance $0.04 until 2026-11-05)
               # while Gatus's one-token probe on it kept passing: 123 retains
@@ -570,6 +569,36 @@ spec:
                 model_info:
                   input_cost_per_token: 0.0000001
                   output_cost_per_token: 0.0000005
+
+              # Claude Sonnet 5.5, TEMPORARY, for ONE job: pass 3 of the 2026-10-24
+              # accuracy sweep (vault Evals/2026-10-17-hindsight-regate-set2.md),
+              # re-extracting 812 documents in the flux-talos, .buzz and
+              # spark-setup banks (~5.2M input tokens) while hindsight's retain
+              # stage names this route. Why re-extract: the stale and garbled
+              # facts the graded legs tripped on were made at extraction time
+              # (Qwen3.6, and Haiku 4.5 before 2026-10-05); reprocess REPLACES a
+              # document's units (probed 2026-10-24: 0 of 5 old ids survived),
+              # so this is the one pass that rewrites the store itself. Sonnet,
+              # not Opus: extraction is structured output against a strict
+              # schema, Derek's pick on cost (list price as of 2026-10: $2 / $10
+              # per million, Opus $4 / $20), pinned below so the key cap counts
+              # it. Same parameter hygiene as the Haiku route. Remove with the
+              # pass, together with the retain-stage line in hindsight's
+              # HelmRelease; narrow the key after Flux applies that.
+              - model_name: claude-sonnet-5-5-reextract
+                litellm_params:
+                  model: anthropic/claude-sonnet-5-5
+                  api_key: os.environ/ANTHROPIC_API_KEY
+                  additional_drop_params:
+                    - temperature
+                    - top_p
+                    - top_k
+                    - reasoning_effort
+                  max_tokens: 32768
+                  num_retries: 2
+                model_info:
+                  input_cost_per_token: 0.000002
+                  output_cost_per_token: 0.00001
 
               # GLM-5.3-Flash on TensorFold across both GB10s (spark-ab23 head,
               # gx10-7ac6 worker; recipe ~/GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold
