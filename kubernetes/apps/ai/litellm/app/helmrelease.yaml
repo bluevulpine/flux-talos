@@ -666,7 +666,12 @@ spec:
               # which prometheusrule.yaml turns into "credit is running low" and
               # "Anthropic is failed over to the Spark" alerts. Request and spend
               # counters per model/key come along for free; servicemonitor.yaml.
-              callbacks:
+              # `success_callback`, not `callbacks`: in v1.106.2 the proxy mounts
+              # /metrics only while loading the success_callback key
+              # (proxy/proxy_server.py:6736, "mounting metrics endpoint"); the
+              # `callbacks` key registers the logger but leaves /metrics at the
+              # catch-all 401, which is what the first roll of #2305 showed.
+              success_callback:
                 - prometheus
               # Anthropic prompt caching, injected here for every `anthropic/`
               # route. Nothing upstream asks for it: hindsight reaches these
