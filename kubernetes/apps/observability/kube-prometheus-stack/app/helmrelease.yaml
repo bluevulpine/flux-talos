@@ -179,7 +179,9 @@ spec:
         # (OTEL_METRICS_INCLUDE_SESSION_ID=false on the client): Thanos holds
         # the 1h downsample for three years and a new label set per session
         # would pile up for nothing, while the per-session detail lives in
-        # the VictoriaLogs events anyway.
+        # the VictoriaLogs events for their 14-day retention, which is what
+        # that detail is worth; the aggregates by model and repo are what
+        # stay for years.
         #
         # Resource attributes land in `target_info` unless promoted; these
         # three are the ones worth a label (`host.name` tells aurelia from a

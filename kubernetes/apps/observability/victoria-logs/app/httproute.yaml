@@ -4,6 +4,11 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: victoria-logs-otlp
+  annotations:
+    # gatus-sidecar runs with --auto-httproute and would probe this hostname
+    # at `/`, which the route does not match (Envoy answers 404), so the
+    # endpoint would sit red forever. The ingest path only takes POSTs.
+    gatus.home-operations.com/enabled: "false"
 spec:
   # The OTLP logs ingest path only, for Claude Code's telemetry events from
   # Derek's Mac (claude_code.api_request with tokens, cost and model per call,
