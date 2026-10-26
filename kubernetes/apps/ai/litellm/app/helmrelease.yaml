@@ -245,7 +245,7 @@ spec:
               # that still listed the old names had them stripped the same day.
               #
               # The -long name existed because reflect once needed a separate
-              # one-slot 98k ollama on :11435; vLLM's single instance serves the
+              # one-slot 98k ollama on :11435; each vLLM replica serves the
               # full 131,072-token window to any request (an ~87k-token prompt
               # measured 18s to first token alongside short traffic), so one
               # route covers reflect too.
@@ -265,10 +265,20 @@ spec:
               # vLLM replica of the same model, image and flags (spark-setup
               # `vllm_serving`; the GX10 reads the weights from spark-ab23
               # over NFS). LiteLLM's default simple-shuffle spreads requests
-              # across a model group's deployments, and a deployment that keeps
-              # failing is cooled down so its retries land on the other -- a
-              # dead box costs the group capacity, not the route. Only when
-              # BOTH are down do the fallbacks below fire.
+              # across a model group's deployments. On an error, the
+              # deployment's own num_retries go to the SAME box; then
+              # `enable_weighted_failover` (router_settings) re-picks the other
+              # deployment of the group, and only when both have failed do the
+              # route's fallbacks fire. Without that flag a failed deployment
+              # goes straight to the fallbacks (Nous, then Haiku: paid) while
+              # the other box sits healthy -- the LiteLLM default, caught in
+              # the #2308 review.
+              #
+              # ⚠️ This covers a restart or a dead ENGINE on spark-ab23, not a
+              # spark-ab23 HOST outage: the GX10 loads its weights from
+              # spark-ab23 over NFS, so with that host down the GX10 replica
+              # keeps serving only until it restarts, and a hard NFS mount can
+              # hang its file reads meanwhile.
               #
               # Each replica keeps its own prefix cache (--enable-prefix-caching).
               # A shared system prompt costs one cold miss per replica, but a
@@ -810,6 +820,13 @@ spec:
             router_settings:
               redis_host: dragonfly.database.svc.cluster.local
               redis_port: 6379
+              # Retry a failed request on ANOTHER deployment of the same model
+              # group before any fallback (LiteLLM >= v1.86, simple-shuffle
+              # only, async paths -- the proxy's). It matters only for the
+              # Spark routes, which have two deployments each (spark-ab23 and
+              # the gx10-7ac6 replica); every other group has one, so a
+              # failure there still goes straight to its fallbacks as before.
+              enable_weighted_failover: true
               # Text routes only. A fallback fires after the route's own
               # num_retries are spent on errors that come back FAST: connection
               # refused, 5xx. That covers the Spark being down, restarting or its

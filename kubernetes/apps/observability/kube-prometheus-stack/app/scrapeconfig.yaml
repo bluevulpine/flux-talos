@@ -169,8 +169,8 @@ metadata:
 spec:
   staticConfigs:
     # vLLM on the DGX Spark (spark-setup roles/vllm), serving Qwen3.6 for the
-    # `spark-main`, `spark-main-vision` and `hindsight-main` routes in LiteLLM
-    # (one backend, three names). Its /metrics is unauthenticated
+    # `spark-main`, `spark-main-vision`, `hindsight-main` and `spark-direct`
+    # routes in LiteLLM (two replicas since 2026-10-26, four names). Its /metrics is unauthenticated
     # and bound to the LAN address, which pods already reach (LiteLLM calls the
     # same host:port). Addressed by IP for the same reason as the LiteLLM
     # api_base: the spark-ab23 name has not resolved reliably from pods.
