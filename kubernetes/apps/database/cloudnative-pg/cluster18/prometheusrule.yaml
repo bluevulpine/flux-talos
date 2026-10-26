@@ -47,6 +47,22 @@ spec:
           for: 1m
           labels:
             severity: warning
+        # Critical twin (paged as an emergency, see alertmanagerconfig.yaml): an hour
+        # of lag means replay has stopped. On 2026-10-23 an orphaned pg_dump blocked
+        # postgres18-2's replay for ~21 h while the warning repeated unnoticed.
+        # `for: 15m` covers the ~10 min of high lag while a standby catches up.
+        - alert: PGReplication
+          annotations:
+            description: >-
+              {{ $labels.pod }} has not replayed for {{ $value | humanizeDuration }}: replay
+              is stalled, not slow. Look for a long query blocking it on the standby
+              (pg_stat_activity), and check the standby's disk.
+            summary: Standby replay has stalled for over an hour
+          expr: |-
+            cnpg_pg_replication_lag > 3600
+          for: 15m
+          labels:
+            severity: critical
         - alert: LastFailedArchiveTime
           annotations:
             description: Archiving failed for {{ $labels.pod }}

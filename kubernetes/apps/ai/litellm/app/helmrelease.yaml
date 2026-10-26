@@ -621,6 +621,36 @@ spec:
 
             litellm_settings:
               drop_params: true
+              # Anthropic prompt caching, injected here for every `anthropic/`
+              # route. Nothing upstream asks for it: hindsight reaches these
+              # routes through its OpenAI-shaped provider (its own `anthropic`
+              # provider does mark cache_control, but we route through LiteLLM
+              # for the single key and `drop_params`, see the Opus route), and
+              # that provider sends no cache_control. LiteLLM forwards markers
+              # only when the caller sends them or this is on, so every Claude
+              # call ran uncached: LiteLLM_DailyUserSpend for 2026-10-24 shows
+              # 669 claude-opus-5-5 requests, 10.6M prompt tokens, $54.85, and
+              # cache_read_input_tokens = cache_creation_input_tokens = 0, which
+              # is what Anthropic's 2026-10-26 "low cache hit rate" notice
+              # (est. 54 % of direct spend avoidable) was about.
+              #
+              # The traffic caches well: each hindsight stage has a fixed system
+              # prompt of 2-4k tokens (9-14k chars; retain 8.9k, consolidation
+              # 13.3k, refresh 14.2k), far above the 512-token minimum of the
+              # 5.5 models, and refresh/reflect are agent loops that re-send a
+              # growing conversation (12.5 messages per call on average on
+              # 2026-10-26). Calls arrive 1 s apart at the median, none more
+              # than 5 min apart, so the default 5-minute TTL is right; the
+              # 1h TTL (`anthropic_prompt_caching_ttl`) would only double the
+              # write price. The flag sets one breakpoint on the system prompt
+              # and one on the trailing turn, which is the loop pattern; on a
+              # two-message retain call the trailing breakpoint writes the
+              # unique document at the 1.25x write price with no later read,
+              # a few percent of that call, accepted. Spark/Nous routes are
+              # untouched (anthropic/ and bedrock/ only). Verify with
+              # cache_read_input_tokens in LiteLLM_DailyUserSpend and
+              # hindsight.llm_requests.cached_tokens, both 0 before this.
+              enable_anthropic_prompt_caching: true
               # Response cache in the shared dragonfly, OPT-IN ONLY (default_off).
               # A request is cached only when the caller sends
               # `cache: {"use-cache": true}`; everything else, including all of
