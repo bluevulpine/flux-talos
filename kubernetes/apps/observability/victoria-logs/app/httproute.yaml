@@ -1,0 +1,36 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: victoria-logs-otlp
+  annotations:
+    # gatus-sidecar runs with --auto-httproute and would probe this hostname
+    # at `/`, which the route does not match (Envoy answers 404), so the
+    # endpoint would sit red forever. The ingest path only takes POSTs.
+    gatus.home-operations.com/enabled: "false"
+spec:
+  # The OTLP logs ingest path only, for Claude Code's telemetry events from
+  # Derek's Mac (claude_code.api_request with tokens, cost and model per call,
+  # tool results, API errors; prompt and response text stay redacted unless
+  # the client opts in). VictoriaLogs maps every OTLP resource attribute to a
+  # log-stream field and the body to `_msg`; the client narrows the stream
+  # fields with the `VL-Stream-Fields` header. The query UI and the rest of
+  # the API stay in-cluster (Grafana reads the Service directly): this route
+  # matches `/insert/opentelemetry/` and nothing else. No `auth: authentik`
+  # label on purpose, the exporter cannot do SSO; the internal gateway is LAN
+  # and tailnet only, the same exposure as the Prometheus route next door.
+  hostnames:
+    - "victoria-logs.${SECRET_DOMAIN}"
+  parentRefs:
+    - name: internal
+      namespace: network
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /insert/opentelemetry/
+      backendRefs:
+        - name: victoria-logs-server
+          port: 9428

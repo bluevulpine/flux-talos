@@ -151,6 +151,49 @@ spec:
         scrapeConfigSelectorNilUsesHelmValues: false
         enableAdminAPI: true
         walCompression: true
+        # OTLP metrics receiver (`--web.enable-otlp-receiver`, POST
+        # /api/v1/otlp/v1/metrics). First consumer, 2026-10-26: Claude Code's
+        # own telemetry from Derek's Mac (CLAUDE_CODE_ENABLE_TELEMETRY, OTLP
+        # http/protobuf), which reports tokens and dollars per request by
+        # model, session and repo. Chosen over routing the harness through
+        # LiteLLM because a non-Anthropic ANTHROPIC_BASE_URL disables Claude
+        # Code's Remote Control (>= 2.1.196), and the client's own export is
+        # the richer record anyway (subagents and background calls included,
+        # attribution labels LiteLLM never sees). Reached through the existing
+        # `prometheus` HTTPRoute on the internal gateway, which carries no
+        # `auth: authentik` label, the same posture as the UI; the exporter
+        # cannot do SSO. If Lens or a second sink ever wants the same stream,
+        # the place for the fan-out is an OpenTelemetry Collector, since
+        # Claude Code sends each signal to exactly one endpoint.
+        #
+        # Two things every exporter pointed here must get right (#2318
+        # review): send CUMULATIVE temporality, because this receiver rejects
+        # delta sums with "invalid temporality and type combination" unless
+        # the `otlp-deltatocumulative` feature is on, and Claude Code's
+        # default is delta (OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=
+        # cumulative on the client); and look for the translated names, since
+        # the default UnderscoreEscapingWithSuffixes strategy appends the
+        # unit and `_total`: claude_code_session_count_total,
+        # claude_code_token_usage_tokens_total, claude_code_cost_usage_USD_total.
+        # Per-session series are kept out of Prometheus
+        # (OTEL_METRICS_INCLUDE_SESSION_ID=false on the client): Thanos holds
+        # the 1h downsample for three years and a new label set per session
+        # would pile up for nothing, while the per-session detail lives in
+        # the VictoriaLogs events for their 14-day retention, which is what
+        # that detail is worth; the aggregates by model and repo are what
+        # stay for years.
+        #
+        # Resource attributes land in `target_info` unless promoted; these
+        # three are the ones worth a label (`host.name` tells aurelia from a
+        # future second machine). The per-request attributes Claude Code puts
+        # on the data points themselves (model, type, session.id, user.email,
+        # repository) become labels on their own.
+        enableOTLPReceiver: true
+        otlp:
+          promoteResourceAttributes:
+            - service.name
+            - service.version
+            - host.name
         enableFeatures:
           - auto-gomemlimit
           - auto-gomaxprocs
