@@ -788,9 +788,10 @@ spec:
               # effort is set deliberately, further down:
               #   - reasoning_effort is passed through VERBATIM, and since
               #     2026-10-05 retain and consolidation do not send it (unset means
-              #     thinking off on Qwen). Reflect sends `low`; the refresh chain
-              #     sends `none` (it sent `low` from 2026-10-05 to 2026-10-14). Both
-              #     are set, with the measurements, beside
+              #     thinking off on Qwen). Reflect sends `low` when it is on the
+              #     Spark (unset on Opus); the refresh chain sends `none` (it sent
+              #     `low` from 2026-10-05 to 2026-10-14). Both are set, with the
+              #     measurements, beside
               #     HINDSIGHT_API_REFLECT_LLM_MODEL and
               #     HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL below;
               #   - temperature falls back to reflect's intended 0.9
@@ -852,21 +853,22 @@ spec:
               # The virtual key must allow this model_name before this deploys; see
               # the note above HINDSIGHT_API_LLM_API_KEY in the ExternalSecret.
               #
-              # 2026-10-26: back on the Spark (`hindsight-main`, NOT `spark-main`:
+              # Claude Opus 5.5 through LiteLLM's `claude-opus-5-5` route since
+              # 2026-10-24 (decided 2026-10-27); every other stage is on
+              # `hindsight-main`. The re-grade after pass 3 (vault
+              # Evals/2026-10-17-hindsight-regate-set2.md, same 12 questions,
+              # curated and re-extracted bank, every call checked in LiteLLM's
+              # spend logs to have been served by the named model): Opus 1 wrong
+              # fact / 36 s median / 47 s p95, the Spark on `hindsight-main` 4 /
+              # 45 s / 104 s. The bar was the Spark keeping reflect within one
+              # wrong fact of Opus. The Spark's misses were synthesis, not
+              # retrieval: a PR mis-dated, one PR's change credited to another, a
+              # value the bank does not hold. Opus costs about $0.35 a reflect.
+              # To move it to the Spark: `hindsight-main` here (NOT `spark-main`:
               # that name's chain can differ from hindsight's and would split
-              # hindsight across two chains) for the Spark leg of the post-sweep
-              # re-grade, per the 2026-10-24 decision: the Spark keeps reflect if
-              # it lands within one wrong fact of Opus on the same 12 questions
-              # against the re-extracted bank. Reflect ran on Claude Opus 5.5
-              # through LiteLLM's `claude-opus-5-5` route 2026-10-24..26 (every
-              # other stage stayed on `hindsight-main`); the three-leg comparison
-              # before the sweep (vault Evals/2026-10-17-hindsight-regate-set2.md,
-              # same 12 questions): Spark Qwen3.6 9 wrong facts / 91 s median,
-              # Opus 5 / 72 s, TensorFold GLM-5.3-Flash 10 / 200 s (needs
-              # production vLLM off). To put it back on Opus: `claude-opus-5-5`
-              # here and comment out the REASONING_EFFORT line below. Was
-              # `spark-main` until 2026-10-24.
-              HINDSIGHT_API_REFLECT_LLM_MODEL: hindsight-main
+              # hindsight across two chains) and restore the REASONING_EFFORT
+              # line below. Was `spark-main` until 2026-10-24.
+              HINDSIGHT_API_REFLECT_LLM_MODEL: claude-opus-5-5
               # Thinking ON for user-invoked reflect. On Qwen any effort but "none"
               # switches thinking on (see the note above HINDSIGHT_API_LLM_PROVIDER).
               #
@@ -888,8 +890,8 @@ spec:
               # Unset whenever reflect runs on Claude (above): the Qwen measurement
               # does not transfer, Opus 5.5 reasons adaptively without being asked,
               # and LiteLLM would otherwise translate `low` into Anthropic thinking
-              # parameters this model may reject. Goes with the model line.
-              HINDSIGHT_API_REFLECT_LLM_REASONING_EFFORT: low
+              # parameters this model may reject. Restore with the model line.
+              # HINDSIGHT_API_REFLECT_LLM_REASONING_EFFORT: low
               # Sized when reflect's window was 98,304 (it is 131,072 on vLLM now),
               # NOT to the default of 100,000, which was past it. The cap bounds the
               # context reflect accumulates before it is forced to answer, and the
