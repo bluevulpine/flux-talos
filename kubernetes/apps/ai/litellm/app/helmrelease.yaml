@@ -647,56 +647,14 @@ spec:
                 model_info:
                   input_cost_per_token: 0.0000001
                   output_cost_per_token: 0.0000005
-                  # Cache prices too (write 1.25x, read 0.1x of input), here and
-                  # on the Sonnet pin below: a pinned model_info replaces the cost
-                  # map's entry wholesale, so without them LiteLLM priced cache
-                  # writes at the plain input rate on every pinned route (the
-                  # Sonnet re-extract calls of 2026-10-26 came out ~3 % under).
-                  # The provider budget below is only as good as this arithmetic.
+                  # Cache prices too (write 1.25x, read 0.1x of input): a pinned
+                  # model_info replaces the cost map's entry wholesale, so without
+                  # them LiteLLM priced cache writes at the plain input rate on
+                  # every pinned route (the Sonnet re-extract calls of 2026-10-26
+                  # came out ~3 % under). The provider budget below is only as
+                  # good as this arithmetic.
                   cache_creation_input_token_cost: 0.000000125
                   cache_read_input_token_cost: 0.00000001
-
-              # PARKED since 2026-10-26 (#2304): retain moved to claude-haiku-5-5
-              # after 72 documents here, when the measured cost (~$6 per million
-              # characters, output-token bound; hindsight HelmRelease, retain
-              # model comment) put the 838-document pass at ~$115. Nothing names
-              # this route now; it goes with the revert PR. It keeps a Spark
-              # fallback below so that if retain is ever pointed back here an
-              # exhausted budget degrades it instead of failing it. The
-              # paragraph below is the original plan, kept for the record.
-              #
-              # Claude Sonnet 5.5, TEMPORARY, for ONE job: pass 3 of the 2026-10-24
-              # accuracy sweep (vault Evals/2026-10-17-hindsight-regate-set2.md),
-              # re-extracting 812 documents in the flux-talos, .buzz and
-              # spark-setup banks (~5.2M input tokens) while hindsight's retain
-              # stage names this route. Why re-extract: the stale and garbled
-              # facts the graded legs tripped on were made at extraction time
-              # (Qwen3.6, and Haiku 4.5 before 2026-10-05); reprocess REPLACES a
-              # document's units (probed 2026-10-24: 0 of 5 old ids survived),
-              # so this is the one pass that rewrites the store itself. Sonnet,
-              # not Opus: extraction is structured output against a strict
-              # schema, Derek's pick on cost (list price as of 2026-10: $2 / $10
-              # per million, Opus $4 / $20), pinned below so the key cap counts
-              # it. Same parameter hygiene as the Haiku route. Remove with the
-              # pass, together with the retain-stage line in hindsight's
-              # HelmRelease; narrow the key after Flux applies that.
-              - model_name: claude-sonnet-5-5-reextract
-                litellm_params:
-                  model: anthropic/claude-sonnet-5-5
-                  api_key: os.environ/ANTHROPIC_API_KEY
-                  additional_drop_params:
-                    - temperature
-                    - top_p
-                    - top_k
-                    - reasoning_effort
-                  max_tokens: 32768
-                  num_retries: 2
-                model_info:
-                  input_cost_per_token: 0.000002
-                  output_cost_per_token: 0.00001
-                  # Same cache prices as the Haiku pin, same reason.
-                  cache_creation_input_token_cost: 0.0000025
-                  cache_read_input_token_cost: 0.0000002
 
               # GLM-5.3-Flash on TensorFold across both GB10s (spark-ab23 head,
               # gx10-7ac6 worker; recipe ~/GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold
@@ -920,8 +878,6 @@ spec:
                     - spark-direct
                 - claude-haiku-5-5:
                     - spark-direct
-                - claude-sonnet-5-5-reextract:
-                    - spark-direct
 
               # Fail-safe for the Anthropic monthly credit ($100, renews on the
               # 29th; next 2026-10-29). Until 2026-10-26 the only guard was the
@@ -943,12 +899,13 @@ spec:
               # claude-code-review GitHub workflow is NOT such a case: it runs on
               # the Claude Code OAuth token (the subscription), not the API key.
               #
-              # The window is a Redis TTL from the FIRST anthropic/ call after
-              # this applies, "1mo" = same day next month, not a calendar
-              # anchor: deployed on 2026-10-26 it ends 2026-11-26, three days
-              # before Anthropic's 11-29 renewal, and in that gap LiteLLM would
-              # see a fresh $99 while the real credit is nearly spent. Re-anchor
-              # on the renewal day (to do 2026-10-29, vault context.md): the
+              # The window starts at the FIRST anthropic/ call after this
+              # applies (the Redis start-time key named below); "1mo" = same day
+              # next month, not a calendar anchor: deployed on 2026-10-26 it
+              # ends 2026-11-26, three days before Anthropic's 11-29 renewal,
+              # and in that gap LiteLLM would see a fresh $99 while the real
+              # credit is nearly spent. Re-anchor on the renewal day (to do
+              # 2026-10-29, vault context.md): the
               # window lives in TWO Redis keys, `provider_spend:anthropic:1mo`
               # and `provider_budget_start_time:anthropic`, plus each replica's
               # in-memory copy that a replica fills from Redis on first use and
