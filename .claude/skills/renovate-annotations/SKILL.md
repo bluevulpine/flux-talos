@@ -1,6 +1,6 @@
 ---
 name: renovate-annotations
-description: "When and where to add a `# renovate: datasource=...` annotation in this repo, and the three cases where adding one is wrong (app-template nested images, a HelmRelease's top-level image, chartRef/OCIRepository versions) because the `flux` manager already tracks them and a second match opens duplicate PRs. Use before adding or removing a Renovate annotation, or when Renovate opens two PRs for one bump."
+description: "When and where to add a `# renovate: datasource=...` annotation in this repo, and the cases where adding one is wrong (a HelmRelease's top-level image, chartRef/OCIRepository versions: the `flux` manager already tracks them and a second match opens duplicate PRs) or optional (app-template nested images, which Renovate detects natively and the repo deliberately leaves mixed). Use before adding or removing a Renovate annotation, or when Renovate opens two PRs for one bump."
 ---
 
 # Renovate version annotations
