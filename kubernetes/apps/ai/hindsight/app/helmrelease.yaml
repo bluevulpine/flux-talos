@@ -837,19 +837,21 @@ spec:
               # The virtual key must allow this model_name before this deploys; see
               # the note above HINDSIGHT_API_LLM_API_KEY in the ExternalSecret.
               #
-              # 2026-10-24: reflect goes to Claude Opus 5.5 through LiteLLM's
-              # `claude-opus-5-5` route (see that HelmRelease); every other stage
-              # is on `hindsight-main`. The three-leg comparison (vault
-              # Evals/2026-10-17-hindsight-regate-set2.md) on the same 12
-              # questions: Spark Qwen3.6 9 wrong facts / 91 s median, Opus 5 /
-              # 72 s, TensorFold GLM-5.3-Flash 10 / 200 s (03:19-04:24Z, needs
-              # production vLLM off). Whether reflect stays here is Derek's call
-              # on those numbers. To move it back to the Spark: set this to
-              # `hindsight-main` (NOT `spark-main`: that name's chain can differ
-              # from hindsight's and would split hindsight across two chains)
-              # and restore the REASONING_EFFORT line below. Was `spark-main`
-              # until 2026-10-24.
-              HINDSIGHT_API_REFLECT_LLM_MODEL: claude-opus-5-5
+              # 2026-10-26: back on the Spark (`hindsight-main`, NOT `spark-main`:
+              # that name's chain can differ from hindsight's and would split
+              # hindsight across two chains) for the Spark leg of the post-sweep
+              # re-grade, per the 2026-10-24 decision: the Spark keeps reflect if
+              # it lands within one wrong fact of Opus on the same 12 questions
+              # against the re-extracted bank. Reflect ran on Claude Opus 5.5
+              # through LiteLLM's `claude-opus-5-5` route 2026-10-24..26 (every
+              # other stage stayed on `hindsight-main`); the three-leg comparison
+              # before the sweep (vault Evals/2026-10-17-hindsight-regate-set2.md,
+              # same 12 questions): Spark Qwen3.6 9 wrong facts / 91 s median,
+              # Opus 5 / 72 s, TensorFold GLM-5.3-Flash 10 / 200 s (needs
+              # production vLLM off). To put it back on Opus: `claude-opus-5-5`
+              # here and comment out the REASONING_EFFORT line below. Was
+              # `spark-main` until 2026-10-24.
+              HINDSIGHT_API_REFLECT_LLM_MODEL: hindsight-main
               # Thinking ON for user-invoked reflect. On Qwen any effort but "none"
               # switches thinking on (see the note above HINDSIGHT_API_LLM_PROVIDER).
               #
@@ -868,11 +870,11 @@ spec:
               # the reflect tool's timeout is 10 minutes. If the session-start
               # hook's reflect is ever turned back on, this has to go.
               #
-              # Unset while reflect runs on Claude (above): the Qwen measurement
+              # Unset whenever reflect runs on Claude (above): the Qwen measurement
               # does not transfer, Opus 5.5 reasons adaptively without being asked,
               # and LiteLLM would otherwise translate `low` into Anthropic thinking
-              # parameters this model may reject. Restore with the model line.
-              # HINDSIGHT_API_REFLECT_LLM_REASONING_EFFORT: low
+              # parameters this model may reject. Goes with the model line.
+              HINDSIGHT_API_REFLECT_LLM_REASONING_EFFORT: low
               # Sized when reflect's window was 98,304 (it is 131,072 on vLLM now),
               # NOT to the default of 100,000, which was past it. The cap bounds the
               # context reflect accumulates before it is forced to answer, and the
