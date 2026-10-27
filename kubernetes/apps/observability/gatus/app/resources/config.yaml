@@ -174,6 +174,24 @@ endpoints:
     alerts:
       - type: pushover
 
+  # The second vLLM replica (2026-10-26). LiteLLM routes around it when it is
+  # down, so nothing user-facing fails -- but capacity halves, and that is
+  # worth a page.
+  # ⚠️ DISABLED for the Qwen3.8 eval window (from 2026-10-27): the GX10 runs
+  # the candidate on :8001 and LiteLLM no longer routes production to it, so
+  # this would page for the whole window. Delete `enabled: false` when the
+  # LiteLLM replicas come back.
+  - name: GX10 (vLLM)
+    enabled: false
+    group: inference
+    url: "http://10.0.10.117:8000/v1/models"
+    interval: 1m
+    conditions:
+      - "[STATUS] == 200"
+      - "len([BODY].data) > 0"
+    alerts:
+      - type: pushover
+
   # LiteLLM itself, probed DIRECTLY over cluster DNS rather than through its
   # HTTPRoute. The route carries `auth: authentik`, so an unauthenticated probe
   # against the hostname is redirected to SSO -- and gatus follows redirects, so
@@ -188,22 +206,6 @@ endpoints:
   # {"status":"healthy","db":"connected"}, so the db condition also catches a
   # Postgres-side failure that would break key lookups and spend tracking.
   - name: LiteLLM
-    # The second vLLM replica (2026-10-26). LiteLLM routes around it when it is
-    # down, so nothing user-facing fails -- but capacity halves, and that is
-    # worth a page.
-    # ⚠️ OFF for the Qwen3.8 eval window (from 2026-10-27): the GX10 runs the
-    # candidate on :8001 and LiteLLM no longer routes production to it, so this
-    # would page for the whole window. Uncomment with the LiteLLM replicas.
-    # - name: GX10 (vLLM)
-    #   group: inference
-    #   url: "http://10.0.10.117:8000/v1/models"
-    #   interval: 1m
-    #   conditions:
-    #     - "[STATUS] == 200"
-    #     - "len([BODY].data) > 0"
-    #   alerts:
-    #     - type: pushover
-
     group: inference
     url: "http://litellm.ai.svc.cluster.local:4000/health/readiness"
     interval: 1m

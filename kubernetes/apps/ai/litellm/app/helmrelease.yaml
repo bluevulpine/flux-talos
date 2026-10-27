@@ -828,7 +828,8 @@ spec:
               # group before any fallback (LiteLLM >= v1.86, simple-shuffle
               # only, async paths -- the proxy's). It matters only for the
               # Spark routes, which have two deployments each (spark-ab23 and
-              # the gx10-7ac6 replica); every other group has one, so a
+              # the gx10-7ac6 replica; one during the Qwen3.8 eval window, see
+              # the EVAL WINDOW note above); every other group has one, so a
               # failure there still goes straight to its fallbacks as before.
               enable_weighted_failover: true
               # Text routes only. A fallback fires after the route's own
