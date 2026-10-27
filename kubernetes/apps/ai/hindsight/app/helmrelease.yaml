@@ -433,6 +433,7 @@ spec:
               #
               # Budget (gpt-oss on vLLM, spark-setup roles/vllm):
               #     retain 4 + consolidation 2 + reflect 3 + refresh 2 = 11 in flight
+              # (17 since 2026-10-26: retain 8, refresh 4, across two boxes; below.)
               # (12, with reflect at 4, from 2026-09-30 to 2026-10-05; reflect dropped
               # to 3 when REFLECT_MAX_CONTEXT_TOKENS went 76000 -> 100000.)
               #
@@ -471,6 +472,23 @@ spec:
               # Typical is far less (a reflect usually peaks near the ~60k pages
               # result), but size any raise against the CAPS: a fourth reflect at its
               # cap (~632k total), or retain 8, would not fit.
+              #
+              # 2026-10-26: that arithmetic was for ONE box. Since #2308 every
+              # Spark route has two deployments (spark-ab23 and gx10-7ac6, ~590k
+              # KV each on Qwen3.6) and LiteLLM's simple-shuffle spreads calls
+              # across them, while these caps are totals in hindsight, so the
+              # budget above was halved per box without anyone choosing that.
+              # Retain 4 -> 8 and refresh 2 -> 4 spend the second box: worst case
+              # per box at the new caps is 3 reflects ~357k + 8 retains ~112k +
+              # 2 consolidations ~50k + 4 refreshes ~100k = ~619k, which only
+              # happens if every in-flight call lands on the same box; the
+              # expected split is about half that. Over the cache, vLLM queues or
+              # preempts (slower), it does not fail the request. Consolidation
+              # stays 2 (one per bank, see above: a raise only lets a third bank
+              # run, it does not drain one bank faster) and reflect stays 3.
+              # Fallback check: if both boxes are down, 8 retains go to the Haiku
+              # stage, ~14k output tokens/min at pass 3's measured ~1.8k per call
+              # a minute -- far under the 80k/min limit that 32-way tripped.
               #
               # Reflect gets the largest share because it is the stage that must
               # not queue: its interactive path has a hard 25s client cap, and a
@@ -604,7 +622,7 @@ spec:
               HINDSIGHT_API_RETAIN_WALL_TIMEOUT: "10800"
               HINDSIGHT_API_CONSOLIDATION_WALL_TIMEOUT: "21600"
 
-              HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "4"
+              HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "8"
               HINDSIGHT_API_CONSOLIDATION_LLM_MAX_CONCURRENT: "2"
               # 3: see the budget above. Reflect ran 38 times in the 72h before the
               # drop from 4, which does not prove four never overlapped (session-start
@@ -983,7 +1001,7 @@ spec:
               # refresh_mental_model rows in async_operations climb. They climbed on
               # 2026-10-14 (see the top of this block), so this is `none` again.
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_REASONING_EFFORT: none
-              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "2"
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "4"
               # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
               # floor at all — which is how 232 refreshes ran in ~2h on
               # 2026-09-07: every consolidation batch queued another with nothing
