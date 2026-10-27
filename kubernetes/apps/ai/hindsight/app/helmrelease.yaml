@@ -375,30 +375,27 @@ spec:
               # name; both were the same backend, and the separate -long route for
               # reflect is gone with them.
               HINDSIGHT_API_LLM_PROVIDER: openai
-              # 2026-10-24, TEMPORARY: pass 3 of the accuracy sweep re-extracts
-              # the flux-talos, .buzz and spark-setup documents (838 on
-              # 2026-10-26) on an Anthropic model. Every retain rides the named
-              # route for the window, the Stop hook's included. No fallback chain
-              # on it: a 429/529 is a failed op with the worker's retries, and
-              # HindsightRetainFailing pages on that. Back to `hindsight-main`
-              # when the pass is graded (same PR as removing the TEMPORARY
-              # routes). Was `hindsight-main` (`spark-main` before 2026-10-24).
-              #
-              # Sonnet 5.5 (`claude-sonnet-5-5-reextract`) ran 72 documents on
-              # 2026-10-26 and was stopped: measured on hindsight's own request
-              # log, extraction emits ~0.4 output tokens per input character and
-              # output is $10/M, so the pass costs ~$6 per million characters
-              # (2-50k-char documents; smaller ones more) and 20.9M characters
-              # project to ~$115, against a $17 estimate that assumed a tenth of
-              # the output. 75 % of input tokens were cache reads; input is not
-              # the problem. Haiku 5.5 bills output at $0.50/M, twentieth of
-              # Sonnet, so the same pass is ~$6: trial first on three documents
-              # Sonnet already did (units snapshotted for the comparison), then
-              # the rest if the units hold up. The route is the existing
-              # `claude-haiku-5-5` one (same parameter hygiene, price pinned, in
-              # the hindsight key already), not a new alias, so the spend shows
-              # under that name together with the fallback stage's.
-              HINDSIGHT_API_LLM_MODEL: claude-haiku-5-5
+              # `hindsight-main` again since 2026-10-26 (`spark-main` before
+              # 2026-10-24). Pass 3 of the 2026-10-24 accuracy sweep (vault
+              # Evals/2026-10-17-hindsight-regate-set2.md) ran through this slot
+              # on Anthropic models 2026-10-24..26, the Stop hook's retains
+              # included: 867 reprocess ops over the flux-talos, .buzz and
+              # spark-setup documents, 72 of them on Sonnet 5.5 (a
+              # `claude-sonnet-5-5-reextract` route, since removed; $3.80) and
+              # the rest on the `claude-haiku-5-5` route (#2304; 7,946 calls,
+              # $9.28). Why the switch mid-pass: measured on hindsight's own
+              # request log, extraction emits ~0.4 output tokens per input
+              # character, so at Sonnet's $10/M output the pass costs ~$6 per
+              # million characters and the 20.9M characters projected to ~$115
+              # against a $17 estimate that assumed a tenth of the output; Haiku
+              # bills output at $0.50/M and its units held up on a four-document
+              # A/B. The hosted routes had no fallback chain on purpose: a
+              # 429/529 was a failed op with the worker's retries, which
+              # HindsightRetainFailing pages on. If a pass like it is ever run
+              # again, point this at an existing priced route rather than a new
+              # alias, so the spend shows under one name and the key needs no
+              # widening.
+              HINDSIGHT_API_LLM_MODEL: hindsight-main
 
               # --- retain concurrency: bounded against the account rate limit ---
               # DEFAULT_LLM_MAX_CONCURRENT is 32 (config.py:1126), i.e. up to 32
@@ -413,7 +410,7 @@ spec:
               # Retain is async (Stop hook, and the deepen engine's git ingest is
               # progressive and bounded per run), so trading concurrency for a
               # clean run costs wall-clock and nothing else. (That 6 was sized for
-              # Anthropic's account rate limit; retain is 4 now, on the Spark --
+              # Anthropic's account rate limit; retain is 8 now, on the Spark --
               # see the budget below.)
               #
               # NOTE this was the RATE limit, not the credit balance. The
@@ -436,6 +433,7 @@ spec:
               #
               # Budget (gpt-oss on vLLM, spark-setup roles/vllm):
               #     retain 4 + consolidation 2 + reflect 3 + refresh 2 = 11 in flight
+              # (17 since 2026-10-26: retain 8, refresh 4, across two boxes; below.)
               # (12, with reflect at 4, from 2026-09-30 to 2026-10-05; reflect dropped
               # to 3 when REFLECT_MAX_CONTEXT_TOKENS went 76000 -> 100000.)
               #
@@ -473,7 +471,29 @@ spec:
               # three are ~383k and the total ~539k -- still inside the cache.
               # Typical is far less (a reflect usually peaks near the ~60k pages
               # result), but size any raise against the CAPS: a fourth reflect at its
-              # cap (~632k total), or retain 8, would not fit.
+              # cap (~632k total), or retain 8, would not fit on one box (see
+              # 2026-10-26 below).
+              #
+              # 2026-10-26: that arithmetic was for ONE box. Since #2308 every
+              # Spark route has two deployments (spark-ab23 and gx10-7ac6, ~590k
+              # KV each on Qwen3.6) and LiteLLM's simple-shuffle spreads calls
+              # across them, while these caps are totals in hindsight, so the
+              # budget above was halved per box without anyone choosing that.
+              # Retain 4 -> 8 and refresh 2 -> 4 spend the second box. With
+              # reflect on Opus, the worst case per box at the new caps is 8
+              # retains ~112k + 2 consolidations ~50k + 4 refreshes ~100k =
+              # ~262k, if every in-flight call lands on the same box. If Opus
+              # also fails over to `spark-direct`, 3 reflects ~357k come on top,
+              # ~619k against ~590k; the expected split is about half of either.
+              # Over the cache, vLLM queues or preempts (slower), it does not
+              # fail the request. Consolidation stays 2 (one per bank, see
+              # above: a raise only lets a third bank run, it does not drain one
+              # bank faster) and reflect stays 3. Fallback check: if both boxes
+              # are down, the 14 calls on `hindsight-main` (retain 8,
+              # consolidation 2, refresh 4) go down its chain,
+              # `nous-qwen36-fallback` then Haiku: ~25k output tokens/min at
+              # pass 3's measured ~1.8k per call a minute -- far under the
+              # 80k/min limit that 32-way tripped.
               #
               # Reflect gets the largest share because it is the stage that must
               # not queue: its interactive path has a hard 25s client cap, and a
@@ -484,7 +504,7 @@ spec:
               # time and the last waited 250s, while vLLM sat idle-ready. Reflect
               # averages ~680 generated tokens a call (mostly hidden reasoning):
               # ~15s alone, ~25-40s measured near the old 8-in-flight budget --
-              # expect slower at 12.
+              # expect slower at 17 (on the Spark; on Opus it is not sharing).
               #
               # ⚠️ That load figure is AT OR PAST the 25s interactive cap, and the
               # session-start reflect is a multi-call loop. So when the Spark is
@@ -607,7 +627,7 @@ spec:
               HINDSIGHT_API_RETAIN_WALL_TIMEOUT: "10800"
               HINDSIGHT_API_CONSOLIDATION_WALL_TIMEOUT: "21600"
 
-              HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "4"
+              HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "8"
               HINDSIGHT_API_CONSOLIDATION_LLM_MAX_CONCURRENT: "2"
               # 3: see the budget above. Reflect ran 38 times in the 72h before the
               # drop from 4, which does not prove four never overlapped (session-start
@@ -773,9 +793,10 @@ spec:
               # effort is set deliberately, further down:
               #   - reasoning_effort is passed through VERBATIM, and since
               #     2026-10-05 retain and consolidation do not send it (unset means
-              #     thinking off on Qwen). Reflect sends `low`; the refresh chain
-              #     sends `none` (it sent `low` from 2026-10-05 to 2026-10-14). Both
-              #     are set, with the measurements, beside
+              #     thinking off on Qwen). Reflect sends `low` when it is on the
+              #     Spark (unset on Opus); the refresh chain sends `none` (it sent
+              #     `low` from 2026-10-05 to 2026-10-14). Both are set, with the
+              #     measurements, beside
               #     HINDSIGHT_API_REFLECT_LLM_MODEL and
               #     HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MODEL below;
               #   - temperature falls back to reflect's intended 0.9
@@ -837,21 +858,23 @@ spec:
               # The virtual key must allow this model_name before this deploys; see
               # the note above HINDSIGHT_API_LLM_API_KEY in the ExternalSecret.
               #
-              # 2026-10-26: back on the Spark (`hindsight-main`, NOT `spark-main`:
+              # Claude Opus 5.5 through LiteLLM's `claude-opus-5-5` route
+              # 2026-10-24..26 and again since 2026-10-27 (decided then; the
+              # Spark leg ran on `hindsight-main` in between, #2320); every other
+              # stage is on `hindsight-main`. The re-grade after pass 3 (vault
+              # Evals/2026-10-17-hindsight-regate-set2.md, same 12 questions,
+              # curated and re-extracted bank, every call checked in LiteLLM's
+              # spend logs to have been served by the named model): Opus 1 wrong
+              # fact / 36 s median / 47 s p95, the Spark on `hindsight-main` 4 /
+              # 45 s / 104 s. The bar was the Spark keeping reflect within one
+              # wrong fact of Opus. The Spark's misses were synthesis, not
+              # retrieval: a PR mis-dated, one PR's change credited to another, a
+              # value the bank does not hold. Opus costs about $0.35 a reflect.
+              # To move it to the Spark: `hindsight-main` here (NOT `spark-main`:
               # that name's chain can differ from hindsight's and would split
-              # hindsight across two chains) for the Spark leg of the post-sweep
-              # re-grade, per the 2026-10-24 decision: the Spark keeps reflect if
-              # it lands within one wrong fact of Opus on the same 12 questions
-              # against the re-extracted bank. Reflect ran on Claude Opus 5.5
-              # through LiteLLM's `claude-opus-5-5` route 2026-10-24..26 (every
-              # other stage stayed on `hindsight-main`); the three-leg comparison
-              # before the sweep (vault Evals/2026-10-17-hindsight-regate-set2.md,
-              # same 12 questions): Spark Qwen3.6 9 wrong facts / 91 s median,
-              # Opus 5 / 72 s, TensorFold GLM-5.3-Flash 10 / 200 s (needs
-              # production vLLM off). To put it back on Opus: `claude-opus-5-5`
-              # here and comment out the REASONING_EFFORT line below. Was
-              # `spark-main` until 2026-10-24.
-              HINDSIGHT_API_REFLECT_LLM_MODEL: hindsight-main
+              # hindsight across two chains) and restore the REASONING_EFFORT
+              # line below. Was `spark-main` until 2026-10-24.
+              HINDSIGHT_API_REFLECT_LLM_MODEL: claude-opus-5-5
               # Thinking ON for user-invoked reflect. On Qwen any effort but "none"
               # switches thinking on (see the note above HINDSIGHT_API_LLM_PROVIDER).
               #
@@ -873,8 +896,8 @@ spec:
               # Unset whenever reflect runs on Claude (above): the Qwen measurement
               # does not transfer, Opus 5.5 reasons adaptively without being asked,
               # and LiteLLM would otherwise translate `low` into Anthropic thinking
-              # parameters this model may reject. Goes with the model line.
-              HINDSIGHT_API_REFLECT_LLM_REASONING_EFFORT: low
+              # parameters this model may reject. Restore with the model line.
+              # HINDSIGHT_API_REFLECT_LLM_REASONING_EFFORT: low
               # Sized when reflect's window was 98,304 (it is 131,072 on vLLM now),
               # NOT to the default of 100,000, which was past it. The cap bounds the
               # context reflect accumulates before it is forced to answer, and the
@@ -986,7 +1009,7 @@ spec:
               # refresh_mental_model rows in async_operations climb. They climbed on
               # 2026-10-14 (see the top of this block), so this is `none` again.
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_REASONING_EFFORT: none
-              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "2"
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "4"
               # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
               # floor at all — which is how 232 refreshes ran in ~2h on
               # 2026-09-07: every consolidation batch queued another with nothing
