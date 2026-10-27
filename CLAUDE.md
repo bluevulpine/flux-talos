@@ -66,8 +66,9 @@ Do not infer the rule from `git log` either: automated commits and older history
 use other styles.
 
 **Renovate version tracking**: annotate a version with `# renovate: datasource=...` (on the
-line directly above it) only where Renovate cannot detect it natively, such as a bare version in
-`talos/topf.yaml`, a URL or a script pin. **Never annotate a HelmRelease's top-level
+line directly above it) where Renovate cannot detect it natively, such as a bare version in
+`talos/topf.yaml`, a URL or a script pin. App-template nested images are deliberately mixed:
+an annotation there is optional, not a violation. **Never annotate a HelmRelease's top-level
 `image.repository`/`image.tag` or a `chartRef`/OCIRepository version**: the `flux` manager
 already tracks them and a second match opens duplicate PRs. The full rules and history are in
 the `renovate-annotations` skill (`.claude/skills/renovate-annotations/SKILL.md`); read it
@@ -96,6 +97,10 @@ and fail silently (a bad marker suffix caused a 14h `kia-collector` outage):
 - **One automation per app, `update.path` scoped to that app's dir.** `Setters`
   rewrites every marker under the path, so a `./kubernetes` (whole-repo) scan
   silently drives other apps' images.
+
+The `image.toolkit.fluxcd.io` kinds take their `$schema` from
+`https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/<kind>-image-v1.json`:
+`kubernetes-schemas.pages.dev` does not host that group and answers `200` with an HTML page.
 
 Full pattern, gotchas (incl. ImagePullBackOff not tripping job-failure alerts, and
 Grafana `${...}` vs postBuild envsubst) and diagnosis commands:
@@ -127,7 +132,8 @@ non-trunk branch.
 **Prometheus retains only 2 days**, deliberately. Query history from Thanos at
 `thanos-query-frontend.observability.svc:10902` (same API). Prometheus returns a truncated
 series for older ranges, not an error, so a wrong endpoint looks like missing data. Do not
-raise Prometheus `retention:`. Retention tiers, the halted-compactor check and two
+raise Prometheus `retention:`. Before raising Thanos store-gateway memory limits after an
+OOMKill, check `thanos_compact_halted`. Retention tiers, the halted-compactor check and two
 series-reading traps are in the `querying-metrics` skill
 (`.claude/skills/querying-metrics/SKILL.md`); invoke it before querying metrics.
 

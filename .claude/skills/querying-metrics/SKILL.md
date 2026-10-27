@@ -1,6 +1,6 @@
 ---
 name: querying-metrics
-description: How to query this cluster's metrics history: Thanos query-frontend (raw 30d, 5m 1y, 1h 3y) instead of Prometheus (2d only), why short results usually mean the wrong endpoint or a halted Thanos compactor, and two traps when reading series (label churn, flat-looking windows). Use before running any PromQL query against the cluster, investigating a metric's history, or debugging Thanos store-gateway OOMs or missing long-range data.
+description: "How to query this cluster's metrics history: Thanos query-frontend (raw 30d, 5m 1y, 1h 3y) instead of Prometheus (2d only), why short results usually mean the wrong endpoint or a halted Thanos compactor, and two traps when reading series (label churn, flat-looking windows). Use before running any PromQL query against the cluster, investigating a metric's history, or debugging Thanos store-gateway OOMs or missing long-range data."
 ---
 
 # Querying metrics: use Thanos, not Prometheus

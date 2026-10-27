@@ -1,6 +1,6 @@
 ---
 name: new-app
-description: The layout and conventions for adding an application under kubernetes/apps/<namespace>/<app>/ in this repo: namespace and kustomization files, the HelmRelease shape (OCIRepository ref, &app anchor, no strategy blocks because cluster-apps injects them), ExternalSecret wiring to OpenBao and its field naming, and how to verify a yaml-language-server schema URL. Use when adding a new app or copying one app's manifests to make another.
+description: "The layout and conventions for adding an application under kubernetes/apps/<namespace>/<app>/ in this repo: namespace and kustomization files, the HelmRelease shape (OCIRepository ref, &app anchor, no strategy blocks because cluster-apps injects them), ExternalSecret wiring to OpenBao and its field naming, and how to verify a yaml-language-server schema URL. Use when adding a new app or copying one app's manifests to make another."
 ---
 
 # Adding a new application
