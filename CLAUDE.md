@@ -65,56 +65,22 @@ Automated commits keep their own format and are the exceptions: Renovate
 Do not infer the rule from `git log` either: automated commits and older history
 use other styles.
 
-**Renovate version tracking**: annotate a version with `# renovate: datasource=...` when
-Renovate cannot detect it natively — a bare version string in `talos/topf.yaml`, a URL
-containing a version, a tool pinned in a script. See `talos/topf.yaml` for the pattern.
-The annotation goes on the line *directly above* the value (`#1715` fixed one that was
-misplaced).
-
-Three cases where the rule is **not** "always annotate":
-
-- **app-template nested container images** (`controllers.*.containers.*.image`) are detected
-  natively with no annotation. `kubernetes/apps/productivity/n8n` has none and Renovate has
-  opened nine bump PRs for it (#1695, #1617, #1594, …). Annotating anyway is fine and ~47 of
-  111 HelmReleases do — the repo is deliberately mixed here. Prefer no annotation for a plain
-  semver tag; add one when you want an explicit datasource/depName, as `hermes` (#1743) and
-  `timescaledb` (#1715) do.
-- **A HelmRelease's top-level `image.repository`/`image.tag`** is already extracted by the
-  built-in **`flux`** manager, which parses `values:` inside Flux HelmRelease CRs. Adding an
-  annotation there makes **two managers match one line and Renovate open two PRs for one
-  bump** — this happened to `gitea` three times (#1389, #1540, #1681). Do not annotate these.
-
-  **`helm-values` is not the manager involved**, despite the name looking right: per
-  Renovate's docs it only matches files literally named `values.yaml`/`values.yml`, so it can
-  never match a `helmrelease.yaml`. Two successive fixes suppressed the wrong manager and the
-  duplicate kept slipping through. `.renovate/overrides.json5` is the authority here and
-  explains it at length — read it rather than re-deriving.
-- **`chartRef` / OCIRepository versions** are also `flux`-managed. No annotation.
-
-If you add an annotation, check the Renovate Dependency Dashboard (issue #1) afterward for a
-duplicate entry.
+**Renovate version tracking**: annotate a version with `# renovate: datasource=...` (on the
+line directly above it) only where Renovate cannot detect it natively, such as a bare version in
+`talos/topf.yaml`, a URL or a script pin. **Never annotate a HelmRelease's top-level
+`image.repository`/`image.tag` or a `chartRef`/OCIRepository version**: the `flux` manager
+already tracks them and a second match opens duplicate PRs. The full rules and history are in
+the `renovate-annotations` skill (`.claude/skills/renovate-annotations/SKILL.md`); read it
+before adding or removing an annotation.
 
 ## Adding a new application
 
-Follow the existing layout under `kubernetes/apps/<namespace>/<app>/`:
-- `namespace.yaml` + `kustomization.yaml` at the namespace level
-- `app/helmrelease.yaml` using an OCIRepository ref and an `&app` name anchor. **Do not add
-  `install.strategy` / `upgrade.strategy`** — the `cluster-apps` patch injects
-  `strategy: {name: RetryOnFailure}` into every HelmRelease, the same mechanism as the
-  `crds: CreateReplace` rule above. No manifest in the repo declares it (0 of 113).
-  An explicit `install.remediation.retries` / `upgrade.cleanupOnFail` /
-  `upgrade.remediation.strategy: rollback` block is **optional**, not standard: 58 of 113
-  HelmReleases carry one, and the `app-template` web apps a new app usually patterns itself on
-  (mosquitto, homebox, vaultwarden) do not.
-- `app/externalsecret.yaml` if runtime secrets are needed (pull from OpenBao via External Secrets Operator — `secretStoreRef: openbao`)
-- Include `# yaml-language-server: $schema=...` at the top of every Kubernetes manifest.
-  **Confirm the URL returns JSON before copying one from a neighbouring file.**
-  `kubernetes-schemas.pages.dev` answers **`200` with an HTML page** for any group it does not
-  host — indistinguishable from a live schema by status code alone — and it does not host
-  `image.toolkit.fluxcd.io` at all. For those kinds use
-  `https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/<kind>-image-v1.json`.
-
-Secrets come exclusively from OpenBao via `ExternalSecret` (`secretStoreRef` → `openbao` / `ClusterSecretStore`, `engineVersion: v2`). OpenBao field naming is PascalCase double-underscore: `App__Category__Field` (e.g. `Frigate__Mqtt__User`). Never commit secret values.
+Apps live under `kubernetes/apps/<namespace>/<app>/`. Do not add `install.strategy` /
+`upgrade.strategy` to a HelmRelease: the `cluster-apps` patch injects it, like
+`crds: CreateReplace`. Secrets come exclusively from OpenBao via `ExternalSecret`
+(`secretStoreRef: openbao`); never commit secret values. The layout, HelmRelease shape,
+OpenBao field naming and the schema-URL check are in the `new-app` skill
+(`.claude/skills/new-app/SKILL.md`); invoke it when adding an app.
 
 ## Flux image automation (first-party Drone images)
 
@@ -158,44 +124,12 @@ non-trunk branch.
 
 ## Querying metrics: use Thanos, not Prometheus
 
-**Prometheus retains only 2 days.** That is deliberate — it is the standard
-Thanos pattern (short local window, sidecar ships blocks to object storage).
-Long-term history lives in Thanos:
-
-| | endpoint | retention |
-| --- | --- | --- |
-| Prometheus (local) | `kube-prometheus-stack-prometheus.observability.svc:9090` | **2d only** |
-| **Thanos (use this)** | `thanos-query-frontend.observability.svc:10902` | raw 30d / 5m 1y / **1h 3y** (since 2026-10-16) |
-
-Both speak the same `/api/v1/query` and `/api/v1/query_range` API, so the only
-difference is the host. Querying Prometheus for anything older than 48h returns
-a truncated series that *looks* like "we don't collect that" rather than an
-error — which is exactly how a 2026-08-13 gateway investigation initially
-concluded there was no history, when 60 days of it existed in Thanos.
-
-Do **not** "fix" this by raising `retention:` in the kube-prometheus-stack
-HelmRelease. It would duplicate what Thanos already stores. (For sizing context
-if it ever does come up: ~2.2 GB/day, on a 105 GB PVC using 5.8 GB.)
-
-**If long ranges come back short, or the store-gateway OOMKills, check
-`thanos_compact_halted` before touching memory limits.** The compactor runs
-compaction, then downsampling, then retention; a compaction error halts it for
-good (until a pod restart) and the later stages never run. That is how the
-bucket silently grew to ten months of raw in 1,148 blocks during 2026 (ENOSPC on
-a 20Gi PVC) while the store-gateway's limit was raised three times. The halt
-message is in VictoriaLogs (`k_pod_name:"thanos-compact-0" AND "critical error
-detected"`); the pod's own log rotates it away within days. `ThanosCompactHalted`
-now alerts on it.
-
-Two traps when reading the results:
-
-- **Aggregate away label churn.** Exporters that restart with changed labels
-  split one logical series into many. `unpoller_device_memory_utilization_ratio{name="Morpheus"}`
-  was 7 separate series over 60d; without `max by(name)(...)` you silently get
-  one fragment and misread the trend.
-- **A flat series is not proof of no signal.** Check the multi-day shape before
-  concluding a metric is useless — the same UDM memory ratio looked flat and
-  uninformative over 44h but was a clean sawtooth over 60d.
+**Prometheus retains only 2 days**, deliberately. Query history from Thanos at
+`thanos-query-frontend.observability.svc:10902` (same API). Prometheus returns a truncated
+series for older ranges, not an error, so a wrong endpoint looks like missing data. Do not
+raise Prometheus `retention:`. Retention tiers, the halted-compactor check and two
+series-reading traps are in the `querying-metrics` skill
+(`.claude/skills/querying-metrics/SKILL.md`); invoke it before querying metrics.
 
 ## Postgres bootstrap: the `postgres-init` init container
 
