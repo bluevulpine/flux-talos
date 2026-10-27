@@ -410,7 +410,7 @@ spec:
               # Retain is async (Stop hook, and the deepen engine's git ingest is
               # progressive and bounded per run), so trading concurrency for a
               # clean run costs wall-clock and nothing else. (That 6 was sized for
-              # Anthropic's account rate limit; retain is 4 now, on the Spark --
+              # Anthropic's account rate limit; retain is 8 now, on the Spark --
               # see the budget below.)
               #
               # NOTE this was the RATE limit, not the credit balance. The
@@ -471,24 +471,29 @@ spec:
               # three are ~383k and the total ~539k -- still inside the cache.
               # Typical is far less (a reflect usually peaks near the ~60k pages
               # result), but size any raise against the CAPS: a fourth reflect at its
-              # cap (~632k total), or retain 8, would not fit.
+              # cap (~632k total), or retain 8, would not fit on one box (see
+              # 2026-10-26 below).
               #
               # 2026-10-26: that arithmetic was for ONE box. Since #2308 every
               # Spark route has two deployments (spark-ab23 and gx10-7ac6, ~590k
               # KV each on Qwen3.6) and LiteLLM's simple-shuffle spreads calls
               # across them, while these caps are totals in hindsight, so the
               # budget above was halved per box without anyone choosing that.
-              # Retain 4 -> 8 and refresh 2 -> 4 spend the second box: worst case
-              # per box at the new caps is 3 reflects ~357k + 8 retains ~112k +
-              # 2 consolidations ~50k + 4 refreshes ~100k = ~619k, which only
-              # happens if every in-flight call lands on the same box; the
-              # expected split is about half that. Over the cache, vLLM queues or
-              # preempts (slower), it does not fail the request. Consolidation
-              # stays 2 (one per bank, see above: a raise only lets a third bank
-              # run, it does not drain one bank faster) and reflect stays 3.
-              # Fallback check: if both boxes are down, 8 retains go to the Haiku
-              # stage, ~14k output tokens/min at pass 3's measured ~1.8k per call
-              # a minute -- far under the 80k/min limit that 32-way tripped.
+              # Retain 4 -> 8 and refresh 2 -> 4 spend the second box. With
+              # reflect on Opus, the worst case per box at the new caps is 8
+              # retains ~112k + 2 consolidations ~50k + 4 refreshes ~100k =
+              # ~262k, if every in-flight call lands on the same box. If Opus
+              # also fails over to `spark-direct`, 3 reflects ~357k come on top,
+              # ~619k against ~590k; the expected split is about half of either.
+              # Over the cache, vLLM queues or preempts (slower), it does not
+              # fail the request. Consolidation stays 2 (one per bank, see
+              # above: a raise only lets a third bank run, it does not drain one
+              # bank faster) and reflect stays 3. Fallback check: if both boxes
+              # are down, the 14 calls on `hindsight-main` (retain 8,
+              # consolidation 2, refresh 4) go down its chain,
+              # `nous-qwen36-fallback` then Haiku: ~25k output tokens/min at
+              # pass 3's measured ~1.8k per call a minute -- far under the
+              # 80k/min limit that 32-way tripped.
               #
               # Reflect gets the largest share because it is the stage that must
               # not queue: its interactive path has a hard 25s client cap, and a
@@ -499,7 +504,7 @@ spec:
               # time and the last waited 250s, while vLLM sat idle-ready. Reflect
               # averages ~680 generated tokens a call (mostly hidden reasoning):
               # ~15s alone, ~25-40s measured near the old 8-in-flight budget --
-              # expect slower at 12.
+              # expect slower at 17 (on the Spark; on Opus it is not sharing).
               #
               # ⚠️ That load figure is AT OR PAST the 25s interactive cap, and the
               # session-start reflect is a multi-call loop. So when the Spark is
@@ -853,9 +858,10 @@ spec:
               # The virtual key must allow this model_name before this deploys; see
               # the note above HINDSIGHT_API_LLM_API_KEY in the ExternalSecret.
               #
-              # Claude Opus 5.5 through LiteLLM's `claude-opus-5-5` route since
-              # 2026-10-24 (decided 2026-10-27); every other stage is on
-              # `hindsight-main`. The re-grade after pass 3 (vault
+              # Claude Opus 5.5 through LiteLLM's `claude-opus-5-5` route
+              # 2026-10-24..26 and again since 2026-10-27 (decided then; the
+              # Spark leg ran on `hindsight-main` in between, #2320); every other
+              # stage is on `hindsight-main`. The re-grade after pass 3 (vault
               # Evals/2026-10-17-hindsight-regate-set2.md, same 12 questions,
               # curated and re-extracted bank, every call checked in LiteLLM's
               # spend logs to have been served by the named model): Opus 1 wrong
