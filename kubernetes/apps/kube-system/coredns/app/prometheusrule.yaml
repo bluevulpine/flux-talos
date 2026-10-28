@@ -17,9 +17,9 @@ spec:
         #
         # The `or ... unless ... offset` half is not optional. The counter's
         # series do not exist until the first match and are born at 1, and
-        # increase() over a series whose only values are 1 is 0. One curl is one
-        # A and one AAAA query, each a new series on whichever replica answered,
-        # so a single attempt (the <1-in-100k event this exists for) would never
+        # increase() over a series whose only values are 1 is 0. One curl makes
+        # at least one new series (A, plus AAAA where the dedicated block answers
+        # it) on whichever replica answered, so a single attempt (the <1-in-100k event this exists for) would never
         # fire on increase() alone. A series that is present now but was absent
         # 10 minutes ago counts as a hit.
         - alert: CoreDNSSinkholeHit

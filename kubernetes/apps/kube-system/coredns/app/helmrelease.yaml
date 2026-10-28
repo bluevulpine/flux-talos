@@ -123,9 +123,13 @@ spec:
           # x.oss-cn-beijing.aliyuncs.com.<ns>.svc.cluster.local. first, whose
           # zone match is `.`, and autopath then walks the search list inside
           # THIS block's chain down to the bare name, which `forward` would
-          # resolve for real. The dedicated block below only ever sees FQDN
-          # queries (a trailing dot, 5+ dots, or an ndots:1 pod like Synapse).
-          # Counted under the same zone="aliyuncs.com." label.
+          # resolve for real. Autopath then gets NXDOMAIN at every step, the
+          # client walks on to the bare name, and THAT question goes to the
+          # dedicated block below, which logs it with the pod's IP. (No log rule
+          # here: `log` sees only the client's search-expanded question, never
+          # an aliyuncs.com. one.) Counted under the same zone="aliyuncs.com."
+          # label, A queries only: an autopath AAAA is answered by the
+          # suppression template above (zone ".").
           - name: template
             parameters: ANY ANY aliyuncs.com
             configBlock: |-
@@ -142,14 +146,6 @@ spec:
           - name: loadbalance
           - name: prometheus
             parameters: 0.0.0.0:9153
-          # Every sinkholed query, with the querying pod's IP (see above). A NAMES
-          # filter rather than `class denial`, which would log every NXDOMAIN in
-          # the cluster. It must come BEFORE the catch-all rule: log uses the
-          # first rule whose names match, and the catch-all's implicit `.`
-          # matches everything (tested on CoreDNS 1.14.7: in the other order the
-          # sinkholed query was not logged at all).
-          - name: log
-            parameters: aliyuncs.com.
           - name: log
             configBlock: |-
               class error
