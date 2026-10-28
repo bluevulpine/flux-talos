@@ -66,7 +66,7 @@ spec:
           app:
             image:
               repository: ghcr.io/berriai/litellm
-              tag: v1.106.2
+              tag: v1.106.6
             args:
               - --config
               - /app/config/config.yaml
