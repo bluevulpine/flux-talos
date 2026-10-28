@@ -692,10 +692,22 @@ spec:
               # otherwise. No fallback on purpose, like tensorfold-glm53-flash:
               # a call that silently went elsewhere would be graded as Qwen3.8.
               # No key lists it until its reflect leg.
+              #
+              # ⚠️ REPOINTED 2026-10-28 at the second candidate,
+              # Qwen3.8-Flash-Next (nvidia NVFP4, MoE 125B / ~6B active, ~133 GB)
+              # served tensor-parallel across BOTH boxes, head spark-ab23:8001
+              # (spark-setup roles/vllm/files/qwen3.8-flash-next-nvfp4-tp2.yaml).
+              # Same name so the hindsight key needs no edit (it was added to the
+              # key for the 27B reflect leg). Production vLLM is off on both boxes
+              # for the window, so every Spark TEXT route above is on its
+              # fallbacks meanwhile; `spark-main-vision` has none by design and
+              # fails outright, and the Anthropic routes' `spark-direct` fallback
+              # is dead too. Back to the 27B values, or removed, when the window
+              # closes.
               - model_name: qwen38-eval
                 litellm_params:
-                  model: openai/qwen3.8-27b
-                  api_base: http://10.0.10.117:8001/v1
+                  model: openai/qwen3.8-flash-next
+                  api_base: http://10.0.10.237:8001/v1
                   api_key: unused-no-auth
                   max_tokens: 32768
                   num_retries: 2

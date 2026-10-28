@@ -164,7 +164,12 @@ endpoints:
   # There was a second probe, `DGX Spark (Ollama)` on :11434. Ollama was retired
   # on 2026-10-05 (spark-setup ollama_enabled: false) when Qwen3.6 took over
   # vision; a probe for a stopped service with no consumers only pages.
+  # ⚠️ DISABLED for the Qwen3.8-Flash-Next window (2026-10-28, Derek approved
+  # the outage): the model needs both boxes, so production vLLM on spark-ab23
+  # is stopped and the Spark routes fall through to their fallbacks. Delete
+  # `enabled: false` when spark-ab23's :8000 is back.
   - name: DGX Spark (vLLM)
+    enabled: false
     group: inference
     url: "http://10.0.10.237:8000/v1/models"
     interval: 1m
