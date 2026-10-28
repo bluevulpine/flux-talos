@@ -22,6 +22,10 @@ spec:
     section puts every pod into default-deny for egress (see the warning in
     ai/hermes/app/ciliumnetworkpolicy.yaml). With it, this only subtracts two
     addresses and changes nothing else.
+
+    Not covered: an endpointSelector never matches host-network pods or the
+    nodes themselves, so those can still reach both addresses. Covering them
+    needs a nodeSelector policy, which needs Cilium's host firewall (off here).
   endpointSelector: {}
   enableDefaultDeny:
     egress: false

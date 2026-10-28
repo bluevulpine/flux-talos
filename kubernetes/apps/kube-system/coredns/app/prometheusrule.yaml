@@ -14,6 +14,14 @@ spec:
         # its answers per zone; the AAAA-suppression templates in the other
         # blocks also count here, under zone "." and "bluevulpine.net.", so
         # the selector must name the sinkholed zones and not match them all.
+        #
+        # The `or ... unless ... offset` half is not optional. The counter's
+        # series do not exist until the first match and are born at 1, and
+        # increase() over a series whose only values are 1 is 0. One curl is one
+        # A and one AAAA query, each a new series on whichever replica answered,
+        # so a single attempt (the <1-in-100k event this exists for) would never
+        # fire on increase() alone. A series that is present now but was absent
+        # 10 minutes ago counts as a hit.
         - alert: CoreDNSSinkholeHit
           annotations:
             summary: >-
@@ -24,6 +32,10 @@ spec:
               k_container_name:coredns "aliyuncs"`, then map the IP with
               `kubectl get pods -A -o wide | grep <ip>`.
           expr: |
-            sum by (zone) (increase(coredns_template_matches_total{zone="aliyuncs.com."}[10m])) > 0
+            sum by (zone) (
+              increase(coredns_template_matches_total{zone="aliyuncs.com."}[10m]) > 0
+              or
+              (coredns_template_matches_total{zone="aliyuncs.com."} unless coredns_template_matches_total{zone="aliyuncs.com."} offset 10m)
+            ) > 0
           labels:
             severity: warning

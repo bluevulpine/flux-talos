@@ -116,6 +116,21 @@ spec:
             configBlock: |-
               rcode NOERROR
               authority "{{ .Zone }} 300 IN SOA ns.dns. hostmaster.dns. (1 300 300 300 300)"
+          # The aliyuncs.com sinkhole, again, INSIDE this block: see the
+          # aliyuncs.com server block below for why it exists. It has to be here
+          # too because of autopath. A pod at the default ndots:5 asks for a
+          # 3-dot name like x.oss-cn-beijing.aliyuncs.com as
+          # x.oss-cn-beijing.aliyuncs.com.<ns>.svc.cluster.local. first, whose
+          # zone match is `.`, and autopath then walks the search list inside
+          # THIS block's chain down to the bare name, which `forward` would
+          # resolve for real. The dedicated block below only ever sees FQDN
+          # queries (a trailing dot, 5+ dots, or an ndots:1 pod like Synapse).
+          # Counted under the same zone="aliyuncs.com." label.
+          - name: template
+            parameters: ANY ANY aliyuncs.com
+            configBlock: |-
+              rcode NXDOMAIN
+              authority "aliyuncs.com. 60 IN SOA ns.dns. hostmaster.dns. (1 60 60 60 60)"
           - name: forward
             parameters: . /etc/resolv.conf
           - name: cache
@@ -127,6 +142,14 @@ spec:
           - name: loadbalance
           - name: prometheus
             parameters: 0.0.0.0:9153
+          # Every sinkholed query, with the querying pod's IP (see above). A NAMES
+          # filter rather than `class denial`, which would log every NXDOMAIN in
+          # the cluster. It must come BEFORE the catch-all rule: log uses the
+          # first rule whose names match, and the catch-all's implicit `.`
+          # matches everything (tested on CoreDNS 1.14.7: in the other order the
+          # sinkholed query was not logged at all).
+          - name: log
+            parameters: aliyuncs.com.
           - name: log
             configBlock: |-
               class error
