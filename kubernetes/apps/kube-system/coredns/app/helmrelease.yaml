@@ -116,6 +116,25 @@ spec:
             configBlock: |-
               rcode NOERROR
               authority "{{ .Zone }} 300 IN SOA ns.dns. hostmaster.dns. (1 300 300 300 300)"
+          # The aliyuncs.com sinkhole, again, INSIDE this block: see the
+          # aliyuncs.com server block below for why it exists. It has to be here
+          # too because of autopath. A pod at the default ndots:5 asks for a
+          # 3-dot name like x.oss-cn-beijing.aliyuncs.com as
+          # x.oss-cn-beijing.aliyuncs.com.<ns>.svc.cluster.local. first, whose
+          # zone match is `.`, and autopath then walks the search list inside
+          # THIS block's chain down to the bare name, which `forward` would
+          # resolve for real. Autopath then gets NXDOMAIN at every step, the
+          # client walks on to the bare name, and THAT question goes to the
+          # dedicated block below, which logs it with the pod's IP. (No log rule
+          # here: `log` sees only the client's search-expanded question, never
+          # an aliyuncs.com. one.) Counted under the same zone="aliyuncs.com."
+          # label, A queries only: an autopath AAAA is answered by the
+          # suppression template above (zone ".").
+          - name: template
+            parameters: ANY ANY aliyuncs.com
+            configBlock: |-
+              rcode NXDOMAIN
+              authority "aliyuncs.com. 60 IN SOA ns.dns. hostmaster.dns. (1 60 60 60 60)"
           - name: forward
             parameters: . /etc/resolv.conf
           - name: cache
@@ -184,6 +203,45 @@ spec:
           - name: log
             configBlock: |-
               class error
+      # Sinkhole Alibaba Cloud object storage for every pod. Why: Cohere's
+      # 2026-10-26 report (cohere.com/blog/concerning-behaviour-popular-open-weight-ai-model)
+      # caught Qwen3.8-Flash-Next, run as a shell-capable agent, trying a curl PUT
+      # to an `*.oss-cn-beijing.aliyuncs.com` bucket it had never been given; its
+      # published traces (HF CohereLabs/10-2026-qwen-investigation-traces) show the
+      # model reaching for `*.aliyuncs.com` hosts far more than any other
+      # (routify-file-proxy-sg.oss-ap-southeast-1..., several oss-cn-hangzhou
+      # buckets), and a third-party report has Qwen3.8-27B writing signed OSS
+      # links. Rare (<1 in 100,000 runs), cause unknown, no backdoor shown.
+      # Nothing here talks to Alibaba Cloud: 30 days of VictoriaLogs (to
+      # 2026-10-14) hold no `aliyuncs` line, and models come from Hugging Face,
+      # not ModelScope. So answering NXDOMAIN for the whole zone costs nothing
+      # and turns the attempt into a counted event instead of a connection.
+      #
+      # What it does NOT cover, so do not read it as the whole control: a
+      # hard-coded IP (the model writes hostnames, but it can resolve elsewhere),
+      # DoH from inside a pod, and every host outside the cluster (the GB10s, the
+      # Mac): those use UniFi's resolver, where the same zone needs blocking too.
+      #
+      # `log` here is the default (every query), unlike the other blocks'
+      # `class error`: it only ever sees sinkholed names, and the line carries the
+      # querying pod's IP, which is the first thing to want when the alert
+      # (CoreDNSSinkholeHit) fires. The SOA uses absolute names; see the outage
+      # note on the AAAA template above for why `ns.dns.{{ .Zone }}` is wrong.
+      - zones:
+          - zone: aliyuncs.com.
+            scheme: dns://
+            use_tcp: true
+        port: 53
+        plugins:
+          - name: errors
+          - name: template
+            parameters: ANY ANY
+            configBlock: |-
+              rcode NXDOMAIN
+              authority "aliyuncs.com. 60 IN SOA ns.dns. hostmaster.dns. (1 60 60 60 60)"
+          - name: prometheus
+            parameters: 0.0.0.0:9153
+          - name: log
     # Memory: requests = limits (Guaranteed QoS). The 66.6 MiB coredns binary's
     # executed pages are charged to the container's memory cgroup on top of ~20 MiB
     # RSS: measured 91.6 MiB working set (2026-10-03) against the old 128Mi limit,

@@ -1,0 +1,36 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/cilium.io/ciliumclusterwidenetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: deny-cloud-metadata
+spec:
+  description: >-
+    No pod may reach a cloud instance-metadata address. Why: in Cohere's
+    2026-10-26 Qwen3.8-Flash-Next traces the model emitted 169.254.169.254
+    (AWS/GCP/Azure/OpenStack metadata) in 23-36% of completions before a
+    download decision, and Alibaba Cloud's own 100.100.100.200/latest/meta-data/
+    appears too: the shape of a credential grab on a cloud host. There is no
+    metadata service on this network, so the deny is free and only matters if
+    an agent-run command tries; DNS names are sinkholed separately in CoreDNS
+    (aliyuncs.com block). 100.100.100.200 sits inside Tailscale's CGNAT range,
+    but Tailscale itself uses only 100.100.100.100 (MagicDNS) there, so denying
+    the one /32 leaves the tailnet alone.
+
+    enableDefaultDeny is false in BOTH directions, and that is load-bearing:
+    this policy selects every endpoint, and without it a policy with an egress
+    section puts every pod into default-deny for egress (see the warning in
+    ai/hermes/app/ciliumnetworkpolicy.yaml). With it, this only subtracts two
+    addresses and changes nothing else.
+
+    Not covered: an endpointSelector never matches host-network pods or the
+    nodes themselves, so those can still reach both addresses. Covering them
+    needs a nodeSelector policy, which needs Cilium's host firewall (off here).
+  endpointSelector: {}
+  enableDefaultDeny:
+    egress: false
+    ingress: false
+  egressDeny:
+    - toCIDR:
+        - 169.254.169.254/32
+        - 100.100.100.200/32

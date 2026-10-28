@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: coredns
+spec:
+  groups:
+    - name: coredns.rules
+      rules:
+        # Every hit is worth a look: nothing in the cluster has a reason to
+        # resolve a sinkholed zone (see the aliyuncs.com server block in this
+        # app's HelmRelease for why it is there). The template plugin counts
+        # its answers per zone; the AAAA-suppression templates in the other
+        # blocks also count here, under zone "." and "bluevulpine.net.", so
+        # the selector must name the sinkholed zones and not match them all.
+        #
+        # The `or ... unless ... offset` half is not optional. The counter's
+        # series do not exist until the first match and are born at 1, and
+        # increase() over a series whose only values are 1 is 0. One curl makes
+        # at least one new series (A, plus AAAA where the dedicated block answers
+        # it) on whichever replica answered, so a single attempt (the <1-in-100k event this exists for) would never
+        # fire on increase() alone. A series that is present now but was absent
+        # 10 minutes ago counts as a hit.
+        - alert: CoreDNSSinkholeHit
+          annotations:
+            summary: >-
+              A pod resolved {{ $labels.zone }}, which CoreDNS sinkholes
+              (NXDOMAIN). Nothing here uses Alibaba Cloud, so suspect an AI
+              agent running a model-written command. The querying pod's IP is
+              in CoreDNS's log: VictoriaLogs `k_namespace_name:kube-system
+              k_container_name:coredns "aliyuncs"`, then map the IP with
+              `kubectl get pods -A -o wide | grep <ip>`.
+          expr: |
+            sum by (zone) (
+              increase(coredns_template_matches_total{zone="aliyuncs.com."}[10m]) > 0
+              or
+              (coredns_template_matches_total{zone="aliyuncs.com."} unless coredns_template_matches_total{zone="aliyuncs.com."} offset 10m)
+            ) > 0
+          labels:
+            severity: warning
