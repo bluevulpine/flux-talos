@@ -874,7 +874,14 @@ spec:
               # that name's chain can differ from hindsight's and would split
               # hindsight across two chains) and restore the REASONING_EFFORT
               # line below. Was `spark-main` until 2026-10-24.
-              HINDSIGHT_API_REFLECT_LLM_MODEL: claude-opus-5-5
+              #
+              # ⚠️ EVAL LEG from 2026-10-28: `qwen38-eval`, repointed by #2340 at
+              # Qwen3.8-Flash-Next (tensor-parallel across both GB10s, LiteLLM, no
+              # fallback), answers set 3 as Opus, Qwen3.8-27B and Qwen3.6 did.
+              # REASONING_EFFORT `low` below as on every Qwen leg. Back to
+              # `claude-opus-5-5` (effort commented out) as soon as the 8 are
+              # answered; Opus stays the decided model.
+              HINDSIGHT_API_REFLECT_LLM_MODEL: qwen38-eval
               # Thinking ON for user-invoked reflect. On Qwen any effort but "none"
               # switches thinking on (see the note above HINDSIGHT_API_LLM_PROVIDER).
               #
@@ -897,7 +904,7 @@ spec:
               # does not transfer, Opus 5.5 reasons adaptively without being asked,
               # and LiteLLM would otherwise translate `low` into Anthropic thinking
               # parameters this model may reject. Restore with the model line.
-              # HINDSIGHT_API_REFLECT_LLM_REASONING_EFFORT: low
+              HINDSIGHT_API_REFLECT_LLM_REASONING_EFFORT: low
               # Sized when reflect's window was 98,304 (it is 131,072 on vLLM now),
               # NOT to the default of 100,000, which was past it. The cap bounds the
               # context reflect accumulates before it is forced to answer, and the
