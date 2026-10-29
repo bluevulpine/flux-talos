@@ -98,9 +98,7 @@ spec:
               and memory is going stale while the pod reads healthy — recall
               makes no LLM call, so it keeps working while retain cannot. Check
               the LLM path first: gatus "DGX Spark (vLLM)" / "GX10 (vLLM)"
-              and vLLM's /health on 10.0.10.237:8000 and 10.0.10.117:8000
-              (during the Qwen3.8 eval window from 2026-10-27 the GX10 is out
-              of production and spark-ab23 serves alone),
+              and vLLM's /health on 10.0.10.237:8000 and 10.0.10.117:8000,
               then LiteLLM (`kubectl logs -n ai deploy/litellm`), then
               `kubectl logs -n ai deploy/hindsight-worker | grep -i llm`
               (retain and consolidation LLM work runs in the worker, not the API).

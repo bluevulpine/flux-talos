@@ -210,23 +210,16 @@ spec:
     # and these counters reset whenever vLLM restarts (increase() handles that).
     # The spark-llm recording rules turn them into hourly tokens and an
     # API-equivalent cost.
-    #
-    # The second replica, on gx10-7ac6 (2026-10-26). Same job, so the
-    # spark-llm recording rules (sum over the job) count both boxes' tokens.
-    # ⚠️ OFF for the Qwen3.8 eval window (from 2026-10-27): the box runs the
-    # candidate on :8001 instead, and a down :8000 target would fire the
-    # chart's TargetDown. Not repointed at :8001, because eval tokens would
-    # then count as production volume and cost in the spark-llm rules.
-    # Uncomment with the LiteLLM replica deployments; it sits ABOVE the
-    # spark-ab23 item so that formatting keeps it at list-item indentation.
-    # - targets:
-    #     - 10.0.10.117:8000
-    #   labels:
-    #     instance: gx10-7ac6
     - targets:
         - 10.0.10.237:8000
       labels:
         instance: spark-ab23
+    # The second replica, on gx10-7ac6 (2026-10-26). Same job, so the
+    # spark-llm recording rules (sum over the job) count both boxes' tokens.
+    - targets:
+        - 10.0.10.117:8000
+      labels:
+        instance: gx10-7ac6
   metricsPath: /metrics
   relabelings:
     - action: replace

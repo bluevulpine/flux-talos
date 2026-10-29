@@ -261,12 +261,6 @@ spec:
               # Both are thinking-off by default like every Spark route; see the
               # reasoning_effort warning above.
               #
-              # ⚠️ EVAL WINDOW from 2026-10-27: the gx10-7ac6 deployments below
-              # are commented out while that box runs Qwen3.8-27B for evaluation
-              # (`qwen38-eval`, further down), and spark-ab23 serves every Spark
-              # route alone. Uncomment all four when the GX10 gets its Qwen3.6
-              # replica back (spark-setup: drop its `vllm_enabled: false`).
-              #
               # TWO deployments per Spark route since 2026-10-26: spark-ab23
               # (10.0.10.237) and gx10-7ac6 (10.0.10.117) each run their own
               # vLLM replica of the same model, image and flags (spark-setup
@@ -310,12 +304,12 @@ spec:
                   api_base: http://10.0.10.237:8000/v1
                   api_key: unused-no-auth
                   num_retries: 2
-              # - model_name: spark-main   # gx10-7ac6 replica, OFF for the Qwen3.8 eval
-              #   litellm_params:
-              #     model: openai/qwen3.6-35b-a3b
-              #     api_base: http://10.0.10.117:8000/v1
-              #     api_key: unused-no-auth
-              #     num_retries: 2
+              - model_name: spark-main   # gx10-7ac6 replica, see spark-main
+                litellm_params:
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.117:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
 
               # hindsight's own name for the SAME Spark backend. It exists so the
               # fallback chain CAN differ: `router_settings.fallbacks` is per
@@ -335,12 +329,12 @@ spec:
                   api_base: http://10.0.10.237:8000/v1
                   api_key: unused-no-auth
                   num_retries: 2
-              # - model_name: hindsight-main   # gx10-7ac6 replica, OFF for the Qwen3.8 eval
-              #   litellm_params:
-              #     model: openai/qwen3.6-35b-a3b
-              #     api_base: http://10.0.10.117:8000/v1
-              #     api_key: unused-no-auth
-              #     num_retries: 2
+              - model_name: hindsight-main   # gx10-7ac6 replica, see spark-main
+                litellm_params:
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.117:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
 
               # The SAME Spark backend a third time, as the fallback TARGET for
               # the Anthropic routes (router_settings.fallbacks). It must be a
@@ -357,12 +351,12 @@ spec:
                   api_base: http://10.0.10.237:8000/v1
                   api_key: unused-no-auth
                   num_retries: 2
-              # - model_name: spark-direct   # gx10-7ac6 replica, OFF for the Qwen3.8 eval
-              #   litellm_params:
-              #     model: openai/qwen3.6-35b-a3b
-              #     api_base: http://10.0.10.117:8000/v1
-              #     api_key: unused-no-auth
-              #     num_retries: 2
+              - model_name: spark-direct   # gx10-7ac6 replica, see spark-main
+                litellm_params:
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.117:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
 
               # Vision: Qwen3.6 reads images itself. Checked side by side with the
               # retired qwen2.5vl on five images: same or better tags, and a
@@ -388,12 +382,12 @@ spec:
                   api_base: http://10.0.10.237:8000/v1
                   api_key: unused-no-auth
                   num_retries: 2
-              # - model_name: spark-main-vision   # gx10-7ac6 replica, OFF for the Qwen3.8 eval
-              #   litellm_params:
-              #     model: openai/qwen3.6-35b-a3b
-              #     api_base: http://10.0.10.117:8000/v1
-              #     api_key: unused-no-auth
-              #     num_retries: 2
+              - model_name: spark-main-vision   # gx10-7ac6 replica, see spark-main
+                litellm_params:
+                  model: openai/qwen3.6-35b-a3b
+                  api_base: http://10.0.10.117:8000/v1
+                  api_key: unused-no-auth
+                  num_retries: 2
 
               # --- audio (spark-setup `audio` role) ---
               # Two plain Docker containers on the Spark, NOT Ollama, so they use
@@ -681,25 +675,6 @@ spec:
                   max_tokens: 32768
                   num_retries: 2
 
-              # Qwen3.8-27B (nvidia/Qwen3.8-27B-NVFP4, dense, same Qwen3.5-family
-              # architecture as production's Qwen3.6) on gx10-7ac6:8001, as a
-              # candidate for `hindsight-main`: the 2026-10-27 re-grade put
-              # Qwen3.6's reflect errors down to synthesis (mis-dated PRs,
-              # misattributed changes, an invented value), which more active
-              # parameters may fix; vault Evals/2026-10-17-hindsight-regate-set2.md.
-              # UP ONLY DURING THE EVAL WINDOW (spark-setup recipe
-              # roles/vllm/files/qwen3.8-27b-nvfp4.yaml); connection-refused
-              # otherwise. No fallback on purpose, like tensorfold-glm53-flash:
-              # a call that silently went elsewhere would be graded as Qwen3.8.
-              # No key lists it until its reflect leg.
-              - model_name: qwen38-eval
-                litellm_params:
-                  model: openai/qwen3.8-27b
-                  api_base: http://10.0.10.117:8001/v1
-                  api_key: unused-no-auth
-                  max_tokens: 32768
-                  num_retries: 2
-
             litellm_settings:
               drop_params: true
               # Prometheus metrics (/metrics on the app port; the internal
@@ -828,8 +803,7 @@ spec:
               # group before any fallback (LiteLLM >= v1.86, simple-shuffle
               # only, async paths -- the proxy's). It matters only for the
               # Spark routes, which have two deployments each (spark-ab23 and
-              # the gx10-7ac6 replica; one during the Qwen3.8 eval window, see
-              # the EVAL WINDOW note above); every other group has one, so a
+              # the gx10-7ac6 replica); every other group has one, so a
               # failure there still goes straight to its fallbacks as before.
               enable_weighted_failover: true
               # Text routes only. A fallback fires after the route's own
