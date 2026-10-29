@@ -37,16 +37,14 @@ spec:
       # kopiur (components/kopiur), W5. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # Twice-hourly: explicit minutes (kopiur has no stepped H), chosen as
-      # VolSync's +5 so the two engines stayed apart during the parallel run.
-      KOPIUR_LOCAL_CRON: "25,55 * * * *"
+      KOPIUR_LOCAL_CRON: "H 7 * * *"
       # H picks a minute; the hour matches VolSync's old R2 run.
       KOPIUR_R2_CRON: "H 4 * * *"
       # The component defaults to Direct, which mounts the LIVE config PVC and
       # reads it while Plex is writing. That is a ~494 MB SQLite database being
-      # copied under an active writer, 48 times a day on KOPIUR_LOCAL_CRON plus
-      # once more for R2 - every one of those snapshots can be torn, and the
-      # backup reports success either way. Same class as the defect fixed in
+      # copied under an active writer, once a day on KOPIUR_LOCAL_CRON (48 times
+      # a day before 2026-10-29) plus once more for R2 - every one of those
+      # snapshots can be torn, and the backup reports success either way. Same class as the defect fixed in
       # #1711. Snapshot takes a CSI point-in-time copy and the mover reads that
       # instead, so the database is never read mid-write and the mover stops
       # co-mounting the volume Plex is using. (Written for VolSync; unchanged
@@ -115,12 +113,14 @@ spec:
       VOLSYNC_CAPACITY: 10Gi
       VOLSYNC_STORAGECLASS: longhorn-1-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
-      # Low criticality: Plex metadata manager, regenerates - backup every 4 hours
+      # Low criticality: Plex metadata manager, regenerates - local backup daily
       # kopiur (components/kopiur), W3. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # H picks a minute per schedule; the hours match VolSync's.
-      KOPIUR_LOCAL_CRON: "H */4 * * *"
+      # H picks a minute per schedule; the R2 hour matches VolSync's
+      # old one, the local hour is this app's slot in the daily window
+      # (components/kopiur/local.yaml).
+      KOPIUR_LOCAL_CRON: "H 9 * * *"
       KOPIUR_R2_CRON: "H 1 * * *"
       KOPIUR_COPYMETHOD: Snapshot
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass

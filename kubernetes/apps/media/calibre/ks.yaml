@@ -31,14 +31,16 @@ spec:
       GATUS_PORT: "8080"
       GATUS_SERVICE: calibre
       VOLSYNC_CAPACITY: 2Gi
-      # Low criticality: ebook library config - backup every hour
+      # Low criticality: ebook library config - local backup daily
       VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # H picks a minute per schedule; the hours match VolSync's.
-      KOPIUR_LOCAL_CRON: "H * * * *"
+      # H picks a minute per schedule; the R2 hour matches VolSync's
+      # old one, the local hour is this app's slot in the daily window
+      # (components/kopiur/local.yaml).
+      KOPIUR_LOCAL_CRON: "H 8 * * *"
       KOPIUR_R2_CRON: "H 0 * * *"
       KOPIUR_COPYMETHOD: Snapshot
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass

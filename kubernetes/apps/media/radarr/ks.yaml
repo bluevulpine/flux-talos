@@ -35,12 +35,14 @@ spec:
       VOLSYNC_CAPACITY: 4Gi
       VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
-      # High criticality: movie library DB - backup every hour
+      # High criticality: movie library DB - local backup daily
       # kopiur (components/kopiur), W3. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # H picks a minute per schedule; the hours match VolSync's.
-      KOPIUR_LOCAL_CRON: "H * * * *"
+      # H picks a minute per schedule; the R2 hour matches VolSync's
+      # old one, the local hour is this app's slot in the daily window
+      # (components/kopiur/local.yaml).
+      KOPIUR_LOCAL_CRON: "H 7 * * *"
       KOPIUR_R2_CRON: "H 4 * * *"
       KOPIUR_COPYMETHOD: Snapshot
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass

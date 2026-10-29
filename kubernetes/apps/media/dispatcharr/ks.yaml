@@ -47,7 +47,7 @@ spec:
       # kopiur (components/kopiur). R2 avoids hour 03 (reserved for
       # kopia-maint-r2; docs/runbooks/volsync-mover-stuck.md); hour 06 was the
       # least-used slot when this was written.
-      KOPIUR_LOCAL_CRON: "H */4 * * *"
+      KOPIUR_LOCAL_CRON: "H 8 * * *"
       KOPIUR_R2_CRON: "H 6 * * *"
       KOPIUR_COPYMETHOD: Snapshot
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass

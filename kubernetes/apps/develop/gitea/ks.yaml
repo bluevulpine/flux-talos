@@ -39,10 +39,10 @@ spec:
       # vars landed one PR BEFORE the component so the SnapshotSchedules were
       # created with these crons, not the component's defaults (runbook trap: a
       # cron change does not re-pin a pending slot).
-      # Twice-hourly: explicit minutes (kopiur has no stepped H). Chosen to keep
-      # VolSync's old :18/:48 out of the 20m forward-jitter windows during the
-      # parallel run (runbook footnote 1): +6, as +5 (:23) is paperclip's.
-      KOPIUR_LOCAL_CRON: "24,54 * * * *"
+      # 6-hourly: one of three exceptions to the daily local default
+      # (vaultwarden, gitea, couchdb; Derek, 2026-10-29), where losing a day
+      # of changes hurts. H picks the minute.
+      KOPIUR_LOCAL_CRON: "H */6 * * *"
       # H picks a minute; the hour matches VolSync's old R2 run.
       KOPIUR_R2_CRON: "H 1 * * *"
       # Direct, as under VolSync. Repos are git's own files, written
