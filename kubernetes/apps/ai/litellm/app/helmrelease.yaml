@@ -794,6 +794,24 @@ spec:
               maximum_spend_logs_retention_period: "1h"
               maximum_spend_logs_retention_interval: "30m"
 
+              # Admin UI: no login with UI_USERNAME/UI_PASSWORD or, when those are
+              # unset (they are here), with the master key as a shared static
+              # secret. The UI's own banner asked for this once a real admin
+              # exists; it does: `bluevulpine` signs in through Authentik (the
+              # SSO env block on the container) and has been `proxy_admin` in
+              # LiteLLM_UserTable since 2026-10-03, re-applied from the
+              # `litellm_role` claim on every login. In v1.106.2
+              # (proxy/auth/login_utils.py, `_admin_credentials_match` and
+              # `is_env_credential_login_enabled`) this gates ONLY the
+              # username/password form: the SSO callback and the master key's
+              # API use (/key/generate, /provider/budgets, …) are untouched,
+              # so nothing operational changes. The stricter neighbour,
+              # `disable_password_login_when_sso_enabled`, would also refuse
+              # password logins for DB users; not needed, there are none.
+              # Lockout path if Authentik is down: none through the UI, by
+              # design; the master key still works against the API.
+              disable_env_credential_login: true
+
             # The router's own Redis: cooldowns and usage-based routing state. Kept
             # as a separate setting because LiteLLM treats it as a separate client.
             router_settings:
