@@ -1,3 +1,4 @@
+---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/apps/deployment_v1.json
 # The ops console: UI and forwarder only. Source: bvn-homelab/ops-console.
 # No state of its own (a pending login lives in the reauth servers), so a restart
@@ -42,6 +43,23 @@ spec:
           # so Flux must write the whole ref. ":tag" would overwrite the scalar with the bare tag.
           image: gitea.derekjacobs.dev/bvn-homelab/ops-console:9-adc281e8 # {"$imagepolicy": "flux-system:ops-console"}
           imagePullPolicy: Always
+          # Same as the image's CMD plus --timeout-keep-alive. uvicorn closes idle connections
+          # after 5s by default, but the gateway's Envoy keeps upstream connections for reuse
+          # (its idle timeout defaults to 1h; no BackendTrafficPolicy here sets one). Envoy
+          # reusing a connection uvicorn just closed returns `503 UC upstream_reset_before_
+          # response_started{connection_termination}` before the app sees the request
+          # (measured 2026-10-29 20:14:00Z, 5s after the previous request). Keep it above
+          # Envoy's idle timeout so Envoy, not uvicorn, closes first.
+          args:
+            - uvicorn
+            - --factory
+            - ops_console.app:create_app
+            - --host
+            - 0.0.0.0
+            - --port
+            - "8000"
+            - --timeout-keep-alive
+            - "3700"
           ports:
             - name: http
               containerPort: 8000
