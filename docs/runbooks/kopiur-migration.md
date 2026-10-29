@@ -42,7 +42,7 @@ needed manual pause-based recovery (done 2026-09-22; real backups of 1m28s–2m1
 | --- | --- | --- |
 | Q1 | **Adopt the existing repositories in place**, no re-seed | fleet is the perfectra1n fork using `spec.kopia`; kopiur adopts fork repos and history continues |
 | Q2 | identity `<app>@<namespace>:/data`, **pinned explicitly** per policy | verified three ways (fork logs, translator, `kopia snapshot list`); `kubectl kopiur migrate volsync --resolve-secrets` reproduced it for all 44 translatable sources |
-| Q3 | **keep the retention asymmetry** → 92 single-repo SnapshotPolicies, no fan-out | `repositories[]` has no per-repo retention. **Effective** retention, verified live 2026-09-22 and matched exactly in `components/kopiur`: local 12×/day, latest/hourly/daily/weekly/monthly/annual = 48/96/30/12/12/**3**; R2 1×/day, 10/6/7/4/3/3. The bold/inherited values are kopia *global defaults* the fork never wrote (see the trap below) |
+| Q3 | **keep the retention asymmetry** → 92 single-repo SnapshotPolicies, no fan-out | `repositories[]` has no per-repo retention. **Effective** retention, verified live 2026-09-22 and matched exactly in `components/kopiur`: local 12×/day, latest/hourly/daily/weekly/monthly/annual = 48/96/30/12/12/**3**; R2 1×/day, 10/6/7/4/3/3. The bold/inherited values are kopia *global defaults* the fork never wrote (see the trap below). **Superseded 2026-10-29 (#2346):** local is now 1×/day (6-hourly for vaultwarden, gitea, couchdb) at 7/0/14/8/6/1; R2 unchanged |
 | — | **one SnapshotSchedule per policy, never `policySelector`** | live CRD: jitter "derived from (scheduleUID, slot)" — per schedule, so a selector schedule fires every matched policy at one instant (the 00:00 herd that destroyed ZFS datasets) |
 | — | `ClusterRepository` ×2 (`kopia-local`, `kopia-r2`), not namespaced `Repository` | 8 namespaces, 2 repos; per-namespace repos = many Maintenance CRs contending for one lease |
 | — | `catalog.retain`: **`perIdentity: 50`, `maxAgeDays: 120`**, set before first scan | uncapped = 5,242 Snapshot CRs (pre-landing estimate; its basis wasn't recorded. **Measured 2026-09-23: `kopia-local` 5,276 + `kopia-r2` 657 = 5,933**); this gives ~2,179, and the 16 dead identities age out with no kopia data deleted. **Accepted cost:** 171 CRs of *live* identities (weekly/monthly tail) lose their CR — still restorable, see "Restoring an aged-out snapshot". **Actual first scan (2026-09-23): 1,108, not ~2,179.** R2 is complete (608, all 46 live identities). `kopia-local` got 500: the mover's hard 1,000-entry listing cap cuts before `perIdentity` applies, so only the first 10 identities by username came through. See the traps |
@@ -149,7 +149,7 @@ Key properties, all commented in the manifests:
       namespace: kopiur-system
   postBuild:
     substitute:
-      KOPIUR_LOCAL_CRON: "H */2 * * *"     # from the table
+      KOPIUR_LOCAL_CRON: "H 9 * * *"       # daily, an hour in 07-11 UTC (components/kopiur/local.yaml); the table's cadences predate 2026-10-29
       KOPIUR_R2_CRON: "H 1 * * *"          # from the table
       KOPIUR_COPYMETHOD: Snapshot          # = VOLSYNC_COPYMETHOD (default Direct)
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass   # = VOLSYNC_SNAPSHOTCLASS

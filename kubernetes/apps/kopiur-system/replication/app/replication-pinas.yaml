@@ -29,7 +29,7 @@ spec:
 # blob-for-blob to Garage on pinas. kopia-r2 is the offsite copy; this one is
 # a second machine and pool at home (and maybe offsite later).
 #
-# Only kopia-local is mirrored. It holds every app's hourly history; the R2
+# Only kopia-local is mirrored. It holds every app's full local history; the R2
 # repository is the daily subset and is already off this hardware.
 apiVersion: kopiur.home-operations.com/v1alpha1
 kind: RepositoryReplication

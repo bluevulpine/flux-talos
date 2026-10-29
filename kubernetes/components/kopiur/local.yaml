@@ -149,7 +149,10 @@ spec:
     # 1-5 am CST / 2-6 am CDT: inside Derek's 1-8 am Central window in both
     # seasons even after H and the 20m jitter push a start toward hh+1:19.
     # Hour 12 would start as late as 08:19 CDT, so it is not used. kopia-local
-    # full maintenance runs at 02:00 UTC, outside the window. Exceptions at
+    # maintenance is NOT kept out of the window: it runs hourly, full, until
+    # the VolSync decommission (volsync-system/kopia-maintenance/app/
+    # kopiamaintenance-local.yaml), as it did beside the old 48-a-day
+    # schedule. Exceptions at
     # `H */6 * * *`: vaultwarden, gitea, couchdb. The default below is only
     # for a new app that sets nothing — give it a slot instead.
     cron: "${KOPIUR_LOCAL_CRON:-H 9 * * *}"
