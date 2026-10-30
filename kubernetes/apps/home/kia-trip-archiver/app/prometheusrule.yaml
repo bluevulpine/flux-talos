@@ -24,6 +24,16 @@ spec:
         #
         # requires_manual_action = true on the newest sync_runs row, or an
         # 'otp_required' auth_events row, means the portal rmToken died.
+        #
+        # Fires only while the NEWEST FINISHED archiver Job failed. Failed Jobs
+        # linger for ttlSecondsAfterFinished (12h), so a bare
+        # `kube_job_status_failed > 0` kept this firing — and the ops-console card
+        # on "needs you" — for up to 12h after a later run (scheduled, or the
+        # proving Job the console launches after an OTP reauth) had succeeded.
+        # Comparing start times instead means the next successful run clears it.
+        # A still-running Job is not "finished", so a retry in flight does not
+        # clear it early. A failed Job keeps its own job_name label, so the
+        # summary still names the run to look at.
         - alert: KiaTripArchiverJobFailed
           annotations:
             summary: >-
@@ -35,7 +45,21 @@ spec:
               empty — read sync_runs / auth_events in the kia_trips database, or the
               OpenBao tombstone at secret/kia/portal-rmtoken.
           expr: |
-            kube_job_status_failed{namespace="home", job_name=~"kia-trip-archiver.*"} > 0
+            (
+              kube_job_status_start_time{namespace="home", job_name=~"kia-trip-archiver.*"}
+              and on (job_name)
+              (kube_job_status_failed{namespace="home", job_name=~"kia-trip-archiver.*"} > 0)
+            )
+            == on () group_left ()
+            max(
+              kube_job_status_start_time{namespace="home", job_name=~"kia-trip-archiver.*"}
+              and on (job_name)
+              (
+                kube_job_status_failed{namespace="home", job_name=~"kia-trip-archiver.*"} > 0
+                or
+                kube_job_status_succeeded{namespace="home", job_name=~"kia-trip-archiver.*"} > 0
+              )
+            )
           for: 15m
           labels:
             severity: critical
