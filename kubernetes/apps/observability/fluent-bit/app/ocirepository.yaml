@@ -14,4 +14,19 @@ spec:
   # Fluent's own OCI chart. home-operations/charts-mirror deprecated its copy
   # 2026-01-22 (#393) and pulled it ~2026-10-28; ghcr now answers DENIED.
   url: oci://ghcr.io/fluent/helm-charts/fluent-bit
+  # Fluent signs its chart keyless, as a sigstore v0.3 bundle attached as an
+  # OCI referrer; source-controller v1.9.6 verifies it (checked 2026-10-29 with
+  # a scratch OCIRepository: this identity Ready=True, a wrong subject
+  # VerificationError). The cert SAN is NOT fluent/helm-charts: it is the
+  # reusable workflow fluent's release job calls, action-stars/helm-workflows,
+  # and Flux matches only issuer + SAN. So this proves "signed by that workflow
+  # on GitHub Actions and pushed to fluent's ghcr namespace", not "built from
+  # fluent/helm-charts" (that is only in the cert's source-repository
+  # extension, which Flux cannot match). The SHA after @ changes between
+  # releases (0.55.0 and 0.58.3 differ), so it is not pinned.
+  verify:
+    provider: cosign
+    matchOIDCIdentity:
+      - issuer: ^https://token.actions.githubusercontent.com$
+        subject: ^https://github.com/action-stars/helm-workflows/\.github/workflows/release\.yaml@.+$
 
