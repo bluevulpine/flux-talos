@@ -879,8 +879,10 @@ spec:
                 - claude-haiku-5-5:
                     - spark-direct
 
-              # Fail-safe for the Anthropic monthly credit ($100, renews on the
-              # 29th; next 2026-10-29). Until 2026-10-26 the only guard was the
+              # Fail-safe for the Anthropic monthly credit ($100 grant, issued
+              # on the 26th, expiring on the 29th of the next month; the older
+              # grant appears to drain first, so in effect each covers the 29th
+              # to the 29th). Until 2026-10-26 the only guard was the
               # hindsight key's max_budget, enforced before routing, so tripping
               # it blocks every route on that key, the free Spark one included,
               # and the spark-main consumers' uncapped keys could still spend
@@ -900,27 +902,33 @@ spec:
               # workflow is NOT such a case: it runs on the Claude Code OAuth
               # token (the subscription), not the API key.
               #
-              # The window starts at the FIRST anthropic/ call after this
-              # applies (the Redis start-time key named below); "1mo" = same day
-              # next month, not a calendar anchor: deployed on 2026-10-26 it
-              # ends 2026-11-26, three days before Anthropic's 11-29 renewal,
-              # and in that gap LiteLLM would see a fresh $99 while the real
-              # credit is nearly spent. Re-anchor on the renewal day (to do
-              # 2026-10-29, vault context.md): the window lives in TWO Redis
-              # keys, `provider_spend:anthropic:1mo` and
+              # The window starts at the FIRST anthropic/ call after the keys
+              # below are gone; "1mo" = same day next month, not a calendar
+              # anchor. First deployed 2026-10-26, it ran to 11-26, three days
+              # short of the grant, and in that gap LiteLLM would have seen a
+              # fresh $99 while the real credit was nearly spent. The 26th looked
+              # right at first because the grant is dated then, but on 10-29 the
+              # console showed the new grant untouched while LiteLLM had counted
+              # $15.83 since the 26th. Re-anchored 2026-10-30 04:35 UTC (a day
+              # late, which errs safe at the far end), so the window now ends
+              # 2026-11-30; re-anchor on the 29th whenever it drifts. The window
+              # lives in TWO Redis keys, `provider_spend:anthropic:1mo` and
               # `provider_budget_start_time:anthropic`, plus each replica's
               # in-memory copy that a replica fills from Redis on first use and
               # that a `DEL` does not clear. The order that is safe under both
               # hazards (a live replica syncing old spend back; a fresh replica
               # caching the old start time before the keys are gone): delete
               # both keys, `kubectl rollout restart deploy/litellm`, delete both
-              # keys again once the new pods are ready, then check that
-              # `budget_reset_at` in GET /provider/budgets reads the 29th. That
-              # check is the real gate. Deleting the spend key alone zeroes the
-              # spend but keeps the old window end (#2305 review).
-              # Spend from before this applies is not
-              # counted either, so the hindsight key's $95 cap stays as the
-              # guard for the current allotment until that reset.
+              # keys again once the new pods are ready (on 10-30 a new pod had
+              # already recreated them mid-rollout), then make one small Haiku
+              # call so the window starts now rather than at hindsight's next
+              # call, and check that `budget_reset_at` in GET /provider/budgets
+              # reads the re-anchor day a month on (the 29th when done on time)
+              # on every replica. That check is the real gate.
+              # Deleting the spend key alone zeroes the spend but keeps the old
+              # window end (#2305 review). Spend from before a re-anchor is not
+              # counted, so the hindsight key's $95 cap stays as the guard for
+              # the allotment in progress until that reset.
               provider_budget_config:
                 anthropic:
                   budget_limit: 99
