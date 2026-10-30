@@ -19,11 +19,15 @@ spec:
   # a scratch OCIRepository: this identity Ready=True, a wrong subject
   # VerificationError). The cert SAN is NOT fluent/helm-charts: it is the
   # reusable workflow fluent's release job calls, action-stars/helm-workflows,
-  # and Flux matches only issuer + SAN. So this proves "signed by that workflow
-  # on GitHub Actions and pushed to fluent's ghcr namespace", not "built from
-  # fluent/helm-charts" (that is only in the cert's source-repository
-  # extension, which Flux cannot match). The SHA after @ changes between
-  # releases (0.55.0 and 0.58.3 differ), so it is not pinned.
+  # and Flux matches only issuer + SAN. That workflow is public and other
+  # projects call it too (stevehipwell/helm-charts, scality/metalk8s); every
+  # caller's run gets this same issuer and SAN. So this proves only "signed
+  # by the action-stars release workflow on GitHub Actions", NOT tied to
+  # fluent: the bundle binds a digest, not a registry path, and fluent/
+  # helm-charts appears only in the cert's source-repository extension. It
+  # catches an unsigned or corrupted chart, not a compromised fluent push
+  # credential. The SHA after @ changes between releases (0.55.0 and 0.58.3
+  # differ), so it is not pinned.
   verify:
     provider: cosign
     matchOIDCIdentity:

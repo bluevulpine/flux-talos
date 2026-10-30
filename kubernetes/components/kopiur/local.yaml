@@ -169,8 +169,9 @@ spec:
     # slot (`next_fire` adds the offset before pinning; `missed_deadline` is
     # `now - slot > d`), so the 20m jitter cannot trip it, and changing this
     # field does not re-pin a schedule. A skipped run is only an event
-    # (SkipExpiredSlot): one skip on a daily schedule leaves a ~48h gap, right
-    # at KopiurBackupStale's 48h threshold; two in a row trip it. Do not
-    # shorten it below the longest Forbid-held run: a deadline shorter than a
-    # queue turns a throughput limit into permanently skipped slots.
+    # (reason MissedSchedule, action SkipExpiredSlot): one skip on a daily
+    # schedule leaves a ~48h gap, right at KopiurBackupStale's 48h threshold;
+    # two in a row trip it. Do not shorten it below the longest Forbid-held
+    # run: a deadline shorter than a queue turns a throughput limit into
+    # permanently skipped slots.
     startingDeadlineSeconds: 3600

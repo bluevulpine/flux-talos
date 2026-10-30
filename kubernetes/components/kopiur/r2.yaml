@@ -154,18 +154,17 @@ spec:
     # an hour against the UTC grid twice a year.
     # A SLOT MISSED BY MORE THAN AN HOUR IS SKIPPED, NOT FIRED LATE (2026-10-29).
     # Without this, a slot that passes while the schedule is suspended (or the
-    # controller is down) stays pinned and fires the moment it resumes. Every
-    # schedule that missed its window then fires at once: unpausing the 50
-    # local schedules after the 07-11 UTC window would have started ~47 movers
-    # together on the Longhorn disks that had just stalled brokkr02 (Wasp, F7
-    # on #2346). For r2 it also bounds how far a late run can drift toward
-    # the hour-03 reservation above: an hour at most, not unbounded. kopiur
+    # controller is down) stays pinned and fires the moment it resumes, so
+    # every r2 schedule that missed its slot would fire together, and a late
+    # run could drift without bound toward the hour-03 reservation above. Set
+    # alongside the same field in local.yaml (Wasp, F7 on #2346). kopiur
     # 0.10.16 measures the deadline from the JITTERED pinned slot
     # (`next_fire` adds the offset before pinning; `missed_deadline` is
     # `now - slot > d`), so the 20m jitter cannot trip it, and changing this
     # field does not re-pin a schedule. A skipped run is only an event
-    # (SkipExpiredSlot): one skip on a daily schedule leaves a ~48h gap, right
-    # at KopiurBackupStale's 48h threshold; two in a row trip it. Do not
-    # shorten it below the longest Forbid-held run: a deadline shorter than a
-    # queue turns a throughput limit into permanently skipped slots.
+    # (reason MissedSchedule, action SkipExpiredSlot): one skip on a daily
+    # schedule leaves a ~48h gap, right at KopiurBackupStale's 48h threshold;
+    # two in a row trip it. Do not shorten it below the longest Forbid-held
+    # run: a deadline shorter than a queue turns a throughput limit into
+    # permanently skipped slots.
     startingDeadlineSeconds: 3600
