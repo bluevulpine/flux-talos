@@ -923,7 +923,8 @@ spec:
               # already recreated them mid-rollout), then make one small Haiku
               # call so the window starts now rather than at hindsight's next
               # call, and check that `budget_reset_at` in GET /provider/budgets
-              # reads the 29th on every replica. That check is the real gate.
+              # reads the re-anchor day a month on (the 29th when done on time)
+              # on every replica. That check is the real gate.
               # Deleting the spend key alone zeroes the spend but keeps the old
               # window end (#2305 review). Spend from before a re-anchor is not
               # counted, so the hindsight key's $95 cap stays as the guard for
