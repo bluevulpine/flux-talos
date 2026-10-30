@@ -1,3 +1,4 @@
+---
 # Trip-history archive sync, every 6 hours.
 #
 # Cadence is not driven by cost — the whole retained history is one ~10 KB request
@@ -28,10 +29,11 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 2
-      # Auto-delete finished jobs and their pods after 12h. A transient failure
-      # self-clears well before the next run, so KubeJobFailed resolves on its own;
-      # a persistent one keeps producing fresh failed jobs and correctly stays
-      # alerting.
+      # Auto-delete finished jobs and their pods after 12h. That is LONGER than the
+      # 6h cadence, so a failed Job outlives the next run: KiaTripArchiverJobFailed
+      # therefore keys on the newest finished Job (see prometheusrule.yaml), not on
+      # whether any failed Job exists. The generic KubeJobFailed still fires per
+      # failed Job until this TTL removes it.
       ttlSecondsAfterFinished: 43200
       template:
         spec:
