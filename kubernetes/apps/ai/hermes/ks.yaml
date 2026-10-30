@@ -40,7 +40,7 @@ spec:
       GATUS_SERVICE: hermes
       VOLSYNC_CAPACITY: 20Gi
       # Agent state: config, .env, SOUL.md, sessions, memories, skills, cron.
-      # Hourly local, nightly R2 — it accretes slowly but is expensive to lose.
+      # Daily local, nightly R2 — it accretes slowly but is expensive to lose.
       # Two replicas, node-local best-effort: dataLocality best-effort keeps ONE
       # replica on the pod's node without the hard pin of strict-local, so a Talos
       # drain can still move the agent and rebuild locally; the second replica sits
@@ -52,8 +52,10 @@ spec:
       # kopiur (components/kopiur), W6. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # H picks a minute per schedule; the hours match VolSync's old ones.
-      KOPIUR_LOCAL_CRON: "H * * * *"
+      # H picks a minute per schedule; the R2 hour matches VolSync's
+      # old one, the local hour is this app's slot in the daily window
+      # (components/kopiur/local.yaml).
+      KOPIUR_LOCAL_CRON: "H 9 * * *"
       KOPIUR_R2_CRON: "H 6 * * *"
       # RWO + Snapshot: the mover cannot co-mount an RWO volume the agent holds,
       # and a Direct copy would read a live SQLite state.db mid-write.

@@ -100,14 +100,23 @@ spec:
     # jellyseerr@media:/data`: "Annual snapshots: 3 inherited from (global)").
     # Once each app's path-scope keep-* is cleared at cutover, kopiur's GFS is
     # the only rule, so the inherited bucket has to be stated here or it is
-    # silently dropped. The local leg stays deep and frequent; R2 stays shallow
-    # and daily — see r2.yaml.
-    keepLatest: 48
-    keepHourly: 96
-    keepDaily: 30
-    keepWeekly: 12
-    keepMonthly: 12
-    keepAnnual: 3
+    # silently dropped.
+    #
+    # Cut 2026-10-29 (Derek), together with the move to ONE local run a day:
+    # the old 48 latest / 96 hourly / 30 daily / 12 weekly / 12 monthly / 3
+    # annual sized for up to 48 runs a day, and ~80 % of kopia-local's bytes
+    # were retained history (docs/runbooks/kopiur-per-app-repositories.md).
+    # Twice-hourly Snapshot-method runs also meant ~10 h a day of Longhorn
+    # clone + staging for plex alone, which is what showed up as disk
+    # contention on brokkr02. keepHourly 0: at one run a day (four for the
+    # 6-hourly exceptions) an hourly bucket keeps nothing keepLatest doesn't.
+    # Still deeper than R2 — see r2.yaml.
+    keepLatest: 7
+    keepHourly: 0
+    keepDaily: 14
+    keepWeekly: 8
+    keepMonthly: 6
+    keepAnnual: 1
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/snapshotschedule_v1alpha1.json
 apiVersion: kopiur.home-operations.com/v1alpha1
@@ -132,9 +141,21 @@ spec:
     #
     # THIS IS WHAT RETIRES THE GRID. components/volsync-backup/r2.yaml
     # hand-maintains a 40-slot, 8-minute grid for 46 sources and reserves hour
-    # 03; H makes all of that unnecessary. Cadence is still per-app, because
-    # the */1 vs */2 vs */4 split encodes real criticality tiering.
-    cron: "${KOPIUR_LOCAL_CRON:-H */2 * * *}"
+    # 03; H makes all of that unnecessary.
+    #
+    # DAILY, IN THE 07-11 UTC WINDOW (2026-10-29). Every app sets its own
+    # KOPIUR_LOCAL_CRON to `H <hour> * * *` with ~10 apps per hour, so the
+    # Snapshot-method clones don't pile onto one hour. 07-11 UTC is
+    # 1-5 am CST / 2-6 am CDT: inside Derek's 1-8 am Central window in both
+    # seasons even after H and the 20m jitter push a start toward hh+1:19.
+    # Hour 12 would start as late as 08:19 CDT, so it is not used. kopia-local
+    # maintenance is NOT kept out of the window: it runs hourly, full, until
+    # the VolSync decommission (volsync-system/kopia-maintenance/app/
+    # kopiamaintenance-local.yaml), as it did beside the old 48-a-day
+    # schedule. Exceptions at
+    # `H */6 * * *`: vaultwarden, gitea, couchdb. The default below is only
+    # for a new app that sets nothing — give it a slot instead.
+    cron: "${KOPIUR_LOCAL_CRON:-H 9 * * *}"
     # jitter and timezone inherit from ClusterRepository.scheduleDefaults
     # (20m, UTC). Do not set a timezone here: a Chicago-evaluated cron shifts
     # an hour against the UTC grid twice a year.

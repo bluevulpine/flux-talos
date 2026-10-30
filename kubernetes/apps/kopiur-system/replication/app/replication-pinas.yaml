@@ -29,7 +29,7 @@ spec:
 # blob-for-blob to Garage on pinas. kopia-r2 is the offsite copy; this one is
 # a second machine and pool at home (and maybe offsite later).
 #
-# Only kopia-local is mirrored. It holds every app's hourly history; the R2
+# Only kopia-local is mirrored. It holds every app's full local history; the R2
 # repository is the daily subset and is already off this hardware.
 apiVersion: kopiur.home-operations.com/v1alpha1
 kind: RepositoryReplication
@@ -66,8 +66,11 @@ spec:
           namespace: kopiur-system
   schedule:
     # Daily, UTC like every other kopiur cron here. Nothing reads the mirror
-    # until a disaster, so a day of lag costs nothing.
-    cron: "30 9 * * *"
+    # until a disaster, so a day of lag costs nothing. 12:30, after the
+    # 07-11 UTC daily local window (components/kopiur/local.yaml), so the
+    # mirror copies that night's snapshots rather than running across ~10
+    # of them as they write. Was 09:30 when local ran around the clock.
+    cron: "30 12 * * *"
     jitter: 20m
   sync:
     # kopia's default is one blob at a time; the first run seeds ~350 GiB.

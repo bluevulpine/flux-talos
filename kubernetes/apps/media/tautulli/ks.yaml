@@ -34,10 +34,11 @@ spec:
       VOLSYNC_CAPACITY: 4Gi
       VOLSYNC_STORAGECLASS: longhorn-1-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
-      # Low criticality: watch statistics, can regenerate - backup every 4 hours
-      # kopiur (components/kopiur). H picks a minute per schedule; the hours are
-      # the ones VolSync used before the cutover.
-      KOPIUR_LOCAL_CRON: "H */4 * * *"
+      # Low criticality: watch statistics, can regenerate - local backup daily
+      # kopiur (components/kopiur). H picks a minute per schedule; the R2 hour
+      # is the one VolSync used, the local hour is this app's slot in the
+      # daily window (components/kopiur/local.yaml).
+      KOPIUR_LOCAL_CRON: "H 11 * * *"
       KOPIUR_R2_CRON: "H 5 * * *"
       KOPIUR_COPYMETHOD: Snapshot
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass

@@ -41,9 +41,10 @@ spec:
       # for the reasons spelled out in home/ev-charge-tracker/ks.yaml.
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       # Hour 03 stays reserved for kopia-maint-r2 (R2 is H 6).
-      # kopiur (components/kopiur). H picks a minute per schedule; the hours are
-      # the ones VolSync used before the cutover.
-      KOPIUR_LOCAL_CRON: "H */2 * * *"
+      # kopiur (components/kopiur). H picks a minute per schedule; the R2 hour
+      # is the one VolSync used, the local hour is this app's slot in the
+      # daily window (components/kopiur/local.yaml).
+      KOPIUR_LOCAL_CRON: "H 7 * * *"
       KOPIUR_R2_CRON: "H 6 * * *"
       KOPIUR_COPYMETHOD: Snapshot
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
