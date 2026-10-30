@@ -211,10 +211,23 @@ spec:
           cluster: main
         resources:
           requests:
-            cpu: 100m
+            # Was 100m. Prometheus has no CPU limit, so the request is its only
+            # protection when a node is busy (scheduler weight and cgroup shares).
+            cpu: 500m
             memory: 4Gi
           limits:
             memory: 8Gi
+        # The Prometheus CRD has no probe fields; the operator's own probes use a 3s
+        # timeout and 6 failures x 5s, a tight window for a 600k-series head on a
+        # loaded node, and each kill costs a WAL replay plus a ~2m40s shutdown snapshot.
+        # Hardening: the 2026-10-29 churn was mostly pod re-creation alongside Longhorn
+        # remounts (new UIDs, restarts 0), not liveness kills. `containers` is merged
+        # into the generated container by name.
+        containers:
+          - name: prometheus
+            livenessProbe:
+              timeoutSeconds: 10
+              failureThreshold: 12
         storageSpec:
           volumeClaimTemplate:
             spec:
