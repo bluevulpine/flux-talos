@@ -13,19 +13,31 @@ data:
       # already fires — but it fires identically for a database outage or a schema
       # change, and the remedy is completely different. This rule names the cause.
       #
-      # Matching on the bare marker rather than an `app:` selector is deliberate:
-      # the string is globally unique to this one log line, so the alert does not
-      # depend on how fluent-bit happens to map pod labels into VictoriaLogs fields.
+      # Matching on bare markers rather than an `app:` selector is deliberate:
+      # both strings are unique to the archiver's own log lines, so the alert does
+      # not depend on how fluent-bit happens to map pod labels into VictoriaLogs
+      # fields.
       - name: kia-trip-archiver
         type: vlogs
         interval: 15m
         rules:
           - alert: KiaTripArchiverReauthRequired
-            # _time:8h against a 6h sync cadence spans one or two attempts: sticky
-            # enough not to flap between runs, and it auto-resolves within ~8h of a
-            # successful bootstrap rather than dragging on for a day.
+            # Fires only while the NEWEST portal-auth outcome in the window is the
+            # reauth marker. archiver/sync.py logs `METRIC {"metric":
+            # "kia_portal_auth", "event": "reauth_ok", ...}` straight after every
+            # successful portal login, so the first good login after a re-enrol
+            # clears it at the next evaluation. The ops-console proving Job is such
+            # a login. Counting markers alone (the old rule) kept the card on
+            # "needs you" for up to 8h after a working re-enrol: on 2026-10-30 the
+            # 02:07Z run succeeded and the alert would have held until ~09:55Z.
+            # _time:8h against the 6h cron cadence (47 1,7,13,19) keeps at least one
+            # attempt in view. If no run logs either marker for 8h the alert clears,
+            # same as before; KiaTripArchiverStale and KiaTripArchiverJobFailed own
+            # "not running".
             expr: >-
-              _time:8h "KIA_PORTAL_REAUTH_REQUIRED"
+              _time:8h ("KIA_PORTAL_REAUTH_REQUIRED" or ("kia_portal_auth" "reauth_ok"))
+              | sort by (_time) desc | limit 1
+              | filter "KIA_PORTAL_REAUTH_REQUIRED"
               | stats count() as events | filter events:>0
             labels:
               severity: critical
