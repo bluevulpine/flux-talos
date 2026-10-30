@@ -152,3 +152,19 @@ spec:
     # jitter and timezone inherit from ClusterRepository.scheduleDefaults
     # (20m, UTC). Do not set a timezone here: a Chicago-evaluated cron shifts
     # an hour against the UTC grid twice a year.
+    # A SLOT MISSED BY MORE THAN AN HOUR IS SKIPPED, NOT FIRED LATE (2026-10-29).
+    # Without this, a slot that passes while the schedule is suspended (or the
+    # controller is down) stays pinned and fires the moment it resumes, so
+    # every r2 schedule that missed its slot would fire together, and a late
+    # run could drift without bound toward the hour-03 reservation above. Set
+    # alongside the same field in local.yaml (Wasp, F7 on #2346). kopiur
+    # 0.10.16 measures the deadline from the JITTERED pinned slot
+    # (`next_fire` adds the offset before pinning; `missed_deadline` is
+    # `now - slot > d`), so the 20m jitter cannot trip it, and changing this
+    # field does not re-pin a schedule. A skipped run is only an event
+    # (reason MissedSchedule, action SkipExpiredSlot): one skip on a daily
+    # schedule leaves a ~48h gap, right at KopiurBackupStale's 48h threshold;
+    # two in a row trip it. Do not shorten it below the longest Forbid-held
+    # run: a deadline shorter than a queue turns a throughput limit into
+    # permanently skipped slots.
+    startingDeadlineSeconds: 3600
