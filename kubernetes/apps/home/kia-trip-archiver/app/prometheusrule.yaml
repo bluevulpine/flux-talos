@@ -34,6 +34,12 @@ spec:
         # A still-running Job is not "finished", so a retry in flight does not
         # clear it early. A failed Job keeps its own job_name label, so the
         # summary still names the run to look at.
+        #
+        # "Finished" is read from the Job's terminal conditions (Complete /
+        # Failed), not from the status.failed / status.succeeded pod counters.
+        # An evicted pod (node drain) bumps status.failed even when the Job's
+        # replacement pod then succeeds, so a counter-based test would call a
+        # completed Job failed — and, if it were the newest, fire on it.
         - alert: KiaTripArchiverJobFailed
           annotations:
             summary: >-
@@ -48,16 +54,16 @@ spec:
             (
               kube_job_status_start_time{namespace="home", job_name=~"kia-trip-archiver.*"}
               and on (job_name)
-              (kube_job_status_failed{namespace="home", job_name=~"kia-trip-archiver.*"} > 0)
+              (kube_job_failed{namespace="home", job_name=~"kia-trip-archiver.*", condition="true"} == 1)
             )
             == on () group_left ()
             max(
               kube_job_status_start_time{namespace="home", job_name=~"kia-trip-archiver.*"}
               and on (job_name)
               (
-                kube_job_status_failed{namespace="home", job_name=~"kia-trip-archiver.*"} > 0
+                kube_job_failed{namespace="home", job_name=~"kia-trip-archiver.*", condition="true"} == 1
                 or
-                kube_job_status_succeeded{namespace="home", job_name=~"kia-trip-archiver.*"} > 0
+                kube_job_complete{namespace="home", job_name=~"kia-trip-archiver.*", condition="true"} == 1
               )
             )
           for: 15m
