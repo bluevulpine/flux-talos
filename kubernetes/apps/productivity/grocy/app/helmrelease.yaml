@@ -20,7 +20,7 @@ spec:
             image:
               repository: lscr.io/linuxserver/grocy
               # renovate: datasource=docker depName=lscr.io/linuxserver/grocy
-              tag: v4.7.1-ls346
+              tag: v4.7.1-ls347
             env:
               TZ: "${TIMEZONE}"
               PUID: "568"
