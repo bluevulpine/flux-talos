@@ -10,7 +10,7 @@ spec:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    tag: 0.55.0
+    tag: 0.58.3
   # Fluent's own OCI chart. home-operations/charts-mirror deprecated its copy
   # 2026-01-22 (#393) and pulled it ~2026-10-28; ghcr now answers DENIED.
   url: oci://ghcr.io/fluent/helm-charts/fluent-bit
