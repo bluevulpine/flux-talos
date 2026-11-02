@@ -38,6 +38,13 @@ export GIT_SSH_COMMAND="ssh -i /tmp/id_ed25519 -o IdentitiesOnly=yes -o StrictHo
 git config --global safe.directory "$VAULT"
 git config --global user.name "$GIT_AUTHOR_NAME"
 git config --global user.email "$GIT_AUTHOR_EMAIL"
+# No background housekeeping. fetch and commit start `git maintenance run
+# --auto --detach`, which outlives this script, is killed with the pod, and
+# leaves a tmp_pack_* behind every run. With it off, a committing run peaked
+# at 7 MB on 2026-11-02, against ~350 MB with it on. The housekeeping block
+# after `git reset` does the same work in the foreground instead.
+git config --global maintenance.auto false
+git config --global gc.auto 0
 
 if [ ! -d .git ]; then
   echo "bootstrap: adopting origin/main into existing working tree"
@@ -92,13 +99,22 @@ git fetch -q origin main
 # (should be nothing: this is the only pusher).
 git reset -q origin/main
 
-# A killed run leaves debris: an unreferenced loose blob (148 MB after the
-# 2026-10-29 OOMs) and tmp_pack_* files, which count-objects reports as
-# garbage, not size (556 of them, 138 MB, by 11-01). Prune once the two
-# together pass 50 MB; normal runs never get there.
-loose_kb=$(git count-objects -v | awk '/^size: |^size-garbage: /{s+=$2} END{print s+0}')
-if [ "$loose_kb" -gt 51200 ]; then
-  echo "pruning unreferenced loose objects and temp packs (${loose_kb} KiB)"
+# Housekeeping, in the foreground so the pod cannot be killed mid-repack.
+# The reflog is useless here (every run resets to origin/main) and harmful:
+# it kept a 148 MB blob reachable after a killed run had committed it locally
+# and died while pushing it, so prune could not drop it.
+git reflog expire --expire=now --all
+# Each commit writes its blobs and trees as loose objects, and with
+# auto-maintenance off nothing packs them, so repack past 2000 (the store held
+# 1,138 on 2026-11-02). -a folds the existing packs in too: gc.auto=0 also
+# turns off the pack-count merge, and the repo is ~11 MB, so a full repack is
+# cheap. prune afterwards removes unreachable loose objects and tmp_pack_*
+# debris from killed runs (556 of those, 138 MB, had piled up by 11-01),
+# which count-objects reports as garbage, one stderr warning per file.
+eval "$(git count-objects -v 2>/dev/null | awk '/^count: /{print "loose_count="$2} /^size-garbage: /{print "garbage_kb="$2}')"
+if [ "${loose_count:-0}" -gt 2000 ] || [ "${garbage_kb:-0}" -gt 51200 ]; then
+  echo "housekeeping: ${loose_count} loose objects, ${garbage_kb} KiB garbage"
+  git repack -a -d -q
   git prune --expire=1.hour.ago
 fi
 
