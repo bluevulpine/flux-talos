@@ -139,7 +139,13 @@ spec:
                 cpu: 20m
                 memory: 64Mi
               limits:
-                memory: 256Mi
+                # 256Mi OOMKilled every run 2026-10-29..11-01: git add reads a
+                # file whole, and a 150 MB Voice Memos export sat in the vault.
+                # commit.sh now skips files over MAX_FILE_MB, but the first runs
+                # after the fix still died at 256Mi with three days of backlog
+                # (a 1Gi run peaked at 448 MB, page cache included), so leave
+                # headroom rather than size this to a quiet day.
+                memory: 512Mi
 
     defaultPodOptions:
       # Both pods share vault-sync-data, so both run as 568 and fsGroup makes the
