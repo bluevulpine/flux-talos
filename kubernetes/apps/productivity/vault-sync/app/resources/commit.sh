@@ -106,14 +106,15 @@ git reset -q origin/main
 git reflog expire --expire=now --all
 # Each commit writes its blobs and trees as loose objects, and with
 # auto-maintenance off nothing packs them, so repack past 2000 (the store held
-# 1,138 on 2026-11-02). prune afterwards removes the now-packed loose copies,
-# unreachable objects and tmp_pack_* debris from killed runs (556 of those,
-# 138 MB, had piled up by 11-01), which count-objects reports as garbage.
-loose_count=$(git count-objects -v | awk '/^count: /{print $2}')
-garbage_kb=$(git count-objects -v 2>/dev/null | awk '/^size-garbage: /{print $2}')
+# 1,138 on 2026-11-02). -a folds the existing packs in too: gc.auto=0 also
+# turns off the pack-count merge, and the repo is ~11 MB, so a full repack is
+# cheap. prune afterwards removes unreachable loose objects and tmp_pack_*
+# debris from killed runs (556 of those, 138 MB, had piled up by 11-01),
+# which count-objects reports as garbage, one stderr warning per file.
+eval "$(git count-objects -v 2>/dev/null | awk '/^count: /{print "loose_count="$2} /^size-garbage: /{print "garbage_kb="$2}')"
 if [ "${loose_count:-0}" -gt 2000 ] || [ "${garbage_kb:-0}" -gt 51200 ]; then
   echo "housekeeping: ${loose_count} loose objects, ${garbage_kb} KiB garbage"
-  git repack -d -q
+  git repack -a -d -q
   git prune --expire=1.hour.ago
 fi
 
