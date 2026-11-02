@@ -38,6 +38,13 @@ export GIT_SSH_COMMAND="ssh -i /tmp/id_ed25519 -o IdentitiesOnly=yes -o StrictHo
 git config --global safe.directory "$VAULT"
 git config --global user.name "$GIT_AUTHOR_NAME"
 git config --global user.email "$GIT_AUTHOR_EMAIL"
+# No background housekeeping. fetch and commit start `git maintenance run
+# --auto --detach`, which outlives this script, is killed with the pod, and
+# leaves a tmp_pack_* behind every run. With it off, a committing run peaked
+# at 7 MB on 2026-11-02, against ~350 MB with it on. The repo stays small:
+# the prune below and the reflog expiry take care of what housekeeping would.
+git config --global maintenance.auto false
+git config --global gc.auto 0
 
 if [ ! -d .git ]; then
   echo "bootstrap: adopting origin/main into existing working tree"
@@ -96,6 +103,10 @@ git reset -q origin/main
 # 2026-10-29 OOMs) and tmp_pack_* files, which count-objects reports as
 # garbage, not size (556 of them, 138 MB, by 11-01). Prune once the two
 # together pass 50 MB; normal runs never get there.
+# The reflog is useless here (every run resets to origin/main) and harmful:
+# it kept the 148 MB blob reachable after a killed run had committed it
+# locally and died while pushing it, so prune could not drop it.
+git reflog expire --expire=now --all
 loose_kb=$(git count-objects -v | awk '/^size: |^size-garbage: /{s+=$2} END{print s+0}')
 if [ "$loose_kb" -gt 51200 ]; then
   echo "pruning unreferenced loose objects and temp packs (${loose_kb} KiB)"
