@@ -228,10 +228,24 @@ spec:
             livenessProbe:
               timeoutSeconds: 10
               failureThreshold: 12
+        # The two replicas are the redundancy, so each TSDB must sit on its own
+        # pod's node. On `longhorn-1-replica` (dataLocality disabled, Immediate
+        # binding) Longhorn put BOTH single replicas on brokkr02 data-2; that disk
+        # stalled on 2026-10-29 18:29Z, both volumes faulted within 2s, and the HA
+        # pair went down as one. `longhorn-1-replica-local` (best-effort locality,
+        # WaitForFirstConsumer) is the class CNPG uses for the same reason: the app
+        # replicates, so the storage follows its pod. Hard anti-affinity makes the
+        # pods, and so the disks, distinct; there are three schedulable brokkr
+        # nodes, so one can drain without stranding a replica.
+        # Changing the class is an immutable volumeClaimTemplate change: the
+        # operator answers it by deleting the StatefulSet with FOREGROUND
+        # propagation (both pods at once), and existing PVCs keep the old class
+        # until deleted. Migration steps: docs/runbooks/prometheus-storage-migration.md.
+        podAntiAffinity: hard
         storageSpec:
           volumeClaimTemplate:
             spec:
-              storageClassName: longhorn-1-replica
+              storageClassName: longhorn-1-replica-local
               resources:
                 requests:
                   storage: 100Gi
