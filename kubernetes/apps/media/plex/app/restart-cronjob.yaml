@@ -1,0 +1,61 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/batch/cronjob_v1.json
+# Restarts Plex once a day at 12:00 UTC with a rollout restart, so the Deployment
+# replaces the pod the same way a template change would (no direct pod delete).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: plex-daily-restart
+spec:
+  schedule: "0 12 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1200
+      template:
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: plex-daily-restart
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: restart
+              # renovate: datasource=docker depName=alpine/k8s
+              image: docker.io/alpine/k8s:1.37.1
+              command:
+                - /bin/sh
+                - -c
+              args:
+                - |
+                  set -eu
+                  kubectl rollout restart deployment/plex
+                  kubectl rollout status deployment/plex --timeout=15m
+              env:
+                - name: HOME
+                  value: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: {}
