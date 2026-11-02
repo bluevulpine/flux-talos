@@ -2,6 +2,15 @@
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/batch/cronjob_v1.json
 # Restarts Plex once a day at 12:00 UTC with a rollout restart, so the Deployment
 # replaces the pod the same way a template change would (no direct pod delete).
+#
+# The job waits up to 30 minutes for the new pod, matching Plex's startup probe
+# budget (helmrelease.yaml): its large SQLite database can take that long to come
+# up. It polls instead of using `kubectl rollout status`, because that exits once
+# the Deployment's progressDeadlineSeconds (default 10m) passes, even though the
+# rollout itself carries on.
+#
+# No retries (backoffLimit 0, restartPolicy Never): a retried job would run
+# `rollout restart` again and kill the pod partway through its startup.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -14,11 +23,12 @@ spec:
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
-      backoffLimit: 2
-      activeDeadlineSeconds: 1200
+      backoffLimit: 0
+      # 30m wait + 5m headroom for the restart call and pod scheduling.
+      activeDeadlineSeconds: 2100
       template:
         spec:
-          restartPolicy: OnFailure
+          restartPolicy: Never
           serviceAccountName: plex-daily-restart
           securityContext:
             runAsNonRoot: true
@@ -37,7 +47,21 @@ spec:
                 - |
                   set -eu
                   kubectl rollout restart deployment/plex
-                  kubectl rollout status deployment/plex --timeout=15m
+                  deadline=$(( $(date +%s) + 1800 ))
+                  while :; do
+                    # generation observedGeneration replicas status.replicas updated available
+                    s="$(kubectl get deployment plex -o jsonpath='{.metadata.generation} {.status.observedGeneration} {.spec.replicas} {.status.replicas} {.status.updatedReplicas} {.status.availableReplicas}')"
+                    set -- $s
+                    if [ "$#" -eq 6 ] && [ "$1" = "$2" ] && [ "$3" = "$4" ] && [ "$3" = "$5" ] && [ "$3" = "$6" ]; then
+                      echo "plex is back up"
+                      exit 0
+                    fi
+                    if [ "$(date +%s)" -ge "$deadline" ]; then
+                      echo "plex did not become available within 30m (status: $s)" >&2
+                      exit 1
+                    fi
+                    sleep 15
+                  done
               env:
                 - name: HOME
                   value: /tmp

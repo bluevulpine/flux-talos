@@ -4,8 +4,8 @@ kind: ServiceAccount
 metadata:
   name: plex-daily-restart
 ---
-# Scoped to the plex Deployment only: `rollout restart` patches it, `rollout
-# status` gets and watches it.
+# Scoped to the plex Deployment only: `rollout restart` patches it and the wait
+# loop gets it.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -20,8 +20,6 @@ rules:
     verbs:
       - get
       - patch
-      - watch
-      - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
