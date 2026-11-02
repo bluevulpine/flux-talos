@@ -92,21 +92,24 @@ git fetch -q origin main
 # (should be nothing: this is the only pusher).
 git reset -q origin/main
 
-# A run killed mid-add leaves the big blob behind as an unreferenced loose
-# object (148 MB after the 2026-10-29 OOMs). Drop those once there is enough
-# loose data to matter; normal runs never reach the threshold.
-loose_kb=$(git count-objects -v | sed -n 's/^size: //p')
-if [ "${loose_kb:-0}" -gt 51200 ]; then
-  echo "pruning unreferenced loose objects (${loose_kb} KiB loose)"
+# A killed run leaves debris: an unreferenced loose blob (148 MB after the
+# 2026-10-29 OOMs) and tmp_pack_* files, which count-objects reports as
+# garbage, not size (556 of them, 138 MB, by 11-01). Prune once the two
+# together pass 50 MB; normal runs never get there.
+loose_kb=$(git count-objects -v | awk '/^size: |^size-garbage: /{s+=$2} END{print s+0}')
+if [ "$loose_kb" -gt 51200 ]; then
+  echo "pruning unreferenced loose objects and temp packs (${loose_kb} KiB)"
   git prune --expire=1.hour.ago
 fi
 
 # Keep oversized new or modified files out of this run. An exclude pathspec,
 # not .git/info/exclude: that only hides untracked files, and a tracked note
 # that grows past the limit would still be read. `literal` keeps a name with
-# glob characters from matching anything else.
+# glob characters from matching anything else. quotePath=false: by default
+# ls-files C-quotes non-ASCII names ("R\303\251cording.qta"), the -f test
+# then misses the file, and git add reads it whole after all.
 limit=$((MAX_FILE_MB * 1024 * 1024))
-oversized=$(git ls-files -o -m --exclude-standard | while IFS= read -r f; do
+oversized=$(git -c core.quotePath=false ls-files -o -m --exclude-standard | while IFS= read -r f; do
   if [ -f "$f" ] && [ "$(stat -c %s "$f")" -gt "$limit" ]; then printf '%s\n' "$f"; fi
 done | sort -u)
 set -- .
