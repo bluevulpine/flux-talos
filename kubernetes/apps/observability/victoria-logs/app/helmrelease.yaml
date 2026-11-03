@@ -29,17 +29,20 @@ spec:
       # :5514, not :514, so the non-root container needs no NET_BIND_SERVICE; the
       # LoadBalancer maps 514 onto it. Both UDP and TCP, since UniFi's setting
       # does not say which it uses. hostname,app_name as stream fields keep each
-      # sending device and program its own stream.
+      # sending device and program its own stream. streamFields is a JSON ARRAY:
+      # the plain `hostname,app_name` this first shipped with made VictoriaLogs
+      # exit at startup ("cannot parse -syslog.streamFields.udp") and took all
+      # cluster logging down until fixed (2026-11-03).
       syslog:
         udp:
           - name: syslog-udp
             value: :5514
-            streamFields: hostname,app_name
+            streamFields: '["hostname","app_name"]'
             useRemoteIP: true
         tcp:
           - name: syslog-tcp
             value: :5514
-            streamFields: hostname,app_name
+            streamFields: '["hostname","app_name"]'
             useRemoteIP: true
       serviceMonitor:
         enabled: true
