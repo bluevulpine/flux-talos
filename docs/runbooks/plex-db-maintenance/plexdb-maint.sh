@@ -50,7 +50,11 @@ MAIN_TABLES="library_sections metadata_items media_items media_parts media_strea
 counts() { # db tables... -> "table=count" lines
   db=$1; shift
   for t in "$@"; do
-    printf '%s=%s\n' "$t" "$(sq "$db" "SELECT count(*) FROM $t;")"
+    n=$(sq "$db" "SELECT count(*) FROM $t;") || die "count($t) failed on $db (table missing after a PMS schema change?)"
+    # An empty or non-numeric count on both sides would diff equal and hide
+    # a missing table.
+    case "$n" in '' | *[!0-9]*) die "count($t) on $db returned '$n'" ;; esac
+    printf '%s=%s\n' "$t" "$n"
   done
 }
 
@@ -92,12 +96,12 @@ rebuild() {
   for db in "$MAIN" "$BLOBS"; do
     log "dump $db"
     sq "$db" ".output '$WORK/$db.sql'" .dump
-    # .dump ends with ROLLBACK when it hit an unreadable page; the legacy
-    # script turned that into COMMIT to keep everything it could read. Record
-    # it: on a healthy database it must not happen.
-    if tail -1 "$WORK/$db.sql" | grep -q 'ROLLBACK;'; then
-      log "WARNING: dump of $db ended in ROLLBACK (corruption skipped); salvaging"
-      sed -i -e 's/^ROLLBACK;$/COMMIT;/' "$WORK/$db.sql"
+    # .dump ends with "ROLLBACK; -- due to errors" when it hit an unreadable
+    # page. This script is maintenance for a database that passed
+    # integrity_check, not salvage: a corrupt library goes to DBRepair (see
+    # the header), so stop here rather than import a partial dump.
+    if tail -1 "$WORK/$db.sql" | grep -q '^ROLLBACK;'; then
+      die "dump of $db ended in ROLLBACK (unreadable pages) - stop; use DBRepair"
     fi
     log "import $db"
     sq "$WORK/new/$db" <"$WORK/$db.sql"
@@ -113,6 +117,9 @@ rebuild() {
   log "row counts identical:"
   cat "$WORK/main.after"
   ls -la "$WORK/orig" "$WORK/new"
+  # Written only after every check above passed; swap requires it. (The
+  # .after files exist even when the diff failed, so they prove nothing.)
+  touch "$WORK/VERIFIED"
   log "rebuild OK in $WORK; run 'swap' to make it live"
 }
 
@@ -122,11 +129,14 @@ swap() {
   WORK=""
   for d in "$WORKROOT"/*/; do [ -d "$d" ] && WORK=${d%/}; done
   [ -n "$WORK" ] && [ -s "$WORK/new/$MAIN" ] && [ -s "$WORK/new/$BLOBS" ] || die "no completed rebuild under $WORKROOT"
-  [ -s "$WORK/main.after" ] || die "$WORK has no verified row counts; rebuild did not finish"
+  [ -e "$WORK/VERIFIED" ] || die "$WORK was not verified (rebuild failed or did not finish) - rebuild again"
   # The live files must still be the ones the rebuild read: if Plex ran in
-  # between, its writes would be lost by the swap.
+  # between, its writes would be lost by the swap. Writes may sit only in the
+  # WAL (the .db changes on checkpoint), and rebuild left each WAL truncated
+  # to zero, so a non-empty WAL also means someone wrote.
   for db in "$MAIN" "$BLOBS"; do
     cmp -s "$db" "$WORK/orig/$db" || die "$db changed since the rebuild (did Plex start?) - rebuild again"
+    [ ! -s "$db-wal" ] || die "$db-wal is not empty: something wrote since the rebuild - rebuild again"
   done
   log "swap from $WORK"
   for f in "$MAIN-wal" "$MAIN-shm" "$BLOBS-wal" "$BLOBS-shm"; do rm -f "$f"; done

@@ -143,7 +143,7 @@ kubectl -n media scale deploy/plex --replicas=1
 kubectl -n media rollout status deploy/plex --timeout=10m
 kubectl -n media patch cronjob plex-image-cleanup -p '{"spec":{"suspend":false}}'
 for p in plex-local plex-r2; do
-  kubectl -n media patch snapshotpolicies.kopiur.home-operations.com $p --type json -p '[{"op":"remove","path":"/spec/suspend"}]'
+  kubectl -n media patch snapshotpolicies.kopiur.home-operations.com $p --type merge -p '{"spec":{"suspend":null}}'
 done
 ```
 
@@ -185,15 +185,20 @@ matches.
 
 `rebuild` stops with `FAIL` and leaves the live files alone if:
 
-- `integrity_check` is not `ok` on the original database (it is corrupt: the rebuild
-  still salvages what it can, but read the output before deciding to `swap`), or
-  on a rebuilt one;
-- the row counts of the main tables (`metadata_items`, `media_parts`,
+- `integrity_check` is not `ok` on the original database, or a `.dump` ends in
+  `ROLLBACK` (unreadable pages). This script does maintenance, not salvage: a
+  corrupt library goes to DBRepair;
+- `integrity_check` is not `ok` on a rebuilt database;
+- a row count is missing or non-numeric (a table renamed by a PMS update), or the
+  counts of the main tables (`metadata_items`, `media_parts`,
   `metadata_item_settings`, `metadata_item_views`, …) or any blobs table differ
   after the import.
 
-`swap` refuses unless the live files are byte-identical to the copies the rebuild
-read, so a Plex start in between cannot lose writes. Originals stay in
+Only a run that passed all of these gets a `VERIFIED` marker, and `swap` requires
+it. `swap` also refuses unless the live `.db` files are byte-identical to the copies
+the rebuild read **and** both WALs are still empty (`rebuild` truncates them;
+uncheckpointed writes live only in the WAL), so a Plex start in between cannot
+lose writes. Originals stay in
 `/config/dbmaint/<timestamp>/orig`; delete the directory once Plex has run cleanly
 for a few days.
 
