@@ -262,6 +262,44 @@ spec:
               limits:
                 memory: 24Gi
                 amd.com/gpu: 1
+          # Ships Plex's own log file to stdout, so fluent-bit carries it to
+          # VictoriaLogs (k_container_name: log-tail). PMS writes its real log
+          # only to a file under Logs/ (an emptyDir, see persistence.logs);
+          # stdout gets just SQLite's "retry busy DB" noise. So the "Took too
+          # long to start a transaction" warnings that preceded the 2026-11-02
+          # outage (SQLite lock stalls on the then-RWX/NFS config volume) were
+          # invisible to alerting and analysis, and lost on every restart.
+          # vmalert's PlexDatabaseLockContention rule (observability/vmalert)
+          # matches them here.
+          #
+          # The whole file, DEBUG included: request timings, Butler tasks and
+          # which client was active are what make a stall analysable, not just
+          # detectable. ~30 MB/day raw; VictoriaLogs compresses ~42:1 here, so
+          # about 10 MB on disk over its 14d retention. If DEBUG ever gets too
+          # noisy, filter to WARN/ERROR with
+          # `| awk '/ (WARN|ERROR) - /{print; fflush()}'` (busybox grep cannot
+          # line-buffer). `tail -F` follows the file across Plex's
+          # rename-at-10MB rotation (tested on busybox 1.37.0, 2026-11-03).
+          log-tail:
+            image:
+              repository: docker.io/library/busybox
+              tag: 1.37.0
+            command:
+              - /bin/sh
+              - -c
+              - |
+                L="/config/Library/Application Support/Plex Media Server/Logs/Plex Media Server.log"
+                exec tail -n0 -F "$L" 2>/dev/null
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 5m
+                memory: 8Mi
+              limits:
+                memory: 32Mi
     service:
       app:
         controller: *app

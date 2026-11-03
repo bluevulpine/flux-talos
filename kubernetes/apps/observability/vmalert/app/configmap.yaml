@@ -167,3 +167,48 @@ data:
                 If the field is known-broken and the cause is understood, add it to
                 KNOWN_DEAD in collector.py with the date and reason — that silences
                 this alert for that field while still reporting it if it recovers.
+      # Plex's SQLite lock-contention warnings, as the early sign of the
+      # 2026-11-02 outage: on the then-RWX (Longhorn NFS) config volume every
+      # SQLite lock was a network round trip, view-state writes queued 0.6-1 s
+      # each while anyone streamed, and two days later /identity stopped
+      # answering (330 probe failures over 3d17h). The claim is RWO since
+      # 2026-11-03 (#2370); this catches a recurrence, or any other cause of
+      # the same stall (a slow disk, a bloated DB, a runaway scan), while it is
+      # still "slow" rather than "down".
+      #
+      # The lines come from the plex pod's log-tail sidecar (media/plex
+      # helmrelease), which copies PMS's file log to stdout;
+      # PMS logs neither marker to stdout itself. Bare markers, per the
+      # precedents above: both strings are PMS's own and matched nothing across
+      # the full 14d retention before this shipped.
+      - name: plex
+        type: vlogs
+        interval: 5m
+        rules:
+          - alert: PlexDatabaseLockContention
+            # _time:30m, >=10. Baselines: a healthy Plex logs ~0 (one at startup on
+            # 2026-11-03, while the library opens); before the fix it logged 75 in
+            # ~8h on 2026-11-02 and 157 in ~9.5h on 2026-11-01, arriving in bursts
+            # while a client streamed (10+ inside five minutes). 10 per half hour is
+            # far above startup noise and reached within one streaming session of
+            # the old failure. "Waited over 10 seconds ... giving up" is the next
+            # stage (a request actually failed) and counts toward the same total.
+            expr: >-
+              _time:30m ("Took too long to start a transaction" or "Waited over 10 seconds for a busy database")
+              | stats count() as events | filter events:>=10
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Plex database is stalling on SQLite locks'
+              # Warning, not critical: Plex is still serving when this fires. The
+              # point is to look before it degrades into probe failures.
+              description: >-
+                {{ $value }} slow-transaction / busy-database warnings from Plex in
+                the last 30 min. Requests are queueing behind SQLite locks; left
+                alone this ended in /identity timeouts and failing probes on
+                2026-11-02. Check, in order: (1) /config is still a block device:
+                `kubectl -n media exec deploy/plex -c app -- sh -c 'mount | grep " /config "'`
+                must say ext4, not nfs4; (2) what is running: a library scan,
+                Butler task or many streams; (3) DB size and bloat, and if needed run
+                flux-talos docs/runbooks/plex-db-maintenance.md. Lines: Grafana →
+                Explore → VictoriaLogs: app:plex "Took too long".
