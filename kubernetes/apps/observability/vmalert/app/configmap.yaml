@@ -211,4 +211,31 @@ data:
                 must say ext4, not nfs4; (2) what is running: a library scan,
                 Butler task or many streams; (3) DB size and bloat, and if needed run
                 flux-talos docs/runbooks/plex-db-maintenance.md. Lines: Grafana →
-                Explore → VictoriaLogs: app:plex "Took too long".
+                Explore → VictoriaLogs: k_container_name:log-tail "Took too long".
+          - alert: PlexLogShippingStale
+            # PlexDatabaseLockContention can only fire if the log-tail sidecar is
+            # shipping. If its path ever stops matching (a PMS or chart change to
+            # Logs/), `tail -F` retries silently (stderr discarded: busybox prints a
+            # line on every rotation) and the stream just goes empty, which looks
+            # exactly like a healthy Plex. PMS writes lines continuously (~300/min
+            # at its current DEBUG level, 2026-11-03), so an hour with none means
+            # the pipe is broken, or Plex has been down for an hour, which other
+            # alerts own. `stats count()` with no `by` returns a 0 row on an empty
+            # match here (checked 2026-11-03), so `lines:=0` fires. for: 15m rides
+            # out the first rollout, when the sidecar does not exist yet.
+            expr: >-
+              _time:1h k_container_name:log-tail
+              | stats count() as lines | filter lines:=0
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Plex log shipping has stopped'
+              description: >-
+                No lines from the plex pod's log-tail sidecar for an hour, so
+                PlexDatabaseLockContention is blind. Check the container
+                (`kubectl -n media logs deploy/plex -c log-tail --tail=5`) and that
+                "Logs/Plex Media Server.log" still exists at the path in the
+                media/plex helmrelease. If Plex's debug logging was turned off,
+                quiet hours are possible: widen the window rather than drop the
+                rule.
