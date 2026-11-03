@@ -24,7 +24,7 @@ patches:
   # (runbook waves table, footnote 6; same patch as matrix-bluevulpine).
   #
   # And stage it ReadWriteOnce. The staged PVC otherwise copies the source's
-  # access modes, and plex's claim is ReadWriteMany (see ks.yaml for why), so
+  # access modes, and plex's claim was ReadWriteMany until 2026-11 (ks.yaml), so
   # Longhorn served every clone over NFS from a share-manager pod, which can
   # land on any node, Pis included. On 2026-10-08 it landed on jormungandr1:
   # the mover mounted 100Gi / 175k files over NFS from a Pi, hung on its first
@@ -68,3 +68,9 @@ patches:
         name: not-used
         annotations:
           kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
+      spec:
+        # TEMPORARY: pins the re-created claim to the existing Longhorn volume
+        # for the RWX->RWO re-bind (docs/runbooks/plex-db-maintenance.md).
+        # Drop it in a follow-up PR once the claim is Bound again; with
+        # IfNotPresent that is a no-op on the live claim.
+        volumeName: pvc-62b3e407-e403-4287-8c06-c0e1d8b9c37d

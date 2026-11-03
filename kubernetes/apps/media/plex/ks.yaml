@@ -50,22 +50,28 @@ spec:
       # co-mounting the volume Plex is using. (Written for VolSync; unchanged
       # under kopiur, whose component also defaults to Direct.)
       #
-      # Deliberately NOT paired with VOLSYNC_ACCESSMODES: ReadWriteOnce, which
-      # is the other half of the house pattern. That variable also feeds
-      # components/volsync-claim/claim.yaml, which is what creates the `plex` PVC
-      # itself - so setting it here would try to mutate a bound PVC's
-      # accessModes. Confirmed against the live cluster with a server-side
-      # dry-run: "The PersistentVolumeClaim \"plex\" is invalid: spec:
-      # Forbidden: spec is immutable after creation". One invalid resource
-      # fails the whole kustomize apply while Flux still reports "applied
-      # revision", which is exactly how the jellyfin migration lost a step.
-      # RWO belongs in the RWX->RWO migration, where the PVC is recreated
-      # anyway - not here. (kopiur's staged clone is already RWO: the staging
-      # patch in app/kustomization.yaml. Only this source claim stays RWX.)
-      #
-      # RWX + Snapshot is not a novel combination in this repo: frigate and
-      # both readarr instances already run it.
       KOPIUR_COPYMETHOD: Snapshot
+      # ReadWriteOnce so the config volume is a real block device (ext4 on
+      # /dev/longhorn), not NFS. Longhorn serves RWX through a share-manager
+      # NFS pod with local_lock=none, so every SQLite lock was a network round
+      # trip; on 2026-11-02 that left Plex's view-state writes queuing 0.6-1 s
+      # each ("Took too long to start a transaction",
+      # MetadataItemSetting.cpp:459) until /identity stopped answering and
+      # the probes failed for days (330 failures over 3d17h). Jellyfin hit the
+      # same wall on NFS and moved to RWO in #1703.
+      #
+      # RWX was never needed: it was the claim component's default
+      # (components/volsync-claim, written for VolSync's Direct mover, which
+      # co-mounted the claim). The only other consumer, plex-image-cleanup,
+      # is podAffinity-pinned to Plex's node, and RWO allows any number of
+      # pods on one node.
+      #
+      # accessModes is immutable on a bound PVC, and the claim carries
+      # `ssa: IfNotPresent` (app/kustomization.yaml), so this value only
+      # takes effect when the claim is re-created: the Longhorn volume and PV
+      # are switched to rwo by hand and the claim re-bound to the same volume,
+      # no restore (docs/runbooks/plex-db-maintenance.md).
+      VOLSYNC_ACCESSMODES: ReadWriteOnce
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
       # VolSync's cache size for this volume (the component default is 16Gi).
       KOPIUR_CACHE_CAPACITY: 30Gi
