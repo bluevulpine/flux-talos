@@ -42,6 +42,8 @@ spec:
                       - "arm64"
     controllers:
       unpoller:
+        annotations:
+          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -52,9 +54,13 @@ spec:
               UP_UNIFI_DEFAULT_ROLE: home-ops
               UP_UNIFI_DEFAULT_URL: https://10.0.10.1
               UP_UNIFI_DEFAULT_VERIFY_SSL: false
-              UP_UNIFI_DEFAULT_USER: unifipoller
-              UP_UNIFI_DEFAULT_PASS: 1nternalUseOnly
               UP_INFLUXDB_DISABLE: true
+            # User and password come from OpenBao. The password used to sit
+            # here in plain text in this public repo (2024-04-13 to
+            # 2026-11-03) and was rotated when it moved.
+            envFrom:
+              - secretRef:
+                  name: unpoller-secret
             probes:
               liveness:
                 enabled: true
