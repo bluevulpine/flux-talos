@@ -37,6 +37,7 @@ import argparse
 import datetime as dt
 import fcntl
 import html
+import http.client
 import json
 import os
 import re
@@ -107,7 +108,9 @@ def fetch(url: str, attempts: int = 4) -> str | None:
             retry_after = e.headers.get("Retry-After", "")
             backoff = int(retry_after) if retry_after.isdigit() else 60 * attempt
             log(f"HTTP {e.code} for {url}; retrying in {backoff}s ({attempt}/{attempts})")
-        except (urllib.error.URLError, TimeoutError) as e:
+        # OSError covers URLError and TimeoutError, plus a connection reset while the body
+        # is read; HTTPException covers IncompleteRead. Neither is wrapped in URLError.
+        except (OSError, http.client.HTTPException) as e:
             backoff = 60 * attempt
             log(f"{e} for {url}; retrying in {backoff}s ({attempt}/{attempts})")
         if attempt < attempts:
@@ -435,15 +438,24 @@ def main() -> int:
     args = ap.parse_args()
 
     store = Store(args.out.expanduser())
+    # Each lock is bound to a name for as long as its command runs: the flock lives only as
+    # long as the file object, and an unbound one is closed as soon as the test is evaluated.
     if args.cmd == "grc-backfill":
-        return cmd_grc_backfill(store) if locked(store, "grc.lock") else 0
+        if not (lock := locked(store, "grc.lock")):
+            return 0
+        with lock:
+            return cmd_grc_backfill(store)
     if args.cmd == "backfill":
-        return cmd_backfill(store, args.show, args.limit) if locked(store, ".lock") else 0
+        if not (lock := locked(store, ".lock")):
+            return 0
+        with lock:
+            return cmd_backfill(store, args.show, args.limit)
     if lock := locked(store, ".lock"):
-        cmd_update(store, args.max_pages)
-        lock.close()
-    if locked(store, "grc.lock"):
-        cmd_grc_update(store)
+        with lock:
+            cmd_update(store, args.max_pages)
+    if lock := locked(store, "grc.lock"):
+        with lock:
+            cmd_grc_update(store)
     return 0
 
 
