@@ -66,6 +66,14 @@ WAL file on its own (`journal_size_limit` unset).
 
 ## Window
 
+> **Steps 2, 3 and 6 were the one-time RWX → RWO re-bind, done 2026-11-03.** A
+> later maintenance night runs only **1 (Quiesce) → 4 (Database maintenance) → 5
+> (Bring Plex back)**. Never re-run step 3 as written: the `volumeName` pin it
+> relied on was removed in #2371, so Flux would re-create the claim unpinned, with
+> its inert VolSync `dataSourceRef`: an empty volume or a `Pending` claim instead
+> of Plex's config (the old PV is `Retain`, so recoverable, but Plex stays down).
+> Re-add a pin first if the claim ever has to be re-created.
+
 All commands use `--context admin@home-kubernetes`; omitted below.
 
 ### 1. Quiesce

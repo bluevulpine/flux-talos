@@ -124,7 +124,9 @@ rebuild() {
   diff "$WORK/main.before" "$WORK/main.after" || die "main row counts differ (see $WORK)"
   diff "$WORK/blobs.before" "$WORK/blobs.after" || die "blobs row counts differ (see $WORK)"
   log "row counts identical ($(wc -l <"$WORK/main.after") main tables, $(wc -l <"$WORK/blobs.after") blobs tables); key tables:"
-  for t in $KEY_TABLES; do grep "^$t=" "$WORK/main.after"; done
+  # Log only: every table was already diffed above, so a key table missing
+  # from a newer schema must not abort here (grep's exit 1 under set -e).
+  for t in $KEY_TABLES; do grep "^$t=" "$WORK/main.after" || echo "$t: (not in this schema)"; done
   ls -la "$WORK/orig" "$WORK/new"
   # Written only after every check above passed; swap requires it. (The
   # .after files exist even when the diff failed, so they prove nothing.)
