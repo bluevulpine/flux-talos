@@ -7,7 +7,13 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h
-  url: ssh://git@github.com/bluevulpine/flux-talos.git
+  # GitHub's SSH-over-443 endpoint, same deploy key and same host keys.
+  # Port 22 tripped the UDM's "ET SCAN Potential SSH Scan OUTBOUND" IPS
+  # rule (12 image automations each clone on their own schedule) and kept
+  # outbound :22 open for the whole cluster, which after the 2026-11-03
+  # Plex compromise we want closed. known_hosts in the bootstrap
+  # github-deploy-key Secret carries the [ssh.github.com]:443 entries.
+  url: ssh://git@ssh.github.com:443/bluevulpine/flux-talos.git
   ref:
     branch: main
   secretRef:
