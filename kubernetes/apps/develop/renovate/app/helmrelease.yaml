@@ -72,8 +72,11 @@ spec:
               # The image's HOME (/home/ubuntu) is on the read-only root, and git
               # and the package managers write dotfiles there (~/.gitconfig,
               # ~/.npm). PATH still lists /home/ubuntu/bin explicitly, so moving
-              # HOME does not hide the image's own tools.
-              HOME: /tmp/home
+              # HOME does not hide the image's own tools. HOME is the emptyDir's
+              # own mount point because nothing creates a subdirectory of it
+              # before Renovate starts, and `git config --global` fails on a
+              # missing HOME instead of creating it.
+              HOME: /tmp
             envFrom:
               - secretRef:
                   name: renovate-secret
