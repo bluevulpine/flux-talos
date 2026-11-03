@@ -66,6 +66,14 @@ WAL file on its own (`journal_size_limit` unset).
 
 ## Window
 
+> **Steps 2, 3 and 6 were the one-time RWX → RWO re-bind, done 2026-11-03.** A
+> later maintenance night runs only **1 (Quiesce) → 4 (Database maintenance) → 5
+> (Bring Plex back)**. Never re-run step 3 as written: the `volumeName` pin it
+> relied on was removed in #2371, so Flux would re-create the claim unpinned, with
+> its inert VolSync `dataSourceRef`: an empty volume or a `Pending` claim instead
+> of Plex's config (the old PV is `Retain`, so recoverable, but Plex stays down).
+> Re-add a pin first if the claim ever has to be re-created.
+
 All commands use `--context admin@home-kubernetes`; omitted below.
 
 ### 1. Quiesce
@@ -121,9 +129,10 @@ kubectl -n media get pvc plex -o jsonpath='{.status.phase} {.spec.volumeName} {.
 ```
 
 Clear `claimRef` only after the PV is `Released`; cleared earlier, the PV
-controller puts it back. Resuming the ks also brings the HelmRelease's
-`suspend` back from git; check the deployment is still at 0 replicas, and scale
-it back down if it isn't, before step 4.
+controller puts it back. Resuming the ks re-applies the kopiur SnapshotPolicies
+from git, which **clears their `spec.suspend`** (it did on 2026-11-03); the
+HelmRelease stayed suspended. Before step 4, re-suspend both policies and check
+the deployment is still at 0 replicas.
 
 ### 4. Database maintenance
 
@@ -138,6 +147,7 @@ kubectl -n media exec plexdb-maint -- sh -c 'mount | grep " /config "'   # /dev/
 
 ```sh
 kubectl -n media delete pod plexdb-maint
+flux -n media resume ks plex     # no-op if step 3 ran; on 1 -> 4 -> 5 nights it is the only resume
 flux -n media resume hr plex
 kubectl -n media scale deploy/plex --replicas=1
 kubectl -n media rollout status deploy/plex --timeout=10m
@@ -206,3 +216,33 @@ for a few days.
 directory over the rebuilt files. Older fallbacks: Plex's own copies every 3 days
 (`*.db-YYYY-MM-DD` next to the live files) and the kopiur `plex-local` /
 `plex-r2` snapshots.
+
+## Run log
+
+### 2026-11-03 (UTC), first run
+
+Plex down 01:44:35 → Ready 01:55:24 (**10 min 49 s**).
+
+| Step | Time |
+|---|---|
+| Quiesce + scale 0 | 3 s |
+| Volume detach, share-manager `stopping` → `stopped` | ~40 s |
+| Volume + PV → rwo, delete claim, `Released`, clear `claimRef`, resume ks, `Bound` | ~1 min |
+| `rebuild` (on the block device) | 311 s (checkpoint + integrity 118 s, copy 16 s, main 44 s, blobs 131 s) |
+| `swap` | 15 s |
+| Plex startup to Ready | ~60 s (3.5 min on NFS the same evening) |
+
+Observed:
+
+- **Resuming the ks cleared both kopiur `spec.suspend`s** (the component re-applies
+  the SnapshotPolicies from git). Re-suspend them before step 4, as this run did.
+- After a clean Plex shutdown there were no `-wal`/`-shm` files at all: the
+  522 MB / 1.1 GB WALs were folded in on close, so they had been bloat, not
+  unflushed data.
+- Rebuilt main DB 505.6 → 490.2 MB; blobs 1,094.6 → 1,124.3 MB. Row counts
+  identical (`metadata_items` 72,404, `metadata_item_settings` 11,925).
+- After startup `/identity` answered in < 1 ms; 0 `Took too long`, 0 busy-database.
+  `ERROR - Unknown metadata type:` lines at startup come from parsing *other*
+  servers' `/media/providers` (shared libraries), not this database.
+- Plex's `Logs/` is an `emptyDir` (helmrelease `persistence`), so the log
+  restarts empty on every pod start; compare across a restart via VictoriaLogs.

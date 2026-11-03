@@ -50,9 +50,10 @@ patches:
   #    (Flux owns f:volumeName -> immutable stall). Claim edits in git (capacity,
   #    class, labels) are then silently ignored; expand by hand and keep git equal:
   #    kubectl -n media patch pvc plex -p '{"spec":{"resources":{"requests":{"storage":"<size>"}}}}'
-  #  - The temporary `volumeName` pin used for the re-create was dropped once the
-  #    swap was done (2026-10-03); a rebuilt cluster now re-creates the claim
-  #    unpinned.
+  #  - The temporary `volumeName` pins used for the re-creates were dropped once
+  #    each swap was done (2-replica move 2026-10-03; RWX->RWO re-bind 2026-11-03,
+  #    #2370, docs/runbooks/plex-db-maintenance.md); a rebuilt cluster now
+  #    re-creates the claim unpinned.
   # kopiur app: the claim's dataSourceRef points at a VolSync RD that is no longer
   # deployed (inert), so a rebuild restores via kopiur, NOT the VolSync DR path
   # (docs/runbooks/kopiur-migration.md).
@@ -68,9 +69,3 @@ patches:
         name: not-used
         annotations:
           kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
-      spec:
-        # TEMPORARY: pins the re-created claim to the existing Longhorn volume
-        # for the RWX->RWO re-bind (docs/runbooks/plex-db-maintenance.md).
-        # Drop it in a follow-up PR once the claim is Bound again; with
-        # IfNotPresent that is a no-op on the live claim.
-        volumeName: pvc-62b3e407-e403-4287-8c06-c0e1d8b9c37d
