@@ -43,22 +43,33 @@ cd "$DBDIR" || die "cannot cd to $DBDIR"
 [ -s "$MAIN" ] || die "$MAIN missing or empty"
 [ -s "$BLOBS" ] || die "$BLOBS missing or empty"
 
-# Tables whose row counts must survive the rebuild exactly. View state
-# (metadata_item_settings/views) is what a bad repair loses first.
-MAIN_TABLES="library_sections metadata_items media_items media_parts media_streams metadata_item_settings metadata_item_views accounts taggings tags"
+# Every ordinary table's row count must survive the rebuild exactly. Virtual
+# tables (the FTS4/spellfix indexes) are skipped: count(*) on one goes through
+# its module, and their rows live in shadow tables that ARE counted. KEY_TABLES
+# is only what the log prints: view state (metadata_item_settings/views) is
+# what a bad repair loses first.
+KEY_TABLES="library_sections metadata_items media_items media_parts media_streams metadata_item_settings metadata_item_views accounts taggings tags"
 
-counts() { # db tables... -> "table=count" lines
-  db=$1; shift
-  for t in "$@"; do
-    n=$(sq "$db" "SELECT count(*) FROM $t;") || die "count($t) failed on $db (table missing after a PMS schema change?)"
+all_tables() { # db -> table names, one per line; dies if there are none
+  tl=$(sq "$1" "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND sql NOT LIKE 'CREATE VIRTUAL%' ORDER BY name;") ||
+    die "listing tables of $1 failed"
+  [ -n "$tl" ] || die "no tables found in $1"
+  printf '%s\n' "$tl"
+}
+
+counts() { # db -> "table=count" lines for every table all_tables lists
+  db=$1
+  # A command substitution in an argument list escapes set -e, so list the
+  # tables into a variable first, where a failure stops the script.
+  tables=$(all_tables "$db") || exit 1
+  for t in $tables; do
+    n=$(sq "$db" "SELECT count(*) FROM \"$t\";") || die "count($t) failed on $db"
     # An empty or non-numeric count on both sides would diff equal and hide
     # a missing table.
     case "$n" in '' | *[!0-9]*) die "count($t) on $db returned '$n'" ;; esac
     printf '%s=%s\n' "$t" "$n"
   done
 }
-
-blob_tables() { sq "$1" "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;"; }
 
 integrity() { # db label
   r=$(sq "$1" "PRAGMA integrity_check;" | head -20)
@@ -88,10 +99,8 @@ rebuild() {
     [ -e "$f" ] && cp -p "$f" "$WORK/orig/"
   done
 
-  # shellcheck disable=SC2086 # word-splitting the table list is intended
-  counts "$MAIN" $MAIN_TABLES >"$WORK/main.before"
-  # shellcheck disable=SC2046 # word-splitting the table list is intended
-  counts "$BLOBS" $(blob_tables "$BLOBS") >"$WORK/blobs.before"
+  counts "$MAIN" >"$WORK/main.before"
+  counts "$BLOBS" >"$WORK/blobs.before"
 
   for db in "$MAIN" "$BLOBS"; do
     log "dump $db"
@@ -108,14 +117,14 @@ rebuild() {
     integrity "$WORK/new/$db" "rebuilt $db"
   done
 
-  # shellcheck disable=SC2086
-  counts "$WORK/new/$MAIN" $MAIN_TABLES >"$WORK/main.after"
-  # shellcheck disable=SC2046
-  counts "$WORK/new/$BLOBS" $(blob_tables "$BLOBS") >"$WORK/blobs.after"
+  # The table list comes from each file itself, so a table the import dropped
+  # shows up as a diff line, not as a silently skipped count.
+  counts "$WORK/new/$MAIN" >"$WORK/main.after"
+  counts "$WORK/new/$BLOBS" >"$WORK/blobs.after"
   diff "$WORK/main.before" "$WORK/main.after" || die "main row counts differ (see $WORK)"
   diff "$WORK/blobs.before" "$WORK/blobs.after" || die "blobs row counts differ (see $WORK)"
-  log "row counts identical:"
-  cat "$WORK/main.after"
+  log "row counts identical ($(wc -l <"$WORK/main.after") main tables, $(wc -l <"$WORK/blobs.after") blobs tables); key tables:"
+  for t in $KEY_TABLES; do grep "^$t=" "$WORK/main.after"; done
   ls -la "$WORK/orig" "$WORK/new"
   # Written only after every check above passed; swap requires it. (The
   # .after files exist even when the diff failed, so they prove nothing.)
