@@ -147,6 +147,7 @@ kubectl -n media exec plexdb-maint -- sh -c 'mount | grep " /config "'   # /dev/
 
 ```sh
 kubectl -n media delete pod plexdb-maint
+flux -n media resume ks plex     # no-op if step 3 ran; on 1 -> 4 -> 5 nights it is the only resume
 flux -n media resume hr plex
 kubectl -n media scale deploy/plex --replicas=1
 kubectl -n media rollout status deploy/plex --timeout=10m
