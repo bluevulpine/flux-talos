@@ -17,8 +17,15 @@ spec:
           init-passwd:
             image:
               repository: public.ecr.aws/docker/library/eclipse-mosquitto
-              # renovate: datasource=docker depName=public.ecr.aws/docker/library/eclipse-mosquitto
-              tag: 2.0.22
+              # Pinned version@digest (all three containers): with a bare tag and
+              # IfNotPresent each node kept whatever 2.0.22 build it first pulled;
+              # on 2026-11-03 the broker ran a 2.0.22 build absent from today's
+              # index (Docker official images rebuild a tag for base-image fixes).
+              # Renovate tracks the pin natively (no `# renovate:` annotation: the
+              # custom regex manager has no digest group) and automerges minor/
+              # patch/digest bumps, since the broker is internet-facing (WAN 8883,
+              # and 1883 limited to one ISP). Majors still get a human.
+              tag: 2.0.22@sha256:09b62ff32c2e7b64d4b431b9a89236073289b68db273de2b089edeb9b0d92b5c
             command:
               - sh
               - -c
@@ -33,14 +40,13 @@ spec:
           app:
             image:
               repository: public.ecr.aws/docker/library/eclipse-mosquitto
-              # renovate: datasource=docker depName=public.ecr.aws/docker/library/eclipse-mosquitto
-              tag: 2.0.22
+              tag: 2.0.22@sha256:09b62ff32c2e7b64d4b431b9a89236073289b68db273de2b089edeb9b0d92b5c
             env:
               TZ: "${TIMEZONE}"
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: {drop: ["ALL"]}
             resources:
               requests:
                 cpu: 10m
@@ -49,12 +55,11 @@ spec:
           hasher:
             image:
               repository: public.ecr.aws/docker/library/eclipse-mosquitto
-              # renovate: datasource=docker depName=public.ecr.aws/docker/library/eclipse-mosquitto
-              tag: 2.0.22
+              tag: 2.0.22@sha256:09b62ff32c2e7b64d4b431b9a89236073289b68db273de2b089edeb9b0d92b5c
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: {drop: ["ALL"]}
             command:
               - sh
               - -c

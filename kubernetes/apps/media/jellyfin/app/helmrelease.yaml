@@ -19,8 +19,13 @@ spec:
           app:
             image:
               repository: ghcr.io/jellyfin/jellyfin
-              # renovate: datasource=docker depName=ghcr.io/jellyfin/jellyfin
-              tag: 10.11.11
+              # Pinned version@digest; Renovate's native app-template detection
+              # tracks it (no `# renovate:` annotation: the custom regex manager
+              # has no digest group) and .renovate/autoMerge.json5 merges minor/
+              # patch/digest bumps once checks pass. Jellyfin is internet-facing
+              # (external-direct gateway), so fixes should land without waiting
+              # on review; majors still get a human.
+              tag: 10.11.11@sha256:45f648c382a0c8b552582fcea40e95cb17c5d475473a891cba0eb7523fb92112
             env:
               TZ: "${TIMEZONE}"
               JELLYFIN_PublishedServerUrl: https://jellyfin.${SECRET_DOMAIN}
