@@ -1,0 +1,16 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/ocirepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: buzz
+spec:
+  interval: 15m
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  ref:
+    tag: 0.1.11
+  # Block's official chart (block/buzz deploy/charts/buzz), published on
+  # chart-v* tags. Separate from the relay image's relay-v* release line.
+  url: oci://ghcr.io/block/buzz/charts/buzz

@@ -1,0 +1,108 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app buzz
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: buzz
+  values:
+    # Relay image: Block publishes ghcr.io/block/buzz:<x.y.z> on relay-v* tags,
+    # a separate release line from the chart (whose appVersion lags at 0.1.0).
+    # Multi-arch (amd64 + arm64).
+    image:
+      repository: ghcr.io/block/buzz
+      tag: 0.2.1
+
+    # Single community per relay URL. Clients connect here; it also derives
+    # the /media base URL.
+    relayUrl: wss://buzz.${SECRET_DOMAIN}
+    # Relay owner: Derek (hex form of his npub). Membership is enforced
+    # (relay.requireRelayMembership defaults to true), so only identities the
+    # owner adds can read or post.
+    ownerPubkey: ae158e8fde8a9b5c8270becd47b652d7a9f27efb8c30809fc09437a7024d598e
+
+    secrets:
+      existingSecret: buzz-secret
+
+    # Garage on the NAS, bucket-scoped key. Garage only accepts region
+    # us-east-1 and has no virtual-host bucket DNS, so path addressing.
+    s3:
+      endpoint: http://garage-s3.network.svc.cluster.local
+      bucket: buzz
+      region: us-east-1
+      addressingStyle: path
+
+    # Git scratch is ephemeral by design (repos hydrate from S3 per request,
+    # names live in Postgres), so an emptyDir instead of a PVC.
+    persistence:
+      git:
+        enabled: false
+        size: 2Gi
+    # The pack-cache emptyDir stays at the chart's 7Gi: its byte cap can't be
+    # lowered from values. The chart renders git.packCacheMaxBytes through
+    # `quote`, which turns a big integer into "5.36870912e+09"; the relay's
+    # u64 parse rejects that and falls back to 5 x BUZZ_GIT_MAX_REPO_BYTES
+    # (5 GB), whatever the value says. The 7Gi limit already covers that.
+
+    # One replica: a single-owner homelab community. The chart's PDB
+    # (minAvailable 1) would block every node drain with one replica.
+    replicaCount: 1
+    podDisruptionBudget:
+      enabled: false
+
+    relay:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          # Helm deep-merges values: without the null the chart's default
+          # `cpu: "2"` limit would survive this override.
+          cpu: null
+          memory: 1Gi
+      # Garage has no conditional writes (If-None-Match / If-Match; listed
+      # under "Architectural limitations" in its known-issues docs), so the
+      # relay's startup git object-store conformance probe would fail and
+      # crash-loop the pod. With the probe off the relay boots, and media
+      # works, but Buzz-hosted git repos lose atomic ref updates (the
+      # manifest-pointer CAS silently becomes last-writer-wins). Our repos
+      # live on GitHub/Gitea, so don't host repos on this relay; if that
+      # changes, move the bucket to an S3 backend with conditional writes
+      # (MinIO/Silo) and drop this.
+      extraEnv:
+        - name: BUZZ_GIT_CONFORMANCE_PROBE
+          value: "false"
+      # Same rule as hermes and paperclip: agent workloads stay off the
+      # control plane.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
+
+    # Creates the role and database on the CNPG cluster and resets the role
+    # password on every start (see the postgres-init skill).
+    extraInitContainers:
+      - name: init-db
+        image: ghcr.io/home-operations/postgres-init:rolling
+        envFrom:
+          - secretRef:
+              name: buzz-secret
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            memory: 128Mi
