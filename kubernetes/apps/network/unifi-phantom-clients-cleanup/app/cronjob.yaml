@@ -12,9 +12,13 @@ spec:
         spec:
           containers:
             - name: unifi-phantom-clients-cleanup
+              # Pinned to a commit tag + digest, never :latest. On 2026-11-04 a
+              # run with imagePullPolicy Always still got a month-old :latest
+              # from the node-side cache, ran the old rule and forgot ~79 real
+              # clients again. 84ebf8ac is the stale-randomised-MAC rule.
               # renovate: datasource=docker depName=gitea.derekjacobs.dev/bvn-homelab/unifi-phantom-clients-cleanup
-              image: gitea.derekjacobs.dev/bvn-homelab/unifi-phantom-clients-cleanup:latest
-              imagePullPolicy: Always
+              image: gitea.derekjacobs.dev/bvn-homelab/unifi-phantom-clients-cleanup:84ebf8ac@sha256:4b79965331d9d19cbad7862893bb98aec8a904492a2dfc59fa8862332a6500c0
+              imagePullPolicy: IfNotPresent
               args:
                 - "-verbose"
               envFrom:
