@@ -295,9 +295,8 @@ mount never receives Secret updates.
      Paperclip-driven agent copy `externalsecret-profile-deckhand.yaml` and change the
      name and `<Agent>__` prefix. For a Matrix agent start from that file and add
      **only the `MATRIX_*` lines** from Wasp's, with `MATRIX_RECOVERY_KEY_OUTPUT_FILE`
-     at `/opt/data/profiles/<agent>/…`. Everything else in Wasp's file (`BUZZ_*` and
-     its literal `BUZZ_AUTH_TAG` attestation, `GITEA_*`) is **Wasp's own** and must not
-     be copied. `API_SERVER_KEY` is always present: a named profile fails closed on
+     at `/opt/data/profiles/<agent>/…`. Everything else in Wasp's file (`BUZZ_*`,
+     `GITEA_*`) is **Wasp's own** and must not be copied. `API_SERVER_KEY` is always present: a named profile fails closed on
      `/p/<agent>/v1/...` without it.
    - A `<agent>-secrets` persistence entry in `helmrelease.yaml`: `type: secret`,
      `defaultMode: 0440`, mounted at `/run/hermes-profiles/<agent>`, `readOnly`.
