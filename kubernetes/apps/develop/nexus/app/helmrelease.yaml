@@ -174,29 +174,23 @@ spec:
           type: file
           path: /nexus-data/blobs/packages
 
-      # Cleanup policies to prevent unbounded storage growth
-      cleanup:
-        # Docker images not downloaded in 30 days
-        - name: docker-cleanup
-          notes: "Remove Docker layers not downloaded in 30 days"
-          format: docker
-          mode: delete
-          criteria:
-            lastDownloaded: "2592000" # 30 days in seconds
-        # APT packages not downloaded in 90 days
-        - name: apt-cleanup
-          notes: "Remove APT packages not downloaded in 90 days"
-          format: apt
-          mode: delete
-          criteria:
-            lastDownloaded: "7776000" # 90 days in seconds
-        # npm/PyPI packages not downloaded in 60 days
-        - name: packages-cleanup
-          notes: "Remove npm/PyPI packages not downloaded in 60 days"
-          format: ALL_FORMATS
-          mode: delete
-          criteria:
-            lastDownloaded: "5184000" # 60 days in seconds
+      # Cleanup policies are NOT managed here since Nexus 3.98.0. The chart's
+      # config Job applies them by running a stored Groovy script
+      # (POST /service/rest/v1/script/cleanup/run), and 3.98 refuses to run
+      # stored scripts: HTTP 410 "Script execution is disabled", even with
+      # nexus.scripts.allowCreation=true. Community Edition has no REST endpoint
+      # for cleanup policies (/v1/cleanup-policies is 404), so there is no
+      # supported way to assert them from git. Listing them here fails the Job,
+      # which fails the HelmRelease, and the Job exits before the repos step
+      # (same failure mode as `tasks` below).
+      #
+      # The three policies already exist in the Nexus database, created by the
+      # Job under 3.97.1 (verified 2026-11-04), and the repos below reference
+      # them by name. Edit them in the UI (Settings > Cleanup Policies):
+      #   docker-cleanup    format docker       delete, lastDownloaded 30d (2592000s)
+      #   apt-cleanup       format apt          delete, lastDownloaded 90d (7776000s)
+      #   packages-cleanup  format ALL_FORMATS  delete, lastDownloaded 60d (5184000s)
+      cleanup: []
 
       # Repository configuration
       repos:
