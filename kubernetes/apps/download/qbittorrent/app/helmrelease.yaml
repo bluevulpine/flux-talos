@@ -32,8 +32,55 @@ spec:
               QBT_BitTorrent__Session__TempPath: /media/downloads/torrents/incomplete
               QBT_BitTorrent__Session__TempPathEnabled: true
             probes:
+              # Tracker liveness. From 2026-10-23 17:51Z to 2026-11-04 03:47Z
+              # (10.4 days) every probe was green while qBittorrent could not
+              # reach a tracker: gluetun reconnected (46 restarts over 5 min
+              # when DNS through the tunnel failed), the new tunnel passed
+              # gluetun's checks, but wg0 traffic fell from ~9 KB/s to ~150 B/s
+              # and stayed there. A deployment restart fixed it at once.
+              # Restarting gluetun would not have: its tunnel was healthy, and
+              # this is the same "qBittorrent's sockets do not follow a new wg0"
+              # failure as 2026-10-06 (see the gluetun comment below), this
+              # time after a reconnect instead of at startup. (Mechanism
+              # inferred from the traffic and the fix; not reproduced.)
+              #
+              # So the check asks qBittorrent itself: pass if any running
+              # torrent has a tracker with status 2 ("working"; 4 is "not
+              # working"). DHT, PeX and LSD are off (private trackers), so
+              # dht_nodes is always 0, and connection_status reads "firewalled"
+              # when healthy (no forwarded port), so neither can tell.
+              #
+              # Passes without judging when gluetun's health server is not 200:
+              # a tunnel outage is GluetunVPNDown's to report, and restarting
+              # qBittorrent then would only crashloop it. Also passes with no
+              # running torrents, since there is nothing to judge.
+              #
+              # 15 failures x 60s = 15 min of no working tracker restarts this
+              # container only. If that does not fix it, the repeated restarts
+              # back off into CrashLoopBackOff and KubePodCrashLooping fires;
+              # QBittorrentRestarted (prometheusrule.yaml) fires on the first.
               liveness:
                 enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command:
+                      - /bin/sh
+                      - -c
+                      - |
+                        curl -fsm5 -o /dev/null http://127.0.0.1:9999/ || exit 0
+                        B=http://127.0.0.1:8080/api/v2
+                        hashes=$(curl -fsm5 "$B/torrents/info?filter=running" \
+                          | jq -r '.[] | select(.state | startswith("queued") | not) | .hash') || exit 1
+                        [ -n "$hashes" ] || exit 0
+                        for h in $hashes; do
+                          curl -fsm5 "$B/torrents/trackers?hash=$h" \
+                            | jq -e 'any(.[]; .status == 2)' >/dev/null && exit 0
+                        done
+                        exit 1
+                  periodSeconds: 60
+                  timeoutSeconds: 30
+                  failureThreshold: 15
               readiness:
                 enabled: true
             securityContext:
