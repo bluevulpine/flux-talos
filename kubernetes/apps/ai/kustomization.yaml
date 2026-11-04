@@ -8,6 +8,7 @@ components:
 resources:
   - ./namespace.yaml
   - ./documents/ks.yaml
+  - ./buzz/ks.yaml
   - ./hermes/ks.yaml
   - ./hindsight/ks.yaml
   - ./litellm/ks.yaml
