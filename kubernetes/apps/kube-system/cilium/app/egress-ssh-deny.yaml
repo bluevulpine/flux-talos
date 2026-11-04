@@ -1,0 +1,29 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/cilium.io/ciliumclusterwidenetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: egress-ssh-deny
+spec:
+  description: |-
+    No pod may open SSH (TCP 22) to a public internet address. Outbound SSH is the easy channel for a compromised pod to fetch tools or ship data out (the 2026-11-03 Plex2Shell compromise used wget, but SSH was open the same way), and nothing in the cluster needs it: Flux write-back moved to ssh.github.com:443 (#2386) and every Gitea mirror is HTTPS.
+    Private and CGNAT ranges are excepted, so SSH inside the LAN and over Tailscale (vault-sync -> gitea-ssh, anything to the NAS) is untouched. dev-shell is NOT excepted: from there, use ssh.github.com:443 for GitHub.
+    Denied attempts are exported by the Hubble "egress-ssh-denied" exporter (cilium HelmRelease) to stdout, so they land in VictoriaLogs with the pod name.
+    enableDefaultDeny is false in both directions, and that is load-bearing: this selects every endpoint, and without it an egress section would put every pod into default-deny. With it, this only subtracts.
+    Host-network pods and the nodes themselves are outside endpointSelector (host firewall is off).
+  endpointSelector: {}
+  enableDefaultDeny:
+    egress: false
+    ingress: false
+  egressDeny:
+    - toCIDRSet:
+        - cidr: 0.0.0.0/0
+          except:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+            - 100.64.0.0/10
+      toPorts:
+        - ports:
+            - port: "22"
+              protocol: TCP
