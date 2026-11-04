@@ -41,7 +41,12 @@ spec:
     persistence:
       git:
         enabled: false
-        size: 10Gi
+        size: 2Gi
+    # The pack-cache emptyDir stays at the chart's 7Gi: its byte cap can't be
+    # lowered from values. The chart renders git.packCacheMaxBytes through
+    # `quote`, which turns a big integer into "5.36870912e+09"; the relay's
+    # u64 parse rejects that and falls back to 5 x BUZZ_GIT_MAX_REPO_BYTES
+    # (5 GB), whatever the value says. The 7Gi limit already covers that.
 
     # One replica: a single-owner homelab community. The chart's PDB
     # (minAvailable 1) would block every node drain with one replica.
@@ -55,7 +60,22 @@ spec:
           cpu: 100m
           memory: 256Mi
         limits:
+          # Helm deep-merges values: without the null the chart's default
+          # `cpu: "2"` limit would survive this override.
+          cpu: null
           memory: 1Gi
+      # Garage has no conditional writes (If-None-Match / If-Match; listed
+      # under "Architectural limitations" in its known-issues docs), so the
+      # relay's startup git object-store conformance probe would fail and
+      # crash-loop the pod. With the probe off the relay boots, and media
+      # works, but Buzz-hosted git repos lose atomic ref updates (the
+      # manifest-pointer CAS silently becomes last-writer-wins). Our repos
+      # live on GitHub/Gitea, so don't host repos on this relay; if that
+      # changes, move the bucket to an S3 backend with conditional writes
+      # (MinIO/Silo) and drop this.
+      extraEnv:
+        - name: BUZZ_GIT_CONFORMANCE_PROBE
+          value: "false"
       # Same rule as hermes and paperclip: agent workloads stay off the
       # control plane.
       affinity:
