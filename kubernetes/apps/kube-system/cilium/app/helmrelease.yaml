@@ -125,26 +125,17 @@ spec:
                   - destination.pod_name
                   - destination_names
                   - node_name
+                # Filters are ORed. The third catches pods trying SSH to the
+                # internet, denied by egress-ssh-deny: any such line is a pod
+                # doing something it should not. It lives in this exporter
+                # because Cilium rejects two exporters on the same path
+                # ("duplicated flowlog path stdout"): it rejects the whole file and
+                # keeps running the previous config.
                 includeFilters:
                   - source_pod:
                       - media/plex-
                   - destination_pod:
                       - media/plex-
-                excludeFilters: []
-              # Pods trying SSH to the internet, denied by egress-ssh-deny.
-              # Any line here is a pod doing something it should not.
-              - name: egress-ssh-denied
-                filePath: stdout
-                fieldMask:
-                  - time
-                  - verdict
-                  - drop_reason_desc
-                  - IP
-                  - l4
-                  - source.namespace
-                  - source.pod_name
-                  - node_name
-                includeFilters:
                   - verdict:
                       - DROPPED
                     destination_port:
