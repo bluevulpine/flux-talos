@@ -131,6 +131,25 @@ spec:
                   - destination_pod:
                       - media/plex-
                 excludeFilters: []
+              # Pods trying SSH to the internet, denied by egress-ssh-deny.
+              # Any line here is a pod doing something it should not.
+              - name: egress-ssh-denied
+                filePath: stdout
+                fieldMask:
+                  - time
+                  - verdict
+                  - drop_reason_desc
+                  - IP
+                  - l4
+                  - source.namespace
+                  - source.pod_name
+                  - node_name
+                includeFilters:
+                  - verdict:
+                      - DROPPED
+                    destination_port:
+                      - "22"
+                excludeFilters: []
     ipam:
       mode: kubernetes
     ipv4NativeRoutingCIDR: "10.69.0.0/16"
