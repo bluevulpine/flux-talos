@@ -53,12 +53,25 @@ spec:
               # Passes without judging when gluetun's health server is not 200:
               # a tunnel outage is GluetunVPNDown's to report, and restarting
               # qBittorrent then would only crashloop it. Also passes with no
-              # running torrents, since there is nothing to judge.
+              # running torrents, since there is nothing to judge. A failed API
+              # call fails the probe: this replaces app-template's default TCP
+              # check on :8080, so a dead WebUI must still restart qBittorrent.
+              # curl runs on its own line because a `curl | jq` pipeline takes
+              # jq's status, and jq exits 0 on empty input (#2389 review).
               #
-              # 15 failures x 60s = 15 min of no working tracker restarts this
-              # container only. If that does not fix it, the repeated restarts
-              # back off into CrashLoopBackOff and KubePodCrashLooping fires;
+              # 30 failures x 60s = 30 min of no working tracker restarts this
+              # container only. 30, not 15, to ride out a tracker's maintenance
+              # window. Status 2 reflects the last announce, so detection is
+              # up to one announce interval (often 30-60 min on private
+              # trackers) plus those 30 min. Against a 10-day outage, either
+              # delay is cheap.
+              #
+              # If a restart does not fix it, the repeated restarts back off
+              # into CrashLoopBackOff and KubePodCrashLooping fires;
               # QBittorrentRestarted (prometheusrule.yaml) fires on the first.
+              # A tracker-side outage (down, or blocking the VPN exit IP) ends
+              # there too, since the probe cannot tell it from stuck sockets:
+              # check the tracker before restarting the deployment.
               liveness:
                 enabled: true
                 custom: true
@@ -70,7 +83,8 @@ spec:
                       - |
                         curl -fsm5 -o /dev/null http://127.0.0.1:9999/ || exit 0
                         B=http://127.0.0.1:8080/api/v2
-                        hashes=$(curl -fsm5 "$B/torrents/info?filter=running" \
+                        info=$(curl -fsm5 "$B/torrents/info?filter=running") || exit 1
+                        hashes=$(printf '%s' "$info" \
                           | jq -r '.[] | select(.state | startswith("queued") | not) | .hash') || exit 1
                         [ -n "$hashes" ] || exit 0
                         for h in $hashes; do
@@ -80,7 +94,7 @@ spec:
                         exit 1
                   periodSeconds: 60
                   timeoutSeconds: 30
-                  failureThreshold: 15
+                  failureThreshold: 30
               readiness:
                 enabled: true
             securityContext:

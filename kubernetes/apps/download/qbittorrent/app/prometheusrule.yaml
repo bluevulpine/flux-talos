@@ -42,7 +42,7 @@ spec:
           labels:
             severity: warning
         # The app container's liveness probe (helmrelease.yaml) restarts
-        # qBittorrent after 15 min with no working tracker while the tunnel
+        # qBittorrent after 30 min with no working tracker while the tunnel
         # is healthy. A silent self-heal would hide how often that happens and
         # whether it lines up with gluetun reconnects, so say so. Any restart
         # counts (an OOM kill too); the logs tell which.
@@ -52,9 +52,11 @@ spec:
           annotations:
             summary: >-
               qBittorrent's container restarted in the last hour, most likely
-              because its liveness probe found no working tracker for 15m
+              because its liveness probe found no working tracker for 30m
               while gluetun reported the tunnel healthy. Check that downloads
-              resumed; if it keeps restarting, restart the whole deployment:
+              resumed. If it keeps restarting, first check whether the
+              tracker itself is down or blocking the VPN exit IP (a restart
+              cannot fix that), then restart the whole deployment:
               kubectl -n download rollout restart deploy/qbittorrent
           labels:
             severity: warning
