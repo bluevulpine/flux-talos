@@ -32,7 +32,8 @@ here and stay **hidden**: always use the placeholder, never a literal.
 **Commit authorship for agent-written changes**: each agent commits under its
 own credential where one exists, so git history is the identity register.
 Agents on a shared bot credential (currently
-`bluevulpine-bot[bot] <188733095+bluevulpine-bot[bot]@users.noreply.github.com>`)
+`bluevulpine-bot[bot] <188733095+bluevulpine-bot[bot]@users.noreply.github.com>`,
+and `fizz-bot-bvn[bot]` while local Claude Code borrows it)
 MUST self-identify on every commit: author with per-command flags
 (`git -c user.name=... -c user.email=... commit` — **never** `git config`, which
 inside a worktree writes the shared `.git/config` and silently rewrites the
@@ -45,8 +46,34 @@ Agent-Harness: hermes-agent
 
 Known agents: Fizz (`fizz-bot-bvn[bot]`, Buzz framework), Bosun
 (`bluevulpine-bot[bot]`, Hermes Agent harness), Deckhand (`deckhand-bot-bvn[bot]`,
-Hermes Agent harness, Paperclip-driven Renovate triage). New agents should get
+Hermes Agent harness, Paperclip-driven Renovate triage), Claude Code (borrows
+`fizz-bot-bvn[bot]` locally; `claude` in web/cloud sessions; see below). New agents should get
 their own GitHub App rather than silently joining a shared one.
+
+Claude Code commits under a different identity depending on where it runs:
+
+- **Local sessions** (the CLI on Derek's Mac, including ones he follows or
+  drives from claude.ai) commit as `fizz-bot-bvn[bot]`, the shared credential
+  above (decided 2026-09-25; a dedicated identity is planned). As with any shared
+  credential, add `Agent-Harness: claude-code` next to the model's
+  `Co-Authored-By:`, so a commit is not mistaken for Fizz/Buzz. These commits
+  show as unverified on GitHub: they carry fizz-bot's name, but the local signing
+  key is not registered to it.
+- **Web/cloud sessions** (Claude Code running in Anthropic's cloud sandbox)
+  commit as `Claude <noreply@anthropic.com>`, GitHub user `claude`. The cloud
+  environment signs these, so they show as verified. Keep that identity; do not
+  override it with fizz-bot's: the signing key belongs to `claude`, so a fizz-bot
+  author would most likely show as unverified (not tested).
+- **The `@claude` GitHub Action** (`anthropics/claude-code-action`,
+  `.github/workflows/claude.yml`) would push as `claude[bot]`, per the 2026-11-05
+  review of #2415; no such commit exists yet, so this is unconfirmed. It has no
+  claude.ai session, so put the Actions run URL in a `Claude-Session:` trailer
+  instead.
+
+All of them add a `Claude-Session:` trailer. It identifies the session, not where it
+ran: local sessions also get `claude.ai/code/session_...` URLs. The author tells
+you where it ran.
+
 **Do not infer authorship convention from `git log`**: every non-Renovate commit
 before 2026-09-09 is authored `Derek Jacobs` because the bot account did not
 exist yet, not because human authorship is the convention. The point of bot
