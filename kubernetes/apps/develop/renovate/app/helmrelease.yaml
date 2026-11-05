@@ -51,8 +51,12 @@ spec:
               # to READ a public repo does not enrol it. Enrolling a repo means
               # granting `renovate` write on it; Renovate then opens an onboarding
               # PR, and merging that PR is the opt-in, recorded in that repo's own
-              # history. Never set RENOVATE_AUTODISCOVER_NAMESPACES: that lists
-              # every repo in the org whether or not the bot was granted it.
+              # history. Grant per repo, as a collaborator with write: that
+              # search also matches a read-only grant (Renovate then fails on the
+              # repo every hour) and every repo of any org team the bot joins, so
+              # never put `renovate` in a team. Never set
+              # RENOVATE_AUTODISCOVER_NAMESPACES either: that lists every repo in
+              # the org whether or not the bot was granted it.
               # The filter keeps a grant outside bvn-homelab (a personal repo, a
               # fork) out of scope; Gitea pull mirrors are skipped by Renovate.
               RENOVATE_AUTODISCOVER: "true"
