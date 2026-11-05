@@ -32,9 +32,13 @@ spec:
   # replay stalled (see max_slot_wal_keep_size below) it filled to 100 % and the
   # primary reached 91 % from slot-held WAL. postgres18-2's PVC was expanded by hand
   # during that incident; this brings the spec and the other two to match.
+  # 100Gi since 2026-11-05, ahead of mail-archiver (#2198, est. 12-16 GB): at
+  # 70Gi each instance sat at 38G used / 31G free (55 %), so the import would
+  # have left ~15G free, the same as max_slot_wal_keep_size, i.e. one stalled
+  # replica from full again. At 100Gi that case still leaves ~30G.
   # resizeInUseVolumes (default) grows them online.
   storage:
-    size: 70Gi
+    size: 100Gi
     storageClass: longhorn-1-replica-local
 
   # Required (not CNPG's default preferred/soft) anti-affinity. With the soft rule,
