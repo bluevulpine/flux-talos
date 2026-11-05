@@ -1,0 +1,28 @@
+---
+# Scrutiny (drive SMART dashboard), a TrueNAS app on the vault NAS. Same address as
+# the other vault app routes (storj, garage web UI).
+apiVersion: v1
+kind: Service
+metadata:
+  name: scrutiny
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 31054
+      protocol: TCP
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: scrutiny-1
+  labels:
+    kubernetes.io/service-name: scrutiny
+addressType: IPv4
+ports:
+  - name: http
+    port: 31054
+    protocol: TCP
+endpoints:
+  - addresses:
+      - "10.0.10.11"

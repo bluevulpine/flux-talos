@@ -1,0 +1,29 @@
+---
+# pinas's Storj node dashboard (node #2). pinas is addressed by its LAN IP, a fixed
+# UniFi reservation, not its tailnet IP: larger uploads from cluster pods to pinas
+# stall over the tailnet (see the pinas notes). If pinas moves offsite, repoint this.
+apiVersion: v1
+kind: Service
+metadata:
+  name: storj-pinas
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 14002
+      protocol: TCP
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: storj-pinas-1
+  labels:
+    kubernetes.io/service-name: storj-pinas
+addressType: IPv4
+ports:
+  - name: http
+    port: 14002
+    protocol: TCP
+endpoints:
+  - addresses:
+      - "10.0.10.220"
