@@ -11,6 +11,11 @@
 #
 # No retries (backoffLimit 0, restartPolicy Never): a retried job would run
 # `rollout restart` again and kill the pod partway through its startup.
+#
+# Relies on the plex controller's default `Recreate` strategy (helmrelease.yaml
+# sets none): the old pod stops before the new one starts. If the controller is
+# ever switched to RollingUpdate, this restart would briefly run two Plex
+# processes on the same SQLite database and compete for the one GPU.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -50,7 +55,10 @@ spec:
                   deadline=$(( $(date +%s) + 1800 ))
                   while :; do
                     # generation observedGeneration replicas status.replicas updated available
-                    s="$(kubectl get deployment plex -o jsonpath='{.metadata.generation} {.status.observedGeneration} {.spec.replicas} {.status.replicas} {.status.updatedReplicas} {.status.availableReplicas}')"
+                    # `|| true`: under `set -e` one transient API error would fail the
+                    # job while Plex restarts fine; empty output fails the 6-field
+                    # check below, so the loop just polls again until the deadline.
+                    s="$(kubectl get deployment plex -o jsonpath='{.metadata.generation} {.status.observedGeneration} {.spec.replicas} {.status.replicas} {.status.updatedReplicas} {.status.availableReplicas}' || true)"
                     set -- $s
                     if [ "$#" -eq 6 ] && [ "$1" = "$2" ] && [ "$3" = "$4" ] && [ "$3" = "$5" ] && [ "$3" = "$6" ]; then
                       echo "plex is back up"
