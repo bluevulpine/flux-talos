@@ -7,3 +7,4 @@ resources:
   - ./externalsecret.yaml
   - ./gitea-registry-externalsecret.yaml
   - ./helmrelease.yaml
+  - ./prometheusrule.yaml
