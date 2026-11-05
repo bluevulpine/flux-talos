@@ -8,14 +8,17 @@ Serena is configured for this repo. At session start, activate the project and r
 
 ## Critical rules
 
-**Domains — which are public**: `derekjacobs.dev` (`SECRET_DOMAIN`) and `bluevulpine.net`
-(`SECRET_DOMAIN_BLOG`) are **public** (decided 2026-10-04). They are already tied to this repo by
-commit authorship and the `bluevulpine` GitHub owner, and their public hosts are in CT logs, so a
-placeholder hides nothing. Prefer the existing `${SECRET_DOMAIN*}` placeholders anyway (no mass
-rewrite), but a literal is acceptable where a placeholder cannot render — e.g. CoreDNS values,
-which `bootstrap/helmfile.d` reads raw with no Flux substitution. The **other** domains
-(`SECRET_DOMAIN_BLOGCOM`, `_MEDIA`, `_LAKE`, `_YOYO`, `_BON`) stay **hidden**: always use the
-placeholder, never a literal.
+**Domains — which are public**: `derekjacobs.dev` (`SECRET_DOMAIN`), `bluevulpine.net`
+(`SECRET_DOMAIN_BLOG`) and `funb.us` (`SECRET_DOMAIN_MEDIA`) are **public**. The first two were
+decided 2026-10-04: they are tied to this repo by commit authorship and the `bluevulpine` GitHub
+owner, and their public hosts are in CT logs, so a placeholder hides nothing. `funb.us` followed on
+2026-11-04: it already appears as a literal in many files (`vault.funb.us` in manifests, READMEs
+and comments), so hiding new uses buys nothing. For **new** lines naming these three, write the
+literal; leave existing `${SECRET_DOMAIN*}` placeholders as they are (no mass rewrite). A literal
+is also the only option where a placeholder cannot render, e.g. CoreDNS values, which
+`bootstrap/helmfile.d` reads raw with no Flux substitution. The **other** domains
+(`SECRET_DOMAIN_BLOGCOM`, `_LAKE`, `_YOYO`, `_BON`) have mostly never been rendered to plaintext
+here and stay **hidden**: always use the placeholder, never a literal.
 
 **SOPS-encrypted files** (`*.sops.yaml`): never write decrypted content to disk. Use `sops -d <file>` to view and `sops <file>` to open the editor. Plaintext secrets must not appear in any file tracked by git (gitleaks runs on every pre-commit).
 
