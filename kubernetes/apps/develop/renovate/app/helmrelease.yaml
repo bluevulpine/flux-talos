@@ -45,26 +45,34 @@ spec:
               LOG_LEVEL: info
               RENOVATE_PLATFORM: gitea
               RENOVATE_ENDPOINT: https://gitea.derekjacobs.dev/api/v1
-              # An explicit list, not autodiscover. The bot only acts on repos
-              # named here, so adding it as a collaborator somewhere does not
-              # silently enrol that repo. To widen it, comma-separate more
-              # repos here (the bot must be a collaborator with write on each).
-              # To take a whole org, replace this with
-              #   RENOVATE_AUTODISCOVER: "true"
-              #   RENOVATE_AUTODISCOVER_FILTER: "bvn-homelab/*"
-              # and accept that any repo the bot can write to is then in scope.
-              RENOVATE_REPOSITORIES: bvn-homelab/spark-setup
+              # Autodiscover, gated by Gitea access rather than by a list in this
+              # public repo. Plain autodiscover asks Gitea for the repos the bot
+              # owns or collaborates on (`repos/search?uid=<bot>`), so being able
+              # to READ a public repo does not enrol it. Enrolling a repo means
+              # granting `renovate` write on it; Renovate then opens an onboarding
+              # PR, and merging that PR is the opt-in, recorded in that repo's own
+              # history. Never set RENOVATE_AUTODISCOVER_NAMESPACES: that lists
+              # every repo in the org whether or not the bot was granted it.
+              # The filter keeps a grant outside bvn-homelab (a personal repo, a
+              # fork) out of scope; Gitea pull mirrors are skipped by Renovate.
+              RENOVATE_AUTODISCOVER: "true"
+              RENOVATE_AUTODISCOVER_FILTER: "bvn-homelab/*"
               # Repos must carry their own renovate.json. Without one Renovate
               # opens an onboarding PR and changes nothing else.
               RENOVATE_ONBOARDING: "true"
               RENOVATE_REQUIRE_CONFIG: required
-              # Repo schedules ("before 6am") are read in local time.
+              # The onboarding PR proposes the shared homelab preset, so a newly
+              # enrolled repo starts with the grouping and automerge policy in
+              # bvn-homelab/renovate-config instead of Renovate's defaults. That
+              # repo has to exist, and be readable by the bot, before anything
+              # new is enrolled; a missing preset fails the onboarding PR.
+              RENOVATE_ONBOARDING_CONFIG: '{"extends":["local>bvn-homelab/renovate-config"]}'
               RENOVATE_TIMEZONE: "${TIMEZONE}"
               # Cold runs, no cache volume. Renovate's caches (repository and
-              # package lookups) only save time, never correctness, and for one
-              # repo a cold run is a couple of minutes each hour. A PVC would buy
-              # little and cost a Longhorn volume plus its backup wiring. If the
-              # repo list grows until runs get slow, move RENOVATE_CACHE_DIR onto
+              # package lookups) only save time, never correctness; one repo ran
+              # in 32-72 s cold (2026-11-04). A PVC would buy little and cost a
+              # Longhorn volume plus its backup wiring. If enrolled repos grow
+              # until runs near the 50-minute deadline, move RENOVATE_CACHE_DIR onto
               # a small longhorn-1-replica claim and set
               # RENOVATE_REPOSITORY_CACHE: enabled.
               RENOVATE_BASE_DIR: /tmp/renovate
