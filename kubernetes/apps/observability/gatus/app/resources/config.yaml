@@ -142,6 +142,35 @@ endpoints:
     alerts:
       - type: pushover
 
+  # Certificate lead time for the vault NAS UI (TrueNAS, LE wildcard via ACME
+  # DNS-01). This is the separate cert endpoint the Pangolin note above asks
+  # for, so cert age never pollutes an availability probe: DOWN here means
+  # "renewal is not happening", nothing else.
+  #
+  # Why it exists: 2026-11-02 the UI cert expired. TrueNAS's renew job had
+  # failed daily since 2026-10-23 (its Cloudflare token was revoked in the
+  # 2026-10-14 rotation), and TrueNAS has NO alert for a failed renewal. Its
+  # cert alerts are NOTICE at <9 days (not emailed: mail level is WARNING),
+  # then WARNING at 2 days, which read like a false positive for an ACME cert.
+  #
+  # TrueNAS renews once fewer than 10 days remain (renew_days=10), so a healthy
+  # cert is never seen below 10 days. 168h (7 days) therefore means about three
+  # daily renewals have failed, and still leaves a week to fix it. The
+  # handshake is verified (insecure is false), so an already-expired or
+  # wrong-chain cert fails too. It also catches a renewal that succeeded but
+  # was never deployed to the UI, which a check of TrueNAS's own state misses.
+  - name: vault NAS certificate
+    group: certificates
+    url: "https://vault.funb.us"
+    interval: 1h
+    conditions:
+      - "[CERTIFICATE_EXPIRATION] > 168h"
+    alerts:
+      - type: pushover
+        # 5 x 1h (the default) is five hours of silence on a condition that
+        # cannot flap; 2 still absorbs one transient TLS error.
+        failure-threshold: 2
+
   # The DGX Spark's inference engine: vLLM on :8000 (spark-setup, roles/vllm),
   # serving Qwen3.6 behind every `spark-*` text and vision route in LiteLLM.
   # Hindsight's retain, consolidation and reflect all depend on it, and it is a
