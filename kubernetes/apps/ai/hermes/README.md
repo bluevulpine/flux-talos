@@ -64,11 +64,14 @@ RWO: kopiur co-locates a `Direct` mover onto the volume's node, verified in W8.)
 `automountServiceAccountToken` to `false`; the HelmRelease sets
 `defaultPodOptions.automountServiceAccountToken: true` and enables the chart-created
 `serviceAccount.app` (`hermes`), so the pod gets a projected SA token and kubectl inside it
-uses in-cluster config. That was chosen over a kubeconfig Secret: nothing long-lived to
-mint, store in OpenBao or rotate, and the token is short-lived and bound to the pod. The
-chart-created SA is required because app-template's controller does not adopt a
-same-name SA declared outside the chart. What the `hermes` SA can do is set in two places,
-and widening either is a deliberate, reviewed change:
+uses in-cluster config. That was chosen over a kubeconfig Secret: nothing to mint, store
+in OpenBao or rotate by hand. The token is bound to the pod (invalid once the pod is
+deleted) and rotated by the kubelet, but it is not short-lived: the apiserver's default
+`--service-account-extend-token-expiration` gives it an expiry of up to a year, so a copy
+that leaves the pod stays valid until the pod goes. The chart-created SA is required
+because app-template's controller does not adopt a same-name SA declared outside the
+chart. What the `hermes` SA can do is set in two places, and widening either is a
+deliberate, reviewed change:
 
 - `app/rbac.yaml`: cluster-wide **read-only** (`hermes-agent-reader`): workloads, events,
   PVCs, Flux, Gateway API, metrics, and backup state (kopiur, VolSync until it is
@@ -78,9 +81,9 @@ and widening either is a deliberate, reviewed change:
   creating kopiur Snapshots (a backup before a reset). Its jobs/exec rights can reach
   `games` Secrets; the file says so.
 
-What it **cannot** do with the token: read any Secret outside `games`, or change anything
-outside `games`. It cannot apply, delete, patch or reconcile workloads or Flux objects
-anywhere else, and it has no Talos access at all. A cluster change still goes through git
+What it **cannot** do with the token: read any Secret outside `games` (inside it, see the
+caveat above), or change anything outside `games`. It cannot apply, delete, patch or
+reconcile workloads or Flux objects anywhere else, and it has no Talos access at all. A cluster change still goes through git
 and Flux. If it needs more than this, widen the role in git; never hand-apply with an
 admin kubeconfig.
 
