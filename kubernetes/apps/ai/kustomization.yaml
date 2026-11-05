@@ -12,5 +12,6 @@ resources:
   - ./hermes/ks.yaml
   - ./hindsight/ks.yaml
   - ./litellm/ks.yaml
+  - ./mail-archiver/ks.yaml
   - ./paperclip/ks.yaml
   - ./vault/ks.yaml
