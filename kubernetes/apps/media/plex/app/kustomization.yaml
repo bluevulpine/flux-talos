@@ -16,6 +16,8 @@ resources:
   - ./httproute.yaml
   - ./media-nfs.yaml
   - ./pvc.yaml
+  - ./restart-rbac.yaml
+  - ./restart-cronjob.yaml
 
 patches:
   # Stage kopiur's snapshot clones on 1 replica, as VolSync did. A staged PVC
