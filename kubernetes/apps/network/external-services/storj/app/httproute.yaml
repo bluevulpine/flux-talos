@@ -8,13 +8,19 @@ metadata:
     auth: authentik
   annotations:
     gethomepage.dev/enabled: "true"
+    # No pod backs this Service, so homepage's pod lookup finds nothing; probe the URL.
+    gethomepage.dev/siteMonitor: https://storj-vault.derekjacobs.dev
     gethomepage.dev/group: Storage
-    gethomepage.dev/name: Storj
+    gethomepage.dev/name: Storj (vault)
     gethomepage.dev/icon: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/storj.svg
     gatus.home-operations.com/endpoint: |
       group: storage
 spec:
-  hostnames: ["storj.${SECRET_DOMAIN}"]
+  # storj-vault names the node by host now that pinas runs a second one
+  # (storj-pinas); the bare storj name stays as an alias for old bookmarks.
+  hostnames:
+    - "storj-vault.derekjacobs.dev"
+    - "storj.${SECRET_DOMAIN}"
   parentRefs:
     - name: internal
       namespace: network

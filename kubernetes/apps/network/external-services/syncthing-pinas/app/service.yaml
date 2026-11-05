@@ -1,0 +1,28 @@
+---
+# pinas's Syncthing GUI. It keeps its own login; authentik sits in front so the GUI is
+# never reachable unauthenticated by name. LAN IP for the same reason as storj-pinas.
+apiVersion: v1
+kind: Service
+metadata:
+  name: syncthing-pinas
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8384
+      protocol: TCP
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: syncthing-pinas-1
+  labels:
+    kubernetes.io/service-name: syncthing-pinas
+addressType: IPv4
+ports:
+  - name: http
+    port: 8384
+    protocol: TCP
+endpoints:
+  - addresses:
+      - "10.0.10.220"

@@ -14,6 +14,10 @@ resources:
   - ./external-dns/ks.yaml
   - ./external-services/garage/ks.yaml
   - ./external-services/openspeedtest/ks.yaml
+  - ./external-services/scrutiny/ks.yaml
+  - ./external-services/storj/ks.yaml
+  - ./external-services/storj-pinas/ks.yaml
+  - ./external-services/syncthing-pinas/ks.yaml
   - ./pangolin-newt/ks.yaml
   - ./tailscale/ks.yaml
   - ./unifi-phantom-clients-cleanup/ks.yaml
