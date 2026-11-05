@@ -2,9 +2,11 @@
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
 #
 # A failed plex-daily-restart Job already fires the stock KubeJobFailed (warning)
-# from kube-prometheus-stack. This catches what that misses: a restart that never
-# runs at all, so no Job ever fails (image pull failure, CronJob suspended or not
-# scheduling). It tracks the CronJob's last successful completion instead.
+# from kube-prometheus-stack. That includes a Job stuck pulling its image: the
+# Job's activeDeadlineSeconds (restart-cronjob.yaml) fails it after 35m. This
+# catches what KubeJobFailed misses, a restart that never creates a Job at all
+# (CronJob suspended or not scheduling) or has never succeeded. It tracks the
+# CronJob's last successful completion instead.
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -23,9 +25,9 @@ spec:
             summary: >-
               Plex has not had a successful daily restart in over 26h. Check
               `kubectl -n media get cronjob,jobs | grep plex-daily-restart` and
-              `kubectl -n media logs job/<newest plex-daily-restart job>`. A Job
-              stuck pulling its image never fails, so also check the pods'
-              waiting reason.
+              `kubectl -n media logs job/<newest plex-daily-restart job>`. If no
+              recent Job exists, check whether the CronJob is suspended:
+              `kubectl -n media get cronjob plex-daily-restart -o jsonpath='{.spec.suspend}'`.
           expr: |
             (time() - max(kube_cronjob_status_last_successful_time{namespace="media", cronjob="plex-daily-restart"}) > 93600)
             or
