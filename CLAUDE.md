@@ -45,23 +45,28 @@ Agent-Harness: hermes-agent
 
 Known agents: Fizz (`fizz-bot-bvn[bot]`, Buzz framework), Bosun
 (`bluevulpine-bot[bot]`, Hermes Agent harness), Deckhand (`deckhand-bot-bvn[bot]`,
-Hermes Agent harness, Paperclip-driven Renovate triage). New agents should get
+Hermes Agent harness, Paperclip-driven Renovate triage), Claude Code (borrows
+`fizz-bot-bvn[bot]` locally; `claude` in web/cloud sessions; see below). New agents should get
 their own GitHub App rather than silently joining a shared one.
 
-Claude Code has two identities, depending on where it runs:
+Claude Code has two identities, depending on where its shell runs:
 
-- **Local sessions** (Derek's Mac) commit as `fizz-bot-bvn[bot]` via the
-  per-command flags above, plus a `Co-Authored-By:` trailer naming the model
-  (decided 2026-09-25). These commits show as unverified on GitHub: they
-  carry fizz-bot's name, but the local signing key is not registered to it.
-- **Web/cloud sessions** (claude.ai/code) commit as
-  `Claude <noreply@anthropic.com>`, GitHub user `claude`. The cloud environment
-  signs these, so they show as verified. Keep that identity; do not override it
-  with fizz-bot's: the signing key belongs to `claude`, so a fizz-bot author
-  would most likely show as unverified (not tested).
+- **Local sessions** (the CLI on Derek's Mac, including ones he follows or
+  drives from claude.ai) commit as `fizz-bot-bvn[bot]`, the shared credential
+  above (decided 2026-09-25; a dedicated identity is planned). As with any shared
+  credential, add `Agent-Harness: claude-code` next to the model's
+  `Co-Authored-By:`, so a commit is not mistaken for Fizz/Buzz. These commits
+  show as unverified on GitHub: they carry fizz-bot's name, but the local signing
+  key is not registered to it.
+- **Web/cloud sessions** (Claude Code running in Anthropic's cloud sandbox)
+  commit as `Claude <noreply@anthropic.com>`, GitHub user `claude`. The cloud
+  environment signs these, so they show as verified. Keep that identity; do not
+  override it with fizz-bot's: the signing key belongs to `claude`, so a fizz-bot
+  author would most likely show as unverified (not tested).
 
-Both kinds of session add a `Claude-Session:` trailer, which names the exact
-session behind a commit.
+Both add a `Claude-Session:` trailer. It identifies the session, not where it
+ran: local sessions also get `claude.ai/code/session_...` URLs. The author tells
+you where it ran.
 
 **Do not infer authorship convention from `git log`**: every non-Renovate commit
 before 2026-09-09 is authored `Derek Jacobs` because the bot account did not
