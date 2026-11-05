@@ -9,6 +9,27 @@ spec:
   chartRef:
     kind: OCIRepository
     name: buzz
+  # Roll the relay when buzz-secret changes. The chart's only annotation hook is
+  # relay.podAnnotations (the pod template), but Reloader reads the Deployment's
+  # own metadata, so it takes a post-render patch. Without it a rotated
+  # Buzz__PostgresPass sits unused until an unrelated restart: harmless, since
+  # postgres-init resets the role password at that same restart, but the
+  # rotation does not happen when you think it did. Strategic merge so a future
+  # chart annotation survives; `target` because the rendered Deployment carries
+  # namespace: ai, which a bare patch would not match.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: buzz
+            patch: |-
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: buzz
+                annotations:
+                  secret.reloader.stakater.com/reload: buzz-secret
   values:
     # Relay image: Block publishes ghcr.io/block/buzz:<x.y.z> on relay-v* tags,
     # a separate release line from the chart (whose appVersion lags at 0.1.0).
@@ -53,6 +74,13 @@ spec:
     replicaCount: 1
     podDisruptionBudget:
       enabled: false
+
+    # Scrape :9102 (Service port `metrics`); the chart ships it off. The
+    # buzz_db_pool_{active,idle,size,max} gauges are the first thing to read if
+    # "pool timed out while waiting for an open connection" shows up in the
+    # relay log again (seen twice on 2026-11-05 on Hermes' subscriptions).
+    serviceMonitor:
+      enabled: true
 
     relay:
       resources:
