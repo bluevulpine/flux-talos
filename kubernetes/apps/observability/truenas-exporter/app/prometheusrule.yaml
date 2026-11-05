@@ -21,12 +21,15 @@ spec:
     - name: truenas-exporter.rules
       rules:
         # 15m = 15 consecutive failed 60s polls, so a NAS reboot or middleware
-        # restart (a few minutes) does not page.
+        # restart (a few minutes) does not page. last_success is 0 until the
+        # first successful poll after a pod start, hence the > 0 filter: without
+        # it the summary would claim the last success was ~56 years ago.
         - alert: TruenasExporterPollFailing
           annotations:
             summary: >-
-              truenas-exporter has not completed a TrueNAS poll for
-              {{ with query "time() - max(truenas_exporter_last_success_timestamp_seconds)" }}{{ . | first | value | humanizeDuration }}{{ end }};
+              truenas-exporter's TrueNAS polls are failing{{ with query "time() - max(truenas_exporter_last_success_timestamp_seconds > 0)" }}
+              (last success {{ . | first | value | humanizeDuration }} ago){{ else }}
+              (no successful poll since the exporter started){{ end }};
               pool metrics are stale. The exporter logs the reason on every
               failed poll: `kubectl -n observability logs deploy/truenas-exporter`.
               A TLS "certificate has expired" there means the NAS UI cert did

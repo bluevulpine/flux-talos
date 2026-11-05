@@ -145,7 +145,8 @@ endpoints:
   # Certificate lead time for the vault NAS UI (TrueNAS, LE wildcard via ACME
   # DNS-01). This is the separate cert endpoint the Pangolin note above asks
   # for, so cert age never pollutes an availability probe: DOWN here means
-  # "renewal is not happening", nothing else.
+  # "renewal is not happening" -- or the NAS has been unreachable for 2h
+  # (no handshake, no expiry to read), which is worth hearing about anyway.
   #
   # Why it exists: 2026-11-02 the UI cert expired. TrueNAS's renew job had
   # failed daily since 2026-10-23 (its Cloudflare token was revoked in the
