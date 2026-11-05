@@ -59,6 +59,11 @@ data:
             description: TrueNAS Scale
             widget:
               type: truenas
+              # version 2 = JSON-RPC over the websocket API. Version 1 (the
+              # default) uses the REST API, which TrueNAS 25.10 deprecates (it
+              # raised a "deprecated REST API" alert naming this node's IP) and
+              # 26.04 removes.
+              version: 2
               url: {{HOMEPAGE_VAR_TRUENAS_HOST}}
               key: {{HOMEPAGE_VAR_TRUENAS_APIKEY}}
     - Home:
