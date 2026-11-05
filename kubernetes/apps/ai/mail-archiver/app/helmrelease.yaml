@@ -43,10 +43,10 @@ spec:
             image:
               repository: docker.io/s1t5/mailarchiver
               # renovate: datasource=docker depName=docker.io/s1t5/mailarchiver
-              tag: 2610.1
+              tag: "2610.1"
             env:
               TZ: "${TIMEZONE}"
-              AllowedHosts: mail-archiver.${SECRET_DOMAIN}
+              AllowedHosts: mail-archiver.derekjacobs.dev
               TimeZone__DisplayTimeZoneId: "${TIMEZONE}"
               # Archive posture: manual delete stays allowed during the
               # phase-1 delete test; flip to "false" for production.
@@ -57,7 +57,7 @@ spec:
               # from the ExternalSecret. Local password login stays on as
               # break-glass (DisablePasswordLogin=false).
               OAuth__Enabled: "true"
-              OAuth__Authority: https://sso.${SECRET_DOMAIN}/application/o/mail-archiver/
+              OAuth__Authority: https://sso.derekjacobs.dev/application/o/mail-archiver/
               OAuth__DisplayName: Authentik
               OAuth__ClientScopes__0: openid
               OAuth__ClientScopes__1: profile
@@ -124,7 +124,7 @@ spec:
             namespace: network
             sectionName: https
         hostnames:
-          - mail-archiver.${SECRET_DOMAIN}
+          - mail-archiver.derekjacobs.dev
         rules:
           - backendRefs:
               - identifier: app
