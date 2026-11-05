@@ -8,6 +8,8 @@ metadata:
     auth: authentik
   annotations:
     gethomepage.dev/enabled: "true"
+    # No pod backs this Service, so homepage's pod lookup finds nothing; probe the URL.
+    gethomepage.dev/siteMonitor: https://syncthing-pinas.derekjacobs.dev
     gethomepage.dev/group: Storage
     gethomepage.dev/name: Syncthing (pinas)
     gethomepage.dev/icon: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/syncthing.svg
