@@ -63,6 +63,22 @@ spec:
       # (no detach), detached ones on their next attach. Kept at 1 afterwards
       # so every future Longhorn upgrade brings the engines along.
       concurrentAutomaticEngineUpgradePerNodeLimit: "1"
+      # Scheduling limits, set in the UI long ago and recorded here (same
+      # values as live on 2026-11-05, so committing them changed nothing).
+      # Longhorn places or grows a replica on a disk only if BOTH hold:
+      # - scheduled + new <= (max - reserved) x overProvisioning% (200 %: a
+      #   volume's full size is promised up front, but most are far from full,
+      #   so promises may reach twice the disk);
+      # - free space after the write stays above minimalAvailable% of the
+      #   disk (25 %), a real-bytes floor that over-provisioning cannot lift.
+      # Per-disk numbers: status.diskStatus.<disk>.storageMaximum,
+      # .storageAvailable and .storageScheduled on `nodes.longhorn.io`.
+      # 2026-11-05 (1862Gi data-2 disks): scheduled 1131/1158/1497Gi on
+      # brokkr01/02/03 against a 3724Gi limit; avail 1233-1494Gi against a
+      # 466Gi floor. The free-space floor, not over-provisioning, is the one
+      # to watch as disks fill.
+      storageOverProvisioningPercentage: "200"
+      storageMinimalAvailablePercentage: "25"
     # Longhorn exposes longhorn_volume_*/node_*/disk_* on the manager port,
     # but the chart ships the ServiceMonitor disabled -- so there were ZERO
     # longhorn_* series in Prometheus and volume health (robustness, degraded
