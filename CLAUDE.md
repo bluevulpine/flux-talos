@@ -13,9 +13,10 @@ Serena is configured for this repo. At session start, activate the project and r
 decided 2026-10-04: they are tied to this repo by commit authorship and the `bluevulpine` GitHub
 owner, and their public hosts are in CT logs, so a placeholder hides nothing. `funb.us` followed on
 2026-11-04: it already appears as a literal in many files (`vault.funb.us` in manifests, READMEs
-and comments), so hiding new uses buys nothing. For **new** lines naming these three, write the
-literal; leave existing `${SECRET_DOMAIN*}` placeholders as they are (no mass rewrite). A literal
-is also the only option where a placeholder cannot render, e.g. CoreDNS values, which
+and comments), so hiding new uses buys nothing. For **new** lines naming `funb.us` or `derekjacobs.dev`, write the
+literal (Derek, 2026-11-04); for `bluevulpine.net`, prefer the placeholder. Leave existing
+`${SECRET_DOMAIN*}` placeholders as they are (no mass rewrite). A literal is also the only option
+where a placeholder cannot render, e.g. CoreDNS values, which
 `bootstrap/helmfile.d` reads raw with no Flux substitution. The **other** domains
 (`SECRET_DOMAIN_BLOGCOM`, `_LAKE`, `_YOYO`, `_BON`) have mostly never been rendered to plaintext
 here and stay **hidden**: always use the placeholder, never a literal.
