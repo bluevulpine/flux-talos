@@ -217,10 +217,12 @@ spec:
       # not ModelScope. So answering NXDOMAIN for the whole zone costs nothing
       # and turns the attempt into a counted event instead of a connection.
       #
-      # What it does NOT cover, so do not read it as the whole control: a
-      # hard-coded IP (the model writes hostnames, but it can resolve elsewhere),
-      # DoH from inside a pod, and every host outside the cluster (the GB10s, the
-      # Mac): those use UniFi's resolver, where the same zone needs blocking too.
+      # It is not the only control. Since 2026-11-05 aliyuncs.com is blocked in
+      # NextDNS, upstream of UniFi, for every host (pods included, since the
+      # nodes forward to UniFi). NextDNS only sees the query arrive from UniFi,
+      # though, so this block is what names the pod: its log line and the
+      # CoreDNSSinkholeHit alert. Neither covers a hard-coded IP (the model
+      # writes hostnames, but it can resolve elsewhere) or DoH from inside a pod.
       #
       # `log` here is the default (every query), unlike the other blocks'
       # `class error`: it only ever sees sinkholed names, and the line carries the

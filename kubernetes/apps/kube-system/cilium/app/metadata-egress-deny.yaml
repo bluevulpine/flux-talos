@@ -23,6 +23,10 @@ spec:
     ai/hermes/app/ciliumnetworkpolicy.yaml). With it, this only subtracts two
     addresses and changes nothing else.
 
+    Denied attempts are exported by the Hubble flow exporter in the cilium
+    HelmRelease (the DROPPED + destination_ip filter) to stdout, so they land
+    in VictoriaLogs with the pod name.
+
     Not covered: an endpointSelector never matches host-network pods or the
     nodes themselves, so those can still reach both addresses. Covering them
     needs a nodeSelector policy, which needs Cilium's host firewall (off here).

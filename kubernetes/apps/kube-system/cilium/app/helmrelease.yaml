@@ -126,11 +126,12 @@ spec:
                   - destination_names
                   - node_name
                 # Filters are ORed. The third catches pods trying SSH to the
-                # internet, denied by egress-ssh-deny: any such line is a pod
-                # doing something it should not. It lives in this exporter
-                # because Cilium rejects two exporters on the same path
-                # ("duplicated flowlog path stdout"): it rejects the whole file and
-                # keeps running the previous config.
+                # internet, denied by egress-ssh-deny, and the fourth pods trying
+                # a cloud instance-metadata address, denied by deny-cloud-metadata:
+                # any such line is a pod doing something it should not. Both live
+                # in this exporter because Cilium rejects two exporters on the
+                # same path ("duplicated flowlog path stdout"): it rejects the
+                # whole file and keeps running the previous config.
                 includeFilters:
                   - source_pod:
                       - media/plex-
@@ -140,6 +141,11 @@ spec:
                       - DROPPED
                     destination_port:
                       - "22"
+                  - verdict:
+                      - DROPPED
+                    destination_ip:
+                      - 169.254.169.254
+                      - 100.100.100.200
                 excludeFilters: []
     ipam:
       mode: kubernetes
