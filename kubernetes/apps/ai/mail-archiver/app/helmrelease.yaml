@@ -42,7 +42,10 @@ spec:
                 custom: true
                 spec:
                   exec:
-                    command: ["/bin/sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d MailArchiver"]
+                    command:
+                      - "/bin/sh"
+                      - "-c"
+                      - "pg_isready -U \"$POSTGRES_USER\" -d MailArchiver"
                   initialDelaySeconds: 20
                   periodSeconds: 10
                   timeoutSeconds: 5
@@ -76,7 +79,10 @@ spec:
             image:
               repository: docker.io/library/postgres
               tag: 17.9-alpine
-            command: ["/bin/sh", "-c", "until pg_isready -h mail-archiver-db -p 5432; do sleep 2; done"]
+            command:
+              - "/bin/sh"
+              - "-c"
+              - "until pg_isready -h mail-archiver-db -p 5432; do sleep 2; done"
             securityContext:
               allowPrivilegeEscalation: false
               capabilities: {drop: ["ALL"]}
