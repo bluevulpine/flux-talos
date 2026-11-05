@@ -148,3 +148,14 @@ spec:
           mail-archiver:
             app:
               - path: /tmp
+      # The app creates /app/uploads at startup (MBoxImportService ctor) and
+      # /app is root-owned in the image, so as uid 1654 it crashlooped with
+      # "Access to the path '/app/uploads' is denied". Uploads are staging for
+      # web-UI mbox/eml imports only; the NAS import goes through the CLI's
+      # local import, so scratch space is enough.
+      uploads:
+        type: emptyDir
+        advancedMounts:
+          mail-archiver:
+            app:
+              - path: /app/uploads
