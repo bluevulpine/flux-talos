@@ -11,10 +11,10 @@ spec:
   dependsOn:
     - name: external-secrets-openbao-store
       namespace: external-secrets
-    # components/kopiur's SnapshotPolicies are rejected by the fail-closed
-    # webhook until the ClusterRepositories exist.
-    - name: kopiur-repositories
-      namespace: kopiur-system
+    # Note the `18` suffix: a wrong name parks this Kustomization in
+    # `dependency not ready` forever, with no event or alert.
+    - name: cloudnative-pg-cluster18
+      namespace: database
   path: ./kubernetes/apps/ai/mail-archiver/app
   prune: true
   sourceRef:
@@ -31,15 +31,3 @@ spec:
       APP: *app
       NS: ai
       GATUS_SUBDOMAIN: mail-archiver
-      # Claims are app-local (app/pvc.yaml); no VOLSYNC_* vars.
-      # Explicit minutes :03/:33, unused anywhere in the fleet (local, R2 and
-      # VolSync schedules checked). R2 pinned <= :39 in hour 02.
-      KOPIUR_LOCAL_CRON: "3,33 * * * *"
-      KOPIUR_R2_CRON: "3 2 * * *"
-      # The Postgres PVC is RWO and held live: Snapshot, not Direct.
-      # NOTE: components/kopiur snapshots the claim named ${APP} (the archive
-      # DB volume, "mail-archiver"). A crash-consistent volume snapshot of
-      # Postgres is recoverable via WAL replay; a logical dump job is a
-      # reasonable later hardening.
-      KOPIUR_COPYMETHOD: Snapshot
-      KOPIUR_SNAPSHOTCLASS: longhorn-snapclass

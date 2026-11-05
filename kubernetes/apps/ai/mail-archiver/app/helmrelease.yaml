@@ -11,56 +11,6 @@ spec:
     name: mail-archiver
   values:
     controllers:
-      # Dedicated Postgres 17, NOT the shared CNPG cluster18: upstream tests
-      # against PG17 only and the app installs a DB trigger for archive
-      # immutability. Revisit (move to cluster18) once PG18 is proven.
-      db:
-        strategy: Recreate
-        annotations:
-          reloader.stakater.com/auto: "true"
-        pod:
-          securityContext:
-            runAsNonRoot: true
-            runAsUser: 70
-            runAsGroup: 70
-            fsGroup: 70
-            fsGroupChangePolicy: OnRootMismatch
-        containers:
-          postgres:
-            image:
-              repository: docker.io/library/postgres
-              # renovate: datasource=docker depName=docker.io/library/postgres versioning=docker
-              tag: 17.9-alpine
-            env:
-              PGDATA: /var/lib/postgresql/data/pgdata
-            envFrom:
-              - secretRef:
-                  name: mail-archiver-secret
-            probes:
-              liveness: &pgprobe
-                enabled: true
-                custom: true
-                spec:
-                  exec:
-                    command:
-                      - "/bin/sh"
-                      - "-c"
-                      - "pg_isready -U \"$POSTGRES_USER\" -d MailArchiver"
-                  initialDelaySeconds: 20
-                  periodSeconds: 10
-                  timeoutSeconds: 5
-                  failureThreshold: 6
-              readiness: *pgprobe
-            securityContext:
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: false
-              capabilities: {drop: ["ALL"]}
-            resources:
-              requests:
-                cpu: 100m
-                memory: 512Mi
-              limits:
-                memory: 2Gi
       mail-archiver:
         strategy: Recreate
         annotations:
@@ -75,17 +25,19 @@ spec:
             fsGroup: 1654
             fsGroupChangePolicy: OnRootMismatch
         initContainers:
-          wait-db:
+          # Creates the role and database on the shared CNPG postgres18 cluster
+          # if missing and resets the role's password on every start, so a
+          # rotation is `bao kv patch` plus a pod roll (postgres-init skill).
+          # The app then runs its EF migrations as that non-superuser owner:
+          # its two extensions (pgcrypto, citext) are trusted, and its
+          # immutability triggers are plain row triggers on its own tables.
+          01-init-db:
             image:
-              repository: docker.io/library/postgres
-              tag: 17.9-alpine
-            command:
-              - "/bin/sh"
-              - "-c"
-              - "until pg_isready -h mail-archiver-db -p 5432; do sleep 2; done"
-            securityContext:
-              allowPrivilegeEscalation: false
-              capabilities: {drop: ["ALL"]}
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom:
+              - secretRef:
+                  name: mail-archiver-secret
         containers:
           app:
             image:
@@ -152,11 +104,6 @@ spec:
         ports:
           http:
             port: *port
-      db:
-        controller: db
-        ports:
-          postgres:
-            port: 5432
     route:
       app:
         annotations:
@@ -183,12 +130,6 @@ spec:
               - identifier: app
                 port: *port
     persistence:
-      pgdata:
-        existingClaim: *app
-        advancedMounts:
-          db:
-            postgres:
-              - path: /var/lib/postgresql/data
       keys:
         existingClaim: mail-archiver-keys
         advancedMounts:
