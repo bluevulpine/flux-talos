@@ -26,15 +26,15 @@ spec:
     bgpControlPlane:
       enabled: true
     bpf:
-      masquerade: true  # Enable masquerading for proper NAT of outbound connections
-      preallocateMaps: true  # Performance optimization
-      tproxy: true  # Enable transparent proxy for better UDP handling
+      masquerade: true # Enable masquerading for proper NAT of outbound connections
+      preallocateMaps: true # Performance optimization
+      tproxy: true # Enable transparent proxy for better UDP handling
     cgroup:
       automount:
         enabled: false
       hostRoot: /sys/fs/cgroup
     cni:
-      exclusive: false  # Allow Multus CNI to coexist with Cilium
+      exclusive: false # Allow Multus CNI to coexist with Cilium
     cluster:
       id: 1
       name: home-kubernetes
@@ -85,6 +85,62 @@ spec:
         rollOutPods: true
         ingress:
           enabled: false
+      # Flow logs for Plex, so a real egress allowlist can be drawn from what
+      # PMS actually talks to, and so connections from the internet to it are
+      # on record. Hubble's in-memory ring only holds minutes of flows per node;
+      # this keeps days, in VictoriaLogs.
+      #
+      # filePath "stdout": the agent prints each flow as one JSON line on its own
+      # stdout (pkg/hubble/exporter/config.go, v1.18.6: anything but "stdout" is
+      # a rotated file on the node), which fluent-bit already ships. Query:
+      # `k_container_name:cilium-agent "media/plex-" | unpack_json`.
+      #
+      # Dynamic, not static: the filters live in the cilium-flowlog-config
+      # ConfigMap, which the agents re-read without restarting, so narrowing or
+      # widening this later does not roll Cilium. Enabling it the first time does.
+      #
+      # `media/plex-` is a pod-name prefix, so plex-auto-languages, the image
+      # cleanup job and the kopiur movers are included too; all are fair game for
+      # the same policy. fieldMask keeps each line to what an allowlist and an
+      # intrusion review need. destination_names is only filled for names Cilium
+      # has seen resolved through its DNS proxy, so expect bare IPs at first.
+      export:
+        dynamic:
+          enabled: true
+          config:
+            content:
+              - name: plex
+                filePath: stdout
+                fieldMask:
+                  - time
+                  - verdict
+                  - drop_reason_desc
+                  - traffic_direction
+                  - is_reply
+                  - IP
+                  - l4
+                  - source.namespace
+                  - source.pod_name
+                  - destination.namespace
+                  - destination.pod_name
+                  - destination_names
+                  - node_name
+                # Filters are ORed. The third catches pods trying SSH to the
+                # internet, denied by egress-ssh-deny: any such line is a pod
+                # doing something it should not. It lives in this exporter
+                # because Cilium rejects two exporters on the same path
+                # ("duplicated flowlog path stdout"): it rejects the whole file and
+                # keeps running the previous config.
+                includeFilters:
+                  - source_pod:
+                      - media/plex-
+                  - destination_pod:
+                      - media/plex-
+                  - verdict:
+                      - DROPPED
+                    destination_port:
+                      - "22"
+                excludeFilters: []
     ipam:
       mode: kubernetes
     ipv4NativeRoutingCIDR: "10.69.0.0/16"
@@ -142,7 +198,7 @@ spec:
           - SYS_ADMIN
           - SYS_RESOURCE
     socketLB:
-      hostNamespaceOnly: false  # Allow socket LB in all namespaces for better UDP handling
-    enableIPv4BIGTCP: true  # Performance optimization for large packets
+      hostNamespaceOnly: false # Allow socket LB in all namespaces for better UDP handling
+    enableIPv4BIGTCP: true # Performance optimization for large packets
     pmtuDiscovery:
-      enabled: true  # Important for QUIC path MTU discovery
+      enabled: true # Important for QUIC path MTU discovery

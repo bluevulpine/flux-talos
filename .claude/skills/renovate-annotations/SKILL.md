@@ -15,8 +15,8 @@ Three cases where the rule is **not** "always annotate":
 
 - **app-template nested container images** (`controllers.*.containers.*.image`) are detected
   natively with no annotation. `kubernetes/apps/productivity/n8n` has none and Renovate has
-  opened nine bump PRs for it (#1695, #1617, #1594, …). Annotating anyway is fine and ~47 of
-  111 HelmReleases do — the repo is deliberately mixed here. Prefer no annotation for a plain
+  opened nine bump PRs for it (#1695, #1617, #1594, …). Annotating anyway is fine and over a
+  third of the HelmReleases do — the repo is deliberately mixed here. Prefer no annotation for a plain
   semver tag; add one when you want an explicit datasource/depName, as `hermes` (#1743) and
   `timescaledb` (#1715) do.
 - **A HelmRelease's top-level `image.repository`/`image.tag`** is already extracted by the

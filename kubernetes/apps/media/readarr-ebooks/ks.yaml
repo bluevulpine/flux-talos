@@ -41,8 +41,10 @@ spec:
       # vars landed one PR BEFORE the component so the SnapshotSchedules were
       # created with these crons, not the component's defaults (runbook trap: a
       # cron change does not re-pin a pending slot).
-      # H picks a minute per schedule; the hours match VolSync's old ones.
-      KOPIUR_LOCAL_CRON: "H * * * *"
+      # H picks a minute per schedule; the R2 hour matches VolSync's
+      # old one, the local hour is this app's slot in the daily window
+      # (components/kopiur/local.yaml).
+      KOPIUR_LOCAL_CRON: "H 10 * * *"
       KOPIUR_R2_CRON: "H 4 * * *"
       # Direct: the volume is tns-csi-nfs RWX, so the mover co-mounts it with no
       # staged clone, which keeps it clear of tns-csi's non-idempotent

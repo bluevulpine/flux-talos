@@ -16,6 +16,9 @@ resources:
   - ./httproute.yaml
   - ./media-nfs.yaml
   - ./pvc.yaml
+  - ./restart-rbac.yaml
+  - ./restart-cronjob.yaml
+  - ./restart-prometheusrule.yaml
 
 patches:
   # Stage kopiur's snapshot clones on 1 replica, as VolSync did. A staged PVC
@@ -24,7 +27,7 @@ patches:
   # (runbook waves table, footnote 6; same patch as matrix-bluevulpine).
   #
   # And stage it ReadWriteOnce. The staged PVC otherwise copies the source's
-  # access modes, and plex's claim is ReadWriteMany (see ks.yaml for why), so
+  # access modes, and plex's claim was ReadWriteMany until 2026-11 (ks.yaml), so
   # Longhorn served every clone over NFS from a share-manager pod, which can
   # land on any node, Pis included. On 2026-10-08 it landed on jormungandr1:
   # the mover mounted 100Gi / 175k files over NFS from a Pi, hung on its first
@@ -50,9 +53,10 @@ patches:
   #    (Flux owns f:volumeName -> immutable stall). Claim edits in git (capacity,
   #    class, labels) are then silently ignored; expand by hand and keep git equal:
   #    kubectl -n media patch pvc plex -p '{"spec":{"resources":{"requests":{"storage":"<size>"}}}}'
-  #  - The temporary `volumeName` pin used for the re-create was dropped once the
-  #    swap was done (2026-10-03); a rebuilt cluster now re-creates the claim
-  #    unpinned.
+  #  - The temporary `volumeName` pins used for the re-creates were dropped once
+  #    each swap was done (2-replica move 2026-10-03; RWX->RWO re-bind 2026-11-03,
+  #    #2370, docs/runbooks/plex-db-maintenance.md); a rebuilt cluster now
+  #    re-creates the claim unpinned.
   # kopiur app: the claim's dataSourceRef points at a VolSync RD that is no longer
   # deployed (inert), so a rebuild restores via kopiur, NOT the VolSync DR path
   # (docs/runbooks/kopiur-migration.md).

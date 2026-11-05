@@ -106,6 +106,10 @@ spec:
       name: external-pangolin
   tcpKeepalive: {}
   timeout:
+    # connectionIdleTimeout is unset (Envoy's 1h default). Upstreams must keep idle
+    # connections open longer than that, e.g. home/ops-console sets uvicorn's
+    # keep-alive to 3700s; raising it here past an app's keep-alive brings back
+    # 503 UC connection_termination on that app.
     http:
       requestTimeout: 0s
 ---

@@ -1,5 +1,5 @@
 ---
-# Service for Garage web UI - routes to external IP
+# vault's Storj node dashboard (TrueNAS app storj, :14002) - routes to external IP
 apiVersion: v1
 kind: Service
 metadata:
@@ -11,7 +11,7 @@ spec:
       targetPort: 14002
       protocol: TCP
 ---
-# EndpointSlice for openspeedtest web UI
+# Points at the vault NAS app address, like the other vault app routes
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
 metadata:

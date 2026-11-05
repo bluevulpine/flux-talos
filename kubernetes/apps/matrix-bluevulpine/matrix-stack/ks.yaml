@@ -82,5 +82,5 @@ spec:
       KOPIUR_FS_GROUP: "10091"
       # H picks the minute per schedule. R2 hour 6 is one of the two least-used
       # H hours, and the derekjacobs.dev instance's hour.
-      KOPIUR_LOCAL_CRON: "H */2 * * *"
+      KOPIUR_LOCAL_CRON: "H 11 * * *"
       KOPIUR_R2_CRON: "H 6 * * *"

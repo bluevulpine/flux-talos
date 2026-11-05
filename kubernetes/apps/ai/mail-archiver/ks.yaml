@@ -1,0 +1,33 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app mail-archiver
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+    # Note the `18` suffix: a wrong name parks this Kustomization in
+    # `dependency not ready` forever, with no event or alert.
+    - name: cloudnative-pg-cluster18
+      namespace: database
+  path: ./kubernetes/apps/ai/mail-archiver/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: ai
+  wait: false
+  interval: 30m
+  retryInterval: 1m
+  timeout: 5m
+  postBuild:
+    substitute:
+      APP: *app
+      NS: ai
+      GATUS_SUBDOMAIN: mail-archiver

@@ -78,7 +78,15 @@ spec:
           app:
             image:
               repository: ghcr.io/home-operations/plex
-              tag: rolling
+              # Pinned version@digest, not `rolling` (2026-11-03). `rolling` with
+              # the default IfNotPresent pull policy ran whatever each node had
+              # cached: a restart onto brokkr02 that night came up on PMS
+              # 1.43.2.10687 while upstream was 1.43.5.11079, i.e. a silent
+              # DOWNGRADE of an internet-facing server. Renovate also
+              # could not track `rolling` ("Could not determine new digest"), so
+              # no update PR ever existed. Pinned, Renovate opens a PR per PMS
+              # release and .renovate/autoMerge.json5 merges it once checks pass.
+              tag: 1.43.5.11079@sha256:06ef0fc23e9af9bbaf284c3f27972f94e703d13d6f745edeb6818fcbebf6c673
             env:
               TZ: "${TIMEZONE}"
               # Model 3 remote path: wheels (WAN1, DDNS'd) direct on the forwarded
@@ -193,8 +201,8 @@ spec:
                   failureThreshold: 15
               # ─── Upgrade restarts (2026-09-25) ───
               #
-              # The image is `rolling`, so any pod restart can pull a new Plex,
-              # and a new Plex runs migrations and database fix-ups on boot. The
+              # Any image bump (Renovate PRs, automerged) is a new Plex, and a
+              # new Plex runs migrations and database fix-ups on boot. The
               # budgets above were sized for a steady-state stall; they killed
               # an upgrade mid-flight.
               #
@@ -227,8 +235,8 @@ spec:
               # takes up to 30 minutes to restart itself, not 5. With one replica
               # it is equally unavailable either way, and killing a slow Plex
               # mid-write is the worse outcome. Plex is internet-facing, so it is
-              # kept current on `rolling`; these budgets are what make that
-              # safe. Readiness stays at 150s: it only pulls endpoints and kills
+              # kept current (pinned tag, automerged Renovate bumps); these
+              # budgets are what make that safe. Readiness stays at 150s: it only pulls endpoints and kills
               # nothing.
               startup:
                 enabled: true
@@ -262,6 +270,44 @@ spec:
               limits:
                 memory: 24Gi
                 amd.com/gpu: 1
+          # Ships Plex's own log file to stdout, so fluent-bit carries it to
+          # VictoriaLogs (k_container_name: log-tail). PMS writes its real log
+          # only to a file under Logs/ (an emptyDir, see persistence.logs);
+          # stdout gets just SQLite's "retry busy DB" noise. So the "Took too
+          # long to start a transaction" warnings that preceded the 2026-11-02
+          # outage (SQLite lock stalls on the then-RWX/NFS config volume) were
+          # invisible to alerting and analysis, and lost on every restart.
+          # vmalert's PlexDatabaseLockContention rule (observability/vmalert)
+          # matches them here.
+          #
+          # The whole file, DEBUG included: request timings, Butler tasks and
+          # which client was active are what make a stall analysable, not just
+          # detectable. ~30 MB/day raw; VictoriaLogs compresses ~42:1 here, so
+          # about 10 MB on disk over its 14d retention. If DEBUG ever gets too
+          # noisy, filter to WARN/ERROR with
+          # `| awk '/ (WARN|ERROR) - /{print; fflush()}'` (busybox grep cannot
+          # line-buffer). `tail -F` follows the file across Plex's
+          # rename-at-10MB rotation (tested on busybox 1.37.0, 2026-11-03).
+          log-tail:
+            image:
+              repository: docker.io/library/busybox
+              tag: 1.38.0
+            command:
+              - /bin/sh
+              - -c
+              - |
+                L="/config/Library/Application Support/Plex Media Server/Logs/Plex Media Server.log"
+                exec tail -n0 -F "$L" 2>/dev/null
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 5m
+                memory: 8Mi
+              limits:
+                memory: 32Mi
     service:
       app:
         controller: *app

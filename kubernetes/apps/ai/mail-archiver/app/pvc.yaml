@@ -1,0 +1,14 @@
+---
+# ASP.NET DataProtection keys (cookie/antiforgery keys). Small, but losing it
+# logs everyone out, so it is persistent. Not kopiur-backed (regenerable).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mail-archiver-keys
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: longhorn-2-replica

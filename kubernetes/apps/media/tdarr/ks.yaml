@@ -37,7 +37,7 @@ spec:
       VOLSYNC_CAPACITY: 20Gi
       # No longer "low criticality, regenerates": as of 2026-09-02 this claim
       # holds the library definitions and flows, which are hand-built and do not
-      # regenerate. Backup every 4 hours (KOPIUR_LOCAL_CRON below).
+      # regenerate. Backed up daily (KOPIUR_LOCAL_CRON below).
       #
       # Longhorn RWO, not tns-csi-nfs RWX, since 2026-09-25. The claim carries
       # Tdarr's SQLite database (DB2/SQL/database.db), and SQLite on NFS stalled
@@ -53,8 +53,10 @@ spec:
       # vars landed one PR BEFORE the component so the SnapshotSchedules were
       # created with these crons, not the component's defaults (runbook trap: a
       # cron change does not re-pin a pending slot).
-      # H picks a minute per schedule; the hours match VolSync's old ones.
-      KOPIUR_LOCAL_CRON: "H */4 * * *"
+      # H picks a minute per schedule; the R2 hour matches VolSync's
+      # old one, the local hour is this app's slot in the daily window
+      # (components/kopiur/local.yaml).
+      KOPIUR_LOCAL_CRON: "H 11 * * *"
       KOPIUR_R2_CRON: "H 5 * * *"
       # Snapshot: Tdarr holds the RWO volume, and it carries Tdarr's SQLite.
       KOPIUR_COPYMETHOD: Snapshot

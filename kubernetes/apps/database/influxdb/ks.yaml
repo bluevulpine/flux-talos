@@ -35,14 +35,12 @@ spec:
       GATUS_SUBDOMAIN: influxdb
       VOLSYNC_CAPACITY: 20Gi
       # 2 replicas: years of Home Assistant and collector history live only on this
-      # volume between the twice-hourly kopiur snapshots.
+      # volume between the daily kopiur snapshots.
       VOLSYNC_STORAGECLASS: longhorn-2-replica
       # kopiur (components/kopiur), W4. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # Twice-hourly: explicit minutes (kopiur has no stepped H), chosen as
-      # VolSync's +5 so the two engines stayed apart during the parallel run.
-      KOPIUR_LOCAL_CRON: "21,51 * * * *"
+      KOPIUR_LOCAL_CRON: "H 10 * * *"
       # H picks a minute; the hour matches VolSync's old R2 run.
       KOPIUR_R2_CRON: "H 1 * * *"
       # Direct, as VolSync was (its default); a switch to Snapshot is a

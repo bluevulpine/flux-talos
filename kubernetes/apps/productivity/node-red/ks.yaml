@@ -33,15 +33,13 @@ spec:
       GATUS_SUBDOMAIN: node-red
       VOLSYNC_CAPACITY: 2Gi
       # 2 replicas: flows and credentials live only on this volume between the
-      # twice-hourly kopiur snapshots.
+      # daily kopiur snapshots.
       VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
       # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # Twice-hourly: explicit minutes (kopiur has no stepped H), chosen as
-      # VolSync's +5 so the two engines stayed apart during the parallel run.
-      KOPIUR_LOCAL_CRON: "13,43 * * * *"
+      KOPIUR_LOCAL_CRON: "H 8 * * *"
       # R2 pinned to an explicit minute <= :39, not H 2: jitter could spill
       # into hour 03, reserved for kopia-maint-r2 (waves table footnote 2).
       KOPIUR_R2_CRON: "0 2 * * *"

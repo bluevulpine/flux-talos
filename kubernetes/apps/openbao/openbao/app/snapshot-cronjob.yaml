@@ -19,7 +19,7 @@ spec:
           serviceAccountName: openbao-snapshot
           initContainers:
             - name: snapshot
-              image: quay.io/openbao/openbao:2.7.1  # renovate: datasource=docker
+              image: quay.io/openbao/openbao:2.7.2  # renovate: datasource=docker
               command:
                 - /bin/sh
                 - -c
@@ -44,7 +44,7 @@ spec:
                   mountPath: /snapshots
           containers:
             - name: upload
-              image: amazon/aws-cli:2.38.3
+              image: amazon/aws-cli:2.39.3
               command:
                 - /bin/sh
                 - -c

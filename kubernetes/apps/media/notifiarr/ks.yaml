@@ -33,10 +33,11 @@ spec:
       VOLSYNC_CAPACITY: 1Gi
       VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
-      # Low criticality: notification config - backup every 4 hours
-      # kopiur (components/kopiur). H picks a minute per schedule; the hours are
-      # the ones VolSync used before the cutover.
-      KOPIUR_LOCAL_CRON: "H */4 * * *"
+      # Low criticality: notification config - local backup daily
+      # kopiur (components/kopiur). H picks a minute per schedule; the R2 hour
+      # is the one VolSync used, the local hour is this app's slot in the
+      # daily window (components/kopiur/local.yaml).
+      KOPIUR_LOCAL_CRON: "H 10 * * *"
       # R2 is pinned to an explicit minute, not "H 2": H hashed to >= :39 here
       # (a slot read 02:59Z), and the forward jitter can spill into hour 03,
       # reserved for kopia-maint-r2. Footnote 2 of the waves table in

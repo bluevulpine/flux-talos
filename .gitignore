@@ -47,3 +47,6 @@ talos/secrets.yaml
 # Codex (ChatGPT desktop app) auto-generates this by porting CLAUDE.md on first
 # open. We don't use Codex deliberately; keep the local copy out of git.
 AGENTS.md
+
+# Python bytecode (scripts/twit-transcripts is imported by hand when testing)
+__pycache__/

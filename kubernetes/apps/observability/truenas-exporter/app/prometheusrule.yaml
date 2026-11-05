@@ -1,0 +1,40 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+#
+# The exporter's own poll health. Exists because 2026-11-02 to 2026-11-05 every
+# poll failed (the NAS UI cert had expired, so the TLS handshake was refused)
+# and nothing noticed for three days: the scrape target stayed up=1, because
+# the exporter itself was healthy and kept serving its cached pool rows, so
+# kube-prometheus-stack's generic TargetDown could never fire. Only
+# truenas_exporter_up, the exporter's verdict on its last poll, saw it.
+#
+# The pool series are deliberately held (not dropped) while up=0 (see
+# record_failure in the exporter's collector.py), so pool alerts keep
+# evaluating stale data during an outage. That makes this rule the thing that
+# says "pool metrics are not current", not a nicety.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: truenas-exporter
+spec:
+  groups:
+    - name: truenas-exporter.rules
+      rules:
+        # 15m = 15 consecutive failed 60s polls, so a NAS reboot or middleware
+        # restart (a few minutes) does not page. last_success is 0 until the
+        # first successful poll after a pod start, hence the > 0 filter: without
+        # it the summary would claim the last success was ~56 years ago.
+        - alert: TruenasExporterPollFailing
+          annotations:
+            summary: >-
+              truenas-exporter's TrueNAS polls are failing{{ with query "time() - max(truenas_exporter_last_success_timestamp_seconds > 0)" }}
+              (last success {{ . | first | value | humanizeDuration }} ago){{ else }}
+              (no successful poll since the exporter started){{ end }};
+              pool metrics are stale. The exporter logs the reason on every
+              failed poll: `kubectl -n observability logs deploy/truenas-exporter`.
+              A TLS "certificate has expired" there means the NAS UI cert did
+              not renew (see the gatus "vault NAS certificate" endpoint).
+          expr: max(truenas_exporter_up) == 0
+          for: 15m
+          labels:
+            severity: warning

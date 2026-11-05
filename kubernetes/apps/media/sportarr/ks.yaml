@@ -47,8 +47,8 @@ spec:
       # files still carrying them are dead config, out of scope for this change.
       #
       # /config holds config.xml and the app's own backups. With the Postgres
-      # provider it does NOT hold the database, so it is low-churn - hence the
-      # 4-hourly local schedule rather than the hourly one radarr/sonarr use.
+      # provider it does NOT hold the database, so it is low-churn. (Its old
+      # 4-hourly local schedule is moot since every app went daily, 2026-10-29.)
       #
       # R2 stays out of hour 03: it is reserved for kopia-maint-r2 against the
       # same R2 repository, a reservation that rests on incident history (9
@@ -58,9 +58,10 @@ spec:
       VOLSYNC_CAPACITY: 4Gi
       VOLSYNC_STORAGECLASS: longhorn-2-replica
       VOLSYNC_ACCESSMODES: ReadWriteOnce
-      # kopiur (components/kopiur). H picks a minute per schedule; the hours are
-      # the ones VolSync used before the cutover.
-      KOPIUR_LOCAL_CRON: "H */4 * * *"
+      # kopiur (components/kopiur). H picks a minute per schedule; the R2 hour
+      # is the one VolSync used, the local hour is this app's slot in the
+      # daily window (components/kopiur/local.yaml).
+      KOPIUR_LOCAL_CRON: "H 11 * * *"
       KOPIUR_R2_CRON: "H 5 * * *"
       # Snapshot, never the default: the component defaults to
       # Direct, which reads the volume live while the app is writing to it.

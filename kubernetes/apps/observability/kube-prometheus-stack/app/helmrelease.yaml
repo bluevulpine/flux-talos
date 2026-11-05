@@ -211,14 +211,41 @@ spec:
           cluster: main
         resources:
           requests:
-            cpu: 100m
+            # Was 100m. Prometheus has no CPU limit, so the request is its only
+            # protection when a node is busy (scheduler weight and cgroup shares).
+            cpu: 500m
             memory: 4Gi
           limits:
             memory: 8Gi
+        # The Prometheus CRD has no probe fields; the operator's own probes use a 3s
+        # timeout and 6 failures x 5s, a tight window for a 600k-series head on a
+        # loaded node, and each kill costs a WAL replay plus a ~2m40s shutdown snapshot.
+        # Hardening: the 2026-10-29 churn was mostly pod re-creation alongside Longhorn
+        # remounts (new UIDs, restarts 0), not liveness kills. `containers` is merged
+        # into the generated container by name.
+        containers:
+          - name: prometheus
+            livenessProbe:
+              timeoutSeconds: 10
+              failureThreshold: 12
+        # The two replicas are the redundancy, so each TSDB must sit on its own
+        # pod's node. On `longhorn-1-replica` (dataLocality disabled, Immediate
+        # binding) Longhorn put BOTH single replicas on brokkr02 data-2; that disk
+        # stalled on 2026-10-29 18:29Z, both volumes faulted within 2s, and the HA
+        # pair went down as one. `longhorn-1-replica-local` (best-effort locality,
+        # WaitForFirstConsumer) is the class CNPG uses for the same reason: the app
+        # replicates, so the storage follows its pod. Hard anti-affinity makes the
+        # pods, and so the disks, distinct; there are three schedulable brokkr
+        # nodes, so one can drain without stranding a replica.
+        # Changing the class is an immutable volumeClaimTemplate change: the
+        # operator answers it by deleting the StatefulSet with FOREGROUND
+        # propagation (both pods at once), and existing PVCs keep the old class
+        # until deleted. Migration steps: docs/runbooks/prometheus-storage-migration.md.
+        podAntiAffinity: hard
         storageSpec:
           volumeClaimTemplate:
             spec:
-              storageClassName: longhorn-1-replica
+              storageClassName: longhorn-1-replica-local
               resources:
                 requests:
                   storage: 100Gi

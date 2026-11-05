@@ -43,6 +43,16 @@ spec:
           k8s-logging.exclude on
           namespace_labels off
           annotations off
+          # The pod lookup's response buffer. The 32k default is smaller than a
+          # Cilium agent pod (~64k: init containers, env, volumes), so the lookup
+          # failed ("[http_client] cannot increase buffer: current=32000
+          # requested=64768") and every cilium-agent line, Hubble flow logs
+          # included, reached VictoriaLogs with no k_* fields at all, filed
+          # under a bare {stream="stdout"} where no pod/namespace query could
+          # find it (found 2026-11-03; 14 days held zero cilium-agent records by
+          # name). Any pod with a large spec hits the same silent loss. 512k
+          # leaves room without making a runaway response unbounded.
+          buffer_size 512k
 
         [FILTER]
           name nest

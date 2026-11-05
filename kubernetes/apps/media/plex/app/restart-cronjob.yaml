@@ -1,0 +1,93 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/batch/cronjob_v1.json
+# Restarts Plex once a day at 12:00 UTC with a rollout restart, so the Deployment
+# replaces the pod the same way a template change would (no direct pod delete).
+#
+# The job waits up to 30 minutes for the new pod, matching Plex's startup probe
+# budget (helmrelease.yaml): its large SQLite database can take that long to come
+# up. It polls instead of using `kubectl rollout status`, because that exits once
+# the Deployment's progressDeadlineSeconds (default 10m) passes, even though the
+# rollout itself carries on.
+#
+# No retries (backoffLimit 0, restartPolicy Never): a retried job would run
+# `rollout restart` again and kill the pod partway through its startup.
+#
+# Relies on the plex controller's default `Recreate` strategy (helmrelease.yaml
+# sets none): the old pod stops before the new one starts. If the controller is
+# ever switched to RollingUpdate, this restart would briefly run two Plex
+# processes on the same SQLite database and compete for the one GPU.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: plex-daily-restart
+spec:
+  schedule: "0 12 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      # 30m wait + 5m headroom for the restart call and pod scheduling.
+      activeDeadlineSeconds: 2100
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: plex-daily-restart
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: restart
+              # renovate: datasource=docker depName=alpine/k8s
+              image: docker.io/alpine/k8s:1.37.1
+              command:
+                - /bin/sh
+                - -c
+              args:
+                - |
+                  set -eu
+                  kubectl rollout restart deployment/plex
+                  deadline=$(( $(date +%s) + 1800 ))
+                  while :; do
+                    # generation observedGeneration replicas status.replicas updated available
+                    # `|| true`: under `set -e` one transient API error would fail the
+                    # job while Plex restarts fine; empty output fails the 6-field
+                    # check below, so the loop just polls again until the deadline.
+                    s="$(kubectl get deployment plex -o jsonpath='{.metadata.generation} {.status.observedGeneration} {.spec.replicas} {.status.replicas} {.status.updatedReplicas} {.status.availableReplicas}' || true)"
+                    set -- $s
+                    if [ "$#" -eq 6 ] && [ "$1" = "$2" ] && [ "$3" = "$4" ] && [ "$3" = "$5" ] && [ "$3" = "$6" ]; then
+                      echo "plex is back up"
+                      exit 0
+                    fi
+                    if [ "$(date +%s)" -ge "$deadline" ]; then
+                      echo "plex did not become available within 30m (status: $s)" >&2
+                      exit 1
+                    fi
+                    sleep 15
+                  done
+              env:
+                - name: HOME
+                  value: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: {}

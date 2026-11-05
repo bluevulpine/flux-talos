@@ -125,7 +125,7 @@ spec:
   maintenance:
     # OFF until VolSync is decommissioned. The fork's own KopiaMaintenance
     # objects in volsync-system currently own maintenance on THIS repository
-    # (kopia-maintenance-local: quick 0 */4 * * *, full 0 2 * * *). Enabling
+    # (kopia-maintenance-local: hourly, full, since 2026-10-23). Enabling
     # kopiur's would put two owners on one repository's maintenance lease.
     # Flip this to true in the same change that retires those objects.
     enabled: false

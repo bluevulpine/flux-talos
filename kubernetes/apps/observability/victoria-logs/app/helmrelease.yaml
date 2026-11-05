@@ -17,8 +17,39 @@ spec:
         storageClassName: longhorn-1-replica
         size: 20Gi
       retentionPeriod: 14d
+      # Syslog ingest, so VictoriaLogs doubles as the homelab's lightweight SIEM:
+      # UniFi's "SIEM server" setting sends CEF over syslog (IPS detections,
+      # firewall blocks, honeypot hits). Added 2026-11-03: until then the gateway's
+      # view of traffic could not be searched next to the cluster's own logs, and
+      # UniFi's push notifications were too noisy to act on. With the events here,
+      # vmalert can alert on the few that matter.
+      #
+      # The LAN entry point is service-syslog.yaml (a LoadBalancer restricted to
+      # the gateway); the chart's own Service is headless, so it cannot be one.
+      # :5514, not :514, so the non-root container needs no NET_BIND_SERVICE; the
+      # LoadBalancer maps 514 onto it. Both UDP and TCP, since UniFi's setting
+      # does not say which it uses. hostname,app_name as stream fields keep each
+      # sending device and program its own stream. streamFields is a JSON ARRAY:
+      # the plain `hostname,app_name` this first shipped with made VictoriaLogs
+      # exit at startup ("cannot parse -syslog.streamFields.udp") and took all
+      # cluster logging down until fixed (2026-11-03).
+      syslog:
+        udp:
+          - name: syslog-udp
+            value: :5514
+            streamFields: '["hostname","app_name"]'
+            useRemoteIP: true
+        tcp:
+          - name: syslog-tcp
+            value: :5514
+            streamFields: '["hostname","app_name"]'
+            useRemoteIP: true
       serviceMonitor:
         enabled: true
+      extraArgs:
+        # RFC3164 syslog carries no timezone; without this, VictoriaLogs reads
+        # the gateway's local timestamps as UTC and files every event 5-6 h off.
+        syslog.timezone: ${TIMEZONE}
     dashboards:
       enabled: true
 

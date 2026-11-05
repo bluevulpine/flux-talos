@@ -11,6 +11,11 @@ VAULT=/data/vault
 # A partially synced tree (first pull, or a peer that is behind) shows up as a
 # mass deletion. Refuse to push one. Raise this for a run that really deletes.
 MAX_DELETIONS="${MAX_DELETIONS:-25}"
+# git add reads each file whole into memory, so one large attachment the
+# vault's .gitignore misses OOMKills every run (a 150 MB Voice Memos export
+# did, 2026-10-29..11-01). Files over this are left out of the commit and the
+# run fails until they are moved or gitignored; Syncthing still carries them.
+MAX_FILE_MB="${MAX_FILE_MB:-50}"
 
 # Syncthing writes .stfolder when the share is accepted. Before pairing there is
 # nothing here, and adopting origin over an empty tree would stage every file
@@ -33,6 +38,13 @@ export GIT_SSH_COMMAND="ssh -i /tmp/id_ed25519 -o IdentitiesOnly=yes -o StrictHo
 git config --global safe.directory "$VAULT"
 git config --global user.name "$GIT_AUTHOR_NAME"
 git config --global user.email "$GIT_AUTHOR_EMAIL"
+# No background housekeeping. fetch and commit start `git maintenance run
+# --auto --detach`, which outlives this script, is killed with the pod, and
+# leaves a tmp_pack_* behind every run. With it off, a committing run peaked
+# at 7 MB on 2026-11-02, against ~350 MB with it on. The housekeeping block
+# after `git reset` does the same work in the foreground instead.
+git config --global maintenance.auto false
+git config --global gc.auto 0
 
 if [ ! -d .git ]; then
   echo "bootstrap: adopting origin/main into existing working tree"
@@ -66,20 +78,63 @@ fi
 # keeps failing, until the copies are resolved. .trash is Obsidian's bin, where
 # a copy already dealt with may sit.
 conflicts=$(find . \( -path ./.git -o -path ./.stversions -o -path ./.trash \) -prune -o -name '*.sync-conflict-*' -print | head -20)
+oversized=""
 finish() {
+  rc=0
   if [ -n "$conflicts" ]; then
     echo "sync-conflict copies present; resolve them on any device (git ignores them):" >&2
     echo "$conflicts" >&2
-    exit 1
+    rc=1
   fi
-  exit 0
+  if [ -n "$oversized" ]; then
+    echo "files over ${MAX_FILE_MB} MB left out of git; move them or add them to the vault's .gitignore:" >&2
+    echo "$oversized" >&2
+    rc=1
+  fi
+  exit "$rc"
 }
 
 git fetch -q origin main
 # HEAD+index -> origin, working tree untouched. Adopts anything pushed since
 # (should be nothing: this is the only pusher).
 git reset -q origin/main
-git add -A
+
+# Housekeeping, in the foreground so the pod cannot be killed mid-repack.
+# The reflog is useless here (every run resets to origin/main) and harmful:
+# it kept a 148 MB blob reachable after a killed run had committed it locally
+# and died while pushing it, so prune could not drop it.
+git reflog expire --expire=now --all
+# Each commit writes its blobs and trees as loose objects, and with
+# auto-maintenance off nothing packs them, so repack past 2000 (the store held
+# 1,138 on 2026-11-02). -a folds the existing packs in too: gc.auto=0 also
+# turns off the pack-count merge, and the repo is ~11 MB, so a full repack is
+# cheap. prune afterwards removes unreachable loose objects and tmp_pack_*
+# debris from killed runs (556 of those, 138 MB, had piled up by 11-01),
+# which count-objects reports as garbage, one stderr warning per file.
+eval "$(git count-objects -v 2>/dev/null | awk '/^count: /{print "loose_count="$2} /^size-garbage: /{print "garbage_kb="$2}')"
+if [ "${loose_count:-0}" -gt 2000 ] || [ "${garbage_kb:-0}" -gt 51200 ]; then
+  echo "housekeeping: ${loose_count} loose objects, ${garbage_kb} KiB garbage"
+  git repack -a -d -q
+  git prune --expire=1.hour.ago
+fi
+
+# Keep oversized new or modified files out of this run. An exclude pathspec,
+# not .git/info/exclude: that only hides untracked files, and a tracked note
+# that grows past the limit would still be read. `literal` keeps a name with
+# glob characters from matching anything else. quotePath=false: by default
+# ls-files C-quotes non-ASCII names ("R\303\251cording.qta"), the -f test
+# then misses the file, and git add reads it whole after all.
+limit=$((MAX_FILE_MB * 1024 * 1024))
+oversized=$(git -c core.quotePath=false ls-files -o -m --exclude-standard | while IFS= read -r f; do
+  if [ -f "$f" ] && [ "$(stat -c %s "$f")" -gt "$limit" ]; then printf '%s\n' "$f"; fi
+done | sort -u)
+set -- .
+if [ -n "$oversized" ]; then
+  while IFS= read -r f; do set -- "$@" ":(top,exclude,literal)$f"; done <<EOF
+$oversized
+EOF
+fi
+git add -A -- "$@"
 if git diff --cached --quiet; then
   echo "nothing to commit"
   finish

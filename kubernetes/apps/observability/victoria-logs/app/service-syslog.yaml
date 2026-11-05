@@ -1,0 +1,36 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.36.2-standalone-strict/service-v1.json
+apiVersion: v1
+kind: Service
+metadata:
+  name: victoria-logs-syslog
+  annotations:
+    lbipam.cilium.io/ips: ${SVC_SYSLOG_ADDR:=temp}
+spec:
+  # The LAN entry point for syslog into VictoriaLogs (see the syslog block in
+  # helmrelease.yaml for why). A separate Service because the chart's own is
+  # headless and carries the HTTP API, which must stay cluster-internal.
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  # Syslog has no authentication: anything that can reach the port can write
+  # log lines, including fake "all clear" events. So only the UniFi gateway may
+  # send. It reaches the LB pool (BGP-routed 172.16.8.0/24) from its VLAN 10
+  # address. If events never arrive after UniFi is configured, the gateway is
+  # sourcing from another interface: find it in Cilium's drops
+  # (`cilium-dbg monitor --type drop` on the node holding the LB) and add that
+  # one address, not the whole LAN.
+  loadBalancerSourceRanges:
+    - 10.0.10.1/32
+  selector:
+    app.kubernetes.io/name: victoria-logs-single
+    app.kubernetes.io/instance: victoria-logs
+    app: server
+  ports:
+    - name: syslog-udp
+      port: 514
+      targetPort: 5514
+      protocol: UDP
+    - name: syslog-tcp
+      port: 514
+      targetPort: 5514
+      protocol: TCP

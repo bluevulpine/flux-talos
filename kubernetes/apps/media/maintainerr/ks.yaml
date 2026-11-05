@@ -53,8 +53,10 @@ spec:
       # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
-      # H picks a minute per schedule; the hours match VolSync's.
-      KOPIUR_LOCAL_CRON: "H */4 * * *"
+      # H picks a minute per schedule; the R2 hour matches VolSync's
+      # old one, the local hour is this app's slot in the daily window
+      # (components/kopiur/local.yaml).
+      KOPIUR_LOCAL_CRON: "H 10 * * *"
       KOPIUR_R2_CRON: "H 6 * * *"
       # Snapshot, never the component's Direct default, which reads the volume
       # live while better-sqlite3 is writing to it (caught missing on

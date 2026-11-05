@@ -1,0 +1,45 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.36.2-standalone-strict/pod-v1.json
+apiVersion: v1
+kind: Pod
+metadata:
+  name: plexdb-maint
+  namespace: media
+  labels:
+    app.kubernetes.io/name: plexdb-maint
+spec:
+  restartPolicy: Never
+  # No node affinity: Plex is scaled to 0 while this runs, and the RWO claim
+  # attaches wherever the pod lands. (While Plex runs, it must share Plex's node.)
+  securityContext:
+    runAsUser: 568
+    runAsGroup: 568
+    runAsNonRoot: true
+    fsGroup: 568
+    fsGroupChangePolicy: OnRootMismatch
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: maint
+      image: ghcr.io/home-operations/plex@sha256:be00a2ad851ea3193cd870636f908eb6425ad89390f23cdb08daa35ab5cceacc
+      command:
+        - "sleep"
+        - "infinity"
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - "ALL"
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          memory: 4Gi
+      volumeMounts:
+        - name: config
+          mountPath: /config
+  volumes:
+    - name: config
+      persistentVolumeClaim:
+        claimName: plex

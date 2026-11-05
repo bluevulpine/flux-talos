@@ -1,0 +1,29 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: buzz
+  annotations:
+    gatus.home-operations.com/endpoint: |
+      group: ai
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Buzz"
+    gethomepage.dev/group: "AI"
+    gethomepage.dev/icon: "mdi-bee"
+    gethomepage.dev/description: "Agent workspace (Nostr relay)"
+spec:
+  hostnames:
+    - "buzz.${SECRET_DOMAIN}"
+  parentRefs:
+    # Internal gateway only - not exposed externally. Clients (the Buzz
+    # desktop app, agents outside the cluster) reach it on the LAN or tailnet.
+    - name: internal
+      namespace: network
+      sectionName: https
+  rules:
+    # One route for everything: the relay serves the WebSocket, REST API,
+    # web UI and /media on the same port.
+    - backendRefs:
+        - name: buzz
+          port: 3000

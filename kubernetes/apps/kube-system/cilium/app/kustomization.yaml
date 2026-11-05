@@ -4,6 +4,8 @@ kind: Kustomization
 resources:
   - ./networking.yaml
   - ./metadata-egress-deny.yaml
+  - ./plex2shell-ioc-deny.yaml
+  - ./egress-ssh-deny.yaml
   - ./helmrelease.yaml
   - ./httproute.yaml
   - ./ocirepository.yaml

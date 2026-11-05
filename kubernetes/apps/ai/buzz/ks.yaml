@@ -1,0 +1,36 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app buzz
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    - name: cloudnative-pg-cluster18
+      namespace: database
+    - name: dragonfly-cluster
+      namespace: database
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+  path: ./kubernetes/apps/ai/buzz/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: ai
+  wait: true
+  interval: 30m
+  retryInterval: 1m
+  timeout: 5m
+  postBuild:
+    substitute:
+      APP: *app
+      NS: ai
+      GATUS_SUBDOMAIN: buzz
+      # No PVC and so no kopiur/VolSync: the relay's state is Postgres
+      # (CNPG cluster18, backed up by barman to Garage and mirrored to Storj)
+      # plus the Garage `buzz` bucket. The git scratch dir is an emptyDir.

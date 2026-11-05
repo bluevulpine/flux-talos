@@ -11,6 +11,35 @@
       ignoreTests: false,
     },
     {
+      // Plex is internet-facing, so a new PMS release lands as soon as its PR
+      // passes checks, no human in the loop (2026-11-03: a stale cached
+      // `rolling` image had silently left it on an older build). Majors
+      // too: PMS has never used major versions for breaking changes, and its
+      // fixes ship as whatever the next build number is.
+      description: "Auto-merge Plex Media Server releases",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/home-operations/plex"],
+      matchUpdateTypes: ["major", "minor", "patch", "digest"],
+      automerge: true,
+      automergeType: "pr",
+      ignoreTests: false,
+    },
+    {
+      // The other internet-facing services (Jellyfin via external-direct,
+      // Mosquitto on WAN 8883): security fixes land once checks pass. Unlike
+      // Plex, majors stay manual: both have changed config formats at majors.
+      description: "Auto-merge internet-facing service updates",
+      matchDatasources: ["docker"],
+      matchPackageNames: [
+        "ghcr.io/jellyfin/jellyfin",
+        "public.ecr.aws/docker/library/eclipse-mosquitto",
+      ],
+      matchUpdateTypes: ["minor", "patch", "digest"],
+      automerge: true,
+      automergeType: "pr",
+      ignoreTests: false,
+    },
+    {
       description: "Auto-merge OCI Charts",
       matchDatasources: ["docker"],
       automerge: true,
