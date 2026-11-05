@@ -22,7 +22,11 @@ concluded there was no history, when 60 days of it existed in Thanos.
 
 Do **not** "fix" this by raising `retention:` in the kube-prometheus-stack
 HelmRelease. It would duplicate what Thanos already stores. (For sizing context
-if it ever does come up: ~2.2 GB/day, on a 105 GB PVC using 5.8 GB.)
+if it ever does come up: each Prometheus replica has its own 100Gi PVC. The
+container is distroless, with no `df` or `du`, so read actual usage off
+Longhorn: `kubectl -n longhorn-system get volumes.longhorn.io <pv-name> -o
+jsonpath='{.status.actualSize}'`. Usage grows with cardinality and scrape
+volume, so measure it rather than assume an old figure.)
 
 ## Short long-range results or store-gateway OOMs
 
