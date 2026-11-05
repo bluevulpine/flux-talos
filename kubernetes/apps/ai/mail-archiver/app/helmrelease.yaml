@@ -159,3 +159,14 @@ spec:
           mail-archiver:
             app:
               - path: /app/uploads
+      # Same failure one constructor later: ExportService creates /app/exports
+      # at startup. uploads and exports are the only directory names in the
+      # assembly besides the mounted DataProtection-Keys and logs (checked by
+      # decoding MailArchiver.dll's string literals, 2610.1). Exports are
+      # generated for download, so scratch space is enough here too.
+      exports:
+        type: emptyDir
+        advancedMounts:
+          mail-archiver:
+            app:
+              - path: /app/exports
