@@ -47,6 +47,22 @@ Known agents: Fizz (`fizz-bot-bvn[bot]`, Buzz framework), Bosun
 (`bluevulpine-bot[bot]`, Hermes Agent harness), Deckhand (`deckhand-bot-bvn[bot]`,
 Hermes Agent harness, Paperclip-driven Renovate triage). New agents should get
 their own GitHub App rather than silently joining a shared one.
+
+Claude Code has two identities, depending on where it runs:
+
+- **Local sessions** (Derek's Mac) commit as `fizz-bot-bvn[bot]` via the
+  per-command flags above, plus a `Co-Authored-By:` trailer naming the model
+  (decided 2026-09-25). These commits show as unverified on GitHub: they
+  carry fizz-bot's name, but the local signing key is not registered to it.
+- **Web/cloud sessions** (claude.ai/code) commit as
+  `Claude <noreply@anthropic.com>`, GitHub user `claude`. The cloud environment
+  signs these, so they show as verified. Keep that identity; do not override it
+  with fizz-bot's: the signing key belongs to `claude`, so a fizz-bot author
+  would most likely show as unverified (not tested).
+
+Both kinds of session add a `Claude-Session:` trailer, which names the exact
+session behind a commit.
+
 **Do not infer authorship convention from `git log`**: every non-Renovate commit
 before 2026-09-09 is authored `Derek Jacobs` because the bot account did not
 exist yet, not because human authorship is the convention. The point of bot
