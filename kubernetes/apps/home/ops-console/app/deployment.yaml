@@ -43,27 +43,20 @@ spec:
           # so Flux must write the whole ref. ":tag" would overwrite the scalar with the bare tag.
           image: gitea.derekjacobs.dev/bvn-homelab/ops-console:9-adc281e8 # {"$imagepolicy": "flux-system:ops-console"}
           imagePullPolicy: Always
-          # Same as the image's CMD plus --timeout-keep-alive. uvicorn closes idle connections
-          # after 5s by default, but the gateway's Envoy keeps upstream connections for reuse
-          # (its idle timeout defaults to 1h; no BackendTrafficPolicy here sets one). Envoy
-          # reusing a connection uvicorn just closed returns `503 UC upstream_reset_before_
-          # response_started{connection_termination}` before the app sees the request
-          # (measured 2026-10-29 20:14:00Z, 5s after the previous request). Keep it above
-          # Envoy's idle timeout so Envoy, not uvicorn, closes first.
-          args:
-            - uvicorn
-            - --factory
-            - ops_console.app:create_app
-            - --host
-            - 0.0.0.0
-            - --port
-            - "8000"
-            - --timeout-keep-alive
-            - "3700"
           ports:
             - name: http
               containerPort: 8000
           env:
+            # uvicorn closes idle connections after 5s by default, but the gateway's Envoy keeps
+            # upstream connections for reuse (its idle timeout defaults to 1h; no
+            # BackendTrafficPolicy here sets one). Envoy reusing a connection uvicorn just closed
+            # returns 503 UC `upstream_reset_before_response_started{connection_termination}`
+            # before the app sees the request (measured 2026-10-29 20:14:00Z, 5s after the
+            # previous request). Keep this above Envoy's idle timeout so Envoy closes first.
+            # Set through the env var (uvicorn's CLI reads UVICORN_<OPTION>) rather than args,
+            # so the image's CMD is not overridden and image bumps cannot drift from it.
+            - name: UVICORN_TIMEOUT_KEEP_ALIVE
+              value: "3700"
             - name: OPS_NAMESPACE
               value: home
             # Sign-in is the console's own (OIDC against Authentik); the issuer string must
