@@ -28,7 +28,8 @@ metadata:
   #
   # ONLY /v1. The admin UI, /ui, /health/*, /metrics, /key/* and /model/*
   # management endpoints stay on the control-plane route below, behind SSO —
-  # the master key is proxy-admin and the UI is where it is used.
+  # the management API there still takes the proxy-admin master key as a
+  # bearer token (the UI itself is SSO-only: disable_env_credential_login).
 spec:
   hostnames:
     - litellm.${SECRET_DOMAIN}
@@ -70,10 +71,13 @@ metadata:
     gethomepage.dev/icon: "mdi-router-network"
     gethomepage.dev/description: "Inference gateway + spend"
   labels:
-    # NOT optional. LiteLLM's admin UI authenticates with LITELLM_MASTER_KEY,
-    # which is proxy-admin: it mints and revokes virtual keys and reads all
-    # spend. Without this label the UI is reachable by anything on the LAN or
-    # tailnet that knows the hostname, and the master key is the only thing
+    # NOT optional. The UI's login form no longer takes the master key
+    # (general_settings.disable_env_credential_login, helmrelease.yaml), but
+    # the management API on this same route (/key/*, /model/*, ...) still
+    # accepts LITELLM_MASTER_KEY as a bearer token, and that key is
+    # proxy-admin: it mints and revokes virtual keys and reads all spend.
+    # Without this label those endpoints are reachable by anything on the LAN
+    # or tailnet that knows the hostname, and the master key is the only thing
     # between a visitor and full control of every model route.
     #
     # Requires `ai` in kubernetes/apps/identity/authentik/app/referencegrant.yaml
