@@ -18,6 +18,7 @@ resources:
   - ./pvc.yaml
   - ./restart-rbac.yaml
   - ./restart-cronjob.yaml
+  - ./restart-prometheusrule.yaml
 
 patches:
   # Stage kopiur's snapshot clones on 1 replica, as VolSync did. A staged PVC
