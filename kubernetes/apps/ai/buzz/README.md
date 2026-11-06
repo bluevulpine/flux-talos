@@ -20,6 +20,35 @@ The relay is on the internal gateway only, so it can be reached from the LAN and
 tailnet. Do not add an `external`/`external-pangolin` route. Upstream has no rate
 limiting yet, and membership enforcement is the only gate.
 
+## Phone pairing
+
+Pairing a phone from the desktop app's mobile pairing card does not go through the main
+relay. The desktop opens a WebSocket to a separate pairing relay, shows the QR code,
+and the phone joins the same short-lived session there (NIP-AB). That relay is the
+chart's `pairingRelay` sidecar (`buzz-pair-relay` from the same image, Deployment and
+Service `buzz-pairing`, port 5000), reached through the `/pair` rule of the HTTPRoute
+and advertised to clients as `pairing_relay_url` in NIP-11. It is stateless and has no
+auth of its own: sessions are end-to-end encrypted, events live 120 s, and 128
+connections is the cap.
+
+If the desktop shows `WebSocket connection failed: HTTP error: 404 Not Found` and no
+QR code, the sidecar or the `/pair` route is gone and the app fell back to the legacy
+same-host `/pair`, which the main relay does not serve (that was the state from
+2026-11-04 to the fix).
+
+The phone must reach `buzz.${SECRET_DOMAIN}` on the internal gateway, both to pair and
+to use the app afterwards: home Wi-Fi, or the tailnet with its split DNS. Pairing over
+cellular will fail at the first connection.
+
+```sh
+curl -s -H 'Accept: application/nostr+json' https://buzz.${SECRET_DOMAIN}/ | jq .pairing_relay_url
+# GET, not HEAD (-I): the sidecar only upgrades GET and answers 400 to anything else.
+# --max-time because curl keeps the upgraded connection open; the status line is out by then.
+curl -s --http1.1 -D - -o /dev/null --max-time 2 \
+  -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' \
+  -H "Sec-WebSocket-Key: $(openssl rand -base64 16)" https://buzz.${SECRET_DOMAIN}/pair | head -1   # HTTP/1.1 101
+```
+
 ## Members
 
 `relay.requireRelayMembership` is on (the chart default), so only the owner and the
