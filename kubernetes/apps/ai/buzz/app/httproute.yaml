@@ -22,8 +22,20 @@ spec:
       namespace: network
       sectionName: https
   rules:
-    # One route for everything: the relay serves the WebSocket, REST API,
-    # web UI and /media on the same port.
+    # Phone pairing: the stateless NIP-AB sidecar (pairingRelay in
+    # helmrelease.yaml). Exact match, because upstream's buzz-pair-relay docs
+    # say the proxy should route only `/pair` to it, and it enforces no path
+    # restriction of its own. Gateway API prefers the more specific match, so
+    # this wins over the catch-all below regardless of order.
+    - matches:
+        - path:
+            type: Exact
+            value: /pair
+      backendRefs:
+        - name: buzz-pairing
+          port: 5000
+    # Everything else: the relay serves the WebSocket, REST API, web UI and
+    # /media on the same port.
     - backendRefs:
         - name: buzz
           port: 3000

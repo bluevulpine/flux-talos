@@ -30,6 +30,26 @@ spec:
                 name: buzz
                 annotations:
                   secret.reloader.stakater.com/reload: buzz-secret
+          # The pairing sidecar's template exposes no affinity, so the same
+          # "off the control plane" rule as relay.affinity below is a patch.
+          - target:
+              kind: Deployment
+              name: buzz-pairing
+            patch: |-
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: buzz-pairing
+              spec:
+                template:
+                  spec:
+                    affinity:
+                      nodeAffinity:
+                        requiredDuringSchedulingIgnoredDuringExecution:
+                          nodeSelectorTerms:
+                            - matchExpressions:
+                                - key: node-role.kubernetes.io/control-plane
+                                  operator: DoesNotExist
   values:
     # Relay image: Block publishes ghcr.io/block/buzz:<x.y.z> on relay-v* tags,
     # a separate release line from the chart (whose appVersion lags at 0.1.0).
@@ -81,6 +101,23 @@ spec:
     # relay log again (seen twice on 2026-11-05 on Hermes' subscriptions).
     serviceMonitor:
       enabled: true
+
+    # Phone pairing (NIP-AB) runs over a separate, stateless, auth-free relay:
+    # the desktop app opens a WebSocket to it, draws the QR code, and the phone
+    # joins the same session. The main relay does not serve pairing itself.
+    # Without this, the desktop reads our NIP-11, sees NIP-43 and no
+    # pairing_relay_url, falls back to the legacy same-host `/pair` path, and
+    # the main relay answers 404 ("WebSocket connection failed: HTTP error:
+    # 404 Not Found", no QR). `url` is advertised in NIP-11 as
+    # pairing_relay_url; it points at the `/pair` rule in httproute.yaml, the
+    # path upstream's buzz-pair-relay docs ask the reverse proxy to route. The
+    # same path also makes the legacy fallback work for clients that have not
+    # learned the NIP-11 field. The sidecar runs buzz-pair-relay from the same
+    # image on :5000; it keeps nothing, so the chart's small default resources
+    # and CPU limit are fine.
+    pairingRelay:
+      enabled: true
+      url: wss://buzz.${SECRET_DOMAIN}/pair
 
     relay:
       resources:
