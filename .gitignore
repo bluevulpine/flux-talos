@@ -50,3 +50,8 @@ AGENTS.md
 
 # Python bytecode (scripts/twit-transcripts is imported by hand when testing)
 __pycache__/
+
+# Rendered Talos machine configs hold the full PKI in plaintext (talhelper's old
+# output dir; commit 60dc0f1fb leaked one). topf renders only to a mktemp dir,
+# but stale checkouts still carry this directory.
+talos/clusterconfig/
