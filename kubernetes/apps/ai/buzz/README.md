@@ -42,7 +42,10 @@ cellular will fail at the first connection.
 
 ```sh
 curl -s -H 'Accept: application/nostr+json' https://buzz.${SECRET_DOMAIN}/ | jq .pairing_relay_url
-curl -sI --http1.1 -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' \
+# GET, not HEAD (-I): the sidecar only upgrades GET and answers 400 to anything else.
+# --max-time because curl keeps the upgraded connection open; the status line is out by then.
+curl -s --http1.1 -D - -o /dev/null --max-time 2 \
+  -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' \
   -H "Sec-WebSocket-Key: $(openssl rand -base64 16)" https://buzz.${SECRET_DOMAIN}/pair | head -1   # HTTP/1.1 101
 ```
 
