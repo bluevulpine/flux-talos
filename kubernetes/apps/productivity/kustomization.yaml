@@ -17,5 +17,6 @@ resources:
   - ./n8n/ks.yaml
   - ./node-red/ks.yaml
   - ./obsidian/ks.yaml
+  - ./tapestry/ks.yaml
   - ./vault-sync/ks.yaml
 

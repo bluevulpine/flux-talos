@@ -1,0 +1,208 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app tapestry
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: tapestry
+  interval: 1h
+  values:
+    controllers:
+      tapestry:
+        type: deployment
+        replicas: 1
+        initContainers:
+          01-init-db:
+            # Creates the tapestry database and its owning role if absent. The
+            # ONLY container that gets the whole Secret: it also holds
+            # INIT_POSTGRES_SUPER_PASS, which the app and migrate must never
+            # receive (same rule as home/kia-trip-archiver/app/reauth.yaml).
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: rolling
+            envFrom:
+              - secretRef:
+                  name: tapestry-secret
+            securityContext: &securityContext
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                  - ALL
+          migrate:
+            # The app does not migrate on start, and neither probe checks the
+            # schema, so an unmigrated database would pass /healthz and fail
+            # every page. Already at head it is a no-op. drizzle's migrator takes
+            # no advisory lock: keep one replica and the default rolling update
+            # so two migrators never run at once.
+            image:
+              repository: gitea.derekjacobs.dev/bvn-homelab/tapestry
+              # TODO(first-image): placeholder until Drone builds the first image;
+              # no tag exists in the registry yet. Flux image automation replaces it.
+              tag: 1-00000000 # {"$imagepolicy": "flux-system:tapestry:tag"}
+            command:
+              - node
+              - build/migrate.js
+            # Per key, not envFrom: see 01-init-db above.
+            env: &dbEnv
+              TZ: "${TIMEZONE}"
+              TF_DB_HOST:
+                valueFrom:
+                  secretKeyRef:
+                    name: tapestry-secret
+                    key: TF_DB_HOST
+              TF_DB_PORT:
+                valueFrom:
+                  secretKeyRef:
+                    name: tapestry-secret
+                    key: TF_DB_PORT
+              TF_DB_NAME:
+                valueFrom:
+                  secretKeyRef:
+                    name: tapestry-secret
+                    key: TF_DB_NAME
+              TF_DB_USER:
+                valueFrom:
+                  secretKeyRef:
+                    name: tapestry-secret
+                    key: TF_DB_USER
+              TF_DB_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: tapestry-secret
+                    key: TF_DB_PASSWORD
+            securityContext: *securityContext
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
+        containers:
+          app:
+            # First-party, built by Drone from
+            # https://gitea.derekjacobs.dev/bvn-homelab/tapestry. The migrate
+            # init container runs the same image; each image block carries its
+            # own marker and the automation rewrites both.
+            image:
+              repository: gitea.derekjacobs.dev/bvn-homelab/tapestry
+              # TODO(first-image): placeholder, see migrate above.
+              tag: 1-00000000 # {"$imagepolicy": "flux-system:tapestry:tag"}
+            env: *dbEnv
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: &port 3000
+                  initialDelaySeconds: 0
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /readyz
+                    port: *port
+                  initialDelaySeconds: 0
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: *port
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+                  timeoutSeconds: 5
+                  failureThreshold: 30
+            securityContext: *securityContext
+            resources:
+              # A guess, to be tuned from observed usage.
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+    defaultPodOptions:
+      imagePullSecrets:
+        - name: tapestry-registry-creds
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        annotations:
+          gatus.home-operations.com/endpoint: |
+            group: productivity
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: "Tapestry"
+          gethomepage.dev/group: "Productivity"
+          gethomepage.dev/icon: "mdi-timeline-clock"
+          gethomepage.dev/description: "Terra Fabula timeline"
+        labels:
+          # No login of its own; forward auth puts the whole host behind
+          # Authentik SSO.
+          auth: authentik
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - tapestry.${SECRET_DOMAIN}
+      # Second route, deliberately WITHOUT the auth label, so an external uptime
+      # probe (Gatus) can reach the health paths. The label applies to a whole
+      # HTTPRoute object, not a rule, hence two objects on one host (the
+      # ai/hindsight and media/calibre-web pattern). Exact paths win over the
+      # `/` of the route above regardless of order. /readyz reveals only whether
+      # the database answers.
+      health:
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        hostnames:
+          - tapestry.${SECRET_DOMAIN}
+        rules:
+          - matches:
+              - path:
+                  type: Exact
+                  value: /healthz
+            backendRefs:
+              - identifier: app
+                port: *port
+          - matches:
+              - path:
+                  type: Exact
+                  value: /readyz
+            backendRefs:
+              - identifier: app
+                port: *port
+    persistence:
+      # The root filesystem is read-only; the app writes nothing itself, this
+      # mirrors ev-charge-ledger.
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
