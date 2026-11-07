@@ -35,23 +35,36 @@ spec:
       # only the 3 control-plane nodes (no Longhorn storage, no PDB) took
       # v1.13.9 while all 4 storage nodes failed.
       #
-      # Deliberately left at Longhorn's default guard. always-allow was used
-      # on 2026-08-29 to complete the Talos v1.13.9 roll and it works — but it
-      # lets Longhorn detach a volume from a pod that has not finished shutting
-      # down, which corrupted sabnzbd's SQLite history DB and VolSync's kopia
-      # cache for influxdb during that roll.
+      # NEVER always-allow: used on 2026-08-29 to finish the Talos v1.13.9 roll,
+      # it let Longhorn detach volumes from pods still shutting down and
+      # corrupted sabnzbd's SQLite history DB and a kopia cache.
       #
-      # allow-if-replica-is-stopped does NOT help: tested on brokkr01, the
-      # instance-manager PDB held at disruptionsAllowed:0 for 10 minutes,
-      # because that pod also serves engines for volumes attached from other
-      # nodes.
+      # allow-if-replica-is-stopped is the middle ground: a RUNNING last
+      # replica (an attached single-replica volume) still blocks, so data in
+      # use is protected, while the STOPPED last replicas of detached volumes
+      # (the ~40 single-replica kopiur caches) no longer do; their data stays
+      # on the node's disk across the reboot. Volumes attached elsewhere with
+      # their only replica on the draining node still block: give them a
+      # second replica first.
       #
-      # So node drains WILL block while volumes are attached. That is the
-      # intended trade: to drain a storage node, scale down the workloads
-      # holding volumes on it first (graceful shutdown), then drain. That
-      # procedure completed brokkr03 with zero corruption. Flipping this to
-      # always-allow for an unattended roll is what causes silent data damage.
-      nodeDrainPolicy: "block-if-contains-last-replica"
+      # The 2026-08-29 test recorded "allow-if-replica-is-stopped does NOT
+      # help" (PDB stuck 10 min on brokkr01). On 2026-11-06 (Talos PKI
+      # rotation roll) the same symptom had other causes, none of them the
+      # policy, and brokkr01 drained in 5 s under it once they were cleared:
+      # - an orphaned engine instance for a deleted volume: delete its
+      #   `orphans.longhorn.io` record. With no orphan record (brokkr02), check
+      #   by hand that nothing but the instance-manager is left and no attached
+      #   volume's only running replica is on the node, then skip the drain;
+      # - orphaned `snapshot-controller-*` attachment tickets holding detached
+      #   volumes attached to the node: remove the ticket;
+      # - `volume-rebuilding-controller` tickets (brokkr03): an offline
+      #   rebuild keeps the volume attached on the node holding its only
+      #   healthy replica. Wait for the rebuild; raising
+      #   concurrent-replica-rebuild-per-node-limit (2) for the window
+      #   drains the queue faster.
+      # The manager log names the exact blocker:
+      #   "removing <node> PDB is blocked: ..."
+      nodeDrainPolicy: "allow-if-replica-is-stopped"
       # Longhorn's default of 0 turns automatic engine upgrades off: a chart
       # upgrade moves the manager and instance managers, but each volume keeps
       # the engine image it was created with until someone upgrades it by hand.
