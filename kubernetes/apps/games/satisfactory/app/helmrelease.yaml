@@ -34,7 +34,6 @@ spec:
       nodeSelector:
         kubernetes.io/arch: amd64
 
-
     controllers:
       satisfactory:
         type: statefulset
@@ -42,9 +41,9 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/wolveix/satisfactory-server
-              # renovate: datasource=docker depName=ghcr.io/wolveix/satisfactory-server
-              tag: v1.9.10
+              repository: ghcr.io/robtme/satisfactory-server
+              # renovate: datasource=docker depName=ghcr.io/robtme/satisfactory-server
+              tag: v1.9.11
             env:
               TZ: "${TIMEZONE}"
               ROOTLESS: "true"
@@ -87,8 +86,6 @@ spec:
               limits:
                 memory: 16Gi
 
-
-
     service:
       app:
         enabled: true
@@ -117,7 +114,6 @@ spec:
             enabled: true
             port: 8888
             protocol: TCP
-
 
     persistence:
       config:
