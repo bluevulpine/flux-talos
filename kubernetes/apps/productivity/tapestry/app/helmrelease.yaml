@@ -40,9 +40,7 @@ spec:
             # so two migrators never run at once.
             image:
               repository: gitea.derekjacobs.dev/bvn-homelab/tapestry
-              # TODO(first-image): placeholder until Drone builds the first image;
-              # no tag exists in the registry yet. Flux image automation replaces it.
-              tag: 1-00000000 # {"$imagepolicy": "flux-system:tapestry:tag"}
+              tag: 1-98ac73c8 # {"$imagepolicy": "flux-system:tapestry:tag"}
             command:
               - node
               - build/migrate.js
@@ -89,8 +87,7 @@ spec:
             # own marker and the automation rewrites both.
             image:
               repository: gitea.derekjacobs.dev/bvn-homelab/tapestry
-              # TODO(first-image): placeholder, see migrate above.
-              tag: 1-00000000 # {"$imagepolicy": "flux-system:tapestry:tag"}
+              tag: 1-98ac73c8 # {"$imagepolicy": "flux-system:tapestry:tag"}
             env: *dbEnv
             probes:
               liveness:
