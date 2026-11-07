@@ -43,7 +43,7 @@ spec:
             image:
               repository: docker.io/s1t5/mailarchiver
               # renovate: datasource=docker depName=docker.io/s1t5/mailarchiver
-              tag: "2611.1"
+              tag: "2611.2"
             env:
               TZ: "${TIMEZONE}"
               AllowedHosts: mail-archiver.derekjacobs.dev
