@@ -14,9 +14,13 @@ What it checks, per container image, OCI Helm chart and `datasource=github-*` an
 The source repo comes from the image's `org.opencontainers.image.source` label (Helm charts:
 Chart.yaml `sources`/`home`), so monorepo builds (home-operations/containers) resolve correctly.
 
+Scope: kubernetes/ and talos/. bootstrap/helmfile.d is not scanned; its charts repeat
+kubernetes/ ones. Images with no source label get the Docker Hub checks only.
+
 Accepted findings go in .github/upstream-moved-ignore.yaml with the reason they are fine.
-Writes a Markdown report to --report; exit 0 always unless the scan itself fails, so the
-workflow can decide what to do with the findings.
+Writes a Markdown report to --report and `findings=N` / `errors=N` to $GITHUB_OUTPUT. A check
+that could not complete (rate limit, 5xx, network error) is an error, never a clean result:
+the workflow must not close the issue on a run that could not see everything.
 """
 from __future__ import annotations
 
@@ -47,6 +51,10 @@ class Http:
     def __init__(self, github_token: str | None):
         self.github_token = github_token
         self.registry_tokens: dict[tuple[str, str], str] = {}
+        self.errors: list[str] = []
+
+    def error(self, what: str) -> None:
+        self.errors.append(what)
 
     def get(self, url: str, headers: dict[str, str] | None = None) -> tuple[int, bytes, dict]:
         req = urllib.request.Request(url, headers={"User-Agent": UA, **(headers or {})})
@@ -55,6 +63,9 @@ class Http:
                 return r.status, r.read(), {k.lower(): v for k, v in r.headers.items()}
         except urllib.error.HTTPError as e:
             return e.code, e.read(), {k.lower(): v for k, v in e.headers.items()}
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            # Status 0 = no answer; callers treat it like any other unexpected status.
+            return 0, str(e).encode(), {}
 
     def github_repo(self, owner: str, repo: str) -> tuple[int, dict]:
         h = {"Accept": "application/vnd.github+json"}
@@ -62,7 +73,7 @@ class Http:
             h["Authorization"] = f"Bearer {self.github_token}"
         # urllib follows the 301 GitHub sends for a renamed repo, so full_name is the new name.
         status, body, _ = self.get(f"https://api.github.com/repos/{owner}/{repo}", h)
-        return status, (json.loads(body) if status == 200 else {})
+        return status, (load_json(body) or {} if status == 200 else {})
 
     def registry(self, host: str, name: str, path: str, accept: str | None = None) -> tuple[int, bytes]:
         api = "registry-1.docker.io" if host == "docker.io" else host
@@ -89,6 +100,13 @@ class Http:
             return None
         data = json.loads(body)
         return data.get("token") or data.get("access_token")
+
+
+def load_json(body: bytes):
+    try:
+        return json.loads(body)
+    except ValueError:
+        return None
 
 
 # ---------------------------------------------------------------- dependency discovery
@@ -172,9 +190,12 @@ def discover(root: Path) -> tuple[dict[str, dict], dict[str, set[str]]]:
 def source_url(http: Http, dep: dict) -> str | None:
     host, name, version = dep["host"], dep["name"], dep["version"] or "latest"
     status, body = http.registry(host, name, f"manifests/{version}", MANIFEST_TYPES)
-    if status != 200:
+    if status in (404, 401, 403):  # tag gone or private: no source to follow, not a scan error
         return None
-    manifest = json.loads(body)
+    manifest = load_json(body) if status == 200 else None
+    if not isinstance(manifest, dict):
+        http.error(f"`{host}/{name}`: manifest lookup answered {status}")
+        return None
     annotations = manifest.get("annotations") or {}
     if "manifests" in manifest:  # index: take linux/amd64, else the first entry
         entries = manifest["manifests"]
@@ -184,7 +205,7 @@ def source_url(http: Http, dep: dict) -> str | None:
         status, body = http.registry(host, name, f"manifests/{pick['digest']}", MANIFEST_TYPES)
         if status != 200:
             return annotations.get("org.opencontainers.image.source")
-        manifest = json.loads(body)
+        manifest = load_json(body) or {}
         annotations = {**annotations, **(manifest.get("annotations") or {})}
     if src := annotations.get("org.opencontainers.image.source"):
         return src
@@ -194,9 +215,8 @@ def source_url(http: Http, dep: dict) -> str | None:
     status, body = http.registry(host, name, f"blobs/{config['digest']}")
     if status != 200:
         return None
-    try:
-        blob = json.loads(body)
-    except ValueError:
+    blob = load_json(body)
+    if not isinstance(blob, dict):
         return None
     if "helm.config" in config.get("mediaType", ""):  # Helm chart: Chart.yaml metadata
         for url in (blob.get("sources") or []) + [blob.get("home") or ""]:
@@ -221,7 +241,9 @@ def check_github(http: Http, repo: str, cache: dict) -> list[str]:
         problems = []
         if status == 404:
             problems.append(f"source repo `{repo}` not found (deleted or private)")
-        elif status == 200:
+        elif status != 200 or "full_name" not in data:
+            http.error(f"GitHub `{repo}`: answered {status}")
+        else:
             if data["full_name"].lower() != repo.lower():
                 problems.append(f"source repo `{repo}` now answers as `{data['full_name']}` (renamed or transferred)")
             if data.get("archived"):
@@ -232,14 +254,21 @@ def check_github(http: Http, repo: str, cache: dict) -> list[str]:
 
 def check_dockerhub(http: Http, name: str) -> list[str]:
     status, body, _ = http.get(f"https://hub.docker.com/v2/repositories/{name}/")
-    if status != 200:
+    repo = load_json(body) if status == 200 else None
+    if status == 404:
+        return []
+    if not isinstance(repo, dict):
+        http.error(f"Docker Hub `{name}`: answered {status}")
         return []
     problems = []
-    if json.loads(body).get("status_description") == "archived":
+    if repo.get("status_description") == "archived":
         problems.append(f"Docker Hub repository `{name}` is archived")
     status, body, _ = http.get(f"https://hub.docker.com/v2/repositories/{name}/tags?page_size=25&ordering=last_updated")
-    if status == 200:
-        flagged = [t["name"] for t in json.loads(body).get("results", []) if DEPRECATED_TAG.search(t["name"])]
+    tags = load_json(body) if status == 200 else None
+    if not isinstance(tags, dict):
+        http.error(f"Docker Hub `{name}` tags: answered {status}")
+    else:
+        flagged = [t["name"] for t in tags.get("results", []) if DEPRECATED_TAG.search(t["name"])]
         if flagged:
             problems.append(f"recent tags look like a deprecation notice: `{'`, `'.join(flagged[:3])}`")
     return problems
@@ -267,7 +296,7 @@ def main() -> int:
         repo = github_of(source_url(http, dep))
         if repo:
             problems += check_github(http, repo, gh_cache)
-        elif not dep["name"].startswith("library/"):
+        elif not re.match(r"^(docker/)?library/", dep["name"]):  # official images carry no source label
             unresolved.append(key)
         if problems:
             findings.append((key, problems, dep["files"]))
@@ -289,7 +318,8 @@ def main() -> int:
             "These dependencies' upstream looks moved, archived or deprecated. Renovate will not",
             "propose the move itself: migrate the reference (a `replacementName` rule in",
             "`.renovate/overrides.json5` makes Renovate open the PR), or add the name to",
-            "`.github/upstream-moved-ignore.yaml` with the reason it is fine.",
+            "`.github/upstream-moved-ignore.yaml` with the reason it is fine. A \"renamed\" repo",
+            "can be stale metadata: if the image already lives under the new owner, ignore it.",
             "",
         ]
         for key, problems, files in findings:
@@ -297,6 +327,14 @@ def main() -> int:
             lines += [f"  - {p}" for p in problems]
     else:
         lines.append("No moved, archived or deprecated upstreams found.")
+    if http.errors:
+        lines += [
+            "",
+            f"**{len(http.errors)} checks could not complete** (rate limit, server or network error);",
+            "this list may be incomplete:",
+            "",
+            *[f"- {e}" for e in http.errors[:30]],
+        ]
     if unresolved:
         lines += [
             "",
@@ -307,10 +345,10 @@ def main() -> int:
             "</details>",
         ]
     args.report.write_text("\n".join(lines) + "\n")
-    print(f"findings={len(findings)} unresolved={len(unresolved)}", file=sys.stderr)
+    print(f"findings={len(findings)} errors={len(http.errors)} unresolved={len(unresolved)}", file=sys.stderr)
     if out := os.environ.get("GITHUB_OUTPUT"):
         with open(out, "a") as f:
-            f.write(f"findings={len(findings)}\n")
+            f.write(f"findings={len(findings)}\nerrors={len(http.errors)}\n")
     return 0
 
 

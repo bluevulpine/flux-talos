@@ -54,6 +54,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           FINDINGS: ${{ steps.scan.outputs.findings }}
+          ERRORS: ${{ steps.scan.outputs.errors }}
           REPORT: ${{ runner.temp }}/report.md
         run: |-
           issue=$(gh issue list --repo "$GITHUB_REPOSITORY" --label upstream-moved --state open \
@@ -65,6 +66,9 @@ jobs:
               gh issue create --repo "$GITHUB_REPOSITORY" --label upstream-moved \
                 --title "Upstream moved: dependencies Renovate cannot follow" --body-file "$REPORT"
             fi
+          elif [[ "$ERRORS" -gt 0 ]]; then
+            # Nothing found but some checks failed: an empty list is not proof, leave the issue alone.
+            echo "::warning::$ERRORS checks failed and nothing was found; issue left unchanged"
           elif [[ -n "$issue" ]]; then
             gh issue close "$issue" --repo "$GITHUB_REPOSITORY" --comment "Latest scan found nothing; closing."
           fi
