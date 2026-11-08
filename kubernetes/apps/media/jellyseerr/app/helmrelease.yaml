@@ -37,7 +37,7 @@ spec:
               # read-only root, npm cannot write $HOME/.npm, so its cache and logs
               # go to the /tmp emptyDir and the update check (a network call plus
               # a write) is off.
-              npm_config_cache: /tmp/.npm
+              NPM_CONFIG_CACHE: /tmp/.npm
               NPM_CONFIG_UPDATE_NOTIFIER: "false"
             probes:
               liveness: &probes
@@ -74,10 +74,11 @@ spec:
               limits:
                 memory: 4Gi
     defaultPodOptions:
-      # The Seerr image has no init process (upstream requires `--init`) and runs
-      # `npm start` as PID 1, which ignores SIGTERM and never reaps zombies. A
-      # shared process namespace makes the pause container PID 1, the Kubernetes
-      # equivalent of `--init`. The pod keeps UID/GID 568 rather than the image's
+      # The Seerr image has no init process (upstream requires `--init`), so
+      # `npm start` would run as PID 1: nothing reaps orphaned zombies, and the
+      # kernel drops any signal PID 1 has no handler for. A shared process
+      # namespace makes the pause container PID 1, the Kubernetes equivalent of
+      # `--init`. The pod keeps UID/GID 568 rather than the image's
       # `node` (1000): the config PVC is already 568-owned, so no chown is needed.
       shareProcessNamespace: true
       securityContext:
