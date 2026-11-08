@@ -293,10 +293,13 @@ def main() -> int:
         if key in ignored:
             continue
         problems = check_dockerhub(http, dep["name"]) if dep["host"] == "docker.io" else []
-        repo = github_of(source_url(http, dep))
+        # Official images carry no source label; skipping them also saves Docker Hub pulls
+        # (each manifest GET counts against the anonymous pull limit, ~35 per run otherwise).
+        official = bool(re.match(r"^(docker/)?library/", dep["name"]))
+        repo = None if official else github_of(source_url(http, dep))
         if repo:
             problems += check_github(http, repo, gh_cache)
-        elif not re.match(r"^(docker/)?library/", dep["name"]):  # official images carry no source label
+        elif not official:
             unresolved.append(key)
         if problems:
             findings.append((key, problems, dep["files"]))
