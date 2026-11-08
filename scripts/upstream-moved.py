@@ -84,25 +84,27 @@ class Http:
             headers["Authorization"] = f"Bearer {self.registry_tokens[key]}"
         status, body, resp_headers = self.get(url, headers)
         if status == 401 and key not in self.registry_tokens:
-            token = self._anonymous_token(resp_headers.get("www-authenticate", ""))
+            challenge = resp_headers.get("www-authenticate", "")
+            if "realm=" not in challenge:
+                return status, body  # not a Bearer challenge: a plain 401, i.e. not pullable
+            token, token_status = self._anonymous_token(challenge)
             if token:
                 self.registry_tokens[key] = token
                 return self.registry(host, name, path, accept)
-            # No anonymous token: we cannot tell "private" from "token service down".
-            self.error(f"`{host}/{name}`: anonymous registry token unavailable")
+            if token_status in (401, 403):
+                return 401, body  # ghcr refuses the token itself for a private or missing repo
+            self.error(f"`{host}/{name}`: anonymous registry token answered {token_status}")
             return -1, body
         return status, body
 
-    def _anonymous_token(self, challenge: str) -> str | None:
+    def _anonymous_token(self, challenge: str) -> tuple[str | None, int]:
         params = dict(re.findall(r'(\w+)="([^"]*)"', challenge))
-        if "realm" not in params:
-            return None
         query = "&".join(f"{k}={params[k]}" for k in ("service", "scope") if k in params)
         status, body, _ = self.get(f"{params['realm']}?{query}")
         data = load_json(body) if status == 200 else None
         if not isinstance(data, dict):
-            return None
-        return data.get("token") or data.get("access_token")
+            return None, status
+        return data.get("token") or data.get("access_token"), status
 
 
 def load_json(body: bytes):
@@ -190,10 +192,22 @@ def discover(root: Path) -> tuple[dict[str, dict], dict[str, set[str]]]:
 
 # ---------------------------------------------------------------- source resolution
 
+class Unpullable(Exception):
+    pass
+
+
+NOT_PULLABLE = "image not pullable anonymously (private, deleted or moved)"
+
+
 def source_url(http: Http, dep: dict) -> str | None:
+    """Return the source URL; raise Unpullable when the registry refuses even with a token."""
     host, name, version = dep["host"], dep["name"], dep["version"] or "latest"
     status, body = http.registry(host, name, f"manifests/{version}", MANIFEST_TYPES)
-    if status in (404, 403, -1):  # tag gone, or private (-1: already recorded as an error)
+    if status in (401, 403):
+        # A refusal that survives an anonymous token is a stable answer (Docker Hub says 401
+        # for a private or deleted repo), so it is a finding, not a retryable error.
+        raise Unpullable()
+    if status in (404, -1):  # tag gone (Renovate's problem), or token failure already recorded
         return None
     manifest = load_json(body) if status == 200 else None
     if not isinstance(manifest, dict):
@@ -203,7 +217,7 @@ def source_url(http: Http, dep: dict) -> str | None:
     if "manifests" in manifest:  # index: take linux/amd64, else the first entry
         entries = manifest["manifests"]
         pick = next((m for m in entries if (m.get("platform") or {}).get("architecture") == "amd64"), entries[0] if entries else None)
-        if not pick:
+        if not pick or not pick.get("digest"):
             return annotations.get("org.opencontainers.image.source")
         status, body = http.registry(host, name, f"manifests/{pick['digest']}", MANIFEST_TYPES)
         if status != 200:
@@ -225,6 +239,7 @@ def source_url(http: Http, dep: dict) -> str | None:
         return None
     blob = load_json(body)
     if not isinstance(blob, dict):
+        http.error(f"`{host}/{name}`: config blob is not JSON")
         return None
     if "helm.config" in config.get("mediaType", ""):  # Helm chart: Chart.yaml metadata
         for url in (blob.get("sources") or []) + [blob.get("home") or ""]:
@@ -264,7 +279,7 @@ def check_dockerhub(http: Http, name: str) -> list[str]:
     status, body, _ = http.get(f"https://hub.docker.com/v2/repositories/{name}/")
     repo = load_json(body) if status == 200 else None
     if status == 404:
-        return []
+        return [f"Docker Hub repository `{name}` no longer exists"]
     if not isinstance(repo, dict):
         http.error(f"Docker Hub `{name}`: answered {status}")
         return []
@@ -305,10 +320,16 @@ def main() -> int:
         # Official images carry no source label; skipping them also saves Docker Hub pulls
         # (each manifest GET counts against the anonymous pull limit, ~35 per run otherwise).
         official = bool(re.match(r"^(docker/)?library/", dep["name"]))
-        repo = None if official else github_of(source_url(http, dep))
+        unpullable = False
+        try:
+            repo = None if official else github_of(source_url(http, dep))
+        except Unpullable:
+            repo, unpullable = None, True
+            if not any("no longer exists" in p for p in problems):
+                problems.append(NOT_PULLABLE)
         if repo:
             problems += check_github(http, repo, gh_cache)
-        elif not official:
+        elif not official and not unpullable:
             unresolved.append(key)
         if problems:
             findings.append((key, problems, dep["files"]))
