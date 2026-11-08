@@ -88,6 +88,9 @@ class Http:
             if token:
                 self.registry_tokens[key] = token
                 return self.registry(host, name, path, accept)
+            # No anonymous token: we cannot tell "private" from "token service down".
+            self.error(f"`{host}/{name}`: anonymous registry token unavailable")
+            return -1, body
         return status, body
 
     def _anonymous_token(self, challenge: str) -> str | None:
@@ -96,9 +99,9 @@ class Http:
             return None
         query = "&".join(f"{k}={params[k]}" for k in ("service", "scope") if k in params)
         status, body, _ = self.get(f"{params['realm']}?{query}")
-        if status != 200:
+        data = load_json(body) if status == 200 else None
+        if not isinstance(data, dict):
             return None
-        data = json.loads(body)
         return data.get("token") or data.get("access_token")
 
 
@@ -190,7 +193,7 @@ def discover(root: Path) -> tuple[dict[str, dict], dict[str, set[str]]]:
 def source_url(http: Http, dep: dict) -> str | None:
     host, name, version = dep["host"], dep["name"], dep["version"] or "latest"
     status, body = http.registry(host, name, f"manifests/{version}", MANIFEST_TYPES)
-    if status in (404, 401, 403):  # tag gone or private: no source to follow, not a scan error
+    if status in (404, 403, -1):  # tag gone, or private (-1: already recorded as an error)
         return None
     manifest = load_json(body) if status == 200 else None
     if not isinstance(manifest, dict):
@@ -204,6 +207,8 @@ def source_url(http: Http, dep: dict) -> str | None:
             return annotations.get("org.opencontainers.image.source")
         status, body = http.registry(host, name, f"manifests/{pick['digest']}", MANIFEST_TYPES)
         if status != 200:
+            if status not in (404, -1):
+                http.error(f"`{host}/{name}`: platform manifest answered {status}")
             return annotations.get("org.opencontainers.image.source")
         manifest = load_json(body) or {}
         annotations = {**annotations, **(manifest.get("annotations") or {})}
@@ -214,6 +219,9 @@ def source_url(http: Http, dep: dict) -> str | None:
         return None
     status, body = http.registry(host, name, f"blobs/{config['digest']}")
     if status != 200:
+        # buildx writes the source label into the config blob, so this is the main path.
+        if status not in (404, -1):
+            http.error(f"`{host}/{name}`: config blob answered {status}")
         return None
     blob = load_json(body)
     if not isinstance(blob, dict):
@@ -282,7 +290,8 @@ def main() -> int:
     args = ap.parse_args()
 
     ignore_file = args.root / args.ignore
-    ignored = {e["name"] for e in (yaml.safe_load(ignore_file.read_text()) or [])} if ignore_file.exists() else set()
+    entries = (yaml.safe_load(ignore_file.read_text()) or []) if ignore_file.exists() else []
+    ignored = {e.get("name") for e in entries if isinstance(e, dict)} - {None}
     http = Http(os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN"))
     images, github_deps = discover(args.root)
     gh_cache: dict[str, list[str]] = {}
@@ -323,10 +332,11 @@ def main() -> int:
             "`.renovate/overrides.json5` makes Renovate open the PR), or add the name to",
             "`.github/upstream-moved-ignore.yaml` with the reason it is fine. A \"renamed\" repo",
             "can be stale metadata: if the image already lives under the new owner, ignore it.",
+            "The body is rewritten each run; an entry leaves the list once it is migrated or ignored.",
             "",
         ]
         for key, problems, files in findings:
-            lines.append(f"- [ ] **`{key}`** ({', '.join(f'`{f}`' for f in sorted(files)[:3])})")
+            lines.append(f"- **`{key}`** ({', '.join(f'`{f}`' for f in sorted(files)[:3])})")
             lines += [f"  - {p}" for p in problems]
     else:
         lines.append("No moved, archived or deprecated upstreams found.")
