@@ -20,6 +20,11 @@
     ":timezone(America/Chicago)",
   ],
   dependencyDashboardTitle: "Renovate Dashboard 🤖",
+  // List packages with no release in 6 months in the dashboard's "abandoned" section. It only
+  // works where the datasource gives release dates (Docker Hub yes, most ghcr.io no), and it
+  // cannot see a project that moved while still tagging the old name (Jellyseerr, 2026-10).
+  // scripts/upstream-moved.py (weekly, issue labelled upstream-moved) covers that case.
+  abandonmentThreshold: "6 months",
   suppressNotifications: [
     "prEditedNotification",
     "prIgnoreNotification",

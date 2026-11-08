@@ -1,0 +1,9 @@
+---
+# Findings from scripts/upstream-moved.py that were reviewed and are fine.
+# `name` is the dependency exactly as the report prints it; `reason` says why it is not a move.
+# Remove an entry when the reason stops being true.
+- name: ghcr.io/haveagitgat/tdarr
+  # 2026-11-08: the image's source label names HaveAGitGat/tdarr_express_be, a private
+  # repo (Tdarr's server is closed source). The public HaveAGitGat/Tdarr is live and
+  # not archived, and the image still ships releases.
+  reason: source label points at a private repo; upstream is live
