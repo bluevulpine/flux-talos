@@ -18,13 +18,27 @@ spec:
         containers:
           app:
             image:
-              repository: docker.io/fallenbagel/jellyseerr
-              # renovate: datasource=docker depName=docker.io/fallenbagel/jellyseerr
-              tag: 2.7.3
+              # Jellyseerr merged into Seerr; docker.io/fallenbagel/jellyseerr ends at
+              # 2.7.3 and Renovate cannot cross an image rename, so it was stuck there.
+              # Seerr migrates the Jellyseerr config/SQLite in place on first start
+              # (one-way; pre-migration kopiur Snapshot jellyseerr-local-manual-pre-seerr,
+              # 2026-11-08). The app keeps the name jellyseerr so the PVC, kopiur
+              # schedules, route and in-cluster URL (Tracearr, homepage) are unchanged.
+              # Seerr v3 is needed for /request/count's `completed` field, which
+              # Tracearr's request sync requires.
+              repository: ghcr.io/seerr-team/seerr
+              # renovate: datasource=docker depName=ghcr.io/seerr-team/seerr
+              tag: v3.5.1
             env:
               TZ: "${TIMEZONE}"
               LOG_LEVEL: info
               PORT: &port 5055
+              # Seerr's CMD is `npm start` (Jellyseerr used pnpm). As UID 568 on a
+              # read-only root, npm cannot write $HOME/.npm, so its cache and logs
+              # go to the /tmp emptyDir and the update check (a network call plus
+              # a write) is off.
+              NPM_CONFIG_CACHE: /tmp/.npm
+              NPM_CONFIG_UPDATE_NOTIFIER: "false"
             probes:
               liveness: &probes
                 enabled: true
@@ -60,6 +74,13 @@ spec:
               limits:
                 memory: 4Gi
     defaultPodOptions:
+      # The Seerr image has no init process (upstream requires `--init`), so
+      # `npm start` would run as PID 1: nothing reaps orphaned zombies, and the
+      # kernel drops any signal PID 1 has no handler for. A shared process
+      # namespace makes the pause container PID 1, the Kubernetes equivalent of
+      # `--init`. The pod keeps UID/GID 568 rather than the image's
+      # `node` (1000): the config PVC is already 568-owned, so no chown is needed.
+      shareProcessNamespace: true
       securityContext:
         runAsNonRoot: true
         runAsUser: 568
