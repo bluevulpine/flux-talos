@@ -20,10 +20,23 @@ spec:
             image:
               repository: ghcr.io/unpackerr/unpackerr
               # renovate: datasource=docker depName=ghcr.io/unpackerr/unpackerr
-              tag: v0.16.1
+              tag: v1.0.1
             env:
               TZ: "${TIMEZONE}"
               UN_WEBSERVER_METRICS: "true"
+              # Since v1.0 /metrics answers 401 without an API key holding
+              # system:metrics:read. This role grants only that permission, so the
+              # key Prometheus sends cannot drive the v1 API or UI. The key value
+              # (UN_WEBSERVER_API_KEYS_0_KEY) comes from unpackerr-secret, and the
+              # ServiceMonitor below sends the same field as its Bearer token.
+              UN_WEBSERVER_ROLES_metrics_PERMISSIONS_0: system:metrics:read
+              UN_WEBSERVER_API_KEYS_0_NAME: prometheus
+              UN_WEBSERVER_API_KEYS_0_ROLES_0: metrics
+              # v1.0 also serves a web UI on this listener. It is left unrouted (no
+              # HTTPRoute, decided 2026-11-07): with no ui_password it generates a
+              # temporary admin password per start, written to the log file, so
+              # reach it with a port-forward. Config is env-only with no writable
+              # config file, so UI "Save" changes do not persist; change env here.
               UN_WEBSERVER_LOG_FILE: /logs/webserver.log
               UN_LOG_FILE: /logs/unpackerr.log
               UN_LOG_FILES: "10"
@@ -88,6 +101,12 @@ spec:
             scheme: http
             path: /metrics
             interval: 1m
+            # Required since v1.0 (see the env comment above): metrics-only API key.
+            authorization:
+              type: Bearer
+              credentials:
+                name: unpackerr-secret
+                key: UN_WEBSERVER_API_KEYS_0_KEY
     persistence:
       logs:
         type: emptyDir
