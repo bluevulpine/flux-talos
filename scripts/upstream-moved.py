@@ -279,7 +279,7 @@ def check_dockerhub(http: Http, name: str) -> list[str]:
     status, body, _ = http.get(f"https://hub.docker.com/v2/repositories/{name}/")
     repo = load_json(body) if status == 200 else None
     if status == 404:
-        return [f"Docker Hub repository `{name}` no longer exists"]
+        return [f"Docker Hub repository `{name}` no longer exists (or is private)"]
     if not isinstance(repo, dict):
         http.error(f"Docker Hub `{name}`: answered {status}")
         return []
