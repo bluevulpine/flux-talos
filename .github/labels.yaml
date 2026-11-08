@@ -35,3 +35,5 @@
   color: "370fb2"
 - name: hold
   color: "ee0701"
+- name: upstream-moved
+  color: "f6412d"

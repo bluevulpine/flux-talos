@@ -37,7 +37,12 @@ it as a helpful accelerator only — this command must work fully without it.
 1. **Inventory.** List open Renovate PRs (`gh pr list` — author `app/renovate[bot]`
    or the `renovate`/`dependencies` labels). Bucket by risk and kind: patch / minor /
    major / digest, and app / operator / storage / secrets / CI / bootstrap. See the
-   triage doc.
+   triage doc. Also read the two places Renovate cannot open a PR from, and list
+   what they show under "pre-existing issues" in the summary:
+   - the open `upstream-moved` issue (`gh issue list -l upstream-moved`), written weekly
+     by `scripts/upstream-moved.py`: images and charts whose upstream was renamed,
+     archived or deprecated. Renovate keeps tracking the old name and goes quiet.
+   - the Renovate Dashboard's abandoned-packages section (no release in 6 months).
 
 2. **Classify each PR.** Read the diff; for minor/major bumps read the upstream
    changelog/release notes. Decide **safe** / **trivial-fix-then-merge** / **skip**

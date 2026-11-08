@@ -1,0 +1,71 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Upstream Moved
+
+# Renovate only bumps the name it tracks; when a project moves (Jellyseerr -> Seerr, 2026-10)
+# the old name goes quiet or keeps tagging a deprecation notice, and no PR ever appears.
+# This keeps one issue labelled `upstream-moved` listing renamed, archived or deprecated
+# upstreams, and closes it when the list is empty. See scripts/upstream-moved.py.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 0 11 * * 1
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/upstream-moved.yaml
+      - .github/upstream-moved-ignore.yaml
+      - scripts/upstream-moved.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upstream-moved
+  cancel-in-progress: true
+
+jobs:
+  main:
+    name: Upstream Moved - Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install PyYAML
+        run: python3 -m pip install --quiet pyyaml
+
+      - name: Scan
+        id: scan
+        env:
+          # Read-only use: GitHub repo metadata for the rename/archive checks (5k/h vs 60/h anonymous).
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/upstream-moved.py --report "$RUNNER_TEMP/report.md"
+
+      - name: Update issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FINDINGS: ${{ steps.scan.outputs.findings }}
+          REPORT: ${{ runner.temp }}/report.md
+        run: |-
+          issue=$(gh issue list --repo "$GITHUB_REPOSITORY" --label upstream-moved --state open \
+            --json number --jq '.[0].number // empty')
+          if [[ "$FINDINGS" -gt 0 ]]; then
+            if [[ -n "$issue" ]]; then
+              gh issue edit "$issue" --repo "$GITHUB_REPOSITORY" --body-file "$REPORT"
+            else
+              gh issue create --repo "$GITHUB_REPOSITORY" --label upstream-moved \
+                --title "Upstream moved: dependencies Renovate cannot follow" --body-file "$REPORT"
+            fi
+          elif [[ -n "$issue" ]]; then
+            gh issue close "$issue" --repo "$GITHUB_REPOSITORY" --comment "Latest scan found nothing; closing."
+          fi
+          cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
