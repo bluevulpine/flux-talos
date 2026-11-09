@@ -48,13 +48,18 @@ spec:
               TZ: "${TIMEZONE}"
               AllowedHosts: mail-archiver.derekjacobs.dev
               TimeZone__DisplayTimeZoneId: "${TIMEZONE}"
-              # One-time NAS import (import-nfs.yaml): the CLI importer only
-              # reads files under this path (the read-only MailStore export).
-              LocalImport__AllowedPaths__0: /import
+              # Read-only REST API (/api/v1, upstream doc/API.md) for Bosun's
+              # count reconciliation and search checks. Bearer API keys only
+              # (no cookies); a key carries its owner's account permissions.
+              # Whole-message and attachment downloads stay off: verification
+              # needs metadata and counts, not mail bodies as files.
+              Api__Enabled: "true"
+              Api__AllowMessageDownloads: "false"
+              Api__AllowAttachmentDownloads: "false"
               # Archive posture: manual delete stays allowed during the
               # phase-1 delete test; flip to "false" for production.
               DeletionPolicy__DeletionAllowed: "true"
-              # Upload cap is irrelevant for the NAS import (CLI local import),
+              # Upload cap is irrelevant for the NAS import (CLI import Jobs),
               # keep upstream default.
               # Native OIDC with Authentik. Client id/secret/admin email come
               # from the ExternalSecret. Local password login stays on as
@@ -100,11 +105,7 @@ spec:
                 cpu: 100m
                 memory: 512Mi
               limits:
-                # 1Gi was sized for the web app alone. The CLI import runs as a
-                # second process in this container (same cgroup), so an OOM
-                # would kill the web app mid-import. Raised for the import;
-                # revisit after it, from live usage.
-                memory: 3Gi
+                memory: 1Gi
     service:
       app:
         controller: mail-archiver
@@ -158,8 +159,8 @@ spec:
       # The app creates /app/uploads at startup (MBoxImportService ctor) and
       # /app is root-owned in the image, so as uid 1654 it crashlooped with
       # "Access to the path '/app/uploads' is denied". Uploads are staging for
-      # web-UI mbox/eml imports only; the NAS import goes through the CLI's
-      # local import, so scratch space is enough.
+      # web-UI mbox/eml imports only; the NAS import runs in the CLI import
+      # Jobs (import-jobs.yaml), so scratch space is enough.
       uploads:
         type: emptyDir
         advancedMounts:
@@ -177,13 +178,3 @@ spec:
           mail-archiver:
             app:
               - path: /app/exports
-      # One-time NAS import, removed with import-nfs.yaml once reconciled.
-      # Only the `mailstore rescue` subtree of the share is mounted, read-only.
-      import:
-        existingClaim: mail-archiver-import-nfs
-        advancedMounts:
-          mail-archiver:
-            app:
-              - path: /import
-                subPath: mailstore rescue
-                readOnly: true
