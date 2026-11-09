@@ -24,21 +24,19 @@ spec:
       name: webhook
       webhook:
         image:
-          repository: ghcr.io/kashalls/external-dns-unifi-webhook
-          tag: v0.9.0@sha256:22f4106f44a0b9ac3c97cf29bbfef93026c1164492152dc797a1d6dc86ddfbb5
+          # kashalls/external-dns-unifi-webhook moved to home-operations (last old tag v0.9.0).
+          # 0.11 dropped username/password login (UNIFI_API_KEY is required) and wants
+          # UNIFI_SITE as the console-URL site name; the default, "default", is ours.
+          repository: ghcr.io/home-operations/external-dns-unifi-webhook
+          tag: 0.11.0@sha256:663442f116d7b45546782bdf7ace50d05ac15cc630c7236d443d69593845e992
         env:
           - name: UNIFI_HOST
             value: https://10.0.10.1
-          - name: UNIFI_USER
+          - name: UNIFI_API_KEY
             valueFrom:
               secretKeyRef:
                 name: &secret external-dns-secret-unifi
-                key: EXTERNAL_DNS_UNIFI_USER
-          - name: UNIFI_PASS
-            valueFrom:
-              secretKeyRef:
-                name: *secret
-                key: EXTERNAL_DNS_UNIFI_PASS
+                key: EXTERNAL_DNS_UNIFI_API_KEY
         livenessProbe:
           httpGet:
             path: /healthz
