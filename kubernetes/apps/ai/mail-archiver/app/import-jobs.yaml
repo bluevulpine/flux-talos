@@ -68,7 +68,7 @@ spec:
                 exit 2
               fi
               echo "importing $(basename "$1") into account $ACCOUNT_ID"
-              exec dotnet MailArchiver.dll --import-eml --file "$1" --account-id "$ACCOUNT_ID"
+              exec dotnet /app/MailArchiver.dll --import-eml --file "$1" --account-id "$ACCOUNT_ID"
           env:
             # Account 6, 208 messages: the smallest account, as the test run.
             - name: ZIP_GLOB
