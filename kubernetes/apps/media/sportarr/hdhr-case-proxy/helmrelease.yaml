@@ -50,7 +50,8 @@ spec:
             # as a normal user without fighting the entrypoint's chown/envsubst
             # branch. Same image default/onlyflans already uses.
             image:
-              repository: nginxinc/nginx-unprivileged
+              # nginxinc/nginx-unprivileged is archived on Docker Hub; NGINX publishes it here now.
+              repository: nginx/nginx-unprivileged
               tag: 1.31-alpine
             probes:
               # /healthz is served by nginx itself, NOT proxied. A probe that
