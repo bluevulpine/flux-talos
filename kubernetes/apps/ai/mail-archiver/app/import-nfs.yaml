@@ -2,13 +2,14 @@
 # Read-only NFS mount of the MailStore Home export for the one-time import
 # (`dotnet MailArchiver.dll --import-eml --file <zip>`, upstream doc/CLI.md).
 # The share is `/mnt/home/downloads` on vault, NFS-exported read-only to
-# 10.0.10.0/24 (Derek, 2026-11-08); the HelmRelease mounts only its
-# `mailstore rescue` subtree. The importer reads a ZIP of .eml files only, so
-# the per-account ZIPs are built on the NAS side next to the EML tree.
+# 10.0.10.0/24 (Derek, 2026-11-08). Only the import Jobs (import-jobs.yaml)
+# mount it, and only its `mailstore rescue` subtree; the web app does not.
+# The importer reads a ZIP of .eml files only, so the per-account ZIPs are
+# built on the NAS side under `mailstore rescue/zip/`.
 # Native nfs PV so mountOptions apply (rationale:
 # kubernetes/apps/media/plex/app/media-nfs.yaml); nconnect/nfsvers match the
-# other consumers of this NAS. Remove this file, the `import` persistence entry
-# and the LocalImport env once the import is reconciled.
+# other consumers of this NAS. Remove this file and import-jobs.yaml once the
+# import is reconciled.
 # reclaimPolicy: Retain: this points at Derek's own files; never Delete.
 apiVersion: v1
 kind: PersistentVolume

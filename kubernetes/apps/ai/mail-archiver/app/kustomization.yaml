@@ -7,4 +7,5 @@ resources:
   - ./externalsecret.yaml
   - ./pvc.yaml
   - ./import-nfs.yaml
+  - ./import-jobs.yaml
   - ./helmrelease.yaml
