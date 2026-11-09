@@ -48,6 +48,9 @@ spec:
               TZ: "${TIMEZONE}"
               AllowedHosts: mail-archiver.derekjacobs.dev
               TimeZone__DisplayTimeZoneId: "${TIMEZONE}"
+              # One-time NAS import (import-nfs.yaml): the CLI importer only
+              # reads files under this path (the read-only MailStore export).
+              LocalImport__AllowedPaths__0: /import
               # Archive posture: manual delete stays allowed during the
               # phase-1 delete test; flip to "false" for production.
               DeletionPolicy__DeletionAllowed: "true"
@@ -97,7 +100,11 @@ spec:
                 cpu: 100m
                 memory: 512Mi
               limits:
-                memory: 1Gi
+                # 1Gi was sized for the web app alone. The CLI import runs as a
+                # second process in this container (same cgroup), so an OOM
+                # would kill the web app mid-import. Raised for the import;
+                # revisit after it, from live usage.
+                memory: 3Gi
     service:
       app:
         controller: mail-archiver
@@ -170,3 +177,13 @@ spec:
           mail-archiver:
             app:
               - path: /app/exports
+      # One-time NAS import, removed with import-nfs.yaml once reconciled.
+      # Only the `mailstore rescue` subtree of the share is mounted, read-only.
+      import:
+        existingClaim: mail-archiver-import-nfs
+        advancedMounts:
+          mail-archiver:
+            app:
+              - path: /import
+                subPath: mailstore rescue
+                readOnly: true
