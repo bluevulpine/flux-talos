@@ -39,7 +39,7 @@ spec:
             # so two migrators never run at once.
             image:
               repository: gitea.derekjacobs.dev/bvn-homelab/tapestry
-              tag: 7-e9773560 # {"$imagepolicy": "flux-system:tapestry:tag"}
+              tag: 8-f7117560 # {"$imagepolicy": "flux-system:tapestry:tag"}
             command:
               - node
               - build/migrate.js
@@ -90,7 +90,7 @@ spec:
             # own marker and the automation rewrites both.
             image:
               repository: gitea.derekjacobs.dev/bvn-homelab/tapestry
-              tag: 7-e9773560 # {"$imagepolicy": "flux-system:tapestry:tag"}
+              tag: 8-f7117560 # {"$imagepolicy": "flux-system:tapestry:tag"}
             env: *dbEnv
             probes:
               liveness:
