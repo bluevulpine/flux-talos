@@ -904,3 +904,681 @@ spec:
             readOnly: true
         - name: scratch
           emptyDir: {}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mail-archiver-recover-01-account6
+  annotations:
+    # Create once, never update: a Job is immutable, and a later edit (e.g. a
+    # Renovate image bump) must not fail the Kustomization or recreate the Job
+    # and re-run the import.
+    kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
+    # The command is a shell script ($1, $#, $ZIP_GLOB); Flux postBuild
+    # substitution would blank those, so it is off for this Job (TZ literal).
+    kustomize.toolkit.fluxcd.io/substitute: disabled
+  labels:
+    app.kubernetes.io/name: mail-archiver
+    app.kubernetes.io/component: import
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mail-archiver
+        app.kubernetes.io/component: import
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654
+        runAsGroup: 1654
+        fsGroup: 1654
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: import
+          # Renovate may bump this line with the app's; that is inert (the Job
+          # exists already and IfNotPresent never re-applies it). New Jobs copy
+          # the app's current tag.
+          image: docker.io/s1t5/mailarchiver:2611.2
+          # The ZIP names are the account addresses, and some of those domains
+          # stay hidden in this repo (CLAUDE.md). So each Job picks its ZIP by
+          # ZIP_GLOB, a pattern or literal name that must match exactly one file
+          # (refuses on 0 or 2+) and must not spell out a hidden domain, then
+          # execs the image's own entrypoint with the CLI flags.
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              # No field splitting (names have spaces); globbing still applies.
+              IFS=
+              set -- /import/recovery/$ZIP_GLOB
+              if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
+                echo "ZIP_GLOB=$ZIP_GLOB must match exactly one ZIP, got $#:" >&2
+                printf '  %s\n' "$@" >&2
+                exit 2
+              fi
+              echo "importing $(basename "$1") into account $ACCOUNT_ID"
+              exec dotnet /app/MailArchiver.dll --import-eml --file "$1" --account-id "$ACCOUNT_ID"
+          env:
+            # Dedupe recovery, account 6: 1 message the
+            # first import skipped as duplicates although their content differs
+            # (re-IDed copies, built and checked by Bosun; see the PR).
+            - name: ZIP_GLOB
+              value: account6.zip
+            - name: ACCOUNT_ID
+              value: "6"
+            - name: TZ
+              value: America/Chicago
+            - name: LocalImport__AllowedPaths__0
+              value: /import
+          envFrom:
+            - secretRef:
+                name: mail-archiver-secret
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+          volumeMounts:
+            - name: import
+              mountPath: /import
+              subPath: mailstore rescue
+              readOnly: true
+            # The app creates these at startup (service constructors); /app
+            # is root-owned in the image, so each needs a writable mount.
+            - name: scratch
+              mountPath: /app/uploads
+              subPath: uploads
+            - name: scratch
+              mountPath: /app/exports
+              subPath: exports
+            - name: scratch
+              mountPath: /app/logs
+              subPath: logs
+            - name: scratch
+              mountPath: /app/DataProtection-Keys
+              subPath: keys
+            - name: scratch
+              mountPath: /tmp
+              subPath: tmp
+      volumes:
+        - name: import
+          persistentVolumeClaim:
+            claimName: mail-archiver-import-nfs
+            readOnly: true
+        - name: scratch
+          emptyDir: {}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mail-archiver-recover-02-account4
+  annotations:
+    # Create once, never update: a Job is immutable, and a later edit (e.g. a
+    # Renovate image bump) must not fail the Kustomization or recreate the Job
+    # and re-run the import.
+    kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
+    # The command is a shell script ($1, $#, $ZIP_GLOB); Flux postBuild
+    # substitution would blank those, so it is off for this Job (TZ literal).
+    kustomize.toolkit.fluxcd.io/substitute: disabled
+  labels:
+    app.kubernetes.io/name: mail-archiver
+    app.kubernetes.io/component: import
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mail-archiver
+        app.kubernetes.io/component: import
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654
+        runAsGroup: 1654
+        fsGroup: 1654
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: import
+          # Renovate may bump this line with the app's; that is inert (the Job
+          # exists already and IfNotPresent never re-applies it). New Jobs copy
+          # the app's current tag.
+          image: docker.io/s1t5/mailarchiver:2611.2
+          # The ZIP names are the account addresses, and some of those domains
+          # stay hidden in this repo (CLAUDE.md). So each Job picks its ZIP by
+          # ZIP_GLOB, a pattern or literal name that must match exactly one file
+          # (refuses on 0 or 2+) and must not spell out a hidden domain, then
+          # execs the image's own entrypoint with the CLI flags.
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              # No field splitting (names have spaces); globbing still applies.
+              IFS=
+              set -- /import/recovery/$ZIP_GLOB
+              if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
+                echo "ZIP_GLOB=$ZIP_GLOB must match exactly one ZIP, got $#:" >&2
+                printf '  %s\n' "$@" >&2
+                exit 2
+              fi
+              echo "importing $(basename "$1") into account $ACCOUNT_ID"
+              exec dotnet /app/MailArchiver.dll --import-eml --file "$1" --account-id "$ACCOUNT_ID"
+          env:
+            # Dedupe recovery, account 4: 13 messages the
+            # first import skipped as duplicates although their content differs
+            # (re-IDed copies, built and checked by Bosun; see the PR).
+            - name: ZIP_GLOB
+              value: account4.zip
+            - name: ACCOUNT_ID
+              value: "4"
+            - name: TZ
+              value: America/Chicago
+            - name: LocalImport__AllowedPaths__0
+              value: /import
+          envFrom:
+            - secretRef:
+                name: mail-archiver-secret
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+          volumeMounts:
+            - name: import
+              mountPath: /import
+              subPath: mailstore rescue
+              readOnly: true
+            # The app creates these at startup (service constructors); /app
+            # is root-owned in the image, so each needs a writable mount.
+            - name: scratch
+              mountPath: /app/uploads
+              subPath: uploads
+            - name: scratch
+              mountPath: /app/exports
+              subPath: exports
+            - name: scratch
+              mountPath: /app/logs
+              subPath: logs
+            - name: scratch
+              mountPath: /app/DataProtection-Keys
+              subPath: keys
+            - name: scratch
+              mountPath: /tmp
+              subPath: tmp
+      volumes:
+        - name: import
+          persistentVolumeClaim:
+            claimName: mail-archiver-import-nfs
+            readOnly: true
+        - name: scratch
+          emptyDir: {}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mail-archiver-recover-03-account7
+  annotations:
+    # Create once, never update: a Job is immutable, and a later edit (e.g. a
+    # Renovate image bump) must not fail the Kustomization or recreate the Job
+    # and re-run the import.
+    kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
+    # The command is a shell script ($1, $#, $ZIP_GLOB); Flux postBuild
+    # substitution would blank those, so it is off for this Job (TZ literal).
+    kustomize.toolkit.fluxcd.io/substitute: disabled
+  labels:
+    app.kubernetes.io/name: mail-archiver
+    app.kubernetes.io/component: import
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mail-archiver
+        app.kubernetes.io/component: import
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654
+        runAsGroup: 1654
+        fsGroup: 1654
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: import
+          # Renovate may bump this line with the app's; that is inert (the Job
+          # exists already and IfNotPresent never re-applies it). New Jobs copy
+          # the app's current tag.
+          image: docker.io/s1t5/mailarchiver:2611.2
+          # The ZIP names are the account addresses, and some of those domains
+          # stay hidden in this repo (CLAUDE.md). So each Job picks its ZIP by
+          # ZIP_GLOB, a pattern or literal name that must match exactly one file
+          # (refuses on 0 or 2+) and must not spell out a hidden domain, then
+          # execs the image's own entrypoint with the CLI flags.
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              # No field splitting (names have spaces); globbing still applies.
+              IFS=
+              set -- /import/recovery/$ZIP_GLOB
+              if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
+                echo "ZIP_GLOB=$ZIP_GLOB must match exactly one ZIP, got $#:" >&2
+                printf '  %s\n' "$@" >&2
+                exit 2
+              fi
+              echo "importing $(basename "$1") into account $ACCOUNT_ID"
+              exec dotnet /app/MailArchiver.dll --import-eml --file "$1" --account-id "$ACCOUNT_ID"
+          env:
+            # Dedupe recovery, account 7: 37 messages the
+            # first import skipped as duplicates although their content differs
+            # (re-IDed copies, built and checked by Bosun; see the PR).
+            - name: ZIP_GLOB
+              value: account7.zip
+            - name: ACCOUNT_ID
+              value: "7"
+            - name: TZ
+              value: America/Chicago
+            - name: LocalImport__AllowedPaths__0
+              value: /import
+          envFrom:
+            - secretRef:
+                name: mail-archiver-secret
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+          volumeMounts:
+            - name: import
+              mountPath: /import
+              subPath: mailstore rescue
+              readOnly: true
+            # The app creates these at startup (service constructors); /app
+            # is root-owned in the image, so each needs a writable mount.
+            - name: scratch
+              mountPath: /app/uploads
+              subPath: uploads
+            - name: scratch
+              mountPath: /app/exports
+              subPath: exports
+            - name: scratch
+              mountPath: /app/logs
+              subPath: logs
+            - name: scratch
+              mountPath: /app/DataProtection-Keys
+              subPath: keys
+            - name: scratch
+              mountPath: /tmp
+              subPath: tmp
+      volumes:
+        - name: import
+          persistentVolumeClaim:
+            claimName: mail-archiver-import-nfs
+            readOnly: true
+        - name: scratch
+          emptyDir: {}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mail-archiver-recover-04-account3
+  annotations:
+    # Create once, never update: a Job is immutable, and a later edit (e.g. a
+    # Renovate image bump) must not fail the Kustomization or recreate the Job
+    # and re-run the import.
+    kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
+    # The command is a shell script ($1, $#, $ZIP_GLOB); Flux postBuild
+    # substitution would blank those, so it is off for this Job (TZ literal).
+    kustomize.toolkit.fluxcd.io/substitute: disabled
+  labels:
+    app.kubernetes.io/name: mail-archiver
+    app.kubernetes.io/component: import
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mail-archiver
+        app.kubernetes.io/component: import
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654
+        runAsGroup: 1654
+        fsGroup: 1654
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: import
+          # Renovate may bump this line with the app's; that is inert (the Job
+          # exists already and IfNotPresent never re-applies it). New Jobs copy
+          # the app's current tag.
+          image: docker.io/s1t5/mailarchiver:2611.2
+          # The ZIP names are the account addresses, and some of those domains
+          # stay hidden in this repo (CLAUDE.md). So each Job picks its ZIP by
+          # ZIP_GLOB, a pattern or literal name that must match exactly one file
+          # (refuses on 0 or 2+) and must not spell out a hidden domain, then
+          # execs the image's own entrypoint with the CLI flags.
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              # No field splitting (names have spaces); globbing still applies.
+              IFS=
+              set -- /import/recovery/$ZIP_GLOB
+              if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
+                echo "ZIP_GLOB=$ZIP_GLOB must match exactly one ZIP, got $#:" >&2
+                printf '  %s\n' "$@" >&2
+                exit 2
+              fi
+              echo "importing $(basename "$1") into account $ACCOUNT_ID"
+              exec dotnet /app/MailArchiver.dll --import-eml --file "$1" --account-id "$ACCOUNT_ID"
+          env:
+            # Dedupe recovery, account 3: 322 messages the
+            # first import skipped as duplicates although their content differs
+            # (re-IDed copies, built and checked by Bosun; see the PR).
+            - name: ZIP_GLOB
+              value: account3.zip
+            - name: ACCOUNT_ID
+              value: "3"
+            - name: TZ
+              value: America/Chicago
+            - name: LocalImport__AllowedPaths__0
+              value: /import
+          envFrom:
+            - secretRef:
+                name: mail-archiver-secret
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+          volumeMounts:
+            - name: import
+              mountPath: /import
+              subPath: mailstore rescue
+              readOnly: true
+            # The app creates these at startup (service constructors); /app
+            # is root-owned in the image, so each needs a writable mount.
+            - name: scratch
+              mountPath: /app/uploads
+              subPath: uploads
+            - name: scratch
+              mountPath: /app/exports
+              subPath: exports
+            - name: scratch
+              mountPath: /app/logs
+              subPath: logs
+            - name: scratch
+              mountPath: /app/DataProtection-Keys
+              subPath: keys
+            - name: scratch
+              mountPath: /tmp
+              subPath: tmp
+      volumes:
+        - name: import
+          persistentVolumeClaim:
+            claimName: mail-archiver-import-nfs
+            readOnly: true
+        - name: scratch
+          emptyDir: {}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mail-archiver-recover-05-account2
+  annotations:
+    # Create once, never update: a Job is immutable, and a later edit (e.g. a
+    # Renovate image bump) must not fail the Kustomization or recreate the Job
+    # and re-run the import.
+    kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
+    # The command is a shell script ($1, $#, $ZIP_GLOB); Flux postBuild
+    # substitution would blank those, so it is off for this Job (TZ literal).
+    kustomize.toolkit.fluxcd.io/substitute: disabled
+  labels:
+    app.kubernetes.io/name: mail-archiver
+    app.kubernetes.io/component: import
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mail-archiver
+        app.kubernetes.io/component: import
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654
+        runAsGroup: 1654
+        fsGroup: 1654
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: import
+          # Renovate may bump this line with the app's; that is inert (the Job
+          # exists already and IfNotPresent never re-applies it). New Jobs copy
+          # the app's current tag.
+          image: docker.io/s1t5/mailarchiver:2611.2
+          # The ZIP names are the account addresses, and some of those domains
+          # stay hidden in this repo (CLAUDE.md). So each Job picks its ZIP by
+          # ZIP_GLOB, a pattern or literal name that must match exactly one file
+          # (refuses on 0 or 2+) and must not spell out a hidden domain, then
+          # execs the image's own entrypoint with the CLI flags.
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              # No field splitting (names have spaces); globbing still applies.
+              IFS=
+              set -- /import/recovery/$ZIP_GLOB
+              if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
+                echo "ZIP_GLOB=$ZIP_GLOB must match exactly one ZIP, got $#:" >&2
+                printf '  %s\n' "$@" >&2
+                exit 2
+              fi
+              echo "importing $(basename "$1") into account $ACCOUNT_ID"
+              exec dotnet /app/MailArchiver.dll --import-eml --file "$1" --account-id "$ACCOUNT_ID"
+          env:
+            # Dedupe recovery, account 2: 480 messages the
+            # first import skipped as duplicates although their content differs
+            # (re-IDed copies, built and checked by Bosun; see the PR).
+            - name: ZIP_GLOB
+              value: account2.zip
+            - name: ACCOUNT_ID
+              value: "2"
+            - name: TZ
+              value: America/Chicago
+            - name: LocalImport__AllowedPaths__0
+              value: /import
+          envFrom:
+            - secretRef:
+                name: mail-archiver-secret
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+          volumeMounts:
+            - name: import
+              mountPath: /import
+              subPath: mailstore rescue
+              readOnly: true
+            # The app creates these at startup (service constructors); /app
+            # is root-owned in the image, so each needs a writable mount.
+            - name: scratch
+              mountPath: /app/uploads
+              subPath: uploads
+            - name: scratch
+              mountPath: /app/exports
+              subPath: exports
+            - name: scratch
+              mountPath: /app/logs
+              subPath: logs
+            - name: scratch
+              mountPath: /app/DataProtection-Keys
+              subPath: keys
+            - name: scratch
+              mountPath: /tmp
+              subPath: tmp
+      volumes:
+        - name: import
+          persistentVolumeClaim:
+            claimName: mail-archiver-import-nfs
+            readOnly: true
+        - name: scratch
+          emptyDir: {}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mail-archiver-recover-06-account1
+  annotations:
+    # Create once, never update: a Job is immutable, and a later edit (e.g. a
+    # Renovate image bump) must not fail the Kustomization or recreate the Job
+    # and re-run the import.
+    kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
+    # The command is a shell script ($1, $#, $ZIP_GLOB); Flux postBuild
+    # substitution would blank those, so it is off for this Job (TZ literal).
+    kustomize.toolkit.fluxcd.io/substitute: disabled
+  labels:
+    app.kubernetes.io/name: mail-archiver
+    app.kubernetes.io/component: import
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mail-archiver
+        app.kubernetes.io/component: import
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654
+        runAsGroup: 1654
+        fsGroup: 1654
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: import
+          # Renovate may bump this line with the app's; that is inert (the Job
+          # exists already and IfNotPresent never re-applies it). New Jobs copy
+          # the app's current tag.
+          image: docker.io/s1t5/mailarchiver:2611.2
+          # The ZIP names are the account addresses, and some of those domains
+          # stay hidden in this repo (CLAUDE.md). So each Job picks its ZIP by
+          # ZIP_GLOB, a pattern or literal name that must match exactly one file
+          # (refuses on 0 or 2+) and must not spell out a hidden domain, then
+          # execs the image's own entrypoint with the CLI flags.
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              # No field splitting (names have spaces); globbing still applies.
+              IFS=
+              set -- /import/recovery/$ZIP_GLOB
+              if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
+                echo "ZIP_GLOB=$ZIP_GLOB must match exactly one ZIP, got $#:" >&2
+                printf '  %s\n' "$@" >&2
+                exit 2
+              fi
+              echo "importing $(basename "$1") into account $ACCOUNT_ID"
+              exec dotnet /app/MailArchiver.dll --import-eml --file "$1" --account-id "$ACCOUNT_ID"
+          env:
+            # Dedupe recovery, account 1: 1,644 messages the
+            # first import skipped as duplicates although their content differs
+            # (re-IDed copies, built and checked by Bosun; see the PR).
+            - name: ZIP_GLOB
+              value: account1.zip
+            - name: ACCOUNT_ID
+              value: "1"
+            - name: TZ
+              value: America/Chicago
+            - name: LocalImport__AllowedPaths__0
+              value: /import
+          envFrom:
+            - secretRef:
+                name: mail-archiver-secret
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+          volumeMounts:
+            - name: import
+              mountPath: /import
+              subPath: mailstore rescue
+              readOnly: true
+            # The app creates these at startup (service constructors); /app
+            # is root-owned in the image, so each needs a writable mount.
+            - name: scratch
+              mountPath: /app/uploads
+              subPath: uploads
+            - name: scratch
+              mountPath: /app/exports
+              subPath: exports
+            - name: scratch
+              mountPath: /app/logs
+              subPath: logs
+            - name: scratch
+              mountPath: /app/DataProtection-Keys
+              subPath: keys
+            - name: scratch
+              mountPath: /tmp
+              subPath: tmp
+      volumes:
+        - name: import
+          persistentVolumeClaim:
+            claimName: mail-archiver-import-nfs
+            readOnly: true
+        - name: scratch
+          emptyDir: {}
