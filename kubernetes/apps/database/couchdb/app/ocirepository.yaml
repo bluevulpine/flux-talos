@@ -9,7 +9,10 @@ spec:
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
+  # ghcr.io/bjw-s/helm/app-template stopped at 3.7.3 when the chart moved to bjw-s-labs, so
+  # Renovate never offered 4.x/5.x here. 4.x changed the Deployment selector label
+  # (component -> controller): the first upgrade needs the Deployment deleted (PVC kept).
   ref:
-    tag: 3.7.3
-  url: oci://ghcr.io/bjw-s/helm/app-template
+    tag: 5.3.0
+  url: oci://ghcr.io/bjw-s-labs/helm/app-template
 
