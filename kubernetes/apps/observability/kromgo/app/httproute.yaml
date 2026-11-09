@@ -5,18 +5,20 @@ kind: HTTPRoute
 metadata:
   name: kromgo
   annotations:
-    # Kromgo returns 404 on root path - need to check a valid endpoint
+    # kromgo >= 0.11 serves a badge gallery on /. Before 0.16 this route reached only the
+    # health port, so / answered 404 and no badge was reachable from outside.
     gatus.home-operations.com/endpoint: |
       group: observability
       conditions:
-        - "[STATUS] == 404"
+        - "[STATUS] == 200"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Kromgo"
     gethomepage.dev/group: "Observability"
     gethomepage.dev/icon: "kromgo.png"
     gethomepage.dev/description: "Prometheus Metrics Badges"
 spec:
-  hostnames: ["kromgo.${SECRET_DOMAIN}"]
+  hostnames:
+    - "kromgo.${SECRET_DOMAIN}"
   parentRefs:
     # External gateway - accessible via Cloudflare tunnel
     - name: external

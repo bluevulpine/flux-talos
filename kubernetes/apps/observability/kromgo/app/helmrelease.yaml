@@ -27,12 +27,15 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/kashalls/kromgo
-              tag: v0.10.0@sha256:965ecc92d68dc1a4a969397855367bbc70da03227a941ea607b73bb7e0b78fd6
+              # kashalls/kromgo moved to home-operations (last old tag v0.10.0). 0.15 prefixed
+              # every env var with KROMGO_ and serves badges, /healthz and /readyz on one port;
+              # 8081 carries only /metrics. The config format is CEL since 0.11 (see resources/).
+              repository: ghcr.io/home-operations/kromgo
+              tag: 0.16.3@sha256:98775a53019250a517a09a0fb716404146d1aaa6fb1f67091c58345663e5b7b5
             env:
-              PROMETHEUS_URL: http://thanos-query-frontend.observability.svc.cluster.local:10902
-              SERVER_PORT: &serverPort 80
-              HEALTH_PORT: &healthPort 8080
+              KROMGO_PROMETHEUS_URL: http://thanos-query-frontend.observability.svc.cluster.local:10902
+              KROMGO_SERVER_PORT: &serverPort 8080
+              KROMGO_METRICS_PORT: &metricsPort 8081
             probes:
               liveness: &probes
                 enabled: true
@@ -40,7 +43,7 @@ spec:
                 spec:
                   httpGet:
                     path: /readyz
-                    port: *healthPort
+                    port: *serverPort
                   initialDelaySeconds: 0
                   periodSeconds: 10
                   timeoutSeconds: 1
@@ -49,7 +52,7 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: {drop: ["ALL"]}
             resources:
               requests:
                 cpu: 10m
@@ -89,8 +92,8 @@ spec:
           http:
             primary: true
             port: *serverPort
-          health:
-            port: *healthPort
+          metrics:
+            port: *metricsPort
     ingress:
       app:
         enabled: false
@@ -99,6 +102,6 @@ spec:
         type: configMap
         name: kromgo-configmap
         globalMounts:
-          - path: /kromgo/config.yaml
+          - path: /config/config.yaml
             subPath: config.yaml
             readOnly: true

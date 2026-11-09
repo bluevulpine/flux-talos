@@ -45,7 +45,8 @@ spec:
         containers:
           app:
             image:
-              repository: nginxinc/nginx-unprivileged
+              # nginxinc/nginx-unprivileged is archived on Docker Hub; NGINX publishes it here now.
+              repository: nginx/nginx-unprivileged
               tag: alpine
             probes:
               liveness: &probes
