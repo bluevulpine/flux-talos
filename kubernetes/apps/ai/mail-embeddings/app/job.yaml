@@ -66,6 +66,10 @@ spec:
         # account later (Pescht / St. John's). email_id is mail-archiver's
         # MailEmails id: the key for resumable, incremental indexing.
         #
+        # CREATE TABLE IF NOT EXISTS only takes effect once: a later column
+        # change here silently does nothing on the existing tables. Evolve the
+        # schema with explicit ALTER TABLE ... ADD COLUMN IF NOT EXISTS lines.
+        #
         # No vector index here on purpose: build the HNSW index AFTER the
         # backfill (much faster than incremental inserts), e.g.
         #   CREATE INDEX CONCURRENTLY ON mail_chunks
@@ -98,6 +102,7 @@ spec:
                 email_id   bigint PRIMARY KEY,
                 account_id integer NOT NULL,
                 chunks     integer NOT NULL,
+                model      text    NOT NULL,
                 indexed_at timestamptz NOT NULL DEFAULT now()
               );
               SQL
