@@ -239,3 +239,52 @@ data:
                 media/plex helmrelease. If Plex's debug logging was turned off,
                 quiet hours are possible: widen the window rather than drop the
                 rule.
+
+      # Hindsight's llm_requests table was swept after 1 day, so by the time
+      # HindsightConsolidationFailing (a PrometheusRule in ai/hindsight) fired, the
+      # LLM error behind it was gone from /llm-requests. The worker's own log line
+      # was not: fluent-bit ships it here. 2026-11-09: the 3 memories behind that
+      # alert had failed with OutputTooLongError on 2026-11-06 and were only
+      # traceable here, back to 2026-10-26. Traces are now kept 7 days for the
+      # consolidation and mental-model stages (helmrelease LLM_TRACE_*), so the
+      # failed call's INPUT is replayable from /llm-requests; the error line and
+      # every other scope still live only here.
+      - name: hindsight
+        type: vlogs
+        interval: 5m
+        rules:
+          - alert: HindsightLLMOutputTruncated
+            # >=5 in 6h. Baseline over 2026-10-26..11-09 (ERROR lines, one per
+            # failed batch attempt): 1-4 on a quiet day, 10 on 11-07 and 18-29 on
+            # 10-26/27. 5 in 6h sits above a quiet day and is reached inside the
+            # first hours of a burst. Counts attempts, not memories: a batch the
+            # bisection rescued still burns an LLM call, which is the cost this
+            # alert exists to show. `scope=` is the Hindsight stage (consolidation,
+            # reflect, consolidation_dedup, mental_model_delta_ops, ...), so one rule
+            # covers all of them. No
+            # `for:`: the 6h window itself holds the alert up for up to 6h after
+            # the last error, which is enough for a warning.
+            expr: >-
+              _time:6h k_namespace_name:ai k_pod_name:hindsight* ERROR "exceeded token limits"
+              | extract "scope=<scope>)"
+              | stats by (scope) count() as failures | filter failures:>=5
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Hindsight {{ $labels.scope }} LLM calls are being cut off at the output limit'
+              description: >-
+                {{ $value }} "LLM output exceeded token limits" errors in the last
+                6h for scope={{ $labels.scope }}. The model hit its output cap
+                (finish_reason=length) before finishing. The cause is not known:
+                thinking is off by default on the Spark, so this is not simply
+                runaway reasoning, and it hit batches of 1 memory as well as 8.
+                A permanently failed memory is what HindsightConsolidationFailing
+                counts. The error line is HERE; the failed call's input is in
+                /v1/default/banks/{bank}/llm-requests for 7 days (consolidation
+                and mental-model scopes only). Lines:
+                Grafana → Explore → VictoriaLogs: k_pod_name:hindsight*
+                "exceeded token limits". Recover failed memories with POST
+                /v1/default/banks/{bank}/consolidation/recover. To find the
+                cause, replay that input against hindsight-main with a max_tokens
+                cap and read what it emits (LiteLLM's spend logs hold almost
+                nothing, checked 2026-11-10); a failed call's stored output is null.

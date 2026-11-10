@@ -179,8 +179,10 @@ spec:
               Hindsight has {{ $value | printf "%.0f" }} memories whose
               consolidation permanently failed — the observation layer that
               recall reads is falling behind the raw memories. Recoverable via
-              the consolidation recovery endpoint; check LLM errors at
-              /llm-requests first.
+              the consolidation recovery endpoint. The error line is in VictoriaLogs
+              (k_pod_name:hindsight-worker* ERROR consolidat*); the failed call's
+              input is in /llm-requests for 7 days. See also
+              HindsightLLMOutputTruncated.
           expr: |
             max(sum by (pod) (hindsight_consolidation_failed{namespace="ai"})) > 0
           for: 1h
