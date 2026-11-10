@@ -13,5 +13,6 @@ resources:
   - ./hindsight/ks.yaml
   - ./litellm/ks.yaml
   - ./mail-archiver/ks.yaml
+  - ./mail-embeddings/ks.yaml
   - ./paperclip/ks.yaml
   - ./vault/ks.yaml
