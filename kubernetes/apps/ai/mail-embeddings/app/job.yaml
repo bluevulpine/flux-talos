@@ -1,0 +1,110 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/batch/job_v1.json
+# Provisions the mail_embeddings role + database on postgres18, enables pgvector,
+# and creates the schema. Same shape as matrix-db-init: postgres-init is
+# idempotent (creates the role/DB only if missing, resets the password from
+# OpenBao every run), the Job removes itself, and the next reconcile reruns it.
+# To rerun now: kubectl -n ai delete job mail-embeddings-db-init
+#
+# pgvector is not a "trusted" extension, so CREATE EXTENSION needs the
+# superuser: step 02, as in hindsight's HelmRelease.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mail-embeddings-db-init
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: 01-init-db
+          image: &image ghcr.io/home-operations/postgres-init:rolling
+          envFrom: &envFrom
+            - secretRef:
+                name: mail-embeddings-db-init-secret
+          resources: &resources
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext: &securityContext
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+        - name: 02-init-vector
+          image: *image
+          envFrom: *envFrom
+          command:
+            - /bin/sh
+            - -c
+          args:
+            # $$ escapes each ${VAR}: runtime shell vars, not Flux postBuild
+            # substitutions (an unmapped ${VAR} fails hard since Flux 2.9).
+            - |
+              PGPASSWORD="$${INIT_POSTGRES_SUPER_PASS}" psql -v ON_ERROR_STOP=1 \
+                -h "$${INIT_POSTGRES_HOST}" -U postgres -d "$${INIT_POSTGRES_DBNAME}" \
+                -c 'CREATE EXTENSION IF NOT EXISTS vector;'
+          resources: *resources
+          securityContext: *securityContext
+      containers:
+        # Schema, created as the app role so it owns the tables. account_id and
+        # folder are stored on every chunk so views or roles can scope by
+        # account later (Pescht / St. John's). email_id is mail-archiver's
+        # MailEmails id: the key for resumable, incremental indexing.
+        #
+        # CREATE TABLE IF NOT EXISTS only takes effect once: a later column
+        # change here silently does nothing on the existing tables. Evolve the
+        # schema with explicit ALTER TABLE ... ADD COLUMN IF NOT EXISTS lines.
+        #
+        # No vector index here on purpose: build the HNSW index AFTER the
+        # backfill (much faster than incremental inserts), e.g.
+        #   CREATE INDEX CONCURRENTLY ON mail_chunks
+        #     USING hnsw (embedding vector_cosine_ops);
+        - name: schema
+          image: *image
+          envFrom: *envFrom
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              PGPASSWORD="$${INIT_POSTGRES_PASS}" psql -v ON_ERROR_STOP=1 \
+                -h "$${INIT_POSTGRES_HOST}" -U "$${INIT_POSTGRES_USER}" -d "$${INIT_POSTGRES_DBNAME}" <<'SQL'
+              CREATE TABLE IF NOT EXISTS mail_chunks (
+                email_id   bigint      NOT NULL,
+                chunk_no   integer     NOT NULL,
+                account_id integer     NOT NULL,
+                folder     text,
+                sent_date  timestamptz,
+                model      text        NOT NULL,
+                content    text        NOT NULL,
+                embedding  vector(1024) NOT NULL,
+                PRIMARY KEY (email_id, chunk_no)
+              );
+              CREATE INDEX IF NOT EXISTS mail_chunks_account_idx ON mail_chunks (account_id);
+              -- One row per email the indexer has finished, so a resume skips
+              -- it even when it produced no chunks (empty body).
+              CREATE TABLE IF NOT EXISTS mail_indexed (
+                email_id   bigint PRIMARY KEY,
+                account_id integer NOT NULL,
+                chunks     integer NOT NULL,
+                model      text    NOT NULL,
+                indexed_at timestamptz NOT NULL DEFAULT now()
+              );
+              SQL
+          resources: *resources
+          securityContext: *securityContext
