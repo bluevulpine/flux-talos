@@ -127,12 +127,13 @@ spec:
     # which deleted the fork's kopia-maintenance-local in the same change: one
     # owner on kopia's lease, never zero, never two.
     enabled: true
-    # FORCE ONCE. kopia records the fork's identity as maintenance owner, and
-    # the default Never would yield to it forever: every run "succeeds" having
-    # done nothing (only a condition says why), and the repository stops
-    # garbage-collecting. Revert to Never once status shows kopiur owning the
-    # lease (upstream: "only long enough to claim the lease once").
-    takeoverPolicy: Force
+    # Never: kopiur claimed the lease with Force at the handover (#2482; first
+    # run 2026-11-10 22:54 UTC, owner kopiur/clusterrepository/kopia-local).
+    # Force stays off so a second writer (a hand-run `kopia maintenance` or a
+    # restored fork) shows up as a yielding condition instead of being
+    # silently overridden. If kopia's recorded owner ever changes again, set
+    # Force for one run, then back.
+    takeoverPolicy: Never
     schedule:
       # Quick HOURLY: epochs advance only inside maintenance, and
       # parameters.epoch above (minDuration 1h, checkpointFrequency 48) assumes
