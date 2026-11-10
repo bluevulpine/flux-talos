@@ -34,7 +34,7 @@ spec:
       # true. Setting it false is how a mover fsGroup takes effect, and under
       # copyMethod: Direct that recursively chgrps the LIVE volume (which is
       # why kopiur demands acknowledgeLiveMutation for that combination).
-  # Mirrors components/volsync-backup/local.yaml's VOLSYNC_COPYMETHOD:-Direct.
+  # Mirrors 7ac8dfcbd410:kubernetes/components/volsync-backup/local.yaml's VOLSYNC_COPYMETHOD:-Direct.
   # kopiur does NOT fix the tns-csi CreateVolume bug — Snapshot takes the same
   # CSI path into the same driver. What it adds is spec.staging.timeout below.
   copyMethod: "${KOPIUR_COPYMETHOD:-Direct}"
@@ -69,7 +69,7 @@ spec:
       mode: Persistent
       capacity: ${KOPIUR_CACHE_CAPACITY:-16Gi}
       storageClassName: "${KOPIUR_CACHE_CLASS:-longhorn-1-replica}"
-    # Defaults to root, matching components/volsync-backup/local.yaml's
+    # Defaults to root, matching 7ac8dfcbd410:kubernetes/components/volsync-backup/local.yaml's
     # VOLSYNC_RUN_AS_USER:-0, which 38 of the 46 apps take. Root is also what
     # lets a restore recreate root-owned content: a non-root mover cannot chown
     # to root, so root-owned files come back owned by the mover's uid.
@@ -94,7 +94,8 @@ spec:
       fsGroupChangePolicy: OnRootMismatch
   retention:
     # Matches VolSync's EFFECTIVE retention, not just its manifest.
-    # components/volsync-backup/local.yaml sets five buckets; the fork writes
+    # 7ac8dfcbd410:kubernetes/components/volsync-backup/local.yaml
+    # sets five buckets; the fork writes
     # only those to a path-scope kopia policy, so keep-annual falls through to
     # kopia's global default of 3. Verified live 2026-09-22 (`kopia policy show
     # jellyseerr@media:/data`: "Annual snapshots: 3 inherited from (global)").
@@ -139,8 +140,8 @@ spec:
     # byte-identical "H */6 * * *" landed 23m17s apart, which exceeds the whole
     # 20m jitter window — so the H minutes themselves differ, not just jitter.
     #
-    # THIS IS WHAT RETIRES THE GRID. components/volsync-backup/r2.yaml
-    # hand-maintains a 40-slot, 8-minute grid for 46 sources and reserves hour
+    # THIS IS WHAT RETIRED THE GRID. 7ac8dfcbd410:kubernetes/components/volsync-backup/r2.yaml
+    # hand-maintained a 40-slot, 8-minute grid for 46 sources and reserves hour
     # 03; H makes all of that unnecessary.
     #
     # DAILY, IN THE 07-11 UTC WINDOW (2026-10-29). Every app sets its own

@@ -183,7 +183,7 @@ spec:
         host: "matrix.${SECRET_DOMAIN}"
       media:
         storage:
-          # volsync-claim/volsync-backup PVC (see ../ks.yaml). Temporary: step 4 of
+          # volsync-claim PVC (see ../ks.yaml). Temporary: step 4 of
           # the rollout moves media to Garage S3 and this becomes a cache.
           existingClaim: synapse-media
         # Public traffic comes through Pangolin, not Cloudflare, so the 100MB CF

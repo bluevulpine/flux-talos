@@ -771,9 +771,14 @@ sit there, with no alert covering a stuck Restore.
       carry `onScheduleDelete: Retain` and no `onPolicyDelete`, so the prune deletes only
       CRs, never kopia data. The pilot bucket and OpenBao key are dropped by hand
       afterwards). Order: repositories → W0 cutover → gates pass → retire pilots
-- [ ] **Decommission (after W8).** Items 2-4 wait for step 6's 30 green days after the
-      last cutover (W8, 2026-10-11), so not before 2026-11-10: until then VolSync and its
-      repositories are the rollback path. Item 1 was a safety fix, so it did not wait.
+- [ ] **Decommission (after W8).** The gate (30 green days after W8, 2026-10-11) opened
+      2026-11-10 and was checked that day: since W8, 1,464 Snapshots `Succeeded` and 38
+      `Failed` across 161 legs, every scheduled leg's latest run succeeded and every one
+      succeeded since 2026-11-09 (the failures cluster on 2026-10-29; last one notifiarr-r2,
+      2026-11-07). The 60 `Discovered` are the 2026-10-23 catalog scan. Live then: no
+      ReplicationSource or ReplicationDestination left; the operator (chart 0.18.5), its 3
+      CRDs and the fork's two `KopiaMaintenance` still running. One PR per step, each
+      verified before the next.
       1. **Done 2026-10-11:** tuppr now gates on kopiur Snapshots `Pending`/`Running` (or
          with no phase yet) and on Restores `Pending`/`Resolving`/`Restoring` (the live
          CRD's enum). Checked with tuppr's own CEL code against all 6,129 live Snapshots
@@ -785,13 +790,35 @@ sit there, with no alert covering a stuck Restore.
          for W8's Direct movers, on the app's node against live RWO volumes). Replace it with
          a gate on kopiur's in-flight Snapshots BEFORE VolSync's CRDs go, since a health check
          on a removed kind may block or error. The Talos upgrade is suspended meanwhile.
-      2. Delete `components/volsync-backup`; repoint the kopiur comments that cite it
-         (`components/kopiur/{local,r2}.yaml`, `clusterrepository-local.yaml`) at a
-         commit-pinned path.
-      3. Uninstall VolSync (HelmRelease, CRDs), after 1.
-      4. `volsync-claim`'s inert `dataSourceRef` (see "After the migration: the claim").
+      2. **Groundwork (no behaviour change).** Delete `components/volsync-backup` (and the R2
+         slot grid inside it) and the unused `components/volsync-r2-restore`; repoint the
+         kopiur comments that cite them at `7ac8dfcbd410:<path>`; drop plex's
+         `dependsOn: volsync` (below), which must go before the operator does. No app
+         includes either component (2026-11-10; earlier counts of "3 apps" were comments).
+      3. **Maintenance handover.** In ONE change: delete `volsync-system/kopia-maintenance`
+         (both `KopiaMaintenance` and their ExternalSecrets) and set `maintenance.enabled:
+         true` on both ClusterRepositories. Never zero owners, never two (the lease is
+         shared). The hour-03 reservation (`components/kopiur/{local,r2}.yaml`, Waves) dies
+         with the fork's job: drop it here. Verify kopiur's quick and full runs on both
+         repositories and watch `indexBlobCount`.
+      4. **Uninstall VolSync.** HelmRelease, OCIRepository, its PrometheusRule and the
+         `volsync-system` namespace; the VolSync rules in kube-prometheus-stack and
+         tracearr; the `volsync.backube/privileged-movers` namespace labels. Helm leaves
+         the 3 CRDs: delete them by hand after confirming they hold no objects.
+      5. **The claim.** `volsync-claim` STAYS on the bound PVCs: `dataSourceRef` is
+         immutable, so editing it makes SSA stall the Kustomization, and it is inert while
+         bound. Build `components/kopiur-claim` (see "After the migration: the claim") for
+         new apps and recreated PVCs; paperclip and dispatcharr move onto it only when
+         their PVCs are next recreated. The gap it closes is already open (the
+         ReplicationDestinations are gone), so it does not block step 4.
+      6. **Docs.** README backup lines, CLAUDE.md, the `move-workload` skill (VolSync-based),
+         `volsync-*` runbooks marked historical, the vault.
 - [ ] At decommission: flip `catalog.adoption` to `Adopt`? and decide on the pre-120 d
-      VolSync tail
+      VolSync tail. Recommended (2026-11-10, awaiting Derek): keep `Ignore`. `Adopt`
+      makes kopiur's GFS delete kopia data outside `spec.retention` on the next
+      reconcile; under `Ignore` the tail stays restorable by raw identity ("Restoring an
+      aged-out snapshot") and goes with the shared repositories after the per-app split.
+      Not checked: whether kopia's own policy is already expiring it.
 - [ ] **After decommission: split the shared repositories per app.** Plan, measurements
       (index 722 MB / 11× bloated and unmergeable; cross-app dedup 4 %) and cutover order in
       `docs/runbooks/kopiur-per-app-repositories.md` (2026-10-23)
@@ -814,7 +841,7 @@ sit there, with no alert covering a stuck Restore.
       (footnote ⁶). plex and jellyfin have it (W5); hermes, matrix (`longhorn-1-replica`) and
       scrypted (`longhorn-1-replica-local`) have it (W6)
 
-- [ ] **plex's HelmRelease still `dependsOn: volsync` (`volsync-system`)**
+- [x] **Dropped at decommission step 2.** **plex's HelmRelease still `dependsOn: volsync` (`volsync-system`)**
       (`kubernetes/apps/media/plex/app/helmrelease.yaml`), the only HelmRelease with it. Drop it
       at decommission (step 6), before removing VolSync, or plex parks in "dependency not ready"
       with no alert. Found by #2085's review.

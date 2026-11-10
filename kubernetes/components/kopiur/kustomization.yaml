@@ -2,7 +2,8 @@
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
-# kopiur backup half — the drop-in replacement for ../volsync-backup.
+# kopiur backup half — the drop-in replacement for ../volsync-backup, which
+# was deleted at the VolSync decommission (last at 7ac8dfcbd410).
 #
 # Per-app cutover is a one-line swap, because the PVC lives in
 # ../volsync-claim and stays put:

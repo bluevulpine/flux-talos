@@ -130,8 +130,9 @@ spec:
     # Flip this to true in the same change that retires those objects.
     enabled: false
   moverDefaults:
-    # Preserves today's VolSync behaviour EXACTLY: components/volsync-backup
-    # runs movers as root by default (VOLSYNC_RUN_AS_USER:-0), which 38 of the
+    # Preserves VolSync's behaviour EXACTLY: components/volsync-backup (deleted;
+    # 7ac8dfcbd410:kubernetes/components/volsync-backup/local.yaml)
+    # ran movers as root by default (VOLSYNC_RUN_AS_USER:-0), which 38 of the
     # 46 apps take. The 8 that override it do so per-policy in the component.
     #
     # Root is what makes a restore able to recreate root-owned content: a
