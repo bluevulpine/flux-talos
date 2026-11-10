@@ -3,7 +3,8 @@
 #
 # Deliberately NOT components/volsync-claim. That component's claim carries a
 # dataSourceRef to ReplicationDestination/${APP}-dst-local, which only
-# components/volsync-backup creates. On a NEW claim the VolSync populator
+# components/volsync-backup created (deleted at the VolSync decommission).
+# On a NEW claim the VolSync populator
 # waits for that object forever (docs/runbooks/kopiur-migration.md, "After the
 # migration: the claim"). Every other kopiur app bound under VolSync first;
 # this is the first app born on kopiur, so it gets a plain claim.
