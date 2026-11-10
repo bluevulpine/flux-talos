@@ -434,11 +434,16 @@ spec:
               # mail-archiver semantic-search indexer (t_8f3a8cc8). No auth on the
               # engines; LiteLLM is the boundary, as everywhere here.
               #
-              # ⚠️ RATE CAP. Uncapped, a backfill halves Qwen3.6 decode on the box
-              # it hits (measured ~65-73 emb/s per box at ~500 tokens; ~35 emb/s,
-              # about 1M tokens/min, costs Qwen3.6 ~24%). tpm below is that
-              # ceiling per deployment. Bulk consumers must ALSO throttle
-              # themselves or run off-hours: do not rely on this alone.
+              # ⚠️ NO RATE CAP LIVES ON THESE ROUTES. Uncapped, a backfill halves
+              # Qwen3.6 decode on the box it hits (measured ~65-73 emb/s per box
+              # at ~500 tokens; ~35 emb/s, about 1M tokens/min, costs Qwen3.6
+              # ~24%). A per-deployment `tpm` here would NOT help: router_settings
+              # uses the default simple-shuffle, where tpm/rpm only weight the
+              # random pick and reject nothing (caught in the #2470 review).
+              # The cap is `tpm_limit` on the indexer's virtual key (enforced via
+              # coordination_redis), about 2M tokens/min across both boxes, so
+              # set it when creating the key. Bulk consumers must ALSO throttle
+              # themselves or run off-hours.
               #
               # ⚠️ The reranker needs the Qwen3 prompt template (instruction +
               # <Query>/<Document> wrapping) in the client's strings. The route
@@ -449,7 +454,6 @@ spec:
                   model: openai/qwen3-embedding-0.6b
                   api_base: http://10.0.10.237:8010/v1
                   api_key: unused-no-auth
-                  tpm: 1000000
                   num_retries: 2
                 model_info:
                   mode: embedding
@@ -458,7 +462,6 @@ spec:
                   model: openai/qwen3-embedding-0.6b
                   api_base: http://10.0.10.117:8010/v1
                   api_key: unused-no-auth
-                  tpm: 1000000
                   num_retries: 2
                 model_info:
                   mode: embedding
