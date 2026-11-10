@@ -56,6 +56,15 @@ spec:
               Api__Enabled: "true"
               Api__AllowMessageDownloads: "false"
               Api__AllowAttachmentDownloads: "false"
+              # Fixed-window budget per API key per minute (upstream default
+              # 120). Raised for the one-time semantic-search backfill: the
+              # list endpoint carries no bodies, so the indexer needs one
+              # GET /emails/{id} per message (334k) and 120/min would take
+              # ~46 h. 3000/min is ~2 h. Lower it once the initial load is
+              # done and a steady-state rate is known (incremental indexing
+              # needs far less). Not measured against the single-pod app's
+              # load yet: the indexer self-throttles to ~50 req/s.
+              Api__RateLimitPerMinute: "3000"
               # Archive posture: manual delete stays allowed during the
               # phase-1 delete test; flip to "false" for production.
               DeletionPolicy__DeletionAllowed: "true"
