@@ -11,7 +11,7 @@ describe VolSync, which kopiur has replaced: where they disagree, this file wins
 - `kubernetes/apps/<namespace>/<app>/`: all workloads. `kubernetes/components/`: reusable
   Kustomize components. `kopiur` does backups. `volsync-claim` (still on most apps) is the
   only manifest that creates an app's data PVC: never remove it, because Flux prune then
-  deletes the volume. `volsync-backup` is legacy, left on a few apps. See
+  deletes the volume. `volsync-backup` was deleted at the decommission (last at `7ac8dfcbd410`). See
   `docs/runbooks/kopiur-migration.md`. `kubernetes/flux/cluster/ks.yaml`: the entry point
   and the `cluster-apps` patch. `kubernetes/bootstrap/`: one-time bootstrap only.
 - `talos/topf.yaml`: nodes and versions. `talos/patches/{all,control-plane,worker,node/<host>}/`:

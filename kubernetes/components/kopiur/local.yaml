@@ -141,8 +141,9 @@ spec:
     # 20m jitter window — so the H minutes themselves differ, not just jitter.
     #
     # THIS IS WHAT RETIRED THE GRID. 7ac8dfcbd410:kubernetes/components/volsync-backup/r2.yaml
-    # hand-maintained a 40-slot, 8-minute grid for 46 sources and reserves hour
-    # 03; H makes all of that unnecessary.
+    # hand-maintained a 40-slot, 8-minute grid for 46 sources; H made it
+    # unnecessary. Hour 03 stays reserved until the maintenance handover (runbook
+    # Decommission step 3) retires the fork's KopiaMaintenance.
     #
     # DAILY, IN THE 07-11 UTC WINDOW (2026-10-29). Every app sets its own
     # KOPIUR_LOCAL_CRON to `H <hour> * * *` with ~10 apps per hour, so the

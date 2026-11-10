@@ -849,7 +849,6 @@ sit there, with no alert covering a stuck Restore.
       (footnote ⁶). plex and jellyfin have it (W5); hermes, matrix (`longhorn-1-replica`) and
       scrypted (`longhorn-1-replica-local`) have it (W6)
 
-- [x] **Dropped at decommission step 2.** **plex's HelmRelease still `dependsOn: volsync` (`volsync-system`)**
-      (`kubernetes/apps/media/plex/app/helmrelease.yaml`), the only HelmRelease with it. Drop it
-      at decommission (step 6), before removing VolSync, or plex parks in "dependency not ready"
-      with no alert. Found by #2085's review.
+- [x] **plex's HelmRelease `dependsOn: volsync` (`volsync-system`)**, the only HelmRelease
+      with it, was dropped at decommission step 2 (#2478), before the operator goes:
+      otherwise plex parks in "dependency not ready" with no alert. Found by #2085's review.
