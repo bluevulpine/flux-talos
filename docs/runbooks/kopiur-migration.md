@@ -810,15 +810,23 @@ sit there, with no alert covering a stuck Restore.
          bound. Build `components/kopiur-claim` (see "After the migration: the claim") for
          new apps and recreated PVCs; paperclip and dispatcharr move onto it only when
          their PVCs are next recreated. The gap it closes is already open (the
-         ReplicationDestinations are gone), so it does not block step 4.
+         ReplicationDestinations are gone), so it follows step 4 (Derek, 2026-11-10).
       6. **Docs.** README backup lines, CLAUDE.md, the `move-workload` skill (VolSync-based),
          `volsync-*` runbooks marked historical, the vault.
-- [ ] At decommission: flip `catalog.adoption` to `Adopt`? and decide on the pre-120 d
-      VolSync tail. Recommended (2026-11-10, awaiting Derek): keep `Ignore`. `Adopt`
-      makes kopiur's GFS delete kopia data outside `spec.retention` on the next
-      reconcile; under `Ignore` the tail stays restorable by raw identity ("Restoring an
-      aged-out snapshot") and goes with the shared repositories after the per-app split.
-      Not checked: whether kopia's own policy is already expiring it.
+- [x] At decommission: flip `catalog.adoption` to `Adopt`? and decide on the pre-120 d
+      VolSync tail. **Decided 2026-11-10 (Derek): keep `Ignore`.** `Adopt` makes kopiur's
+      GFS delete kopia data outside `spec.retention` on the next reconcile, and it only
+      ever adopts the catalog's ≤120 d / ≤50 rows, so it would not clear the older tail
+      anyway. Under `Ignore` the tail stays restorable by raw identity ("Restoring an
+      aged-out snapshot"). **Cost: nothing expires it.** Since cutover the path-scope
+      `keep-*` is cleared, so the identities inherit kopiur's `i32::MAX` pin and kopia
+      never expires on create; kopiur's GFS deletes only its own Snapshots. On 2026-11-10
+      `kopia-r2` held 1,339 snapshots against 619 kopiur-made (`Succeeded`) CRs: ~720
+      VolSync-era snapshots, frozen. They pin only the blobs no later snapshot shares
+      (dedup), so the bytes are the churn of their era; not measured (the
+      ClusterRepository's `totalSizeBytes` is not a usable figure: 26,535 for R2). The
+      tail goes when the shared repositories are deleted after the per-app split, which
+      bounds the cost.
 - [ ] **After decommission: split the shared repositories per app.** Plan, measurements
       (index 722 MB / 11× bloated and unmergeable; cross-app dedup 4 %) and cutover order in
       `docs/runbooks/kopiur-per-app-repositories.md` (2026-10-23)
