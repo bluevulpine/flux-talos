@@ -427,6 +427,56 @@ spec:
                 model_info:
                   mode: audio_speech
 
+              # --- embeddings + reranking (spark-setup PR #28, `embeddings` role) ---
+              # Qwen3-Embedding-0.6B (1024-d, L2-normalised, 8192-token input) and
+              # Qwen3-Reranker-0.6B, one copy per box like the text routes, so
+              # LiteLLM's default shuffle spreads load across both. Consumer: the
+              # mail-archiver semantic-search indexer (t_8f3a8cc8). No auth on the
+              # engines; LiteLLM is the boundary, as everywhere here.
+              #
+              # ⚠️ RATE CAP. Uncapped, a backfill halves Qwen3.6 decode on the box
+              # it hits (measured ~65-73 emb/s per box at ~500 tokens; ~35 emb/s,
+              # about 1M tokens/min, costs Qwen3.6 ~24%). tpm below is that
+              # ceiling per deployment. Bulk consumers must ALSO throttle
+              # themselves or run off-hours: do not rely on this alone.
+              #
+              # ⚠️ The reranker needs the Qwen3 prompt template (instruction +
+              # <Query>/<Document> wrapping) in the client's strings. The route
+              # through LiteLLM has not been exercised yet: rerun the 3-document
+              # check after this lands.
+              - model_name: spark-embed
+                litellm_params:
+                  model: openai/qwen3-embedding-0.6b
+                  api_base: http://10.0.10.237:8010/v1
+                  api_key: unused-no-auth
+                  tpm: 1000000
+                  num_retries: 2
+                model_info:
+                  mode: embedding
+              - model_name: spark-embed   # gx10-7ac6 replica, see above
+                litellm_params:
+                  model: openai/qwen3-embedding-0.6b
+                  api_base: http://10.0.10.117:8010/v1
+                  api_key: unused-no-auth
+                  tpm: 1000000
+                  num_retries: 2
+                model_info:
+                  mode: embedding
+              - model_name: spark-rerank
+                litellm_params:
+                  model: hosted_vllm/qwen3-reranker-0.6b
+                  api_base: http://10.0.10.237:8011
+                  api_key: unused-no-auth
+                model_info:
+                  mode: rerank
+              - model_name: spark-rerank   # gx10-7ac6 replica, see above
+                litellm_params:
+                  model: hosted_vllm/qwen3-reranker-0.6b
+                  api_base: http://10.0.10.117:8011
+                  api_key: unused-no-auth
+                model_info:
+                  mode: rerank
+
               # --- removed 2026-09-29: spark-qwen25-14b (qwen2.5:14b-instruct) ---
               # A dense non-reasoning alternative to gpt-oss that nothing used: it
               # was reflect's escape hatch until reflect needed a ~92k window, and it
