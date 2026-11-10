@@ -65,7 +65,7 @@ spec:
         - name: token-writer
           # Same image and ImagePolicy as the poller (flux-system:chargepoint-collector); the marker
           # has no ":tag" suffix because this is a combined image:repo:tag scalar.
-          image: gitea.derekjacobs.dev/bvn-homelab/chargepoint-collector:20-6d321777 # {"$imagepolicy": "flux-system:chargepoint-collector"}
+          image: gitea.derekjacobs.dev/bvn-homelab/chargepoint-collector:21-3a057671 # {"$imagepolicy": "flux-system:chargepoint-collector"}
           imagePullPolicy: Always
           command:
             - python
