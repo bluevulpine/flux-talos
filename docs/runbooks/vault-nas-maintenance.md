@@ -227,7 +227,8 @@ backup is recorded as failed.
 quick hourly on `kopia-local`, full 03:00 UTC on both; the fork's `kopia-maint-*` CronJobs
 were removed at the VolSync decommission, step 3). kopiur 0.10.17 has no per-run pause, and
 toggling the ClusterRepository would need Flux suspended. A run during the window fails to
-reach Garage and does nothing; the next hourly run recovers. Schedule the window clear of
+reach Garage and does nothing; the next hourly run recovers. Each failed run is a failed Job,
+so `KubeJobFailed` fires: silence `KubeJobFailed{namespace="kopiur-system"}` for the window. Schedule the window clear of
 03:00 UTC if you want the full runs untouched. **Stale (decommission step 6):** the VolSync
 rows above; kopiur's local backups run 07-11 UTC instead.
 

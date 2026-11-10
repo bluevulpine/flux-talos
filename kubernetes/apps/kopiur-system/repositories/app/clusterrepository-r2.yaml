@@ -37,6 +37,11 @@ spec:
       - games
       - home
       - identity
+      # Not a backup consumer: the managed Maintenance lives here. Without it
+      # the webhook rejects the Maintenance ("kopiur-system is not in the
+      # allowedNamespaces"), which left kopia-r2 with
+      # MaintenanceConfigured=False from 2026-09-22 until this was added.
+      - kopiur-system
       - matrix
       - matrix-bluevulpine
       - media
@@ -74,6 +79,16 @@ spec:
           memory: 256Mi
         limits:
           memory: 2Gi
+      # Non-root for the same reason as kopia-local (see there).
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+      podSecurityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
     failurePolicy:
       activeDeadlineSeconds: 10800
   moverDefaults:

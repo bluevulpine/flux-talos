@@ -146,13 +146,30 @@ spec:
         cron: "0 3 * * *"
     mover:
       # The fork's limits (memory measured in the fork era: index 722 MB);
-      # cache and security context come from moverDefaults.
+      # cache comes from moverDefaults.
       resources:
         requests:
           cpu: 100m
           memory: 512Mi
         limits:
           memory: 4Gi
+      # NON-ROOT, unlike moverDefaults. Maintenance runs in kopiur-system, and
+      # kopiur refuses any root mover in a namespace without the
+      # kopiur.home-operations.com/privileged-movers=true annotation (the gate
+      # checks the merged mover). With the inherited root it logged
+      # PrivilegedMoverNotPermitted and never ran (2026-11-10, after #2482).
+      # Root buys nothing here: maintenance writes no files a restore depends
+      # on. 568 is what the fork's KopiaMaintenance ran as; fsGroup makes the
+      # cache volume writable. Also keeps PSA restricted (warn/audit) quiet.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+      podSecurityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
     failurePolicy:
       activeDeadlineSeconds: 10800
   moverDefaults:
