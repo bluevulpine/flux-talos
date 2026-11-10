@@ -19,20 +19,25 @@ kubectl run unifi-check -n network --rm -it --restart=Never \
   --image=nicolaka/netshoot:latest \
   --overrides='{"spec":{"securityContext":{"runAsUser":1000,"runAsNonRoot":true}}}' \
   --env-from=secret/external-dns-secret-unifi -- sh -c '
-    curl -sk -c /tmp/c -o /dev/null -w "login  http=%{http_code} t=%{time_total}\n" \
-      --max-time 20 -X POST -H "Content-Type: application/json" \
-      -d "{\"username\":\"$EXTERNAL_DNS_UNIFI_USER\",\"password\":\"$EXTERNAL_DNS_UNIFI_PASS\"}" \
-      https://10.0.10.1/api/auth/login
-    curl -sk -b /tmp/c -o /dev/null -w "health http=%{http_code} t=%{time_total}\n" \
+    curl -sk -o /dev/null -w "os     http=%{http_code} t=%{time_total}\n" \
+      --max-time 20 https://10.0.10.1/api/system
+    curl -sk -H "X-API-KEY: $EXTERNAL_DNS_UNIFI_API_KEY" -o /dev/null \
+      -w "health http=%{http_code} t=%{time_total}\n" \
       --max-time 20 https://10.0.10.1/proxy/network/api/s/default/stat/health'
 ```
 
-| login | health | meaning |
+`/api/system` is answered by UniFi OS itself, so it stays fast while the Network app is
+wedged; the health call goes through the Network app with the webhook's own API key. (Before
+2026-11-10 this check logged in with the webhook's username/password; the 0.11 webhook has
+only an API key. Both calls were checked against the UDM on 2026-11-10: 200 in 0.4 s and 0.1 s,
+and a bogus key gets `401`.)
+
+| os | health | meaning |
 |---|---|---|
 | 200 fast | 200 fast | Network app fine — look elsewhere |
 | **200 fast** | **hangs / `http=000`** | **this runbook** |
 | hangs | hangs | whole box down — check power/link |
-| 401 | — | credentials rotated; check OpenBao key `unifi` |
+| 200 | 401 | API key revoked or wrong; check OpenBao `secret/unifi` `Unifi__ExternalDns__ApiKey` |
 
 ## Root cause
 
