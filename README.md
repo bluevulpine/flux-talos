@@ -80,7 +80,7 @@ While most of my infrastructure and workloads are self-hosted I do rely upon the
 
 ## 🌐 DNS
 
-In my cluster there are multiple [ExternalDNS](https://github.com/kubernetes-sigs/external-dns) instances deployed. One uses the [ExternalDNS webhook provider for UniFi](https://github.com/kashalls/external-dns-unifi-webhook) to sync DNS records to my UniFi router. Another syncs records to Cloudflare only for ingresses with class `external` and the annotation `external-dns.alpha.kubernetes.io/target`. [k8s-gateway](https://github.com/ori-edge/k8s_gateway) handles in-cluster DNS resolution for services and ingresses.
+In my cluster there are multiple [ExternalDNS](https://github.com/kubernetes-sigs/external-dns) instances deployed. One uses the [ExternalDNS webhook provider for UniFi](https://github.com/home-operations/external-dns-unifi-webhook) to sync DNS records to my UniFi router. Another syncs records to Cloudflare only for ingresses with class `external` and the annotation `external-dns.alpha.kubernetes.io/target`. [k8s-gateway](https://github.com/ori-edge/k8s_gateway) handles in-cluster DNS resolution for services and ingresses.
 
 Local clients use [NextDNS](https://nextdns.io) as their upstream resolver (via the UniFi router), providing network-wide ad/tracker blocking.
 
