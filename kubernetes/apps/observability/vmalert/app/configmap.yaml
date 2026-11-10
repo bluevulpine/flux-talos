@@ -257,7 +257,9 @@ data:
             # first hours of a burst. Counts attempts, not memories: a batch the
             # bisection rescued still burns an LLM call, which is the cost this
             # alert exists to show. `scope=` is the Hindsight stage (consolidation,
-            # reflect, consolidation_dedup), so one rule covers all of them.
+            # reflect, consolidation_dedup), so one rule covers all of them. No
+            # `for:`: the 6h window itself holds the alert up for up to 6h after
+            # the last error, which is enough for a warning.
             expr: >-
               _time:6h k_namespace_name:ai k_pod_name:hindsight* ERROR "exceeded token limits"
               | extract "scope=<scope>)"
@@ -269,13 +271,13 @@ data:
               description: >-
                 {{ $value }} "LLM output exceeded token limits" errors in the last
                 6h for scope={{ $labels.scope }}. The model hit its output cap
-                (finish_reason=length) before finishing; with thinking on, that is
-                usually runaway reasoning, not a long answer. A permanently failed
-                memory is what HindsightConsolidationFailing counts, and its cause
-                is HERE, not in /llm-requests. Lines: Grafana → Explore →
-                VictoriaLogs: k_pod_name:hindsight-worker* "exceeded token limits".
-                Recover failed memories with POST
-                /v1/default/banks/{bank}/consolidation/recover. Setting
-                HINDSIGHT_API_<STAGE>_LLM_REASONING_EFFORT to none in
-                kubernetes/apps/ai/hindsight/app/helmrelease.yaml is the lever
-                the refresh stage already uses.
+                (finish_reason=length) before finishing. The cause is not known:
+                thinking is off by default on the Spark, so this is not simply
+                runaway reasoning, and it hit batches of 1 memory as well as 8.
+                A permanently failed memory is what HindsightConsolidationFailing
+                counts, and its cause is HERE, not in /llm-requests. Lines:
+                Grafana → Explore → VictoriaLogs: k_pod_name:hindsight*
+                "exceeded token limits". Recover failed memories with POST
+                /v1/default/banks/{bank}/consolidation/recover. To find the
+                cause, compare completion_tokens (and any reasoning tokens) of
+                the failed calls in LiteLLM's spend logs.

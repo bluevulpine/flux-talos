@@ -1070,23 +1070,6 @@ spec:
               # Spark with the refresh stage: `hindsight-main` (`spark-main`
               # before 2026-10-24).
               HINDSIGHT_API_CONSOLIDATION_LLM_MODEL: hindsight-main
-              # Thinking OFF for consolidation, set 2026-11-09. Unset, Qwen thinks, and
-              # a thinking call can spend its whole output cap reasoning and return no
-              # JSON: 68 "exceeded token limits" errors for scope=consolidation in
-              # VictoriaLogs between 2026-10-26 and 11-09, on batches of 1 to 8
-              # memories alike (9 failed at a single memory), so a smaller
-              # HINDSIGHT_API_CONSOLIDATION_LLM_BATCH_SIZE would not have helped. That
-              # fault is what left 3 memories permanently failed on 2026-11-06
-              # (HindsightConsolidationFailing, recovered by hand 2026-11-09). `none`
-              # is what the refresh stage has run since 2026-10-14 for the same
-              # reason (see HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_REASONING_EFFORT).
-              # INFERENCE, not measured on this stage: runaway reasoning is the
-              # mechanism on refresh and fits here, but consolidation's finish_reason
-              # was never captured. Check by watching HindsightLLMOutputTruncated;
-              # if scope=consolidation keeps firing after this lands, the cause is
-              # something else and this line is not the fix. The consolidation
-              # quality effect is unmeasured: spot-read new observations.
-              HINDSIGHT_API_CONSOLIDATION_LLM_REASONING_EFFORT: none
               # HINDSIGHT_API_LLM_TEMPERATURE_CONSOLIDATION: none was here, and
               # removing it is REQUIRED, not cleanup. It existed solely because
               # the gpt-5 family rejects an explicit temperature and would 400 on
