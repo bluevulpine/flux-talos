@@ -70,9 +70,9 @@ spec:
       # floor (>= 10m and >= 3x refreshFrequency 20m): raising
       # refreshFrequency later rejects it.
       minDuration: 1h
-      # 48, not kopia's default 7, because epochs are now hourly (the fork's
-      # kopia-maintenance-local runs every hour and epochs advance only inside
-      # maintenance). kopia writes one range-checkpoint index blob per
+      # 48, not kopia's default 7, because epochs are now hourly (kopiur's quick
+      # maintenance runs every hour, as the fork's job did, and epochs advance
+      # only inside maintenance). kopia writes one range-checkpoint index blob per
       # checkpointFrequency epochs and NEVER merges ranges afterwards
       # (getRangeToCompact starts at the last range's MaxEpoch+1, v0.22.3 and
       # master alike): at 7 that is ~3 new permanent blobs a day, ~1,100 a
@@ -123,12 +123,38 @@ spec:
       # See docs/runbooks/kopiur-migration.md.
       maxAgeDays: 120
   maintenance:
-    # OFF until VolSync is decommissioned. The fork's own KopiaMaintenance
-    # objects in volsync-system currently own maintenance on THIS repository
-    # (kopia-maintenance-local: hourly, full, since 2026-10-23). Enabling
-    # kopiur's would put two owners on one repository's maintenance lease.
-    # Flip this to true in the same change that retires those objects.
-    enabled: false
+    # kopiur owns maintenance since the VolSync decommission (runbook step 3),
+    # which deleted the fork's kopia-maintenance-local in the same change: one
+    # owner on kopia's lease, never zero, never two.
+    enabled: true
+    # FORCE ONCE. kopia records the fork's identity as maintenance owner, and
+    # the default Never would yield to it forever: every run "succeeds" having
+    # done nothing (only a condition says why), and the repository stops
+    # garbage-collecting. Revert to Never once status shows kopiur owning the
+    # lease (upstream: "only long enough to claim the lease once").
+    takeoverPolicy: Force
+    schedule:
+      # Quick HOURLY: epochs advance only inside maintenance, and
+      # parameters.epoch above (minDuration 1h, checkpointFrequency 48) assumes
+      # hourly epochs, which is what the fork's hourly job produced. Full
+      # daily (decided 2026-10-23), at 03:00 UTC: clear of the 07-11 UTC
+      # backup window. When both are due the full run covers the quick one.
+      # Timezone and the 20m jitter come from scheduleDefaults.
+      quick:
+        cron: "0 * * * *"
+      full:
+        cron: "0 3 * * *"
+    mover:
+      # The fork's limits (memory measured in the fork era: index 722 MB);
+      # cache and security context come from moverDefaults.
+      resources:
+        requests:
+          cpu: 100m
+          memory: 512Mi
+        limits:
+          memory: 4Gi
+    failurePolicy:
+      activeDeadlineSeconds: 10800
   moverDefaults:
     # Preserves VolSync's behaviour EXACTLY: components/volsync-backup (deleted;
     # 7ac8dfcbd410:kubernetes/components/volsync-backup/local.yaml)

@@ -142,13 +142,14 @@ spec:
     #
     # THIS IS WHAT RETIRED THE GRID. 7ac8dfcbd410:kubernetes/components/volsync-backup/r2.yaml
     # hand-maintained a 40-slot, 8-minute grid for 46 sources; H made it
-    # unnecessary. Hour 03 stays reserved until the maintenance handover (runbook
-    # Decommission step 3) retires the fork's KopiaMaintenance.
+    # unnecessary. Hour 03 stays reserved: kopiur's own full maintenance on
+    # both repositories runs at 03:00 UTC (ClusterRepository spec.maintenance).
     #
     # The HOUR is still carried per-app (KOPIUR_R2_CRON), preserving today's
     # deliberate spread across hours 00-06 and keeping hour 03 clear — that
-    # hour is reserved on incident history, and the fork's kopia-maint-r2 still
-    # runs at "0 3 * * *" against this very repository. H only retires the
+    # hour is reserved on incident history, and kopiur's full maintenance runs
+    # at "0 3 * * *" against this very repository (it replaced the fork's
+    # kopia-maint-r2 in the same slot). H only retires the
     # minute grid, which is the part that was hand-maintained and collided.
     cron: "${KOPIUR_R2_CRON:-H 4 * * *}"
     # jitter and timezone inherit from ClusterRepository.scheduleDefaults

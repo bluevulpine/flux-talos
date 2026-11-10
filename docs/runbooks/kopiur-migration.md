@@ -83,8 +83,8 @@ Key properties, all commented in the manifests:
 - **`catalog.adoption: Ignore`** on both (decided 2026-09-22, see "Two deleters on one
   identity"). kopiur never deletes kopia data it did not write, and it survives server
   defaulting
-- `maintenance.enabled: false` — the fork's `volsync-system/kopia-maintenance-{local,r2}`
-  still own maintenance; flip in the same change that retires them
+- `maintenance.enabled: false` until decommission step 3, which deleted the fork's
+  `volsync-system/kopia-maintenance-{local,r2}` and enabled kopiur's in the same change
 - **no `parameters.epoch`** — its own windowed change (rewrites the format blob; other kopia
   clients' caches go stale for ~15 min, and live VolSync movers are other clients)
 - R2 endpoint is `${SECRET_CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com` — Flux
@@ -116,7 +116,8 @@ Key properties, all commented in the manifests:
    exactly the floor. "Removing a value does not restore kopia's default" — set it once.
 5. **W0 → W8** below, one wave at a time.
 6. **Decommission** after the whole fleet is green for ≥ 30 days (one daily-retention
-   cycle): retire `components/volsync-backup`, the R2 slot grid and hour-03 reservation, the
+   cycle): retire `components/volsync-backup`, the R2 slot grid (the hour-03 reservation
+   stays, now for kopiur's full maintenance), the
    fork's `KopiaMaintenance` (and flip kopiur `maintenance.enabled: true` in the same
    change), then the VolSync operator. Then decide the post-migration claim shape (below).
 7. **`Direct` → `Snapshot` for the apps that are `Direct` only by omission.** couchdb,
@@ -506,8 +507,9 @@ outside both windows (`[v+5, v+25)` and `[v+35, v+55)`), so the two engines don'
 same identity together during the parallel run. Check `status.nextSchedule.at` after
 applying.
 ² **R2 in hour 02.** `jitter: 20m` is a forward window, so an `H` near :59 can spill into
-**hour 03, which stays reserved** while the fork's `kopia-maint-r2` runs at `0 3 * * *`
-against the same repository. So hour-02 R2 crons use an **explicit minute ≤ :39**, never
+**hour 03, which stays reserved**: kopiur's full maintenance runs at `0 3 * * *`
+against the same repository (the fork's `kopia-maint-r2` held that slot until
+decommission step 3). So hour-02 R2 crons use an **explicit minute ≤ :39**, never
 `H 2`: `H` hides its minute and the jitter is re-derived for every slot, so one reading of
 `status.nextSchedule.at` proves nothing about the next. A pinned slot can legitimately land
 anywhere up to 02:59 (pin + jitter); only a slot **in hour 03** is wrong.
@@ -798,9 +800,14 @@ sit there, with no alert covering a stuck Restore.
       3. **Maintenance handover.** In ONE change: delete `volsync-system/kopia-maintenance`
          (both `KopiaMaintenance` and their ExternalSecrets) and set `maintenance.enabled:
          true` on both ClusterRepositories. Never zero owners, never two (the lease is
-         shared). The hour-03 reservation (`components/kopiur/{local,r2}.yaml`, Waves) dies
-         with the fork's job: drop it here. Verify kopiur's quick and full runs on both
-         repositories and watch `indexBlobCount`.
+         shared). kopiur's default `takeoverPolicy: Never` would yield forever to the fork's
+         recorded owner, so the change sets `Force`; revert it to `Never` once both
+         `Maintenance` objects show kopiur holding the lease. Schedules: kopia-local quick
+         hourly (the epoch parameters assume hourly epochs), full daily 03:00 UTC;
+         kopia-r2 one full run daily at 03:00 UTC, the fork's slot, so the hour-03
+         reservation stays and changes owner. The fork's memory limits carry over
+         (4Gi / 2Gi). Verify the first quick and full runs on both repositories, the
+         lease, and `indexBlobCount`.
       4. **Uninstall VolSync.** HelmRelease, OCIRepository, its PrometheusRule and the
          `volsync-system` namespace; the VolSync rules in kube-prometheus-stack and
          tracearr; the `volsync.backube/privileged-movers` namespace labels. Helm leaves

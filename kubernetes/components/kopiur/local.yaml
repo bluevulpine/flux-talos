@@ -142,8 +142,8 @@ spec:
     #
     # THIS IS WHAT RETIRED THE GRID. 7ac8dfcbd410:kubernetes/components/volsync-backup/r2.yaml
     # hand-maintained a 40-slot, 8-minute grid for 46 sources; H made it
-    # unnecessary. Hour 03 stays reserved until the maintenance handover (runbook
-    # Decommission step 3) retires the fork's KopiaMaintenance.
+    # unnecessary. Hour 03 stays reserved: kopiur's own full maintenance on
+    # both repositories runs at 03:00 UTC (ClusterRepository spec.maintenance).
     #
     # DAILY, IN THE 07-11 UTC WINDOW (2026-10-29). Every app sets its own
     # KOPIUR_LOCAL_CRON to `H <hour> * * *` with ~10 apps per hour, so the
@@ -151,10 +151,10 @@ spec:
     # 1-5 am CST / 2-6 am CDT: inside Derek's 1-8 am Central window in both
     # seasons even after H and the 20m jitter push a start toward hh+1:19.
     # Hour 12 would start as late as 08:19 CDT, so it is not used. kopia-local
-    # maintenance is NOT kept out of the window: it runs hourly, full, until
-    # the VolSync decommission (volsync-system/kopia-maintenance/app/
-    # kopiamaintenance-local.yaml), as it did beside the old 48-a-day
-    # schedule. Exceptions at
+    # quick maintenance is NOT kept out of the window: it runs hourly
+    # (ClusterRepository spec.maintenance), as the fork's hourly full run did
+    # beside the old 48-a-day schedule; the full run is at 03:00 UTC, outside
+    # it. Exceptions at
     # `H */6 * * *`: vaultwarden, gitea, couchdb. The default below is only
     # for a new app that sets nothing — give it a slot instead.
     cron: "${KOPIUR_LOCAL_CRON:-H 9 * * *}"
