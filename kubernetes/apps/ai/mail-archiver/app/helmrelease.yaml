@@ -59,8 +59,8 @@ spec:
               # Archive posture: manual delete stays allowed during the
               # phase-1 delete test; flip to "false" for production.
               DeletionPolicy__DeletionAllowed: "true"
-              # Upload cap is irrelevant for the NAS import (CLI import Jobs),
-              # keep upstream default.
+              # Upload cap: upstream default. The one-time MailStore import ran
+              # as CLI Jobs off a NAS share (removed after the import).
               # Native OIDC with Authentik. Client id/secret/admin email come
               # from the ExternalSecret. Local password login stays on as
               # break-glass (DisablePasswordLogin=false).
@@ -159,8 +159,7 @@ spec:
       # The app creates /app/uploads at startup (MBoxImportService ctor) and
       # /app is root-owned in the image, so as uid 1654 it crashlooped with
       # "Access to the path '/app/uploads' is denied". Uploads are staging for
-      # web-UI mbox/eml imports only; the NAS import runs in the CLI import
-      # Jobs (import-jobs.yaml), so scratch space is enough.
+      # web-UI mbox/eml imports only, so scratch space is enough.
       uploads:
         type: emptyDir
         advancedMounts:
