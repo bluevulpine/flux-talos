@@ -70,9 +70,9 @@ spec:
       # floor (>= 10m and >= 3x refreshFrequency 20m): raising
       # refreshFrequency later rejects it.
       minDuration: 1h
-      # 48, not kopia's default 7, because epochs are now hourly (the fork's
-      # kopia-maintenance-local runs every hour and epochs advance only inside
-      # maintenance). kopia writes one range-checkpoint index blob per
+      # 48, not kopia's default 7, because epochs are now hourly (kopiur's quick
+      # maintenance runs every hour, as the fork's job did, and epochs advance
+      # only inside maintenance). kopia writes one range-checkpoint index blob per
       # checkpointFrequency epochs and NEVER merges ranges afterwards
       # (getRangeToCompact starts at the last range's MaxEpoch+1, v0.22.3 and
       # master alike): at 7 that is ~3 new permanent blobs a day, ~1,100 a

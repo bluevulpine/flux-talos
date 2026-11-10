@@ -116,7 +116,8 @@ Key properties, all commented in the manifests:
    exactly the floor. "Removing a value does not restore kopia's default" — set it once.
 5. **W0 → W8** below, one wave at a time.
 6. **Decommission** after the whole fleet is green for ≥ 30 days (one daily-retention
-   cycle): retire `components/volsync-backup`, the R2 slot grid and hour-03 reservation, the
+   cycle): retire `components/volsync-backup`, the R2 slot grid (the hour-03 reservation
+   stays, now for kopiur's full maintenance), the
    fork's `KopiaMaintenance` (and flip kopiur `maintenance.enabled: true` in the same
    change), then the VolSync operator. Then decide the post-migration claim shape (below).
 7. **`Direct` → `Snapshot` for the apps that are `Direct` only by omission.** couchdb,
@@ -506,8 +507,9 @@ outside both windows (`[v+5, v+25)` and `[v+35, v+55)`), so the two engines don'
 same identity together during the parallel run. Check `status.nextSchedule.at` after
 applying.
 ² **R2 in hour 02.** `jitter: 20m` is a forward window, so an `H` near :59 can spill into
-**hour 03, which stays reserved**: kopiur's full maintenance runs at `0 3 * * *` against
-the same repository (the fork's `kopia-maint-r2` held that slot until decommission step 3). So hour-02 R2 crons use an **explicit minute ≤ :39**, never
+**hour 03, which stays reserved**: kopiur's full maintenance runs at `0 3 * * *`
+against the same repository (the fork's `kopia-maint-r2` held that slot until
+decommission step 3). So hour-02 R2 crons use an **explicit minute ≤ :39**, never
 `H 2`: `H` hides its minute and the jitter is re-derived for every slot, so one reading of
 `status.nextSchedule.at` proves nothing about the next. A pinned slot can legitimately land
 anywhere up to 02:59 (pin + jitter); only a slot **in hour 03** is wrong.

@@ -219,12 +219,19 @@ backup is recorded as failed.
 | What | Object | Cadence |
 | --- | --- | --- |
 | **All VolSync local backups** | every `*-local` ReplicationSource, **all namespaces** (~45) | hourly / 2h / 4h |
-| Kopia repo maintenance | `volsync-system/kopia-maint-kopia-maintenance-local-*` | `0 */4 * * *` |
 | Talos etcd snapshots → `s3://talos` | `kube-system/talos-s3-backup` | `10 0/6 * * *` |
 | Postgres base backup → `s3://cnpg` | `database/postgres18` ScheduledBackup | `@daily` |
 | Media jobs that walk the NFS library | `media/kometa`, `media/recyclarr`, `media/plex-image-cleanup` | daily / quarterly |
 
-**Leave running:** the `*-r2` ReplicationSources and `kopia-maint-…-r2` target
+**Not suspended: kopiur's kopia maintenance** (`kopiur-system` `Maintenance` objects,
+quick hourly on `kopia-local`, full 03:00 UTC on both; the fork's `kopia-maint-*` CronJobs
+were removed at the VolSync decommission, step 3). kopiur 0.10.17 has no per-run pause, and
+toggling the ClusterRepository would need Flux suspended. A run during the window fails to
+reach Garage and does nothing; the next hourly run recovers. Schedule the window clear of
+03:00 UTC if you want the full runs untouched. **Stale (decommission step 6):** the VolSync
+rows above; kopiur's local backups run 07-11 UTC instead.
+
+**Leave running:** the `*-r2` ReplicationSources and kopiur's R2 maintenance target
 Cloudflare R2, and `openbao/openbao-snapshot` targets R2 as well. All are
 independent of vault. Thanos will error on object-store reads for the duration
 and recover on its own — the Prometheus sidecar buffers locally, and with only
@@ -300,8 +307,7 @@ kc get replicationsources -A --no-headers -o custom-columns=NS:.metadata.namespa
       kc -n "$ns" patch replicationsource "$name" --type=merge -p '{"spec":{"paused":true}}'
     done
 
-for cj in volsync-system/kopia-maint-kopia-maintenance-local-e48224913bbde0dd \
-          kube-system/talos-s3-backup \
+for cj in kube-system/talos-s3-backup \
           media/kometa media/recyclarr media/plex-image-cleanup; do
   kc -n "${cj%/*}" patch cronjob "${cj#*/}" -p '{"spec":{"suspend":true}}'
 done
@@ -383,8 +389,7 @@ kc get replicationsources -A --no-headers -o custom-columns=NS:.metadata.namespa
       kc -n "$ns" patch replicationsource "$name" --type=merge -p '{"spec":{"paused":false}}'
       sleep 20
     done
-for cj in volsync-system/kopia-maint-kopia-maintenance-local-e48224913bbde0dd \
-          kube-system/talos-s3-backup \
+for cj in kube-system/talos-s3-backup \
           media/kometa media/recyclarr media/plex-image-cleanup; do
   kc -n "${cj%/*}" patch cronjob "${cj#*/}" -p '{"spec":{"suspend":false}}'
 done
