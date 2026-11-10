@@ -53,10 +53,29 @@ spec:
       perIdentity: 50
       maxAgeDays: 120
   maintenance:
-    # OFF until VolSync is decommissioned — the fork's kopia-maintenance-r2 in
-    # volsync-system owns this repository's maintenance today (full 0 3 * * *,
-    # the hour this repo reserves).
-    enabled: false
+    # kopiur owns maintenance since the VolSync decommission (runbook step 3),
+    # replacing the fork's kopia-maintenance-r2 in the same change. Force:
+    # see kopia-local; revert to Never once kopiur holds the lease.
+    enabled: true
+    takeoverPolicy: Force
+    schedule:
+      # The fork's slot: one full run a day at 03:00 UTC, the hour the R2
+      # backup crons keep clear (components/kopiur/r2.yaml). Quick on the same
+      # cron, so the full run covers it: no extra 6-hourly quick runs landing
+      # in the 00-06 backup hours. No epoch tuning here (kopia defaults).
+      quick:
+        cron: "0 3 * * *"
+      full:
+        cron: "0 3 * * *"
+    mover:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 2Gi
+    failurePolicy:
+      activeDeadlineSeconds: 10800
   moverDefaults:
     securityContext:
       runAsUser: 0
