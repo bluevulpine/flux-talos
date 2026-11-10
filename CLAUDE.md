@@ -2,9 +2,32 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project knowledge
+## Source map and topology
 
-Serena is configured for this repo. At session start, activate the project and read `mem:core` for the source map and cluster topology. Follow references from there to `mem:tech_stack`, `mem:conventions`, `mem:suggested_commands`, and `mem:task_completion` as the task requires — do not load all memories up front.
+FluxCD reconciles `kubernetes/` against a Talos Linux cluster. The README covers the
+component list, LB-IPAM/BGP and hardware; this is what it doesn't. Its backup lines still
+describe VolSync, which kopiur has replaced: where they disagree, this file wins.
+
+- `kubernetes/apps/<namespace>/<app>/`: all workloads. `kubernetes/components/`: reusable
+  Kustomize components. `kopiur` does backups. `volsync-claim` (still on most apps) is the
+  only manifest that creates an app's data PVC: never remove it, because Flux prune then
+  deletes the volume. `volsync-backup` is legacy, left on a few apps. See
+  `docs/runbooks/kopiur-migration.md`. `kubernetes/flux/cluster/ks.yaml`: the entry point
+  and the `cluster-apps` patch. `kubernetes/bootstrap/`: one-time bootstrap only.
+- `talos/topf.yaml`: nodes and versions. `talos/patches/{all,control-plane,worker,node/<host>}/`:
+  machine-config patches. `talos/schematics/`: Image Factory schematics (pi, amd, freyja).
+  `talos/secrets.sops.yaml`: the PKI bundle (see `docs/runbooks/talos-pki-rotation.md`).
+
+| Node | IP | Role |
+|---|---|---|
+| freyja01 | 10.0.10.35 | the only control plane (VM on the TrueNAS host `vault`) |
+| jormungandr1-4 | 10.0.10.31-34 | workers (Raspberry Pi, `low-power` taint) |
+| brokkr01-03 | 10.0.10.38-40 | workers (the Longhorn storage nodes) |
+
+- API VIP `10.0.10.30` is a Talos shared IP held by freyja01, not Cilium.
+- One etcd member: a freyja01 reboot or a `vault` restart is an API outage. Snapshots:
+  `kubernetes/apps/kube-system/talos-backup/`.
+- Pod CIDR `10.69.0.0/16`, service CIDR `10.96.0.0/16` (`talos/patches/all/02-cluster-network.yaml`).
 
 ## Critical rules
 

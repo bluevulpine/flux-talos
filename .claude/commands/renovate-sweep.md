@@ -28,9 +28,7 @@ you need it (keeps this command lean and your context focused):
 - `.claude/renovate-sweep/rollout-and-health.md` — pre-merge health checks; rollout monitoring; stateful /
   secret / storage special cases; how to tell healthy-in-progress from real failure.
 
-**Serena (optional):** if the Serena MCP server is present, activate the project and
-skim `mem:core` (plus linked memories) for the current source map and topology. Treat
-it as a helpful accelerator only — this command must work fully without it.
+For the source map and node topology, see CLAUDE.md.
 
 ## Procedure
 
