@@ -274,7 +274,7 @@ spec:
               # alert's 1h `for:` and a weekend. Retention is ONE global setting, so
               # what gets written is narrowed with the scope allowlist instead:
               # these rows hold the full input of each call (up to
-              # LLM_TRACE_MAX_CHARS, 50k chars), and retain_extract_facts inputs
+              # LLM_TRACE_MAX_CHARS, raised to 150k below), and retain_extract_facts inputs
               # are the transcripts, the same copy the comment above refuses to
               # keep. Allowlist = the stages that truncate: consolidation and the
               # mental-model delta/retraction ops (3 of 6 failed calls on
@@ -283,6 +283,11 @@ spec:
               # is replaying the input, as done by hand on 2026-11-10. Rows are
               # a few hundred a day; re-check the table size after a week.
               HINDSIGHT_API_LLM_TRACE_RETENTION_DAYS: "7"
+              # The default 50000-char limit cut the stored input of every
+              # consolidation and delta call seen on 2026-11-10 (stored ~52.9k chars
+              # against 21-33k input tokens, i.e. the tail of the prompt was lost),
+              # so a replay of a failed call would not be the call that failed.
+              HINDSIGHT_API_LLM_TRACE_MAX_CHARS: "150000"
               HINDSIGHT_API_LLM_TRACE_SCOPES: consolidation,consolidation_dedup,mental_model_delta_ops,mental_model_retraction_ops
               # Surface silently-dropped facts instead of marking the retain
               # completed.
@@ -1087,20 +1092,32 @@ spec:
               # Spark with the refresh stage: `hindsight-main` (`spark-main`
               # before 2026-10-24).
               HINDSIGHT_API_CONSOLIDATION_LLM_MODEL: hindsight-main
-              # Output cap for consolidation calls, 8192. Unset, the only limit is the
+              # Output cap for consolidation calls, 16384. Unset, the only limit is the
               # Spark's vLLM cap of 32768, and a failed call runs all the way to it:
-              # the 3 failed consolidation calls of 2026-11-09/10 each emitted exactly
-              # 32768 tokens over ~255s, against a median of 819 and a max of 3665
-              # for the 370 that succeeded the same day. 8192 is over twice the
-              # largest success, and turns a ~255s GPU-burning failure into ~65s
-              # before hindsight's bisection retries. WHY they run away is not
-              # known: replays of the failed inputs (14 runs, real strict schema,
-              # temperature 0) all finished in <2k tokens, and thinking is off
-              # (reasoning_tokens 0). The schema leaves source_fact_ids with
-              # minItems but no maxItems, so a repeat loop is possible; unproven.
-              # Revisit if a success ever nears this cap (llm_requests
-              # output_tokens, scope=consolidation).
-              HINDSIGHT_API_CONSOLIDATION_MAX_COMPLETION_TOKENS: "8192"
+              # the failed consolidation calls of 2026-11-06..10 each emitted exactly
+              # 32768 tokens over ~255s, against a median of 819 for the successes.
+              # It was 8192 first (PR #2471), from a success max of 3665 in older
+              # data; the first day after that rollout produced a SUCCESS of 8019
+              # tokens (llm_requests, 2026-11-10 23:43Z), 2% under the cap, so 8192
+              # would have turned a legitimate large batch into a failure. 16384 is
+              # 2x that success and still bounds a runaway to ~130s instead of ~255s.
+              # WHY they run away is not known: replays of the failed inputs (14
+              # runs, real strict schema, temperature 0) all finished in <2k tokens,
+              # and thinking is off (reasoning_tokens 0). The schema leaves
+              # source_fact_ids with minItems but no maxItems, so a repeat loop is
+              # possible; unproven. Revisit if a success ever nears this cap
+              # (llm_requests output_tokens, scope=consolidation).
+              HINDSIGHT_API_CONSOLIDATION_MAX_COMPLETION_TOKENS: "16384"
+              # Output cap for reflect's final synthesis AND the mental-model delta
+              # ops: hindsight passes this one setting as the transport cap for both
+              # (memory_engine.py, scope=mental_model_delta_ops), there is no
+              # delta-specific knob. Unset, delta ops ran away like consolidation did:
+              # 3 failures on 2026-11-11 00:08-00:40Z, each exactly 32768 tokens over
+              # 460-564s, on ~15k-token inputs whose neighbours succeeded at 4-5.6k.
+              # 16384 is ~3x the largest delta success seen (5593) and bounds a
+              # runaway to ~4 min instead of ~9. Reflect's synthesis is a prose
+              # answer, far below this.
+              HINDSIGHT_API_REFLECT_MAX_COMPLETION_TOKENS: "16384"
               # HINDSIGHT_API_LLM_TEMPERATURE_CONSOLIDATION: none was here, and
               # removing it is REQUIRED, not cleanup. It existed solely because
               # the gpt-5 family rejects an explicit temperature and would 400 on
