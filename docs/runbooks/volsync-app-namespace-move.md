@@ -1,5 +1,7 @@
 # Runbook: moving a VolSync + Longhorn app to another namespace without data loss
 
+> **HISTORICAL:** VolSync was removed 2026-11-11 (#2499); kopiur does backups. Kept for the incident record.
+
 **Use when:** an app that carries `components/volsync-claim` + `components/volsync-backup` has to change namespace
 (first user: `develop/hermes` → `ai/hermes`). **Scope:** VolSync engine, Longhorn-backed PVC. kopiur and tns-csi/NFS apps are
 called out where they differ but are not covered.

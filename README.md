@@ -22,7 +22,7 @@ The baseline of this configuration starts from from onedr0p's [cluster-template]
 
 I've tried several cluster storage paradigms over time — mayastor, rook-ceph, and others. Currently the cluster runs Longhorn for replicated persistent volumes alongside OpenEBS for local hostpath storage, and NFS/iSCSI/NVMe-oF via tns-csi backed by TrueNAS.
 
-Object storage is handled by [Garage](https://garagehq.deuxfleurs.fr/) (a self-hosted S3-compatible server running on TrueNAS) for cluster-local workloads: Thanos metrics, CNPG database backups, Talos etcd backups, and Volsync local PVC snapshots. Volsync also replicates to [Cloudflare R2](https://www.cloudflare.com/developer-platform/r2/) on a daily cadence for offsite backups. TrueNAS additionally syncs selected datasets to cloud storage providers independently of the cluster.
+Object storage is handled by [Garage](https://garagehq.deuxfleurs.fr/) (a self-hosted S3-compatible server running on TrueNAS) for cluster-local workloads: Thanos metrics, CNPG database backups, Talos etcd backups, and local PVC backups from kopiur (kopia, repository `kopia-local`). kopiur also backs up to [Cloudflare R2](https://www.cloudflare.com/developer-platform/r2/) (`kopia-r2`) on a daily cadence for offsite copies. TrueNAS additionally syncs selected datasets to cloud storage providers independently of the cluster.
 
 ### 🏗️ Core Components
 
@@ -35,7 +35,7 @@ Object storage is handled by [Garage](https://garagehq.deuxfleurs.fr/) (a self-h
 - [external-secrets](https://github.com/external-secrets/external-secrets): Managed Kubernetes secrets using Bitwarden Secrets Manager via the [bitwarden-sdk-server](https://github.com/external-secrets/bitwarden-sdk-server).
 - [sops](https://github.com/getsops/sops): Managed secrets for Kubernetes which are commited to Git.
 - [spegel](https://github.com/spegel-org/spegel): Stateless cluster local OCI registry mirror.
-- [volsync](https://github.com/backube/volsync): Backup and recovery of persistent volume claims.
+- [kopiur](https://github.com/home-operations/kopiur): Backup and recovery of persistent volume claims, using kopia.
 
 ### GitOps
 
@@ -71,7 +71,7 @@ While most of my infrastructure and workloads are self-hosted I do rely upon the
 | [Cloudflare](https://www.cloudflare.com/) | Several Domains and S3                                                                 | ~$100/yr        |
 | [GitHub](https://github.com/)             | Hosting this repository and CI/CD. Pro subscription.                                   | ~$48/yr         |
 | [Fastmail](https://fastmail.com/)         | Email hosting for 2 users                                                              | ~$100/yr        |
-| [Cloudflare R2](https://www.cloudflare.com/developer-platform/r2/) | Offsite Volsync backups (S3-compatible object storage)            | usage-based      |
+| [Cloudflare R2](https://www.cloudflare.com/developer-platform/r2/) | Offsite kopiur backups (S3-compatible object storage)             | usage-based      |
 | [Storj](https://storj.io/)               | TrueNAS dataset cloud sync (managed outside cluster)                                   | usage-based      |
 | [NextDNS](https://nextdns.io/)            | Network-wide DNS filtering (basic plan)                                                | ~$20/yr         |
 | [Pushover](https://pushover.net/)         | Kubernetes Alerts and application notifications                                        | $5 OTP          |

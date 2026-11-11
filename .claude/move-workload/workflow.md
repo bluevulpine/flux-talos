@@ -1,5 +1,7 @@
 # Workflow — moving `<APP>` from `<OLD>` to `<NEW>` (PV `<PV>`)
 
+> **OBSOLETE since 2026-11-11: written for VolSync, which is removed. A kopiur-based procedure does not exist yet; do not follow this.**
+
 Class B only (see `classify.md`). Procedure and evidence: `docs/runbooks/volsync-app-namespace-move.md` (**the runbook**; `B0–B11`, traps 1–15). The executed instance, with real output: `docs/rehearsal/hermes-move/execution-plan.md`
 (on `main`, with `results.md` and the two reviews). This file is the **generic order of operations**; it does not repeat the runbook's evidence — read the cited section when a step surprises you.
 

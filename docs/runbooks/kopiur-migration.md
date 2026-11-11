@@ -813,7 +813,14 @@ sit there, with no alert covering a stuck Restore.
          reservation stays and changes owner. The fork's memory limits carry over
          (4Gi / 2Gi). Verify the first quick and full runs on both repositories, the
          lease, and `indexBlobCount`.
-      4. **Uninstall VolSync.** HelmRelease, OCIRepository, its PrometheusRule and the
+         **Maintenance alert added 2026-11-11 (#2501):** `KopiurMaintenanceNotConfigured`,
+         `KopiurMaintenanceLeaseNotHeld`, `KopiurMaintenanceFullStale` and
+         `KopiurMaintenanceMetricsMissing` in
+         `kubernetes/apps/kopiur-system/kopiur/app/prometheusrule.yaml`.
+      4. **Uninstall VolSync. Done 2026-11-11 (#2499):** operator, namespace, rules,
+         annotations and the `just kube snapshot` / `just kube volsync` recipes removed; the
+         `volsync-system` namespace (prune disabled) and the 3 CRDs, all empty, deleted by hand
+         after Flux removed the release. Plan was: HelmRelease, OCIRepository, its PrometheusRule and the
          `volsync-system` namespace; the VolSync rules in kube-prometheus-stack and
          tracearr; the `volsync.backube/privileged-movers` namespace labels. Helm leaves
          the 3 CRDs: delete them by hand after confirming they hold no objects.
@@ -823,7 +830,10 @@ sit there, with no alert covering a stuck Restore.
          new apps and recreated PVCs; paperclip and dispatcharr move onto it only when
          their PVCs are next recreated. The gap it closes is already open (the
          ReplicationDestinations are gone), so it follows step 4 (Derek, 2026-11-10).
-      6. **Docs.** README backup lines, CLAUDE.md, the `move-workload` skill (VolSync-based),
+         **Open 2026-11-11, blocked on a design decision:** a populator Restore resolves its
+         snapshot once and never re-resolves, so a permanent `kopiur-claim` would restore a
+         stale snapshot (or, for a new app, an empty volume) when a PVC is recreated.
+      6. **Docs. Done 2026-11-11 (docs sweep).** README backup lines, CLAUDE.md, the `move-workload` skill (VolSync-based),
          `volsync-*` runbooks marked historical, the vault.
 - [x] At decommission: flip `catalog.adoption` to `Adopt`? and decide on the pre-120 d
       VolSync tail. **Decided 2026-11-10 (Derek): keep `Ignore`.** `Adopt` makes kopiur's

@@ -40,7 +40,7 @@ spec:
       KOPIUR_LOCAL_CRON: "H 10 * * *"
       # R2 is pinned to an explicit minute, not "H 2": H hashed to >= :39 here
       # (a slot read 02:59Z), and the forward jitter can spill into hour 03,
-      # reserved for kopia-maint-r2. Footnote 2 of the waves table in
+      # reserved for kopiur's full kopia maintenance. Footnote 2 of the waves table in
       # docs/runbooks/kopiur-migration.md.
       KOPIUR_R2_CRON: "10 2 * * *"
       KOPIUR_COPYMETHOD: Snapshot

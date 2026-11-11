@@ -42,7 +42,7 @@ Vault serves the cluster through five independent paths:
 
 The Garage path is the one most often missed: Garage runs *outside* the cluster,
 on vault, and is the backend for **Thanos**, **CloudNativePG barman backups**,
-**talos-s3-backup**, and **every VolSync `*-local` ReplicationSource** — including
+**talos-s3-backup**, and **every kopiur `kopia-local` backup** — including
 those for apps that have no vault-backed PVC at all.
 
 ### Since 2026-09-22 a vault restart is an API outage
@@ -51,7 +51,7 @@ The cluster's only control-plane node, `freyja01`, is a VM on vault, with its
 disk on the `apps` pool (see
 [controlplane-migration-to-vault-vm.md](controlplane-migration-to-vault-vm.md)).
 While vault is down there is no API: `kubectl` fails, Flux stops, ESO stops
-refreshing, VolSync and kopiur cannot launch movers, and nothing reschedules.
+refreshing, kopiur cannot launch backup jobs, and nothing reschedules.
 What is already running keeps running, and Cilium keeps forwarding. The bad case
 is a worker failing during the window, because nothing can replace its pods.
 
@@ -148,7 +148,7 @@ PY
 Also re-check the S3/Garage consumers, which the script above does **not** see:
 
 ```bash
-kc get replicationsources -A                     # every *-local writes to vault
+kc get clusterrepositories.kopiur.home-operations.com   # kopia-local writes to vault
 kc get cronjobs -A
 kc get scheduledbackup -A
 kc -n database get objectstore -o custom-columns=NAME:.metadata.name,EP:.spec.configuration.endpointURL
@@ -207,7 +207,7 @@ alert storm that masks real problems during the window.
 
 **Already idle — no action needed** (verify, don't assume):
 `home/frigate` is at 0 replicas and has been since it was left unconfigured; its
-`frigate`, `frigate-nfs` and `volsync-frigate-dst-local-dest` PVCs are unmounted.
+`frigate` and `frigate-nfs` PVCs are unmounted.
 `kube-system/csi-nfs-test-pvc` is an unbound test claim.
 
 ### Tier 3 — S3/Garage: suspend, do **not** scale
@@ -218,7 +218,6 @@ backup is recorded as failed.
 
 | What | Object | Cadence |
 | --- | --- | --- |
-| **All VolSync local backups** | every `*-local` ReplicationSource, **all namespaces** (~45) | hourly / 2h / 4h |
 | Talos etcd snapshots → `s3://talos` | `kube-system/talos-s3-backup` | `10 0/6 * * *` |
 | Postgres base backup → `s3://cnpg` | `database/postgres18` ScheduledBackup | `@daily` |
 | Media jobs that walk the NFS library | `media/kometa`, `media/recyclarr`, `media/plex-image-cleanup` | daily / quarterly |
@@ -229,10 +228,19 @@ were removed at the VolSync decommission, step 3). kopiur 0.10.17 has no per-run
 toggling the ClusterRepository would need Flux suspended. A run during the window fails to
 reach Garage and does nothing; the next hourly run recovers. Each failed run is a failed Job,
 so `KubeJobFailed` fires: silence `KubeJobFailed{namespace="kopiur-system"}` for the window. Schedule the window clear of
-03:00 UTC if you want the full runs untouched. **Stale (decommission step 6):** the VolSync
-rows above; kopiur's local backups run 07-11 UTC instead.
+03:00 UTC if you want the full runs untouched. kopiur's **local backups** (every
+`*-local` SnapshotSchedule, 07-11 UTC) are not paused either. Keep the window outside 07-11
+UTC. A backup caught by the window is not quiet: with Garage unreachable kopiur's repository
+breaker opens (`KopiurRepositoryNotReady` / `KopiurRepositoryBreakerOpen`, then
+`KopiurSnapshotsGated`; gated Snapshots park Pending and should run once Garage is back, per
+the chart, not verified here), a mover that fails trips `KopiurSnapshotFailed` /
+`KopiurLastBackupFailed` and `KubeJobFailed` in the **app's** namespace, and a whole missed
+daily slot lands right at `KopiurBackupStale`'s 48h threshold
+(`components/kopiur/local.yaml`). For a window that must overlap, silence
+`alertname=~"Kopiur.*"` and `KubeJobFailed` in all namespaces, and check §4.7 after. (The VolSync rows that stood in this table
+were removed 2026-11-11; the operator is gone.)
 
-**Leave running:** the `*-r2` ReplicationSources and kopiur's R2 maintenance target
+**Leave running:** kopiur's R2 backups and R2 maintenance target
 Cloudflare R2, and `openbao/openbao-snapshot` targets R2 as well. All are
 independent of vault. Thanos will error on object-store reads for the duration
 and recover on its own — the Prometheus sidecar buffers locally, and with only
@@ -301,13 +309,6 @@ kc -n flux-system patch kustomization cluster-apps --type=merge -p '{"spec":{"su
 ### 4.3 Suspend the scheduled work (Tier 3)
 
 ```bash
-# Pause every LOCAL VolSync source; leave *-r2 alone.
-kc get replicationsources -A --no-headers -o custom-columns=NS:.metadata.namespace,N:.metadata.name \
-  | awk '$2 ~ /-local$/ {print $1, $2}' \
-  | while read -r ns name; do
-      kc -n "$ns" patch replicationsource "$name" --type=merge -p '{"spec":{"paused":true}}'
-    done
-
 for cj in kube-system/talos-s3-backup \
           media/kometa media/recyclarr media/plex-image-cleanup; do
   kc -n "${cj%/*}" patch cronjob "${cj#*/}" -p '{"spec":{"suspend":true}}'
@@ -315,8 +316,6 @@ done
 
 kc -n database patch scheduledbackup postgres18 --type=merge -p '{"spec":{"suspend":true}}'
 ```
-
-Expect ~43 ReplicationSources paused (every `*-local`).
 
 ### 4.4 Scale down — Tier 2 first, then Tier 1
 
@@ -374,22 +373,12 @@ until curl -sf -m3 -o /dev/null -w '%{http_code}' http://10.0.10.10:30188/ | gre
   echo "waiting for Garage on vault..."; sleep 10
 done
 
-# VolSync controller first
-kc -n volsync-system scale deploy volsync-volsync-perfectra1n --replicas=1
-kc -n volsync-system patch hr volsync --type=merge -p '{"spec":{"suspend":false}}'
-
 # Tier 1 — block
 kc -n games scale deploy valheim --replicas=1
 kc -n games scale statefulset satisfactory --replicas=1
 kc -n home  scale deploy esphome --replicas=1
 
-# Resume the scheduled work — STAGGERED, see below
-kc get replicationsources -A --no-headers -o custom-columns=NS:.metadata.namespace,N:.metadata.name \
-  | awk '$2 ~ /-local$/ {print $1, $2}' \
-  | while read -r ns name; do
-      kc -n "$ns" patch replicationsource "$name" --type=merge -p '{"spec":{"paused":false}}'
-      sleep 20
-    done
+# Resume the scheduled work
 for cj in kube-system/talos-s3-backup \
           media/kometa media/recyclarr media/plex-image-cleanup; do
   kc -n "${cj%/*}" patch cronjob "${cj#*/}" -p '{"spec":{"suspend":false}}'
@@ -434,25 +423,6 @@ kc -n media        scale deploy audiobookshelf bazarr calibre calibre-web immich
 Use the pre-flight snapshot for the counts rather than assuming everything was 1 —
 that is what it is for.
 
-#### 4.6b Stagger the VolSync resume — un-pausing all 44 at once IS a herd
-
-The `*-local` schedules are deliberately spread across the hour precisely to
-avoid a synchronised backup herd. **Un-pausing them in one loop throws that away
-and recreates it**: every source whose window already elapsed fires immediately,
-so ~44 movers try to clone and attach volumes simultaneously.
-
-Observed 2026-09-03: an unstaggered resume left `media/plex-local` wedged for
-~19 minutes. Its Longhorn clone reported `cloneStatus: completed` but sat
-`detached / unknown`, and `AttachVolume.Attach` failed 15 times with
-`volume is not ready for workloads` before it finally attached and the sync
-completed. Nothing was corrupted and it self-healed — but it is the same herd
-signature behind the earlier stuck-mover incidents, so do not manufacture it.
-
-The `sleep 20` above spreads the resume over ~15 minutes. If a mover does wedge,
-it is usually worth waiting ~20 min before intervening: this one recovered on its
-own, and the pause/delete recovery in [`volsync-mover-stuck.md`](volsync-mover-stuck.md)
-is the fallback, not the first move.
-
 Cross-check against the pre-flight snapshot rather than assuming:
 
 ```bash
@@ -466,14 +436,17 @@ diff <(sort /tmp/vault-maint-replicas.txt) \
 ```bash
 kc get pods -A | grep -Ev 'Running|Completed'      # expect nothing lingering
 kc get hr -A | grep -i suspend                      # expect none still suspended
-kc get replicationsources -A                        # lastSyncTime should advance within the hour
 kc -n database get scheduledbackup postgres18
 flux --context admin@home-kubernetes get kustomizations -A --status-selector ready=false
 ```
 
-Watch for stuck VolSync movers on the first post-restart cycle — see
-[`volsync-mover-stuck.md`](volsync-mover-stuck.md). Recovery there needs a
-**pause**, not just deleting the PVC and job.
+Then check kopiur: `kopia-local` must be Ready again (its breaker closed), and the newest
+Snapshots should be Succeeded, with any that parked during the window now run:
+
+```bash
+kc get clusterrepositories.kopiur.home-operations.com
+kc get snapshots.kopiur.home-operations.com -A --sort-by=.metadata.creationTimestamp | tail -20
+```
 
 ---
 
@@ -481,7 +454,7 @@ Watch for stuck VolSync movers on the first post-restart cycle — see
 
 - **`10.0.10.11` is vault too.** Second IP on `br1`. `truenas-exporter`,
   `storj-exporter`, the Garage admin-API scrape target, `openspeedtest`, and the
-  VolSync Kopia endpoint all reference it. None of them are a separate host.
+  kopiur's `kopia-local` Garage endpoint all reference it. None of them are a separate host.
 - **The default kubectl context fails DNS off-Tailscale.** Use
   `--context admin@home-kubernetes` everywhere, or the commands here silently
   target nothing.
@@ -533,7 +506,7 @@ fixes that matter most to this cluster:
 - **`auth.login_with_api_key` is deprecated** in favour of `auth.login_ex`. Both
   `tns-csi` and `truenas-exporter` authenticate by API key over
   `wss://…/api/current`. If that path regresses, CSI provisioning and every
-  VolSync backup fail together.
+  kopiur backup fail together.
 - IX's own guidance: *"Do not use early-release software for critical tasks."*
 
 The only genuinely relevant 26 item is **NAS-140266**, *"middleware now reliably
@@ -571,6 +544,10 @@ temporarily removing the widget.
 
 ## 7. Change log
 
+- **2026-11-11** — VolSync decommission, step 6: removed the VolSync pause/resume
+  steps, the controller scale-up and the staggered-resume section (old §4.6b);
+  none of those objects exist since #2499. The 2026-09-03 entry below still names
+  them as history.
 - **2026-09-22** — The control plane moved onto the `freyja01` VM on vault, so a
   vault restart is now a full API outage. Added the fifth path in §1 and the
   VM shutdown step in §4.5.

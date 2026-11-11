@@ -74,8 +74,7 @@ chart. What the `hermes` SA can do is set in two places, and widening either is 
 deliberate, reviewed change:
 
 - `app/rbac.yaml`: cluster-wide **read-only** (`hermes-agent-reader`): workloads, events,
-  PVCs, Flux, Gateway API, metrics, and backup state (kopiur, VolSync until it is
-  uninstalled). No Secret verbs.
+  PVCs, Flux, Gateway API, metrics, and backup state (kopiur). No Secret verbs.
 - `kubernetes/apps/games/rbac.yaml`: a namespaced **operator** role in `games` only, for
   game-save resets: exec, pod delete, deployment patch/scale, Job create/delete, and
   creating kopiur Snapshots (a backup before a reset). Its jobs/exec rights can reach

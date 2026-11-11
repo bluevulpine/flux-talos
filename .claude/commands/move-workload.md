@@ -1,10 +1,12 @@
 ---
-description: Move a VolSync+Longhorn workload between namespaces with no data loss (classify, prepare, guarded window, soak, cleanup)
+description: OBSOLETE since 2026-11-11 (VolSync removed; do not use). Move a VolSync+Longhorn workload between namespaces with no data loss (classify, prepare, guarded window, soak, cleanup)
 argument-hint: "<app> <old-namespace> <new-namespace>"
 allowed-tools: Bash, Read, Edit, Write, Grep, Glob
 ---
 
 # Move a workload between namespaces
+
+> **OBSOLETE since 2026-11-11: written for VolSync, which is removed. A kopiur-based procedure does not exist yet; do not follow this.**
 
 Drive the repeatable version of the 2026-09-24 `develop/hermes` → `ai/hermes` move: **zero data loss** by keeping the Longhorn volume (Retained PV, re-pointed
 claimRef) and forking the kopia identity `user@NAMESPACE`. The procedure, its evidence and every trap live in `docs/runbooks/volsync-app-namespace-move.md`

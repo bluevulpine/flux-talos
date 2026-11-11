@@ -17,8 +17,8 @@ kind: CronJob
 metadata:
   name: cnpg-offsite
 spec:
-  # 07:15 daily: clear of the VolSync R2 herd (00:03-05:49), clear of hour 03
-  # (kopia-maint-r2 + unifi-phantom-clients-cleanup), and after the @weekly
+  # 07:15 daily: clear of the former VolSync R2 herd (00:03-05:49), clear of hour 03
+  # (kopiur's full kopia maintenance + unifi-phantom-clients-cleanup), and after the @weekly
   # Sunday-00:00 base backup has finished writing.
   schedule: "15 7 * * *"
   suspend: false

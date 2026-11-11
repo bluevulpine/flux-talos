@@ -1,5 +1,7 @@
 # Runbook: `VolSyncMoverStuck` — VolSync mover stuck in ContainerCreating
 
+> **HISTORICAL:** VolSync was removed 2026-11-11 (#2499); kopiur does backups. Kept for the incident record.
+
 **Alert:** `VolSyncMoverStuck` (severity: warning)
 **Fires when:** a `volsync-src-*` / `volsync-dst-*` mover pod has a container stuck
 in `ContainerCreating` for >20m. Normal movers complete in minutes, so this
@@ -332,8 +334,8 @@ removes the concurrency that triggers the race. **The driver bug is still
 present** — v0.17.6 was the newest release as of 2026-08-07, so there is nothing
 to upgrade to. If this recurs, check for a newer `bfenski/tns-csi-driver` tag.
 
-**Hour 03 is intentionally left empty** in that stagger: `kopia-maint-r2` runs at
-`0 3 * * *` against the same Kopia R2 repository the backups write to (and
+**Hour 03 is intentionally left empty** in that stagger: `kopia-maint-r2` ran at
+`0 3 * * *` (kopiur's full maintenance holds that hour now) against the same Kopia R2 repository the backups write to (and
 `unifi-phantom-clients-cleanup` runs then too). When adding a new app, pick a free
 slot outside hour 03 and confirm it does not collide with that app's own
 `VOLSYNC_LOCAL_SCHEDULE`:
