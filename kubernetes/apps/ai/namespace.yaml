@@ -5,27 +5,10 @@ metadata:
   name: ai
   annotations:
     kustomize.toolkit.fluxcd.io/prune: disabled
-    # Lets VolSync movers here add DAC_OVERRIDE, CHOWN and FOWNER (they still run
-    # root with everything else dropped). Set BEFORE Hermes moves in from
-    # `develop`, which makes it the first `ai` app with VolSync; every one of the
-    # other 8 namespaces that has a ReplicationSource carries the same annotation.
-    #
-    # It matters only when a restore is populated, and then only for ownership:
-    # a mover WITHOUT it restored uid-10000 files as root:root mode 664 (observed
-    # 2026-09-23 restoring a throwaway app between scratch namespaces), WITH it
-    # as 10000:root. Backups read the same either way. Hermes' s6 entrypoint chowns
-    # /opt/data itself on start, so it probably self-heals — inferred from the
-    # manifest, never tested on a restored volume — but a full-cluster rebuild
-    # restores every app through this path, which is the wrong moment to find out.
-    #
-    # Low marginal risk: Hermes' own pod already adds CHOWN, DAC_OVERRIDE, SETGID
-    # and SETUID under the same baseline PSA, so the mover holds a subset of what
-    # the app has. This is a per-namespace policy, so it also covers any later
-    # `ai` app with VolSync. Remove the line to revert; nothing else depends on it.
-    volsync.backube/privileged-movers: "true"
-    # Same opt-in for kopiur movers (paperclip is the first `ai` app on kopiur).
-    # Without it kopiur refuses the mover (PrivilegedMoverNotPermitted); see
-    # docs/runbooks/kopiur-migration.md. Every other kopiur namespace has it.
+    # kopiur movers here run root with added capabilities (DAC_OVERRIDE, CHOWN,
+    # FOWNER) so a restore keeps file ownership; without this kopiur refuses
+    # them (PrivilegedMoverNotPermitted). See docs/runbooks/kopiur-migration.md.
+    # (A VolSync opt-in sat here until the operator was removed, 2026-11-11.)
     kopiur.home-operations.com/privileged-movers: "true"
   labels:
     # baseline, NOT restricted — and the choice is load-bearing, not a

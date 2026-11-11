@@ -74,15 +74,6 @@ rules:
     verbs:
       - "get"
       - "list"
-  - apiGroups:
-      - "volsync.backube"
-    resources:
-      - "replicationsources"
-      - "replicationdestinations"
-    verbs:
-      - "get"
-      - "list"
-      - "watch"
   # kopiur has backed up every PVC since the W8 cutover (2026-10-11,
   # docs/runbooks/kopiur-migration.md). Read-only like the rest; no kopiur kind
   # holds Secret values (repositories reference a Secret by name only).

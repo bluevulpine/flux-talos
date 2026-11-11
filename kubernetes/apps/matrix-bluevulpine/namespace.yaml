@@ -12,7 +12,6 @@ metadata:
     pod-security.kubernetes.io/audit: privileged
   annotations:
     kustomize.toolkit.fluxcd.io/prune: disabled
-    volsync.backube/privileged-movers: "true"
     # kopiur refuses movers with added capabilities (components/kopiur always adds
     # DAC_OVERRIDE) unless the namespace opts in, and NOTHING alerts: Snapshots sit
     # Pending (PrivilegedMoverNotPermitted) forever. docs/runbooks/kopiur-migration.md
