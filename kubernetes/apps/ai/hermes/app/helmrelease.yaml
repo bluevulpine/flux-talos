@@ -355,6 +355,18 @@ spec:
       # Secret updates. 0440 + fsGroup 10000 is exactly what the gateway
       # (uid/gid 10000, no caps) needs to read it.
       #
+      # default: Bosun. Process env still carries its secrets (hermes-secret),
+      # but the multiplexed cron scope cannot see process env, so the keys cron
+      # needs are also here. See externalsecret-profile-default.yaml.
+      default-secrets:
+        type: secret
+        name: hermes-profile-default
+        defaultMode: 0440
+        advancedMounts:
+          hermes:
+            app:
+              - path: /run/hermes-profiles/default
+                readOnly: true
       # wasp: Buzz code reviewer, and the Matrix pilot's named profile (it
       # replaced the throwaway canary). See externalsecret-profile-wasp.yaml.
       wasp-secrets:
