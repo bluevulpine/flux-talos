@@ -148,6 +148,7 @@ PY
 Also re-check the S3/Garage consumers, which the script above does **not** see:
 
 ```bash
+kc get clusterrepositories.kopiur.home-operations.com   # kopia-local writes to vault
 kc get cronjobs -A
 kc get scheduledbackup -A
 kc -n database get objectstore -o custom-columns=NAME:.metadata.name,EP:.spec.configuration.endpointURL
@@ -228,9 +229,15 @@ toggling the ClusterRepository would need Flux suspended. A run during the windo
 reach Garage and does nothing; the next hourly run recovers. Each failed run is a failed Job,
 so `KubeJobFailed` fires: silence `KubeJobFailed{namespace="kopiur-system"}` for the window. Schedule the window clear of
 03:00 UTC if you want the full runs untouched. kopiur's **local backups** (every
-`*-local` SnapshotSchedule, 07-11 UTC) are not paused either: a backup that fires during the
-window fails and the next day's slot retries, and `KopiurBackupStale` only fires after 48h, so
-one missed day is expected noise. Keep the window outside 07-11 UTC to avoid it. (The VolSync rows that stood in this table
+`*-local` SnapshotSchedule, 07-11 UTC) are not paused either. Keep the window outside 07-11
+UTC. A backup caught by the window is not quiet: with Garage unreachable kopiur's repository
+breaker opens (`KopiurRepositoryNotReady` / `KopiurRepositoryBreakerOpen`, then
+`KopiurSnapshotsGated`; gated Snapshots park Pending and should run once Garage is back, per
+the chart, not verified here), a mover that fails trips `KopiurSnapshotFailed` /
+`KopiurLastBackupFailed` and `KubeJobFailed` in the **app's** namespace, and a whole missed
+daily slot lands right at `KopiurBackupStale`'s 48h threshold
+(`components/kopiur/local.yaml`). For a window that must overlap, silence
+`alertname=~"Kopiur.*"` and `KubeJobFailed` in all namespaces, and check §4.7 after. (The VolSync rows that stood in this table
 were removed 2026-11-11; the operator is gone.)
 
 **Leave running:** kopiur's R2 backups and R2 maintenance target
@@ -433,7 +440,13 @@ kc -n database get scheduledbackup postgres18
 flux --context admin@home-kubernetes get kustomizations -A --status-selector ready=false
 ```
 
-Watch the first post-restart kopiur backup cycle for failed snapshot jobs.
+Then check kopiur: `kopia-local` must be Ready again (its breaker closed), and the newest
+Snapshots should be Succeeded, with any that parked during the window now run:
+
+```bash
+kc get clusterrepositories.kopiur.home-operations.com
+kc get snapshots.kopiur.home-operations.com -A --sort-by=.metadata.creationTimestamp | tail -20
+```
 
 ---
 
