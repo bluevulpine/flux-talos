@@ -226,6 +226,12 @@ the mounted `profile.env` for a named profile (see below). **Never put `MATRIX_*
 `/opt/data/.env`.** In the launch scope `.env` beats process env, so it would shadow
 OpenBao.
 
+The default profile also gets a mounted `profile.env`
+(`externalsecret-profile-default.yaml`, read via `secrets.command` in
+`/opt/data/config.yaml`). Under multiplexing the cron scheduler's secret scope sees
+only `.env` and `secrets.command`, never process env, so without it the cron
+preflight blocked every job delivering to `matrix` as "not connected".
+
 **First boot bootstraps cross-signing** and writes the recovery key to the output file.
 Move it into OpenBao straight away; it is piped, never printed. Then delete the file and
 force-sync the ExternalSecret. Until that happens, a second restart would try to bootstrap
