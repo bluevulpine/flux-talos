@@ -146,7 +146,7 @@ spec:
             summary: >-
               Tracearr's backup volume has held at most one inode beyond its
               filesystem baseline for 24h. Check that scheduled backups are enabled
-              in Settings, and check the backup job for failures. volsync replicates
+              in Settings, and check the backup job for failures. kopiur backs up
               /data/backup once archives exist.
           labels:
             severity: warning
