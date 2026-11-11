@@ -14,6 +14,7 @@ resources:
   - ./mosquitto/ks.yaml
   - ./scrypted/ks.yaml
   - ./beestat-collector/ks.yaml
+  - ./abrp-relay/ks.yaml
   - ./kia-collector/ks.yaml
   - ./kia-trip-archiver/ks.yaml
   - ./chargepoint-collector/ks.yaml

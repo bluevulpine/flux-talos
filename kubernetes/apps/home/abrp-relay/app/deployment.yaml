@@ -1,0 +1,82 @@
+---
+# abrp-relay: WiCAN autopid feed (MQTT) -> filtered -> ABRP telemetry API.
+# Source and spec: kia-collector repo, abrp_relay/ and ABRP_RELAY_SPEC.md.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: abrp-relay
+  labels:
+    app.kubernetes.io/name: abrp-relay
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # one MQTT client_id; two pods would also double-post to ABRP
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: abrp-relay
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: abrp-relay
+    spec:
+      automountServiceAccountToken: false
+      # Drone builds amd64 only; without the low-power toleration this stays off
+      # the arm64 Pis, like the other kia-collector images.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: relay
+          # NOTE: no ":tag" suffix on the marker — this is a combined image:repo:tag scalar,
+          # so Flux must write the whole ref. ":tag" would overwrite the scalar with the bare tag.
+          image: gitea.derekjacobs.dev/bvn-homelab/abrp-relay:44-b4cecb57 # {"$imagepolicy": "flux-system:abrp-relay"}
+          imagePullPolicy: IfNotPresent
+          env:
+            # "0" = log the payload it would send, post nothing. The device's own
+            # ABRP sink is still on: flip to "1" only when switching that off, so
+            # ABRP never gets two interleaved streams (spec section 8).
+            - name: ABRP_SEND
+              value: "0"
+            # Usable capacity; ABRP computes remaining energy as soc x capacity.
+            - name: ABRP_CAPACITY_KWH
+              value: "96"
+            - name: WICAN_DEVICE
+              value: fc012cdbd521
+          envFrom:
+            - secretRef:
+                name: abrp-relay-secret
+          ports:
+            - name: healthz
+              containerPort: 8080
+          # Healthy = connected to the broker. The car being asleep is normal and
+          # must not restart the pod.
+          livenessProbe:
+            httpGet: {path: /, port: healthz}
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            failureThreshold: 4
+          readinessProbe:
+            httpGet: {path: /, port: healthz}
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          resources:
+            requests: {cpu: 5m, memory: 48Mi}
+            limits: {memory: 128Mi}
+          # HOME=/tmp in the image; keep it writable under the read-only root in
+          # case a library ever wants a scratch file.
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi
