@@ -35,6 +35,7 @@ NAME, UDN_SEED, HTTP_PORT, SILENCE_BPS, SILENCE_SECONDS.
 import http.server
 import json
 import os
+import queue
 import re
 import socket
 import socketserver
@@ -55,6 +56,7 @@ UDN = "uuid:" + str(uuidlib.uuid5(uuidlib.NAMESPACE_DNS, os.environ.get("UDN_SEE
 SILENCE_BPS = int(os.environ.get("SILENCE_BPS", "64000"))         # bits/s; music FLAC is ~1 Mbps
 SILENCE_SECONDS = int(os.environ.get("SILENCE_SECONDS", "45"))    # longer than a quiet passage
 WINDOW_S = 5
+STALL_S = int(os.environ.get("STALL_SECONDS", "60"))  # no byte at all for this long: reconnect
 SINK = ",".join([
     "http-get:*:audio/x-flac:*", "http-get:*:audio/flac:*", "http-get:*:audio/ogg:*",
     "http-get:*:audio/mpeg:*",
@@ -78,7 +80,7 @@ def fmt_of(uri):
     return "flac" if uri.endswith(".flac") else "mp3" if uri.endswith(".mp3") else "unknown"
 
 
-def webhook(event, uri=""):
+def _post(event, uri):
     """Tell HA. Failures are logged, not raised: a missed call must not kill the renderer."""
     body = json.dumps({"event": event, "url": uri, "format": fmt_of(uri) if uri else ""}).encode()
     req = urllib.request.Request(f"{HA_URL}/api/webhook/{HA_WEBHOOK_ID}", data=body, method="POST",
@@ -88,6 +90,21 @@ def webhook(event, uri=""):
             log("webhook", event, fmt_of(uri) if uri else "", "->", r.status)
     except Exception as e:
         log("webhook", event, "FAILED:", repr(e))
+
+
+# One worker sends the webhooks, in order, off the request path: a slow or absent HA must not
+# delay the SOAP answer to Play/Stop (a control point may treat a slow renderer as failed), and
+# start/stop must not overtake each other.
+_HOOKS = queue.Queue()
+
+
+def _hook_worker():
+    while True:
+        _post(*_HOOKS.get())
+
+
+def webhook(event, uri=""):
+    _HOOKS.put((event, uri))
 
 
 class Session:
@@ -136,47 +153,72 @@ class Session:
             log("stop:", reason)
             webhook("stop", was)
 
+    def _set_alive(self, gen, value):
+        with self.lock:
+            if self.generation == gen:   # an old consumer must not speak for a newer stream
+                self.alive = value
+
     def _consume(self, gen, uri):
-        silent, silent_for, failures = False, 0.0, 0
+        """Read the stream for as long as this generation lasts.
+
+        Reading and judging are split: this thread only reads and counts bytes, and _watch samples
+        the count every WINDOW_S. Silent Ogg FLAC may arrive as one small page every several
+        seconds, so a blocking fixed-size read could stall for a minute per chunk, and a socket
+        timeout cannot be survived (the response object is unusable after one). With the split,
+        a quiet stream simply shows a low byte rate, and only a long STALL_S with no byte at all
+        counts as a broken connection.
+        """
+        counter = [0]
+        threading.Thread(target=self._watch, args=(gen, uri, counter), daemon=True).start()
+        failures = 0
         while self.generation == gen:
+            got = 0
             try:
                 req = urllib.request.Request(uri, headers={"User-Agent": "vinyl-bridge"})
-                with urllib.request.urlopen(req, timeout=15) as r:
+                with urllib.request.urlopen(req, timeout=STALL_S) as r:
                     log("consuming", fmt_of(uri), r.headers.get("Content-Type"))
-                    failures, n, t0 = 0, 0, time.monotonic()
                     while self.generation == gen:
-                        chunk = r.read(16384)
+                        chunk = r.read1(65536)   # returns whatever has arrived, however small
                         if not chunk:
                             raise EOFError("stream ended")
-                        self.alive = True
-                        n += len(chunk)
-                        dt = time.monotonic() - t0
-                        if dt < WINDOW_S:
-                            continue
-                        bps = n * 8 / dt
-                        n, t0 = 0, time.monotonic()
-                        if fmt_of(uri) != "flac":
-                            continue        # CBR MP3: byte rate says nothing about silence
-                        if bps < SILENCE_BPS:
-                            silent_for += dt
-                            if not silent and silent_for >= SILENCE_SECONDS:
-                                silent = True
-                                log(f"silence for {silent_for:.0f} s ({bps:.0f} bit/s): stop")
-                                webhook("stop", uri)
-                        else:
-                            if silent:
-                                log(f"sound again ({bps:.0f} bit/s): start")
-                                webhook("start", uri)
-                            silent, silent_for = False, 0.0
+                        got += len(chunk)
+                        counter[0] += len(chunk)
+                        self._set_alive(gen, True)
             except Exception as e:
-                self.alive = False
-                failures += 1
-                log("stream error", failures, repr(e))
+                self._set_alive(gen, False)
+                # Only a connection that delivered nothing counts toward giving up, so a stream
+                # that keeps dropping and reconnecting with data is still followed.
+                failures = 0 if got else failures + 1
+                log("stream error", failures, f"after {got} bytes:", repr(e))
                 if failures >= 5:
                     if self.generation == gen:
                         self.stop("stream gone after 5 retries")
                     return
-                time.sleep(2 * failures)
+                time.sleep(2 * max(failures, 1))
+
+    def _watch(self, gen, uri, counter):
+        """Every WINDOW_S, turn the byte count into a bit rate and track silence (FLAC only)."""
+        silent, silent_for, last = False, 0.0, 0
+        if fmt_of(uri) != "flac":
+            log("following", fmt_of(uri), "stream: constant bitrate, so no automatic stop")
+            return
+        while True:
+            time.sleep(WINDOW_S)
+            if self.generation != gen:
+                return
+            n, last = counter[0] - last, counter[0]
+            bps = n * 8 / WINDOW_S
+            if bps < SILENCE_BPS:           # also covers a stalled or reconnecting stream
+                silent_for += WINDOW_S
+                if not silent and silent_for >= SILENCE_SECONDS:
+                    silent = True
+                    log(f"silence for {silent_for:.0f} s ({bps:.0f} bit/s): stop")
+                    webhook("stop", uri)
+            else:
+                if silent:
+                    log(f"sound again ({bps:.0f} bit/s): start")
+                    webhook("start", uri)
+                silent, silent_for = False, 0.0
 
 
 SESSION = Session()
@@ -346,7 +388,7 @@ def ssdp_loop():
             for nt in TYPES:
                 out.sendto(ssdp_msg(nt, nts="ssdp:alive"), (SSDP_ADDR, SSDP_PORT))
             time.sleep(30)
-    threading.Thread(target=notify, daemon=True).start()
+    threading.Thread(target=fatal_on_error(notify), daemon=True).start()
 
     while True:
         data, addr = s.recvfrom(4096)
@@ -359,10 +401,25 @@ def ssdp_loop():
             out.sendto(ssdp_msg(t, st=t), addr)
 
 
+def fatal_on_error(fn):
+    """SSDP is the whole point: if it dies (no net1, address clash, sendto error), the HTTP
+    server would keep /healthz green while the Victrola can no longer see Vinyl. Exit instead,
+    so the pod restarts and the failure shows."""
+    def run():
+        try:
+            fn()
+        except BaseException as e:
+            log(f"FATAL in {fn.__name__}:", repr(e))
+        finally:
+            os._exit(1)
+    return run
+
+
 if __name__ == "__main__":
     log(f"vinyl bridge '{NAME}' {UDN} at {LOCATION}; webhook to {HA_URL}; "
         f"silence < {SILENCE_BPS} bit/s for {SILENCE_SECONDS} s")
-    threading.Thread(target=ssdp_loop, daemon=True).start()
+    threading.Thread(target=_hook_worker, daemon=True).start()
+    threading.Thread(target=fatal_on_error(ssdp_loop), daemon=True).start()
     # All interfaces: the Victrola uses the VLAN-30 address (LOCATION), the kubelet probes
     # /healthz on the cluster IP (a node cannot reach its own macvlan children).
     Server(("", PORT), Handler).serve_forever()
