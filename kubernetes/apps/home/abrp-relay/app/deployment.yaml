@@ -35,11 +35,13 @@ spec:
           image: gitea.derekjacobs.dev/bvn-homelab/abrp-relay:44-b4cecb57 # {"$imagepolicy": "flux-system:abrp-relay"}
           imagePullPolicy: IfNotPresent
           env:
-            # "0" = log the payload it would send, post nothing. The device's own
-            # ABRP sink is still on: flip to "1" only when switching that off, so
-            # ABRP never gets two interleaved streams (spec section 8).
+            # "1" = post to ABRP; "0" = log the payload it would send, post nothing.
+            # The device's own ABRP sink was switched off at this cutover
+            # (2026-11-11) and left configured as the fallback: to fall back, set
+            # "0" here AND re-enable it on the device, never both on, so ABRP
+            # never gets two interleaved streams (spec section 8).
             - name: ABRP_SEND
-              value: "0"
+              value: "1"
             # Usable capacity; ABRP computes remaining energy as soc x capacity.
             - name: ABRP_CAPACITY_KWH
               value: "96"
