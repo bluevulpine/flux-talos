@@ -221,16 +221,14 @@ Where each setting must live. This is decided by the loader, not by preference:
 | `MATRIX_RECOVERY_KEY_OUTPUT_FILE` | secret path, a **per-profile** path | It is read only through the scoped secret reader. The file is opened `O_EXCL`, so it must not exist when the profile first boots. |
 | `platforms.matrix.device_id`, `platforms.matrix.allowed_users` | the profile's `config.yaml` | These survive the env pass. |
 
-The "secret path" is process env via `hermes-secret` for the default profile (Bosun), and
-the mounted `profile.env` for a named profile (see below). **Never put `MATRIX_*` in
-`/opt/data/.env`.** In the launch scope `.env` beats process env, so it would shadow
-OpenBao.
-
-The default profile also gets a mounted `profile.env`
-(`externalsecret-profile-default.yaml`, read via `secrets.command` in
-`/opt/data/config.yaml`). Under multiplexing the cron scheduler's secret scope sees
-only `.env` and `secrets.command`, never process env, so without it the cron
-preflight blocked every job delivering to `matrix` as "not connected".
+The "secret path" is a mounted `profile.env` read by `secrets.command`, for every profile.
+The default profile (Bosun) also gets process env via `hermes-secret` (its only path
+before the file; the file wins at startup when both are set). Its file (`externalsecret-profile-default.yaml`, read via `secrets.command`
+in `/opt/data/config.yaml`) exists because under multiplexing the cron scheduler's secret
+scope sees only `.env` and `secrets.command`, never process env. Without the file, the
+cron preflight blocked every job delivering to `matrix` as "not connected". **Never put
+`MATRIX_*` in `/opt/data/.env`.** In the launch scope `.env` beats process env, so it
+would shadow OpenBao.
 
 **First boot bootstraps cross-signing** and writes the recovery key to the output file.
 Move it into OpenBao straight away; it is piped, never printed. Then delete the file and
@@ -333,7 +331,8 @@ mount never receives Secret updates.
    CLI does not drop privileges, and a root-owned profile tree breaks the E2EE store:
    ```bash
    H=(kubectl -n ai exec deploy/hermes -- /command/s6-setuidgid hermes hermes)
-   "${H[@]}" profile create <agent>        # no --clone: copies no credentials
+   "${H[@]}" profile create <agent>        # no --clone: copies no credentials, and a clone of
+                                         # default would inherit secrets.command -> Bosun's Matrix token
    # Gate and model FIRST. The token is already in the mounted file, and it reaches the
    # profile the moment secrets.command is enabled (every config set triggers a rescan).
    # Matrix agents only (both lines):
