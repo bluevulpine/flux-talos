@@ -1,0 +1,103 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vinyl-bridge
+  labels:
+    app.kubernetes.io/name: vinyl-bridge
+spec:
+  replicas: 1
+  strategy:
+    # One renderer identity and one static VLAN-30 address: never run two at once.
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vinyl-bridge
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vinyl-bridge
+      annotations:
+        # The Victrola only discovers UPnP renderers on its own L2 (SSDP does not cross VLANs),
+        # so the pod joins VLAN 30 via Multus macvlan, like scrypted. Static IP + PINNED MAC so
+        # a UniFi DHCP reservation for this MAC -> IP stays valid across pod recreates
+        # (macvlan otherwise randomizes the MAC). The NAD's sbr plugin keeps VLAN-30 return
+        # traffic on net1; the HA webhook leaves by eth0 (cluster network).
+        # UniFi holds a fixed-IP reservation for this MAC (2026-11-11), because VLAN 30's DHCP
+        # range covers .6-.254; change the IP and MAC here, BIND_IP and the reservation together.
+        k8s.v1.cni.cncf.io/networks: |-
+          [{
+            "name": "vlan-30",
+            "namespace": "kube-system",
+            "ips": ["192.168.30.13/24"],
+            "mac": "de:ad:be:ef:30:13"
+          }]
+    spec:
+      automountServiceAccountToken: false
+      # Only the brokkr (amd64) workers carry bond0.30 for the VLAN-30 macvlan.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - brokkr01
+                      - brokkr02
+                      - brokkr03
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bridge
+          image: docker.io/library/python:3.13-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - "python3"
+            - "-u"
+            - "-I"
+            - "/app/bridge.py"
+          env:
+            - {name: BIND_IP, value: "192.168.30.13"}
+            # By name, never by IP: HA may move VLANs (see the vault's whole-home-audio area).
+            - {name: HA_URL, value: "http://homeassistant.funb.us:8123"}
+            - {name: NAME, value: "Vinyl"}
+            # The Victrola remembers its default speaker by UDN, which is derived from this.
+            # Changing it means re-selecting "Vinyl" in the Victrola app.
+            - {name: UDN_SEED, value: "vinyl-bridge.home"}
+            - {name: SILENCE_BPS, value: "64000"}
+            - {name: SILENCE_SECONDS, value: "45"}
+          envFrom:
+            - secretRef:
+                name: vinyl-bridge-secret
+          ports:
+            - name: upnp
+              containerPort: 49494
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          # The HTTP server listens on all interfaces so the kubelet can probe the pod's
+          # cluster IP; a host cannot reach its own macvlan children on VLAN 30.
+          livenessProbe:
+            httpGet: {path: /healthz, port: upnp}
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
+          volumeMounts:
+            - name: script
+              mountPath: /app
+              readOnly: true
+      volumes:
+        - name: script
+          configMap:
+            name: vinyl-bridge-script
