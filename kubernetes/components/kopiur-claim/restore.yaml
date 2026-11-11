@@ -21,8 +21,9 @@ spec:
   mover:
     # Root plus four capabilities, or ownership is lost. kopiur's hardened base
     # keeps drop: [ALL], so runAsUser 0 alone cannot chown and every entry
-    # restores as 0:0 (seen in the W1 restore gate; `privilegedMode: true` does
-    # not reach the Job). CHOWN sets owners; FOWNER allows chmod/utimes on files
+    # restores as 0:0 (seen in the W1 restore gate on 0.10.9). Since 0.10.16
+    # `privilegedMode: true` grants these same four on a restore (#552); the
+    # explicit list stays because it is what was tested here. CHOWN sets owners; FOWNER allows chmod/utimes on files
     # root no longer owns; FSETID keeps setgid on the 2775 directories;
     # DAC_OVERRIDE writes into directories already chowned to the app. All four
     # are allowed under baseline PSA; root needs the namespace's

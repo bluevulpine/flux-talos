@@ -3,8 +3,8 @@
 `kubernetes/components/kopiur-claim` creates an app's data PVC together with a kopiur
 `Restore` in populator mode (`<app>-claim`). The PVC names the Restore in
 `spec.dataSourceRef`, so whenever the PVC is created, kopiur fills it from the latest
-snapshot of `<app>-local` before it binds. With no snapshot yet, it binds empty. It replaced
-the VolSync-era `components/volsync-claim` at decommission step 5 (2026-11-11; see
+snapshot of `<app>-local` before it binds. With no snapshot yet, it binds empty. It is the
+successor to the VolSync-era `components/volsync-claim`, built at decommission step 5 (2026-11-11; see
 `kopiur-migration.md`).
 
 **Use it for:**
@@ -20,8 +20,8 @@ the PVC and the app's whole Kustomization stops reconciling.
 
 kopiur resolves a Restore's snapshot once, and the CRD docs say "never re-resolved". In
 populator mode that holds **per claiming PVC**, though, not per Restore. kopiur keeps one
-record per claim, keyed by the PVC's uid. A recreated PVC has a new uid, so kopiur deletes the
-old record and resolves again (`ClaimDrive::ReArm`, `restore/mod.rs` in 0.10.17, reason
+record per claim, keyed by the PVC's uid. A recreated PVC has a new uid, so kopiur resets that
+claim's record under the new uid and resolves again (`ClaimDrive::ReArm`, `restore/mod.rs` in 0.10.17, reason
 `ClaimRecreated`).
 
 **Tested 2026-11-11** with throwaway claims in `media` (test objects deleted afterwards):
@@ -96,6 +96,9 @@ and `<workload>` are the app's.
    kubectl -n <ns> get "$snap" -o jsonpath='{.status.snapshot.kopiaSnapshotID}'
    ```
 
+   `kubectl wait` does not stop on `Failed`: if it runs long, check
+   `kubectl -n <ns> get "$snap" -o jsonpath='{.status.phase} {.status.failure}'`.
+
    For a lost or corrupted volume, skip the backup. Instead, find the last good snapshot in
    `kubectl -n <ns> get snapshots.kopiur.home-operations.com`. If it is not the latest, read
    "Restoring an older snapshot" first.
@@ -113,7 +116,25 @@ and `<workload>` are the app's.
    component and drop that patch. For a plain recovery there is nothing to merge.
 
 5. **Let Flux create the Restore and the new PVC:** `flux -n <ns> resume ks <app>`. Resuming
-   reconciles the latest commit.
+   reconciles the latest commit. From step 3 until the claim is populated the Restore reads
+   `Pending`, which holds tuppr's upgrades and fires `KopiurRestoreStuck` after 1h. Have the
+   step-4 PR approved before step 3 so that window stays short.
+
+   **WaitForFirstConsumer classes** (`longhorn-1-replica-local`, `longhorn-2-replica-local`,
+   `openebs-hostpath` on 2026-11-11; check with `kubectl get sc`) populate only once a pod
+   that uses the PVC is scheduled. kopiur parks the claim at `AwaitingPodSchedule` meanwhile.
+   With the app scaled to 0, nothing schedules it, so start a placeholder pod that mounts the
+   PVC and does nothing. It picks the node, kopiur populates it there, and you can check
+   step 6 before the app starts:
+
+   ```sh
+   kubectl -n <ns> run <app>-claim-hold --image=busybox:1.37 --restart=Never \
+     --overrides='{"spec":{"containers":[{"name":"h","image":"busybox:1.37","command":["sleep","86400"],"volumeMounts":[{"name":"d","mountPath":"/d"}]}],"volumes":[{"name":"d","persistentVolumeClaim":{"claimName":"<app>"}}]}}'
+   ```
+
+   If the app needs a particular node, add the app's `nodeSelector` or affinity to the
+   override. Delete the pod after step 6 and before step 7. A local volume stays on the node
+   the placeholder landed on.
 
 6. **Check what it restored before the app starts writing:**
 
@@ -156,7 +177,7 @@ populated. A recreate left half done therefore blocks upgrades indefinitely.
 - `KopiurRestoreSlow`: `Restoring` for 6h. A large volume can legitimately take hours, so
   check the mover Job's log for progress first.
 - kopiur's own `KopiurRestoreFailed` covers `Failed`. A failed claim is retried by deleting
-  and recreating its PVC ("Recreating a PVC", steps 3 and 5); the re-arm deletes the failed Job and its leftover prime
-  PVC.
+  and recreating its PVC ("Recreating a PVC", steps 3 and 5). The re-arm deletes the failed Job and its leftover prime
+  PVC, except after `PopulateHijacked`, whose prime kopiur keeps on purpose as evidence.
 
 All three read `kopiur_resource_phase{kind="Restore"}`, which the kopiur controller exports.
