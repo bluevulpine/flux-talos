@@ -15,10 +15,14 @@ Follow the existing layout under `kubernetes/apps/<namespace>/<app>/`:
   `upgrade.remediation.strategy: rollback` block is **optional**, not standard: about half the
   HelmReleases carry one, and the `app-template` web apps a new app usually patterns itself on
   (mosquitto, homebox, vaultwarden) do not.
-- Backups: a new app that has a data PVC gets a plain PVC plus `components/kopiur`. Do not add
-  `components/volsync-claim` to a new app (it persists on most existing apps because it is the
-  only manifest that creates their PVC; never remove it from one). Pattern on
-  `kubernetes/apps/ai/paperclip` (born on kopiur).
+- Backups: a new app that has a data PVC gets `components/kopiur` plus `components/kopiur-claim`
+  (the PVC, restored from the latest backup whenever it is created; empty on first deploy).
+  Size it with `VOLSYNC_CAPACITY` / `VOLSYNC_STORAGECLASS` / `VOLSYNC_ACCESSMODES` in `ks.yaml`
+  (names kept from `volsync-claim` on purpose) and add `dependsOn: kopiur-repositories`. Usage
+  and checks: `docs/runbooks/kopiur-claim.md`. Do not add `components/volsync-claim` or a plain
+  `pvc.yaml` to a new app. `volsync-claim` persists on most existing apps because it is the
+  only manifest that creates their PVC: never remove it from one outside that runbook's
+  recreate procedure.
 - `app/externalsecret.yaml` if runtime secrets are needed (pull from OpenBao via External Secrets Operator — `secretStoreRef: openbao`)
 - Include `# yaml-language-server: $schema=...` at the top of every Kubernetes manifest.
   **Confirm the URL returns JSON before copying one from a neighbouring file.**

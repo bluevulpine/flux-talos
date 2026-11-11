@@ -1,0 +1,43 @@
+---
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: Restore
+metadata:
+  name: "${APP}-claim"
+spec:
+  source:
+    fromPolicy:
+      # components/kopiur's policies. Set KOPIUR_CLAIM_SOURCE: r2 to fill a
+      # recreated PVC from the offsite repository (local repository lost).
+      name: "${APP}-${KOPIUR_CLAIM_SOURCE:-local}"
+      offset: 0 # the latest snapshot at the time the PVC is (re)created
+  target:
+    populator: {}
+  policy:
+    # Empty volume when the identity has no snapshot: what a new app needs.
+    # The cost: a recreate whose lookup finds nothing (wrong source, renamed
+    # app) also comes up empty, with a green status. The runbook's recreate
+    # procedure checks `resolution: Snapshot` before the app starts writing.
+    onMissingSnapshot: Continue
+  mover:
+    # Root plus four capabilities, or ownership is lost. kopiur's hardened base
+    # keeps drop: [ALL], so runAsUser 0 alone cannot chown and every entry
+    # restores as 0:0 (seen in the W1 restore gate; `privilegedMode: true` does
+    # not reach the Job). CHOWN sets owners; FOWNER allows chmod/utimes on files
+    # root no longer owns; FSETID keeps setgid on the 2775 directories;
+    # DAC_OVERRIDE writes into directories already chowned to the app. All four
+    # are allowed under baseline PSA; root needs the namespace's
+    # kopiur.home-operations.com/privileged-movers annotation, which every
+    # namespace running components/kopiur already has.
+    securityContext:
+      runAsUser: 0
+      runAsGroup: 0
+      capabilities:
+        add:
+          - CHOWN
+          - FOWNER
+          - FSETID
+          - DAC_OVERRIDE
+    # Ephemeral: a restore is rare, and a persistent cache PVC per app would sit
+    # idle between them.
+    cache:
+      mode: Ephemeral

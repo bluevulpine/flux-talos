@@ -8,9 +8,12 @@ FluxCD reconciles `kubernetes/` against a Talos Linux cluster. The README covers
 component list, LB-IPAM/BGP and hardware; this is what it doesn't.
 
 - `kubernetes/apps/<namespace>/<app>/`: all workloads. `kubernetes/components/`: reusable
-  Kustomize components. `kopiur` does backups. `volsync-claim` (still on most apps) is the
-  only manifest that creates an app's data PVC: never remove it, because Flux prune then
-  deletes the volume. `volsync-backup` was deleted at the decommission (last at `7ac8dfcbd410`). See
+  Kustomize components. `kopiur` does backups; `kopiur-claim` is a new app's data PVC, filled
+  from the latest backup whenever it is created (`docs/runbooks/kopiur-claim.md`).
+  `volsync-claim` (still on most apps) is the only manifest that creates their data PVC: never
+  remove it, because Flux prune then deletes the volume, and never swap it in place
+  (immutable `dataSourceRef`); it moves to `kopiur-claim` only during a PVC recreate.
+  `volsync-backup` was deleted at the decommission (last at `7ac8dfcbd410`). See
   `docs/runbooks/kopiur-migration.md`. `kubernetes/flux/cluster/ks.yaml`: the entry point
   and the `cluster-apps` patch. `kubernetes/bootstrap/`: one-time bootstrap only.
 - `talos/topf.yaml`: nodes and versions. `talos/patches/{all,control-plane,worker,node/<host>}/`:
