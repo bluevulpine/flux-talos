@@ -14,6 +14,7 @@ resources:
   - ./beestat-collector/ks.yaml
   - ./bluevulpine-blog/ks.yaml
   - ./helium-archiver/ks.yaml
+  - ./abrp-relay/ks.yaml
   - ./kia-collector/ks.yaml
   - ./kia-trip-archiver/ks.yaml
   - ./chargepoint-collector/ks.yaml

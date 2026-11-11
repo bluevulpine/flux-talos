@@ -1,0 +1,12 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/imagerepository-image-v1.json
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageRepository
+metadata:
+  name: &app abrp-relay
+spec:
+  # Built by the kia-collector repo's build-and-push-abrp-relay Drone pipeline.
+  image: gitea.derekjacobs.dev/bvn-homelab/abrp-relay
+  interval: 5m
+  secretRef:
+    name: gitea-registry-creds
