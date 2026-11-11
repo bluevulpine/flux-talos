@@ -1,5 +1,7 @@
 # move-workload — repeatable "move a workload between namespaces"
 
+> **OBSOLETE since 2026-11-11: written for VolSync, which is removed. A kopiur-based procedure does not exist yet; do not follow this.**
+
 Entry point: **`/move-workload <app> <old-namespace> <new-namespace>`** (`.claude/commands/move-workload.md`). This directory is what the command reads on demand.
 Covers **one** workload class: **VolSync + Longhorn PVC** (procedure: `docs/runbooks/volsync-app-namespace-move.md`). Everything else is classified and refused/escalated.
 

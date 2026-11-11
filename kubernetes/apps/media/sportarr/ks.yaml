@@ -50,7 +50,7 @@ spec:
       # provider it does NOT hold the database, so it is low-churn. (Its old
       # 4-hourly local schedule is moot since every app went daily, 2026-10-29.)
       #
-      # R2 stays out of hour 03: it is reserved for kopia-maint-r2 against the
+      # R2 stays out of hour 03: it is reserved for kopiur's full kopia maintenance against the
       # same R2 repository, a reservation that rests on incident history (9
       # concurrency-driven failures in 18 days, one burst destroying two ZFS
       # datasets behind Bound PVs; docs/runbooks/volsync-mover-stuck.md). An

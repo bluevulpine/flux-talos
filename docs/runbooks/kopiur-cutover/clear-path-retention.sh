@@ -1,4 +1,7 @@
 #!/bin/bash
+# HISTORICAL (2026-11-11): written for the VolSync -> kopiur cutover, which is complete.
+# VolSync and its CRDs are removed, so the replicationsource check below now errors
+# and the script aborts (fail-closed). Do not reuse it as-is.
 # ============================================================================
 # Per-app cutover, step 2 (runbook "Per-app cutover"): clear the VolSync fork's
 # path-scope retention on <app>@<ns>:/data, in BOTH repositories, so kopiur's

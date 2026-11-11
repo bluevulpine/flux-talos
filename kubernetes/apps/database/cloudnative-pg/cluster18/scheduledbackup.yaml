@@ -13,7 +13,7 @@ spec:
   # Use the macro, not a cron string: CNPG's ScheduledBackup takes a SIX-field
   # spec (seconds first), so a copy-pasted 5-field "0 0 * * 0" silently means
   # something else. @weekly keeps the existing 00:00 slot, which is already
-  # clear of hour 03 (kopia-maint-r2).
+  # clear of hour 03 UTC (kopiur's full kopia maintenance).
   schedule: "@weekly"
   immediate: true
   backupOwnerReference: self

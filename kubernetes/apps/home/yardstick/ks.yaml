@@ -41,7 +41,7 @@ spec:
       # Recordings only accrue while the robot works, and a lost hour or two
       # of telemetry is cheap; the licence/install_id in config.json is what
       # actually matters and changes rarely. Daily local, daily R2. Hour 03
-      # is reserved for kopia-maint-r2, so R2 takes H 6.
+      # is reserved for kopiur's full kopia maintenance, so R2 takes H 6.
       KOPIUR_LOCAL_CRON: "H 9 * * *"
       KOPIUR_R2_CRON: "H 6 * * *"
       # No KOPIUR_CACHE_CAPACITY override: the kopia cache is not sized by this

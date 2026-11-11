@@ -26,7 +26,7 @@ metadata:
     # docs/runbooks/kopiur-migration.md. The hardened mover baseline (drop
     # ALL, seccomp RuntimeDefault, no privilege escalation) still applies.
     #
-    # Still stricter than volsync-system, which runs privileged.
+    # Was stricter than volsync-system, which ran privileged (removed 2026-11-11).
     pod-security.kubernetes.io/enforce: baseline
     pod-security.kubernetes.io/enforce-version: latest
     pod-security.kubernetes.io/warn: restricted

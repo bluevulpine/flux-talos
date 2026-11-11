@@ -15,13 +15,17 @@ Follow the existing layout under `kubernetes/apps/<namespace>/<app>/`:
   `upgrade.remediation.strategy: rollback` block is **optional**, not standard: about half the
   HelmReleases carry one, and the `app-template` web apps a new app usually patterns itself on
   (mosquitto, homebox, vaultwarden) do not.
+- Backups: a new app that has a data PVC gets a plain PVC plus `components/kopiur`. Do not add
+  `components/volsync-claim` to a new app (it persists on most existing apps because it is the
+  only manifest that creates their PVC; never remove it from one). Pattern on
+  `kubernetes/apps/ai/paperclip` (born on kopiur).
 - `app/externalsecret.yaml` if runtime secrets are needed (pull from OpenBao via External Secrets Operator — `secretStoreRef: openbao`)
 - Include `# yaml-language-server: $schema=...` at the top of every Kubernetes manifest.
   **Confirm the URL returns JSON before copying one from a neighbouring file.**
   - For **new** manifests prefer `https://k8s-schemas.home-operations.com/<group>/<kind>_<version>.json`,
     the maintained source (home-operations' own `k8s-schemas` repo, Renovate-driven). It covers
-    every CRD kind this repo's pages.dev headers use except `volsync.backube`
-    `kopiamaintenance_v1alpha1`, and answers an honest `404` for what it lacks. It also hosts
+    every CRD kind this repo's pages.dev headers use except `volsync.backube`'s
+    `kopiamaintenance_v1alpha1` (VolSync is removed, so a new manifest never needs it), and answers an honest `404` for what it lacks. It also hosts
     `image.toolkit.fluxcd.io`; CLAUDE.md's
     `fluxcd-community/flux2-schemas/main/<kind>-image-v1.json` URL works too.
   - Most existing headers still point at `kubernetes-schemas.pages.dev`, a community mirror

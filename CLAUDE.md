@@ -5,8 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Source map and topology
 
 FluxCD reconciles `kubernetes/` against a Talos Linux cluster. The README covers the
-component list, LB-IPAM/BGP and hardware; this is what it doesn't. Its backup lines still
-describe VolSync, which kopiur has replaced: where they disagree, this file wins.
+component list, LB-IPAM/BGP and hardware; this is what it doesn't.
 
 - `kubernetes/apps/<namespace>/<app>/`: all workloads. `kubernetes/components/`: reusable
   Kustomize components. `kopiur` does backups. `volsync-claim` (still on most apps) is the

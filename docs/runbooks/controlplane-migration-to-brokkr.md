@@ -57,10 +57,12 @@ talosctl -n 10.0.10.31,10.0.10.32,10.0.10.33 etcd alarm list   # must be empty
 # 2. Take an etcd snapshot — the rollback of last resort
 talosctl -n 10.0.10.31 etcd snapshot /tmp/etcd-pre-migration.snap
 
-# 3. Confirm VolSync backups are current for every app with Longhorn data.
+# 3. Confirm kopiur backups are current for every app with Longhorn data.
 #    This is the real safety net. Do not start until it is green.
-flux get kustomizations -A | grep -i volsync
-kubectl get replicationsources -A
+#    (VolSync did this until 2026-11-11.) No KopiurBackupStale / KopiurSnapshot*
+#    alert firing, and every policy's latest backup is recent (Thanos/Prometheus):
+#      sort((time() - kopiur_policy_last_backup_success_timestamp_seconds) / 3600)
+kubectl get snapshots.kopiur.home-operations.com -A --sort-by=.metadata.creationTimestamp | tail -20
 
 # 4. Longhorn capacity check — can two nodes hold three nodes' replicas?
 kubectl -n longhorn-system get nodes.longhorn.io -o custom-columns=\
