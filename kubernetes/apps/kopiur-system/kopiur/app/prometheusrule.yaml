@@ -146,11 +146,15 @@ spec:
           annotations:
             summary: >-
               kopiur Maintenance {{ $labels.namespace }}/{{ $labels.name }} has
-              not held the kopia maintenance lease for 3h (reason
-              {{ $labels.reason }}), so it runs nothing. If another owner holds
-              it, set takeoverPolicy Force for one run, then back to Never.
+              not held the kopia maintenance lease for 3h, so it runs nothing.
+              The LeaseOwned condition's reason says why (`kubectl -n
+              {{ $labels.namespace }} describe maintenances.kopiur.home-operations.com
+              {{ $labels.name }}`). If another owner holds it, set takeoverPolicy
+              Force for one run, then back to Never.
+          # Not grouped by reason: a reason change (WaitingForRepository to a
+          # yield) would start a new series and restart the 3h timer.
           expr: |
-            max by (namespace, name, reason) (kube_kopiur_maintenance_condition{type="LeaseOwned"}) == 0
+            max by (namespace, name) (kube_kopiur_maintenance_condition{type="LeaseOwned"}) == 0
           for: 3h
           labels:
             severity: warning
@@ -158,7 +162,9 @@ spec:
         # 3. No full run: operator down, mover refused before a Job exists, or
         #    the schedule stalled. Full runs are daily at 03:00 UTC (plus 20m
         #    jitter); 30h allows one late run. The second branch covers a
-        #    Maintenance that has never completed a full run.
+        #    Maintenance that has never completed a full run (forced to 1; a
+        #    new Maintenance runs a full catch-up at once, observed 2026-11-10,
+        #    so it does not page while waiting for 03:00).
         - alert: KopiurMaintenanceFullStale
           annotations:
             summary: >-
@@ -174,5 +180,25 @@ spec:
               kube_kopiur_maintenance_full_last_run_timestamp_seconds
             ) * 0 + 1
           for: 6h
+          labels:
+            severity: warning
+
+        # 4. Rules 2 and 3 read kube-state-metrics' customResourceState series
+        #    (kube-prometheus-stack values). A config typo, a parse error, or
+        #    kopiur promoting its API off v1alpha1 (the groupVersionKind is
+        #    pinned) would leave them with no data, and silence again.
+        - alert: KopiurMaintenanceMetricsMissing
+          annotations:
+            summary: >-
+              kube-state-metrics exports a LeaseOwned series for fewer kopiur
+              Maintenances than there are repositories with maintenance, so the
+              lease and full-run alerts are blind. Check kube-state-metrics' log
+              and kube_customresource_state errors, and the Maintenance CRD
+              version.
+          expr: |
+            max(absent(kube_kopiur_maintenance_condition{type="LeaseOwned"}))
+            or
+            count(kube_kopiur_maintenance_condition{type="LeaseOwned"}) < count(kopiur_repository_maintenance_configured == 1)
+          for: 1h
           labels:
             severity: warning
