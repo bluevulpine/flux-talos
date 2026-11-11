@@ -725,15 +725,16 @@ case as "aged-out catalog" explicitly.
 ## After the migration: the claim
 
 Every migrated PVC keeps a `dataSourceRef` to `ReplicationDestination/<app>-dst-local`,
-which disappears with `volsync-backup`. That is **inert on a bound PVC** — but if a PVC is
-ever deleted and recreated, it will sit Pending forever. Plan: a `components/kopiur-claim`
-whose `dataSourceRef` targets a kopiur `Restore` in populator mode
-(`Restore.spec.target.populator`), used by newly created PVCs; existing PVCs move onto it
-only when they are next recreated. Its `Restore` must carry the capability block from
-"Restores need capabilities, not just root". **Check tuppr's upgrade gate when it lands:**
-it holds every Talos/Kubernetes upgrade while any Restore is `Pending`, and a populator
-Restore waiting on its consumer (`WaitForFirstConsumer`) or refused for capabilities would
-sit there, with no alert covering a stuck Restore.
+which disappeared with `volsync-backup`. That is **inert on a bound PVC**, but a PVC
+recreated from `volsync-claim` sits Pending forever. **Built 2026-11-11 (decommission step 5):**
+`components/kopiur-claim`, a PVC plus a populator `Restore` (`fromPolicy <app>-local`,
+`offset: 0`, `onMissingSnapshot: Continue`, the capability block from "Restores need
+capabilities, not just root"). New apps use it; existing PVCs move onto it only when they are
+next recreated. It can stay in Git because kopiur 0.10.17 re-arms a claim when its PVC is
+recreated (new uid) and resolves the latest snapshot again; tested on the cluster for an
+existing and a new identity. tuppr's gate holds upgrades while a Restore is `Pending`, which a
+claim Restore is whenever its PVC is gone: `KopiurRestoreStuck` / `KopiurRestoreSlow` cover
+it. Usage, the recreate procedure and the checks: `docs/runbooks/kopiur-claim.md`.
 
 ## Open items
 
@@ -830,9 +831,12 @@ sit there, with no alert covering a stuck Restore.
          new apps and recreated PVCs; paperclip and dispatcharr move onto it only when
          their PVCs are next recreated. The gap it closes is already open (the
          ReplicationDestinations are gone), so it follows step 4 (Derek, 2026-11-10).
-         **Open 2026-11-11, blocked on a design decision:** a populator Restore resolves its
-         snapshot once and never re-resolves, so a permanent `kopiur-claim` would restore a
-         stale snapshot (or, for a new app, an empty volume) when a PVC is recreated.
+         **Done 2026-11-11.** The worry that held it (a populator Restore "resolves once",
+         so a recreated PVC would get a stale or empty volume) is true only of a Restore's
+         top-level status: kopiur 0.10.17 keeps a record per claiming PVC and re-arms it
+         for a recreated PVC's new uid. Tested on the cluster with throwaway claims, then
+         built with `KopiurRestoreStuck` / `KopiurRestoreSlow` for the tuppr gate.
+         Runbook: `docs/runbooks/kopiur-claim.md`.
       6. **Docs. Done 2026-11-11 (docs sweep).** README backup lines, CLAUDE.md, the `move-workload` skill (VolSync-based),
          `volsync-*` runbooks marked historical, the vault.
 - [x] At decommission: flip `catalog.adoption` to `Adopt`? and decide on the pre-120 d

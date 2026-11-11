@@ -21,5 +21,10 @@ kind: Component
 # So this component keeps the PVC manifest byte-identical for the life of the
 # migration. Every app includes it alongside whichever backup component it is
 # currently on.
+#
+# SUCCESSOR: ../kopiur-claim (new apps). An app moves there only while its PVC
+# is deleted for a recreate anyway (docs/runbooks/kopiur-claim.md); since the
+# VolSync CRDs were deleted (2026-11-11), a PVC recreated from THIS component
+# would wait on a ReplicationDestination that can never exist and sit Pending.
 resources:
   - ./claim.yaml

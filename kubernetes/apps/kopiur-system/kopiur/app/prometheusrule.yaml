@@ -202,3 +202,39 @@ spec:
           for: 1h
           labels:
             severity: warning
+
+    - name: kopiur-restore.rules
+      rules:
+        # tuppr holds every Talos and Kubernetes upgrade while any Restore is
+        # Pending, Resolving or Restoring (system-upgrade/tuppr/upgrades), and
+        # nothing else pages on a Restore that never finishes: kopiur's chart
+        # alerts only on Failed. components/kopiur-claim keeps a populator
+        # Restore per app in Git; it sits Pending (AwaitingClaim) whenever its
+        # PVC is gone, and also while refused for capabilities or waiting on a
+        # repository. Restoring gets longer: a large volume legitimately takes
+        # hours.
+        - alert: KopiurRestoreStuck
+          annotations:
+            summary: >-
+              kopiur Restore {{ $labels.namespace }}/{{ $labels.name }} has been
+              {{ $labels.phase }} for 1h, which also holds tuppr's Talos and
+              Kubernetes upgrades. `kubectl -n {{ $labels.namespace }} describe
+              restores.kopiur.home-operations.com {{ $labels.name }}`; a
+              kopiur-claim Restore with no PVC means a recreate was left half
+              done (docs/runbooks/kopiur-claim.md).
+          expr: |
+            max by (namespace, name, phase) (kopiur_resource_phase{kind="Restore", phase=~"Pending|Resolving"}) == 1
+          for: 1h
+          labels:
+            severity: warning
+        - alert: KopiurRestoreSlow
+          annotations:
+            summary: >-
+              kopiur Restore {{ $labels.namespace }}/{{ $labels.name }} has been
+              Restoring for 6h, holding tuppr's upgrades. Check the mover Job's
+              log for progress before treating it as stuck.
+          expr: |
+            max by (namespace, name) (kopiur_resource_phase{kind="Restore", phase="Restoring"}) == 1
+          for: 6h
+          labels:
+            severity: warning

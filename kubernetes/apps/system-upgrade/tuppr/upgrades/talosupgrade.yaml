@@ -39,8 +39,9 @@ spec:
       kind: Snapshot
       expr: |-
         has(status.phase) && !(status.phase in ["Pending", "Running"])
-    # Same for a kopiur Restore's mover. Restores are manual and rare; no alert
-    # covers a stuck one, but tuppr's phase message names the failing check.
+    # Same for a kopiur Restore. components/kopiur-claim keeps one per app,
+    # Pending whenever its PVC is gone; KopiurRestoreStuck / KopiurRestoreSlow
+    # (kopiur-system/kopiur/app/prometheusrule.yaml) page on one that stays.
     - apiVersion: kopiur.home-operations.com/v1alpha1
       kind: Restore
       expr: |-

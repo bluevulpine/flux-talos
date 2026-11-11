@@ -1,0 +1,40 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+# The app's data PVC plus the kopiur Restore that fills it: the successor to
+# ../volsync-claim, for NEW apps and for PVCs that are being recreated anyway.
+# Use it together with ../kopiur (the backups this restores from).
+#
+# WHAT IT DOES: the PVC names the Restore in spec.dataSourceRef, so kopiur acts
+# as its volume populator. A new PVC binds only after kopiur has written the
+# latest snapshot of ${APP}-local (or -r2) into it, so the app never starts on
+# an empty volume while a backup exists. With no snapshot yet (a brand-new app)
+# it binds EMPTY (onMissingSnapshot: Continue) and backups start from there.
+#
+# WHY IT CAN STAY IN GIT PERMANENTLY: kopiur keeps one record per claiming PVC,
+# keyed by the PVC's uid. A deleted and recreated PVC has a new uid, so kopiur
+# resets that record and resolves the snapshot again: the recreated volume gets
+# the snapshot that is latest THEN, not the one pinned when the Restore was
+# first created (kopiur 0.10.17 restore/mod.rs ClaimDrive::ReArm). Tested on the
+# cluster 2026-11-11 for both cases, an existing identity and a new one that
+# first came up empty. See docs/runbooks/kopiur-claim.md.
+#
+# EXISTING APPS STAY ON ../volsync-claim until their PVC has to be recreated.
+# A bound PVC's dataSourceRef is immutable: swapping the component in place
+# makes server-side apply fail on the PVC and stalls the app's whole
+# Kustomization. The swap is part of the recreate procedure in the runbook.
+#
+# The postBuild variable names (VOLSYNC_CAPACITY, VOLSYNC_STORAGECLASS,
+# VOLSYNC_ACCESSMODES) are the ones ../volsync-claim reads, kept on purpose:
+# the swap during a recreate is then a one-line component change, with no
+# renamed variable that could silently fall back to a default class or size.
+#
+# Upgrade gate: tuppr holds Talos and Kubernetes upgrades while any Restore is
+# Pending, Resolving or Restoring. A Restore whose PVC is gone sits Pending
+# (AwaitingClaim), so a recreate blocks upgrades until it finishes;
+# KopiurRestoreStuck (kopiur-system/kopiur/app/prometheusrule.yaml) fires if
+# one sits there for an hour.
+resources:
+  - ./claim.yaml
+  - ./restore.yaml
