@@ -801,8 +801,13 @@ sit there, with no alert covering a stuck Restore.
          (both `KopiaMaintenance` and their ExternalSecrets) and set `maintenance.enabled:
          true` on both ClusterRepositories. Never zero owners, never two (the lease is
          shared). kopiur's default `takeoverPolicy: Never` would yield forever to the fork's
-         recorded owner, so the change sets `Force`; revert it to `Never` once both
-         `Maintenance` objects show kopiur holding the lease. Schedules: kopia-local quick
+         recorded owner, so the change sets `Force`, reverted to `Never` once both
+         `Maintenance` objects showed kopiur holding the lease. **Done 2026-11-10**
+         (#2482, #2483 and the revert): first full runs 22:54 UTC (local, 885 MB
+         reclaimed, 87 index blobs) and 22:58 UTC (r2, 521). #2482 alone ran nothing:
+         the inherited root mover hit kopiur's privileged-mover gate, and kopia-r2's
+         Maintenance was refused because `kopiur-system` was not in its
+         `allowedNamespaces`; #2483 made the mover 568:568 and added it. Schedules: kopia-local quick
          hourly (the epoch parameters assume hourly epochs), full daily 03:00 UTC;
          kopia-r2 one full run daily at 03:00 UTC, the fork's slot, so the hour-03
          reservation stays and changes owner. The fork's memory limits carry over

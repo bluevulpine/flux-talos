@@ -59,10 +59,10 @@ spec:
       maxAgeDays: 120
   maintenance:
     # kopiur owns maintenance since the VolSync decommission (runbook step 3),
-    # replacing the fork's kopia-maintenance-r2 in the same change. Force:
-    # see kopia-local; revert to Never once kopiur holds the lease.
+    # replacing the fork's kopia-maintenance-r2 in the same change. Never:
+    # see kopia-local (lease claimed with Force 2026-11-10 22:58 UTC).
     enabled: true
-    takeoverPolicy: Force
+    takeoverPolicy: Never
     schedule:
       # The fork's slot: one full run a day at 03:00 UTC, the hour the R2
       # backup crons keep clear (components/kopiur/r2.yaml). Quick on the same
