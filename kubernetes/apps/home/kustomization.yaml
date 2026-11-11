@@ -24,3 +24,4 @@ resources:
   - ./ops-console/ks.yaml
   - ./wican-bridge/ks.yaml
   - ./yardstick/ks.yaml
+  - ./vinyl-bridge/ks.yaml
