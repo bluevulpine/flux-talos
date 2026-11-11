@@ -113,3 +113,66 @@ spec:
           for: 12h
           labels:
             severity: warning
+    - name: kopiur-maintenance.rules
+      rules:
+        # Maintenance is what reclaims space and compacts indexes; when it stops,
+        # nothing fails: backups keep succeeding and the repository just grows.
+        # Both ways it stopped here were silent. kopia-r2's managed Maintenance
+        # was refused by the webhook from 2026-09-22 to 2026-11-10 (kopiur-system
+        # not in allowedNamespaces) and kopia-local's mover was refused as
+        # privileged (#2483); neither showed anywhere but a status condition.
+        #
+        # 1. The repository has no Maintenance at all (refused, deleted, or
+        #    maintenance.enabled flipped off). kopiur's own gauge.
+        - alert: KopiurMaintenanceNotConfigured
+          annotations:
+            summary: >-
+              {{ $labels.kind }} {{ $labels.name }} has no kopiur Maintenance, so
+              its storage is never reclaimed. Check the repository's
+              MaintenanceConfigured condition and the controller log.
+          expr: |
+            kopiur_repository_maintenance_configured == 0
+          for: 1h
+          labels:
+            severity: warning
+
+        # 2. A Maintenance that does not hold kopia's lease. With
+        #    takeoverPolicy Never (ours) a foreign owner makes every run succeed
+        #    having done nothing, so no Job ever fails. Also catches
+        #    WaitingForRepository that does not clear: it is normal for minutes
+        #    after a repository spec change (re-bootstrap), not for hours.
+        #    Metric from kube-state-metrics (kube-prometheus-stack values).
+        - alert: KopiurMaintenanceLeaseNotHeld
+          annotations:
+            summary: >-
+              kopiur Maintenance {{ $labels.namespace }}/{{ $labels.name }} has
+              not held the kopia maintenance lease for 3h (reason
+              {{ $labels.reason }}), so it runs nothing. If another owner holds
+              it, set takeoverPolicy Force for one run, then back to Never.
+          expr: |
+            max by (namespace, name, reason) (kube_kopiur_maintenance_condition{type="LeaseOwned"}) == 0
+          for: 3h
+          labels:
+            severity: warning
+
+        # 3. No full run: operator down, mover refused before a Job exists, or
+        #    the schedule stalled. Full runs are daily at 03:00 UTC (plus 20m
+        #    jitter); 30h allows one late run. The second branch covers a
+        #    Maintenance that has never completed a full run.
+        - alert: KopiurMaintenanceFullStale
+          annotations:
+            summary: >-
+              kopiur Maintenance {{ $labels.namespace }}/{{ $labels.name }} has
+              not completed a full run in 30h. `kubectl -n {{ $labels.namespace }}
+              describe maintenances.kopiur.home-operations.com {{ $labels.name }}`.
+          expr: |
+            max by (namespace, name) (time() - kube_kopiur_maintenance_full_last_run_timestamp_seconds) > 30 * 3600
+            or
+            (
+              max by (namespace, name) (kube_kopiur_maintenance_condition{type="Ready"})
+                unless on (namespace, name)
+              kube_kopiur_maintenance_full_last_run_timestamp_seconds
+            ) * 0 + 1
+          for: 6h
+          labels:
+            severity: warning

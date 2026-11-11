@@ -267,6 +267,66 @@ spec:
       enabled: true
     kube-state-metrics:
       fullnameOverride: kube-state-metrics
+      # kopiur's Maintenance state for the kopiur-maintenance alerts
+      # (kopiur-system/kopiur/app/prometheusrule.yaml). kopiur exports no metric
+      # for the maintenance lease or the last run, and a run that YIELDS the
+      # lease "finishes successfully having done nothing" (kopiur docs), so a
+      # Job-based rule cannot see it; only status.conditions can.
+      rbac:
+        extraRules:
+          - apiGroups:
+              - kopiur.home-operations.com
+            resources:
+              - maintenances
+            verbs:
+              - list
+              - watch
+      customResourceState:
+        enabled: true
+        config:
+          spec:
+            resources:
+              - groupVersionKind:
+                  group: kopiur.home-operations.com
+                  version: v1alpha1
+                  kind: Maintenance
+                metricNamePrefix: kube_kopiur_maintenance
+                labelsFromPath:
+                  namespace:
+                    - metadata
+                    - namespace
+                  name:
+                    - metadata
+                    - name
+                metrics:
+                  # 1/0 per condition (LeaseOwned, Ready, ...), with its reason.
+                  - name: condition
+                    help: kopiur Maintenance status.conditions, 1 if True.
+                    each:
+                      type: Gauge
+                      gauge:
+                        path:
+                          - status
+                          - conditions
+                        labelsFromPath:
+                          type:
+                            - type
+                          reason:
+                            - reason
+                        valueFrom:
+                          - status
+                  # RFC 3339 in status; kube-state-metrics turns it into unix
+                  # seconds. Absent until the first full run.
+                  - name: full_last_run_timestamp_seconds
+                    help: kopiur Maintenance status.full.lastRunAt, unix seconds.
+                    each:
+                      type: Gauge
+                      gauge:
+                        path:
+                          - status
+                          - full
+                        valueFrom:
+                          - lastRunAt
       metricLabelsAllowlist:
         - pods=[*]
         - deployments=[*]
