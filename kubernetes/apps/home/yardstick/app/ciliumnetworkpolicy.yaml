@@ -27,10 +27,10 @@ spec:
         - ports:
             - port: "8477"
               protocol: TCP
-    # Home Assistant (HAOS on VLAN 50). Arrives via the LoadBalancer with its
+    # Home Assistant (HAOS, on VLAN 30 since 2026-11-11). Arrives via the LoadBalancer with its
     # source IP intact (Cilium DSR).
     - fromCIDR:
-        - 192.168.50.10/32
+        - 192.168.30.10/32
       toPorts:
         - ports:
             - port: "8477"
