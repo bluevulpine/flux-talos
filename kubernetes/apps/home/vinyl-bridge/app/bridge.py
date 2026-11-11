@@ -117,6 +117,7 @@ class Session:
         self.alive = False          # True while the consumer is receiving bytes
         self.following = False      # True from Play until the consumer gives up or Stop
         self.generation = 0         # bumps when a new stream replaces the old one
+        self.stop_sent = False      # HA was told "stop" (silence) and not "start" since
         self.transport = "NO_MEDIA_PRESENT"
 
     def set_uri(self, uri):
@@ -139,19 +140,32 @@ class Session:
             self.uri, self.pending_uri = uri, ""
             self.generation += 1
             gen = self.generation
-            self.following = True
+            self.following, self.stop_sent = True, False
         webhook("start", uri)
         threading.Thread(target=self._consume, args=(gen, uri), daemon=True).start()
 
-    def stop(self, reason):
+    def stop(self, reason, gen=None):
         with self.lock:
+            if gen is not None and self.generation != gen:
+                return              # a newer Play already replaced the stream that gave up
             self.generation += 1
             self.transport = "STOPPED"
-            was = self.uri
-            self.uri, self.alive, self.following = "", False, False
+            was, told = self.uri, self.stop_sent
+            self.uri, self.alive, self.following, self.stop_sent = "", False, False, False
         if was:
-            log("stop:", reason)
-            webhook("stop", was)
+            log("stop:", reason, "(HA already told)" if told else "")
+            # A dead stream reads as silence first, so _watch has usually sent stop minutes
+            # before the retries run out; a second one could cut off whatever HA plays since.
+            if not told:
+                webhook("stop", was)
+
+    def _report(self, gen, event, uri):
+        """Send a silence/sound transition for this generation, remembering an unanswered stop."""
+        with self.lock:
+            if self.generation != gen:
+                return
+            self.stop_sent = event == "stop"
+        webhook(event, uri)
 
     def _set_alive(self, gen, value):
         with self.lock:
@@ -191,8 +205,7 @@ class Session:
                 failures = 0 if got else failures + 1
                 log("stream error", failures, f"after {got} bytes:", repr(e))
                 if failures >= 5:
-                    if self.generation == gen:
-                        self.stop("stream gone after 5 retries")
+                    self.stop("stream gone after 5 retries", gen)
                     return
                 time.sleep(2 * max(failures, 1))
 
@@ -213,11 +226,11 @@ class Session:
                 if not silent and silent_for >= SILENCE_SECONDS:
                     silent = True
                     log(f"silence for {silent_for:.0f} s ({bps:.0f} bit/s): stop")
-                    webhook("stop", uri)
+                    self._report(gen, "stop", uri)
             else:
                 if silent:
                     log(f"sound again ({bps:.0f} bit/s): start")
-                    webhook("start", uri)
+                    self._report(gen, "start", uri)
                 silent, silent_for = False, 0.0
 
 
