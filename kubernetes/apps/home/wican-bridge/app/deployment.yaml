@@ -53,6 +53,8 @@ spec:
           ports:
             - name: healthz
               containerPort: 8080
+            - name: metrics
+              containerPort: 9273
           envFrom:
             - secretRef:
                 name: wican-bridge-secret

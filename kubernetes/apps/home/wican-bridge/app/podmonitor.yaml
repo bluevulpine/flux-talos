@@ -1,0 +1,14 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/podmonitor_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: wican-bridge
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wican-bridge
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s

@@ -4,6 +4,8 @@ kind: Kustomization
 resources:
   - externalsecret.yaml
   - deployment.yaml
+  - podmonitor.yaml
+  - prometheusrule.yaml
 # telegraf.conf -> configmap. Hash suffix is kept (default) so the Deployment
 # rolls automatically whenever telegraf.conf changes.
 configMapGenerator:

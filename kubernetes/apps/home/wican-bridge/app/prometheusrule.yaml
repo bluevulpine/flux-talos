@@ -1,0 +1,35 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: wican-bridge
+spec:
+  groups:
+    - name: wican-bridge.rules
+      rules:
+        # The EV9's 12V battery is charged by the ICCU's LDC whenever the car is on, so
+        # while the WiCAN is reporting it should sit at 13.5-14.5 V. A failing ICCU shows
+        # up as the 12V sagging toward resting voltage (or below) with the car awake.
+        # Kia's own 12V SoC has read 255 ("unavailable") since 2026-08-08, so this is
+        # the only 12V signal left; kia_uvo#1771 ties a stuck 255 to early ICCU failure.
+        #
+        # Threshold backtested on kia-wican LV_V, 2026-08-27..2026-11-10: of 3,932
+        # 15-minute windows with data, 0 had a median below 12.6 V, 167 below 12.8 V and
+        # 233 below 13.0 V (car awake but not in READY reads near resting). 12.5 V would
+        # never have fired, and sits below a healthy resting battery (12.6-12.8 V).
+        # Median, not mean: single decode glitches at 6-9 V and 17 V pass the
+        # telegraf range filter. The count guard needs ~10 minutes of samples so a
+        # brief wake (or a replayed retained frame) cannot trip it alone.
+        - alert: KiaEv9TwelveVoltLow
+          annotations:
+            summary: >-
+              EV9 12V battery median {{ $value | printf "%.2f" }} V over 15 min with
+              the car awake (normal 13.5-14.5 V while the ICCU charges it). Possible
+              ICCU/LDC fault: check the 12V with a meter and the Kia WiCAN dashboard.
+          expr: |
+            quantile_over_time(0.5, wican_LV_V[15m]) < 12.5
+            and count_over_time(wican_LV_V[15m]) >= 20
+          for: 10m
+          labels:
+            severity: warning
