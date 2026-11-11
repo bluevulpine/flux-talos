@@ -21,6 +21,8 @@ spec:
         # Median, not mean: single decode glitches at 6-9 V and 17 V pass the
         # telegraf range filter. The count guard needs ~10 minutes of samples so a
         # brief wake (or a replayed retained frame) cannot trip it alone.
+        # Blind spot: the telegraf filter drops LV_V below 6.0 V, so a 12V that collapses
+        # outright reads as "no data", not "low"; the car would not stay awake anyway.
         - alert: KiaEv9TwelveVoltLow
           annotations:
             summary: >-
