@@ -27,7 +27,7 @@ esphome-hass.
 | ~100 s later, `SetAVTransportURI` MP3 URL + `Play` | Ignores it while the FLAC stream still flows; logged as `ignoring mp3 URI` |
 | Needle parked (FLAC drops below `SILENCE_BPS` for `SILENCE_SECONDS`) | `stop` webhook; keeps reading |
 | Next side (byte rate back up) | `start` webhook again |
-| FLAC stream dies (5 retries) | `stop` webhook; a new URI + `Play` starts over |
+| FLAC stream dies | Reads as silence, so `stop` after `SILENCE_SECONDS`; gives up after 5 empty reconnects without a second `stop`; a new URI + `Play` starts over |
 | `Stop` (never observed) | `stop` webhook |
 
 The MP3 fallback was most likely triggered by the 2026-11-10 test renderer reading 64 KB and then
