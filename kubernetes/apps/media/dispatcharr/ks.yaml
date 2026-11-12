@@ -41,9 +41,9 @@ spec:
       # /data holds the Django secret (jwt), logo/poster caches, uploaded
       # M3U/EPG files and in-app backups. The database is in Postgres, so this
       # is small and low-churn.
-      VOLSYNC_CAPACITY: 5Gi
-      VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_CAPACITY: 5Gi
+      CLAIM_STORAGECLASS: longhorn-2-replica
+      CLAIM_ACCESSMODES: ReadWriteOnce
       # kopiur (components/kopiur). R2 avoids hour 03 (reserved for
       # kopiur's full kopia maintenance, both repositories); hour 06 was the
       # least-used slot when this was written.

@@ -34,8 +34,8 @@ spec:
       NS: home
       GATUS_PORT: "7654"
       GATUS_SERVICE: ev-charge-tracker
-      VOLSYNC_CAPACITY: 2Gi
-      VOLSYNC_STORAGECLASS: longhorn-2-replica
+      CLAIM_CAPACITY: 2Gi
+      CLAIM_STORAGECLASS: longhorn-2-replica
       # ReadWriteOnce + Snapshot (KOPIUR_COPYMETHOD), not the RWX + Direct default that
       # identity/vaultwarden uses. RWX on Longhorn is served by a
       # share-manager NFS export, and this app puts its single SQLite file
@@ -46,7 +46,7 @@ spec:
       # degrading to the `delete` journal mode. Snapshot also hands the
       # mover a point-in-time copy instead of the live file. Matches
       # home/mosquitto and productivity/homebox.
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_ACCESSMODES: ReadWriteOnce
       # A handful of rows a day, so one local snapshot a day is ample (the
       # fleet-wide daily-local cut, 2026-10-29). Snapshot write-rate is also
       # one of the drivers of the Kopia index-blob floor.

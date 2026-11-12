@@ -31,10 +31,10 @@ spec:
       APP: *app
       NS: identity
       GATUS_SUBDOMAIN: vaultwarden
-      VOLSYNC_CAPACITY: 2Gi
+      CLAIM_CAPACITY: 2Gi
       # 2 replicas: the vault is small but irreplaceable, and a single replica
       # makes every Talos drain a data-loss risk until kopiur restores it.
-      VOLSYNC_STORAGECLASS: longhorn-2-replica
+      CLAIM_STORAGECLASS: longhorn-2-replica
       # kopiur (components/kopiur), W4. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).

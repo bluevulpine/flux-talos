@@ -25,10 +25,12 @@ kind: Component
 # makes server-side apply fail on the PVC and stalls the app's whole
 # Kustomization. The swap is part of the recreate procedure in the runbook.
 #
-# The postBuild variable names (VOLSYNC_CAPACITY, VOLSYNC_STORAGECLASS,
-# VOLSYNC_ACCESSMODES) are the ones ../volsync-claim reads, kept on purpose:
-# the swap during a recreate is then a one-line component change, with no
-# renamed variable that could silently fall back to a default class or size.
+# Sizing comes from postBuild CLAIM_CAPACITY, CLAIM_STORAGECLASS and
+# CLAIM_ACCESSMODES, the same names ../volsync-claim reads, so the swap during
+# a recreate is a one-line component change: no variable to rename that could
+# silently fall back to a default class or size. (Until 2026-11-12 both read
+# VOLSYNC_*; renamed in one commit with every app, because a backup system's
+# name on the PVC's sizing kept implying VolSync was still involved.)
 #
 # Upgrade gate: tuppr holds Talos and Kubernetes upgrades while any Restore is
 # Pending, Resolving or Restoring. A Restore whose PVC is gone sits Pending

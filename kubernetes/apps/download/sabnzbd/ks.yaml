@@ -30,9 +30,9 @@ spec:
       NS: download
       GATUS_PORT: "8080"
       GATUS_SERVICE: sabnzbd
-      VOLSYNC_CAPACITY: 4Gi
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
-      VOLSYNC_STORAGECLASS: longhorn-2-replica
+      CLAIM_CAPACITY: 4Gi
+      CLAIM_ACCESSMODES: ReadWriteOnce
+      CLAIM_STORAGECLASS: longhorn-2-replica
       # Low criticality: config-only, easily rebuilt - local backup daily
       # kopiur (components/kopiur), W3. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's

@@ -49,9 +49,9 @@ In `ks.yaml`, `dependsOn: kopiur-repositories` (namespace `kopiur-system`) as fo
 
 | Variable | Default | Note |
 |---|---|---|
-| `VOLSYNC_CAPACITY` | `20Gi` | names kept from `volsync-claim`, so a swap renames nothing |
-| `VOLSYNC_STORAGECLASS` | `tns-csi-nfs` | |
-| `VOLSYNC_ACCESSMODES` | `ReadWriteMany` | RWX lets a Direct-copy backup mover mount it beside the app |
+| `CLAIM_CAPACITY` | `20Gi` | `volsync-claim` reads the same names, so a swap renames nothing |
+| `CLAIM_STORAGECLASS` | `tns-csi-nfs` | |
+| `CLAIM_ACCESSMODES` | `ReadWriteMany` | RWX lets a Direct-copy backup mover mount it beside the app |
 | `KOPIUR_CLAIM_SOURCE` | `local` | `r2` fills a recreated PVC from the offsite repository |
 
 The namespace needs `kopiur.home-operations.com/privileged-movers: "true"`. The restore mover
@@ -108,10 +108,10 @@ and `<workload>` are the app's.
 4. **Merge the manifest change, if there is one.** It could be a new storage class or size in
    `ks.yaml`. Or it could be the move onto the component: in `app/kustomization.yaml`, replace
    `../../../../components/volsync-claim` with `../../../../components/kopiur-claim`. A
-   `volsync-claim` app's `ks.yaml` needs no change, since the claim reads the same `VOLSYNC_*`
-   variables. **paperclip** has an app-local `pvc.yaml` and no `VOLSYNC_*` variables: drop the
-   file and set `VOLSYNC_CAPACITY: 20Gi`, `VOLSYNC_STORAGECLASS: longhorn-2-replica` and
-   `VOLSYNC_ACCESSMODES: ReadWriteOnce`, or the defaults (tns-csi-nfs, RWX) apply.
+   `volsync-claim` app's `ks.yaml` needs no change, since the claim reads the same `CLAIM_*`
+   variables. **paperclip** has an app-local `pvc.yaml` and no `CLAIM_*` variables: drop the
+   file and set `CLAIM_CAPACITY: 20Gi`, `CLAIM_STORAGECLASS: longhorn-2-replica` and
+   `CLAIM_ACCESSMODES: ReadWriteOnce`, or the defaults (tns-csi-nfs, RWX) apply.
    **dispatcharr** is on `volsync-claim` with a patch that strips `dataSourceRef`: swap the
    component and drop that patch. For a plain recovery there is nothing to merge.
 

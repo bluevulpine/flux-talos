@@ -20,7 +20,7 @@ patches:
   # Consequences -- read before editing:
   #  1. NEVER remove this annotation while the claim exists: Flux owns
   #     f:volumeName, so the next apply without it stalls on the immutable field.
-  #  2. Claim edits in git (VOLSYNC_CAPACITY, storageClassName, labels) are silently
+  #  2. Claim edits in git (CLAIM_CAPACITY, storageClassName, labels) are silently
   #     ignored. Expand by hand and keep git equal:
   #     kubectl -n <ns> patch pvc obsidian -p '{"spec":{"resources":{"requests":{"storage":"<size>"}}}}'
   #  3. Drift is silent: a changed desired class/volumeName raises no event.

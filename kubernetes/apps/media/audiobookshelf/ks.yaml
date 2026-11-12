@@ -29,9 +29,9 @@ spec:
       GATUS_SUBDOMAIN: audiobooks
       GATUS_PORT: "80"
       GATUS_SERVICE: audiobookshelf
-      VOLSYNC_CAPACITY: 5Gi
-      VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_CAPACITY: 5Gi
+      CLAIM_STORAGECLASS: longhorn-2-replica
+      CLAIM_ACCESSMODES: ReadWriteOnce
       # Medium criticality: audiobook config - local backup daily
       # kopiur (components/kopiur), W3. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's

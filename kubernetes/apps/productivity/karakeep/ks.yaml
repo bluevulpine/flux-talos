@@ -34,10 +34,10 @@ spec:
       NS: productivity
       GATUS_PORT: "3000"
       GATUS_SERVICE: karakeep
-      VOLSYNC_CAPACITY: 10Gi
+      CLAIM_CAPACITY: 10Gi
       # Low criticality: bookmarks - local backup daily
-      VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_STORAGECLASS: longhorn-2-replica
+      CLAIM_ACCESSMODES: ReadWriteOnce
       # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).

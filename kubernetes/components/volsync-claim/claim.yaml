@@ -6,13 +6,15 @@ metadata:
 spec:
   # Default to RWX for Direct copy method (allows mover pod to access PVC alongside app)
   accessModes:
-    - "${VOLSYNC_ACCESSMODES:-ReadWriteMany}"
+    - "${CLAIM_ACCESSMODES:-ReadWriteMany}"
   dataSourceRef:
     kind: ReplicationDestination
     apiGroup: volsync.backube
-    name: "${APP}-dst-${VOLSYNC_RESTORE_SOURCE:-local}" # or "r2" for remote
+    # Never resolved again: VolSync is gone, and a bound claim ignores its
+    # dataSource. Kept only because dataSourceRef is immutable once bound.
+    name: "${APP}-dst-local"
   resources:
     requests:
-      storage: "${VOLSYNC_CAPACITY:-20Gi}"
-  storageClassName: "${VOLSYNC_STORAGECLASS:-tns-csi-nfs}"
+      storage: "${CLAIM_CAPACITY:-20Gi}"
+  storageClassName: "${CLAIM_STORAGECLASS:-tns-csi-nfs}"
 

@@ -33,8 +33,8 @@ spec:
       GATUS_PORT: "3000"
       GATUS_SERVICE: gitea-http
       GATUS_SUBDOMAIN: gitea
-      VOLSYNC_CAPACITY: 10Gi
-      VOLSYNC_STORAGECLASS: tns-csi-nfs
+      CLAIM_CAPACITY: 10Gi
+      CLAIM_STORAGECLASS: tns-csi-nfs
       # kopiur (components/kopiur), the only backup since the W7 cutover. These
       # vars landed one PR BEFORE the component so the SnapshotSchedules were
       # created with these crons, not the component's defaults (runbook trap: a

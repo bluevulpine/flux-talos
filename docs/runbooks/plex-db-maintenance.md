@@ -45,13 +45,13 @@ WAL file on its own (`journal_size_limit` unset).
 
 ## Before the window
 
-- [ ] PR merged (`VOLSYNC_ACCESSMODES: ReadWriteOnce` + the temporary
+- [ ] PR merged (`CLAIM_ACCESSMODES: ReadWriteOnce` + the temporary
       `volumeName` pin). Merging changes nothing live: the claim carries
       `ssa: IfNotPresent`, so Flux leaves the existing claim alone.
 - [ ] The live substitution shows the new value **before** the claim is deleted.
       Otherwise Flux re-creates it RWX, and with `IfNotPresent` never corrects it:
       ```sh
-      kubectl -n media get ks plex -o jsonpath='{.spec.postBuild.substitute.VOLSYNC_ACCESSMODES}'   # ReadWriteOnce
+      kubectl -n media get ks plex -o jsonpath='{.spec.postBuild.substitute.CLAIM_ACCESSMODES}'   # ReadWriteOnce
       kubectl -n media get ks plex -o jsonpath='{.status.lastAppliedRevision}'                       # the merge commit
       ```
 - [ ] No streams (Tracearr), and not inside a kopiur slot: `plex-r2` runs at

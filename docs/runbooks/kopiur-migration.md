@@ -200,9 +200,10 @@ read-only version of that Pod is `.handoff/verify-kopia-policies.sh` (connects `
 a write fails with `storage is read-only`, verified locally). The write version is the
 same Pod without `--readonly` and with the command above.
 
-**Do NOT delete these VolSync vars at cutover** — `components/volsync-claim` still reads
-them: `VOLSYNC_CAPACITY`, `VOLSYNC_STORAGECLASS`, `VOLSYNC_ACCESSMODES`,
-`VOLSYNC_RESTORE_SOURCE`. The rest (`VOLSYNC_*_SCHEDULE`, `…_COPYMETHOD`,
+**Do NOT delete the claim vars at cutover** — `components/volsync-claim` still reads
+them: `VOLSYNC_CAPACITY`, `VOLSYNC_STORAGECLASS`, `VOLSYNC_ACCESSMODES` (renamed `CLAIM_*`
+in every app and both claim components on 2026-11-12), and `VOLSYNC_RESTORE_SOURCE`
+(dropped then: never set, and a bound claim ignores its dataSource). The rest (`VOLSYNC_*_SCHEDULE`, `…_COPYMETHOD`,
 `…_SNAPSHOTCLASS`, `…_CLONE_STORAGECLASS`, `…_CACHE_*`, `…_RUN_AS_*`) become dead once the
 app has cut over.
 

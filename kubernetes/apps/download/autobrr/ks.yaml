@@ -32,9 +32,9 @@ spec:
       NS: download
       GATUS_PORT: "7474"
       GATUS_SERVICE: autobrr
-      VOLSYNC_CAPACITY: 1Gi
-      VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_CAPACITY: 1Gi
+      CLAIM_STORAGECLASS: longhorn-2-replica
+      CLAIM_ACCESSMODES: ReadWriteOnce
       # Low criticality: config-only - local backup daily
       # kopiur (components/kopiur). H picks a minute per schedule; the R2 hour
       # is the one VolSync used, the local hour is this app's slot in the

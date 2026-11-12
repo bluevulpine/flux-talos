@@ -32,15 +32,15 @@ spec:
     substitute:
       APP: *app
       NS: database
-      VOLSYNC_CAPACITY: 20Gi
+      CLAIM_CAPACITY: 20Gi
       # 2 replicas: a single replica makes every Talos drain a data-loss risk until
       # a crash-consistent kopiur snapshot is restored (see KOPIUR_COPYMETHOD).
-      VOLSYNC_STORAGECLASS: longhorn-2-replica
+      CLAIM_STORAGECLASS: longhorn-2-replica
       # Explicit RWO. The volsync-claim component defaults to ReadWriteMany, which on
       # Longhorn means a share-manager and therefore NFS - the wrong substrate
       # for a database. Nothing else mounts this claim, so RWO is correct and
       # stating it keeps the default from being load-bearing.
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_ACCESSMODES: ReadWriteOnce
       # kopiur (components/kopiur), W4. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).

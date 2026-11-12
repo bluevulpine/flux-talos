@@ -36,9 +36,9 @@ spec:
       # substitutes an empty string and kopiur silently falls back to its
       # default instead of the explicit pin.
       NS: media
-      VOLSYNC_CAPACITY: 1Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_CAPACITY: 1Gi
+      CLAIM_STORAGECLASS: longhorn-1-replica
+      CLAIM_ACCESSMODES: ReadWriteOnce
       # Low criticality: config only, git-managed - backup once daily.
       # kopiur (components/kopiur). H picks a minute per schedule; the R2 hour
       # is the one VolSync used, the local hour is this app's slot in the
