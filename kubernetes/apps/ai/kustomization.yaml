@@ -16,3 +16,4 @@ resources:
   - ./mail-embeddings/ks.yaml
   - ./paperclip/ks.yaml
   - ./vault/ks.yaml
+  - ./wyoming-openai/ks.yaml

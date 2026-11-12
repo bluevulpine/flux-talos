@@ -1,0 +1,27 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: wyoming-openai
+spec:
+  description: >-
+    Wyoming has no authentication: anything that can open port 10300 can
+    transcribe and synthesise on the Spark with this app's LiteLLM key. The
+    Service is a LoadBalancer (${SVC_WYOMING_ADDR}) only so Home Assistant can
+    reach it, so 10300 answers to HA and to nothing else on the LAN or in the
+    cluster. Cilium's allow-localhost default exempts the local node, so
+    kubelet probes are unaffected. INGRESS ONLY: an egress section, even an
+    empty one, would default-deny egress and cut the path to LiteLLM and DNS.
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: wyoming-openai
+  ingress:
+    # Home Assistant (HAOS, on VLAN 30 since 2026-11-11). Arrives via the
+    # LoadBalancer with its source IP intact (Cilium DSR).
+    - fromCIDR:
+        - 192.168.30.10/32
+      toPorts:
+        - ports:
+            - port: "10300"
+              protocol: TCP
