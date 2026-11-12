@@ -10,8 +10,11 @@ spec:
   dataSourceRef:
     kind: ReplicationDestination
     apiGroup: volsync.backube
-    # Never resolved again: VolSync is gone, and a bound claim ignores its
-    # dataSource. Kept only because dataSourceRef is immutable once bound.
+    # Dead while the claim exists (a bound claim ignores its dataSource; kept
+    # because dataSourceRef is immutable). If this claim is ever DELETED, Flux
+    # recreates it pointing at a ReplicationDestination that no longer exists
+    # and it stays Pending: swap to ../kopiur-claim first
+    # (docs/runbooks/kopiur-claim.md).
     name: "${APP}-dst-local"
   resources:
     requests:

@@ -201,10 +201,9 @@ a write fails with `storage is read-only`, verified locally). The write version 
 same Pod without `--readonly` and with the command above.
 
 **Do NOT delete the claim vars at cutover** — `components/volsync-claim` still reads
-them: `VOLSYNC_CAPACITY`, `VOLSYNC_STORAGECLASS`, `VOLSYNC_ACCESSMODES` (renamed `CLAIM_*`
-in every app and both claim components on 2026-11-12), and `VOLSYNC_RESTORE_SOURCE`
-(dropped then: never set, and a bound claim ignores its dataSource). The rest (`VOLSYNC_*_SCHEDULE`, `…_COPYMETHOD`,
-`…_SNAPSHOTCLASS`, `…_CLONE_STORAGECLASS`, `…_CACHE_*`, `…_RUN_AS_*`) become dead once the
+`CLAIM_CAPACITY`, `CLAIM_STORAGECLASS` and `CLAIM_ACCESSMODES` (named `VOLSYNC_*` until
+2026-11-12; `VOLSYNC_RESTORE_SOURCE` was dropped then, never set). The rest
+(`VOLSYNC_*_SCHEDULE`, `…_COPYMETHOD`, `…_SNAPSHOTCLASS`, `…_CLONE_STORAGECLASS`, `…_CACHE_*`, `…_RUN_AS_*`) become dead once the
 app has cut over.
 
 **Parallel run.** Cutting an app over *removes* its VolSync sources. "Parallel until

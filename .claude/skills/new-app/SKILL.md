@@ -18,7 +18,7 @@ Follow the existing layout under `kubernetes/apps/<namespace>/<app>/`:
 - Backups: a new app that has a data PVC gets `components/kopiur` plus `components/kopiur-claim`
   (the PVC, restored from the latest backup whenever it is created; empty on first deploy).
   Size it with `CLAIM_CAPACITY` / `CLAIM_STORAGECLASS` / `CLAIM_ACCESSMODES` in `ks.yaml`
-  (names kept from `volsync-claim` on purpose) and add `dependsOn: kopiur-repositories`. Usage
+  (the same names `volsync-claim` reads, so a later swap renames nothing) and add `dependsOn: kopiur-repositories`. Usage
   and checks: `docs/runbooks/kopiur-claim.md`. Do not add `components/volsync-claim` or a plain
   `pvc.yaml` to a new app. `volsync-claim` persists on most existing apps because it is the
   only manifest that creates their PVC: never remove it from one outside that runbook's
