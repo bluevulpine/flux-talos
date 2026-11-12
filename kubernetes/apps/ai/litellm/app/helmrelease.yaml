@@ -678,8 +678,9 @@ spec:
               # hindsight's refresh stage sends it in the body (flux-talos #2508,
               # breaks the delta-ops repeat loop on the Spark), it is not an OpenAI
               # param so `drop_params` passes it through, and Anthropic rejects
-              # unknown fields, which would fail every refresh during a Spark
-              # outage instead of running it here. Hindsight's spend here is bounded by its key's max_budget
+              # unknown fields, which would fail a refresh that reaches this stage
+              # (Spark down AND Nous failing) instead of running it here. Nous
+              # answered a direct call on 2026-11-12, so this is the second line. Hindsight's spend here is bounded by its key's max_budget
               # per 30 days (budget_duration 30d, set 2026-10-24; $25, raised to
               # $95 the same day for the accuracy sweep, resets 2026-11-01). That
               # cap is on the KEY, so once hit it also blocks hindsight's free
