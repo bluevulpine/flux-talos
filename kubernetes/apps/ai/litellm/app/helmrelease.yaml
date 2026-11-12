@@ -318,8 +318,9 @@ spec:
               # hindsight key lists only spark-main and still reached Nous 123
               # times on 2026-10-24; #2280 review). The paid Anthropic stage was
               # attached to this name alone at first; later the same day
-              # spark-main got it too while Nous is out of credit (~2026-11-05),
-              # so today the two chains are identical. The name stays: it is
+              # spark-main got it too while Nous was out of credit (it renews on
+              # the 5th of each month; $19.83 left on 2026-11-12), so today the
+              # two chains are identical. The name stays: it is
               # cheap, and dropping Haiku from spark-main again once Nous has
               # credit is a one-line change that leaves hindsight's chain alone.
               # The "one more rename" the privacy note describes.
@@ -659,7 +660,7 @@ spec:
 
               # Claude Haiku 5.5: the LAST stage of both text routes' fallback
               # chains below (`hindsight-main` from the start, `spark-main` since
-              # later on 2026-10-24 while Nous is out of credit), nothing else.
+              # later on 2026-10-24 while Nous was out of credit), nothing else.
               # What reaches it is Hindsight's background retain/consolidation/
               # refresh (bulk fact extraction, the job Qwen3.6-35B does on the
               # Spark) and the other consumers' light traffic during a Spark
@@ -914,10 +915,11 @@ spec:
               # are already paid for ($0.05/$0.70 per million); when they are
               # spent it fails fast ("Insufficient available credits", seen
               # 2026-10-24 at a $0.04 balance) and the request moves on to
-              # Haiku, which bills the Anthropic account.
+              # Haiku, which bills the Anthropic account. Nous credit renews on
+              # the 5th of each month, so an exhausted Nous lasts until then.
               #
               # spark-main gained the Haiku stage on 2026-10-24 (Derek's call)
-              # because Nous was empty and stays so until ~2026-11-05: during
+              # because Nous was empty until its 2026-11-05 renewal: during
               # the GB10 reboot that morning every spark-main consumer failed
               # outright while hindsight-main already had Haiku behind it. The
               # consumers here (n8n, node-red, karakeep, mealie, hermes-agent;
