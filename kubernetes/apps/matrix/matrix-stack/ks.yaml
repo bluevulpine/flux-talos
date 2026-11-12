@@ -77,9 +77,9 @@ spec:
       # is why it is not the Kustomization name.
       APP: synapse-media
       NS: matrix
-      VOLSYNC_CAPACITY: 20Gi
-      VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_CAPACITY: 20Gi
+      CLAIM_STORAGECLASS: longhorn-2-replica
+      CLAIM_ACCESSMODES: ReadWriteOnce
       # kopiur (components/kopiur), W6. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).

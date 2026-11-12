@@ -7,12 +7,12 @@ spec:
   # RWX by default, as in ../volsync-claim: kopiur's Direct copy method mounts
   # the PVC in the backup mover alongside the running app.
   accessModes:
-    - "${VOLSYNC_ACCESSMODES:-ReadWriteMany}"
+    - "${CLAIM_ACCESSMODES:-ReadWriteMany}"
   dataSourceRef:
     apiGroup: kopiur.home-operations.com
     kind: Restore
     name: "${APP}-claim"
   resources:
     requests:
-      storage: "${VOLSYNC_CAPACITY:-20Gi}"
-  storageClassName: "${VOLSYNC_STORAGECLASS:-tns-csi-nfs}"
+      storage: "${CLAIM_CAPACITY:-20Gi}"
+  storageClassName: "${CLAIM_STORAGECLASS:-tns-csi-nfs}"

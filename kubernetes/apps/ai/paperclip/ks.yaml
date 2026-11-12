@@ -36,7 +36,7 @@ spec:
       APP: *app
       NS: ai
       GATUS_SUBDOMAIN: paperclip
-      # Claim is app-local (app/pvc.yaml), so no VOLSYNC_* vars: 20Gi RWO on
+      # Claim is app-local (app/pvc.yaml), so no CLAIM_* vars: 20Gi RWO on
       # longhorn-2-replica is set there.
       # kopiur-only from day one (no VolSync history to migrate). Local is
       # daily, not the 6-hourly tier: Derek is not sure paperclip stays

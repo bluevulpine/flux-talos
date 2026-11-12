@@ -6,13 +6,18 @@ metadata:
 spec:
   # Default to RWX for Direct copy method (allows mover pod to access PVC alongside app)
   accessModes:
-    - "${VOLSYNC_ACCESSMODES:-ReadWriteMany}"
+    - "${CLAIM_ACCESSMODES:-ReadWriteMany}"
   dataSourceRef:
     kind: ReplicationDestination
     apiGroup: volsync.backube
-    name: "${APP}-dst-${VOLSYNC_RESTORE_SOURCE:-local}" # or "r2" for remote
+    # Dead while the claim exists (a bound claim ignores its dataSource; kept
+    # because dataSourceRef is immutable). If this claim is ever DELETED, Flux
+    # recreates it pointing at a ReplicationDestination that no longer exists
+    # and it stays Pending: swap to ../kopiur-claim first
+    # (docs/runbooks/kopiur-claim.md).
+    name: "${APP}-dst-local"
   resources:
     requests:
-      storage: "${VOLSYNC_CAPACITY:-20Gi}"
-  storageClassName: "${VOLSYNC_STORAGECLASS:-tns-csi-nfs}"
+      storage: "${CLAIM_CAPACITY:-20Gi}"
+  storageClassName: "${CLAIM_STORAGECLASS:-tns-csi-nfs}"
 

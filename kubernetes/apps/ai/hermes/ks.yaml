@@ -38,7 +38,7 @@ spec:
       NS: ai
       GATUS_PORT: "9119"
       GATUS_SERVICE: hermes
-      VOLSYNC_CAPACITY: 20Gi
+      CLAIM_CAPACITY: 20Gi
       # Agent state: config, .env, SOUL.md, sessions, memories, skills, cron.
       # Daily local, nightly R2 — it accretes slowly but is expensive to lose.
       # Two replicas, node-local best-effort: dataLocality best-effort keeps ONE
@@ -47,8 +47,8 @@ spec:
       # on another node. kopiur is the backup, but a drain no longer leaves the
       # agent's only live copy on a single disk. Staged clones stay 1-replica
       # (app/kustomization.yaml staging patch).
-      VOLSYNC_STORAGECLASS: longhorn-2-replica-local
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_STORAGECLASS: longhorn-2-replica-local
+      CLAIM_ACCESSMODES: ReadWriteOnce
       # kopiur (components/kopiur), W6. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).

@@ -34,9 +34,9 @@ spec:
       NS: media
       GATUS_PORT: "8787"
       GATUS_SERVICE: readarr-audiobooks
-      VOLSYNC_CAPACITY: 4Gi
-      VOLSYNC_STORAGECLASS: tns-csi-nfs
-      VOLSYNC_ACCESSMODES: ReadWriteMany
+      CLAIM_CAPACITY: 4Gi
+      CLAIM_STORAGECLASS: tns-csi-nfs
+      CLAIM_ACCESSMODES: ReadWriteMany
       # kopiur (components/kopiur), the only backup since the W7 cutover. These
       # vars landed one PR BEFORE the component so the SnapshotSchedules were
       # created with these crons, not the component's defaults (runbook trap: a

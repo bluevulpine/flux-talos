@@ -30,10 +30,10 @@ spec:
       NS: media
       GATUS_PORT: "8080"
       GATUS_SERVICE: calibre
-      VOLSYNC_CAPACITY: 2Gi
+      CLAIM_CAPACITY: 2Gi
       # Low criticality: ebook library config - local backup daily
-      VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_STORAGECLASS: longhorn-2-replica
+      CLAIM_ACCESSMODES: ReadWriteOnce
       # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).

@@ -31,9 +31,9 @@ spec:
       GATUS_PORT: "80"
       GATUS_SERVICE: tautulli
       GATUS_PATH: /home
-      VOLSYNC_CAPACITY: 4Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_CAPACITY: 4Gi
+      CLAIM_STORAGECLASS: longhorn-1-replica
+      CLAIM_ACCESSMODES: ReadWriteOnce
       # Low criticality: watch statistics, can regenerate - local backup daily
       # kopiur (components/kopiur). H picks a minute per schedule; the R2 hour
       # is the one VolSync used, the local hour is this app's slot in the

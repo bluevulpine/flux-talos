@@ -31,11 +31,11 @@ spec:
       APP: *app
       NS: productivity
       GATUS_SUBDOMAIN: node-red
-      VOLSYNC_CAPACITY: 2Gi
+      CLAIM_CAPACITY: 2Gi
       # 2 replicas: flows and credentials live only on this volume between the
       # daily kopiur snapshots.
-      VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_STORAGECLASS: longhorn-2-replica
+      CLAIM_ACCESSMODES: ReadWriteOnce
       # kopiur (components/kopiur), W2. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).

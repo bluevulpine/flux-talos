@@ -32,9 +32,9 @@ spec:
       NS: media
       GATUS_PORT: "8686"
       GATUS_SERVICE: lidarr
-      VOLSYNC_CAPACITY: 4Gi
-      VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_CAPACITY: 4Gi
+      CLAIM_STORAGECLASS: longhorn-2-replica
+      CLAIM_ACCESSMODES: ReadWriteOnce
       # Medium criticality: music library DB - local backup daily
       # kopiur (components/kopiur), W3. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's

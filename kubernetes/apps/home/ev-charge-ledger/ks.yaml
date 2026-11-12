@@ -35,11 +35,11 @@ spec:
       # "Four apps set no NS" trap).
       NS: home
       # One SQLite file of a few hundred KB.
-      VOLSYNC_CAPACITY: 1Gi
-      VOLSYNC_STORAGECLASS: longhorn-2-replica
+      CLAIM_CAPACITY: 1Gi
+      CLAIM_STORAGECLASS: longhorn-2-replica
       # ReadWriteOnce + Snapshot (KOPIUR_COPYMETHOD) for a single SQLite file,
       # for the reasons spelled out in home/ev-charge-tracker/ks.yaml.
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_ACCESSMODES: ReadWriteOnce
       # Hour 03 UTC stays reserved for kopiur's full kopia maintenance (R2 is H 6).
       # kopiur (components/kopiur). H picks a minute per schedule; the R2 hour
       # is the one VolSync used, the local hour is this app's slot in the

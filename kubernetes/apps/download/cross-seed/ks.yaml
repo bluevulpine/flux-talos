@@ -32,9 +32,9 @@ spec:
       # components/kopiur pins the kopia identity hostname to NS (runbook: the
       # "Four apps set no NS" trap).
       NS: download
-      VOLSYNC_CAPACITY: 1Gi
-      VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_CAPACITY: 1Gi
+      CLAIM_STORAGECLASS: longhorn-2-replica
+      CLAIM_ACCESSMODES: ReadWriteOnce
       # Low criticality: config + cache, easily rebuilt - local backup daily
       # kopiur (components/kopiur). H picks a minute per schedule; the R2 hour
       # is the one VolSync used, the local hour is this app's slot in the

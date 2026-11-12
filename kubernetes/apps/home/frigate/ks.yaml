@@ -34,9 +34,9 @@ spec:
       NS: home
       GATUS_PORT: "5000"
       GATUS_SERVICE: frigate
-      VOLSYNC_CAPACITY: 10Gi
-      VOLSYNC_STORAGECLASS: tns-csi-nfs
-      VOLSYNC_ACCESSMODES: ReadWriteMany
+      CLAIM_CAPACITY: 10Gi
+      CLAIM_STORAGECLASS: tns-csi-nfs
+      CLAIM_ACCESSMODES: ReadWriteMany
       # kopiur (components/kopiur), the only backup since the W7 cutover. These
       # vars landed one PR BEFORE the component so the SnapshotSchedules were
       # created with these crons, not the component's defaults (runbook trap: a

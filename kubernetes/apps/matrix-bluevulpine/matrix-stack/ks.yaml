@@ -76,7 +76,6 @@ spec:
       KOPIUR_COPYMETHOD: Snapshot
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
       # Mover runs as Synapse's own uid/gid (chart default 10091), not root.
-      # (VOLSYNC_RUN_AS_* in the derekjacobs.dev instance do nothing for kopiur.)
       KOPIUR_RUN_AS_USER: "10091"
       KOPIUR_RUN_AS_GROUP: "10091"
       KOPIUR_FS_GROUP: "10091"

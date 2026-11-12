@@ -34,7 +34,7 @@ spec:
       # via a subPath, and Tdarr's own job-report cap defaults to 10 GiB - larger
       # than the old claim, so the volume would have filled before Tdarr pruned.
       # 20Gi keeps the claim above its own cleanup threshold.
-      VOLSYNC_CAPACITY: 20Gi
+      CLAIM_CAPACITY: 20Gi
       # No longer "low criticality, regenerates": as of 2026-09-02 this claim
       # holds the library definitions and flows, which are hand-built and do not
       # regenerate. Backed up daily (KOPIUR_LOCAL_CRON below).
@@ -47,8 +47,8 @@ spec:
       # 0.0.0.0, so it was not the network, and the server CPU sat idle. Same
       # failure and same fix as jellyfin (#1703). RWO specifically: Longhorn RWX is
       # itself NFS, via a share-manager pod.
-      VOLSYNC_STORAGECLASS: longhorn-2-replica
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_STORAGECLASS: longhorn-2-replica
+      CLAIM_ACCESSMODES: ReadWriteOnce
       # kopiur (components/kopiur), the only backup since the W7 cutover. These
       # vars landed one PR BEFORE the component so the SnapshotSchedules were
       # created with these crons, not the component's defaults (runbook trap: a

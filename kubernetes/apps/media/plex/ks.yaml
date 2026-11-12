@@ -32,8 +32,8 @@ spec:
       # "apps set no NS" trap); plex had none.
       NS: media
       GATUS_PATH: /web/index.html
-      VOLSYNC_CAPACITY: 100Gi
-      VOLSYNC_STORAGECLASS: longhorn-2-replica
+      CLAIM_CAPACITY: 100Gi
+      CLAIM_STORAGECLASS: longhorn-2-replica
       # kopiur (components/kopiur), W5. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
       # defaults (runbook trap: a cron change does not re-pin a pending slot).
@@ -71,7 +71,7 @@ spec:
       # takes effect when the claim is re-created: the Longhorn volume and PV
       # are switched to rwo by hand and the claim re-bound to the same volume,
       # no restore (docs/runbooks/plex-db-maintenance.md).
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_ACCESSMODES: ReadWriteOnce
       KOPIUR_SNAPSHOTCLASS: longhorn-snapclass
       # VolSync's cache size for this volume (the component default is 16Gi).
       KOPIUR_CACHE_CAPACITY: 30Gi
@@ -116,9 +116,9 @@ spec:
       # components/kopiur pins the kopia identity hostname to NS (runbook: the
       # "apps set no NS" trap); kometa had none.
       NS: media
-      VOLSYNC_CAPACITY: 10Gi
-      VOLSYNC_STORAGECLASS: longhorn-1-replica
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
+      CLAIM_CAPACITY: 10Gi
+      CLAIM_STORAGECLASS: longhorn-1-replica
+      CLAIM_ACCESSMODES: ReadWriteOnce
       # Low criticality: Plex metadata manager, regenerates - local backup daily
       # kopiur (components/kopiur), W3. Landed one PR BEFORE the component so the
       # SnapshotSchedules are created with these crons, not the component's
@@ -181,4 +181,4 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 2Gi
+      CLAIM_CAPACITY: 2Gi

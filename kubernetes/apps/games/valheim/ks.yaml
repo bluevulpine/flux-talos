@@ -32,9 +32,9 @@ spec:
       NS: games
       APP_UID: "1000"
       APP_GID: "1000"
-      VOLSYNC_CAPACITY: 50Gi
-      VOLSYNC_ACCESSMODES: ReadWriteOnce
-      VOLSYNC_STORAGECLASS: tns-csi-nvmeof
+      CLAIM_CAPACITY: 50Gi
+      CLAIM_ACCESSMODES: ReadWriteOnce
+      CLAIM_STORAGECLASS: tns-csi-nvmeof
       # kopiur (components/kopiur), the only backup since the W8 cutover. These
       # vars landed one PR BEFORE the component so the SnapshotSchedules were
       # created with these crons, not the component's defaults (runbook trap: a
