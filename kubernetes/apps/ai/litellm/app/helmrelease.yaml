@@ -674,7 +674,12 @@ spec:
               # dropped: hindsight sends its per-stage effort (`none` for the
               # refresh chain) in the body and a fallback replays it, and LiteLLM
               # would turn it into Anthropic thinking parameters this model may
-              # reject. Hindsight's spend here is bounded by its key's max_budget
+              # reject. `repetition_penalty` is dropped for the same replay reason:
+              # hindsight's refresh stage sends it in the body (flux-talos #2508,
+              # breaks the delta-ops repeat loop on the Spark), it is not an OpenAI
+              # param so `drop_params` passes it through, and Anthropic rejects
+              # unknown fields, which would fail every refresh during a Spark
+              # outage instead of running it here. Hindsight's spend here is bounded by its key's max_budget
               # per 30 days (budget_duration 30d, set 2026-10-24; $25, raised to
               # $95 the same day for the accuracy sweep, resets 2026-11-01). That
               # cap is on the KEY, so once hit it also blocks hindsight's free
@@ -691,6 +696,7 @@ spec:
                     - top_p
                     - top_k
                     - reasoning_effort
+                    - repetition_penalty
                   max_tokens: 32768
                   num_retries: 2
                 # Pinned so the key budget counts this route even if the deployed
