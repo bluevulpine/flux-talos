@@ -1031,6 +1031,23 @@ spec:
               # refresh_mental_model rows in async_operations climb. They climbed on
               # 2026-10-14 (see the top of this block), so this is `none` again.
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_REASONING_EFFORT: none
+              # Breaks a repeat loop in the delta ops. The runaways that hit the
+              # output cap (32768, then 16384) were Qwen emitting one operation
+              # over and over: a replayed failure of 2026-11-11 16:57Z repeated
+              # {"op":"remove_section","section_id":"paperclip-agent-orchestration"}
+              # 540 times. Same input, temperature 0, strict schema: 8 of 26
+              # replays ran away without a penalty, 1 of 24 with
+              # repetition_penalty 1.05 (frequency_penalty 0.2: 1 of 18, but it
+              # cut retain's facts 14 -> 3 and shortened everything, so not that).
+              # Refresh ONLY: on consolidation the same penalty added deletes
+              # that the stored output and the unpenalised replay did not have
+              # (2 of 6 inputs), and retain must keep every fact. vLLM reads
+              # repetition_penalty from the body; hindsight merges this under its
+              # own keys, so REASONING_EFFORT above still turns thinking off.
+              # If a refresh falls back off the Spark, Nous accepts the field;
+              # Haiku may reject it (unverified), failing that refresh instead of
+              # billing it, which a refresh can afford: it is retried later.
+              HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_EXTRA_BODY: '{"repetition_penalty": 1.05}'
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "4"
               # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
               # floor at all — which is how 232 refreshes ran in ~2h on
