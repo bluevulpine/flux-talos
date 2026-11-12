@@ -48,3 +48,6 @@ data:
   # for apps served straight to the internet (Jellyfin). Named NGINX_* only to
   # sit with the other gateway addresses; it is Envoy.
   SVC_NGINX_DIRECT: 172.16.8.19
+  # Wyoming bridge to the Spark's speech models (10300), reached only by Home
+  # Assistant on the Pi. See apps/ai/wyoming-openai.
+  SVC_WYOMING_ADDR: 172.16.8.20

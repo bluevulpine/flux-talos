@@ -1,0 +1,102 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app wyoming-openai
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: wyoming-openai
+  interval: 1h
+  values:
+    controllers:
+      wyoming-openai:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/roryeckel/wyoming_openai
+              # renovate: datasource=docker depName=ghcr.io/roryeckel/wyoming_openai
+              tag: 0.9.0
+            env:
+              TZ: "${TIMEZONE}"
+              WYOMING_URI: tcp://0.0.0.0:10300
+              WYOMING_LANGUAGES: en
+              # Both go through LiteLLM rather than straight to the Spark's
+              # :8081/:8082: the engines have no auth, LiteLLM is the boundary
+              # (as for every other consumer), and the route names survive the
+              # speech services moving off the Spark.
+              STT_OPENAI_URL: http://litellm.ai.svc.cluster.local:4000/v1
+              TTS_OPENAI_URL: http://litellm.ai.svc.cluster.local:4000/v1
+              # Parakeet TDT, English-only. ~0.6-0.9 s for a spoken command
+              # measured direct on 2026-11-12.
+              STT_MODELS: spark-stt
+              # Qwen3-TTS voice clone. Offered to HA as a selectable engine,
+              # but NOT the pipeline default yet: on 2026-11-12 the same
+              # endpoint took 1.1-2.0 s for short replies in one run and
+              # 3.9-7.0 s in another. Piper on the Pi is the default until that
+              # spread is understood.
+              TTS_MODELS: spark-tts
+              # Named explicitly because autodetection asks the backend for a
+              # voice list and LiteLLM has no such endpoint. Each name is an
+              # entry in voices.json on the Spark (spark-setup `audio` role).
+              TTS_VOICES: default
+              # Pin the plain OpenAI feature set; autodetect probes for
+              # Speaches/Kokoro extensions that LiteLLM does not proxy.
+              STT_BACKEND: OPENAI
+              TTS_BACKEND: OPENAI
+            envFrom:
+              - secretRef:
+                  name: wyoming-openai-secret
+            probes:
+              # Wyoming is a raw TCP protocol; there is no HTTP health path.
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: &port 10300
+                  initialDelaySeconds: 5
+                  periodSeconds: 20
+                  timeoutSeconds: 3
+                  failureThreshold: 3
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 10m
+                memory: 96Mi
+              limits:
+                memory: 512Mi
+    defaultPodOptions:
+      # The image declares no USER (runs as root by default); it only needs to
+      # run `python -m wyoming_openai` and open a socket, so drop to 1000.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+    service:
+      app:
+        controller: *app
+        # LoadBalancer because Home Assistant runs on the Pi, outside the
+        # cluster, and Wyoming is raw TCP so it cannot ride the HTTP gateway.
+        # Add it in HA by hand (Wyoming Protocol, host ${SVC_WYOMING_ADDR},
+        # port 10300); zeroconf does not cross from the pod network. Exposure
+        # is fenced to HA alone by ciliumnetworkpolicy.yaml.
+        type: LoadBalancer
+        annotations:
+          lbipam.cilium.io/ips: "${SVC_WYOMING_ADDR}"
+        # Local keeps the client source IP the policy's fromCIDR rule needs
+        # (with Cilium DSR), same as yardstick.
+        externalTrafficPolicy: Local
+        ports:
+          wyoming:
+            port: *port
