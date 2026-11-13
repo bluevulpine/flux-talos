@@ -384,3 +384,35 @@ spec:
           for: 1h
           labels:
             severity: warning
+    - name: storage
+      rules:
+        # The gap this closes: since the VolSync decommission (2026-11-11) a
+        # deleted PVC on components/volsync-claim (47 apps on 2026-11-12) comes
+        # back from Flux pointing at a ReplicationDestination that no longer
+        # exists, so it sits Pending forever, with no kopiur Restore behind it for
+        # KopiurRestoreStuck to see. Nothing else alerted on a Pending PVC:
+        # kube-prometheus-stack's KubePersistentVolumeErrors watches PVs, not
+        # claims. This also catches a stuck provisioner and a WaitForFirstConsumer
+        # claim that nothing schedules.
+        #
+        # 1h: Pending is normal for a short while. kopiur's snapshot source
+        # clones (*-src), the ARC runner work volumes and WaitForFirstConsumer
+        # claims all pass through it. The longest such stretch in the 30 days to
+        # 2026-11-13 was ~30 min (media/plex-local-*-src, 2026-10-23, Thanos at
+        # 5m resolution); everything else was 10 min or less.
+        - alert: PersistentVolumeClaimPending
+          annotations:
+            summary: >-
+              PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} has
+              been Pending for over 1h.
+            description: >-
+              `kubectl -n {{ $labels.namespace }} describe pvc {{ $labels.persistentvolumeclaim }}`
+              shows why. A volsync-claim app's PVC that was deleted cannot fill
+              itself: recreate it onto components/kopiur-claim
+              (docs/runbooks/kopiur-claim.md, "Recreating a PVC"). On a
+              kopiur-claim PVC, KopiurRestoreStuck fires too: see its Restore. A
+              WaitForFirstConsumer class waits for a pod that uses the claim.
+          expr: max by (namespace, persistentvolumeclaim) (kube_persistentvolumeclaim_status_phase{phase="Pending"}) == 1
+          for: 1h
+          labels:
+            severity: warning
