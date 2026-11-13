@@ -87,16 +87,22 @@ list loses its zot entry when Spegel moves the Talos files into `_backup/`.
 ## Retention
 
 Retention is live (`dryRun: false`) from 2026-11-13, after one dry-run gc pass. Its log lines
-(`"module":"retention"`) evaluated both the tagged and the untagged policy on the repos that pass
-reached (cgr.dev/chainguard/static, docker.io/alpine/socat) and decided `keep`, "retained by pushedWithin". The untagged policy only evaluates with zot's
-metadata DB, and without that DB zot would delete untagged manifests after `delay` regardless of
+(`"module":"retention"`) evaluated both the tagged and the untagged policy on the repos that
+pass reached (`cgr.dev/chainguard/static`, `docker.io/alpine/socat`) and decided `keep`,
+"retained by pushedWithin". The untagged policy only evaluates with zot's metadata DB, and
+without that DB zot would delete untagged manifests after `delay` regardless of
 `keepUntagged`, so those lines are the evidence the DB works.
 
-What the dry run could not show: a removal. Nothing is older than 30 days until about
-2026-12-13. After that date, check that removals are only images nobody has pulled in 30 days and
-outside their repo's 3 most recently pulled.
-Removed images are re-synced from upstream on the next pull, so a wrong removal costs an
-upstream fetch, not an outage.
+What the dry run could not show: the clauses that keep old images, `pulledWithin` and
+`mostRecentlyPulledCount`. Both rely on zot recording pull timestamps, which is untested here
+(the search extension that exposes them over GraphQL is not enabled). Until about 2026-12-13
+nothing is older than 30 days, so `pushedWithin` protects everything and turning deletion on
+early is harmless. After that date, read the retention log and check that removals are only
+images nobody has pulled in 30 days and outside their repo's 3 most recently pulled.
+
+A wrong removal costs an upstream fetch on the next pull. That matters most in a cold bootstrap,
+when it becomes the rate-limited pull this mirror exists to prevent, and a digest that upstream
+has since pruned cannot be fetched again.
 
 Warnings "skipping missing manifest blob" (sync and GC) are expected: on-demand sync stores an
 image index without its per-platform manifests, which sync on first request.
