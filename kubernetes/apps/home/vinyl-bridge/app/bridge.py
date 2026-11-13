@@ -42,6 +42,7 @@ import socketserver
 import struct
 import threading
 import time
+import urllib.parse
 import urllib.request
 import uuid as uuidlib
 
@@ -57,6 +58,16 @@ SILENCE_BPS = int(os.environ.get("SILENCE_BPS", "64000"))         # bits/s; musi
 SILENCE_SECONDS = int(os.environ.get("SILENCE_SECONDS", "45"))    # longer than a quiet passage
 WINDOW_S = 5
 STALL_S = int(os.environ.get("STALL_SECONDS", "60"))  # no byte at all for this long: reconnect
+# A reconnect that yields less than this before failing counts as a failed one. In standby the
+# Victrola still answers and sends a few header bytes (151 observed) before stalling, which
+# used to reset the retry count, so the bridge reconnected every minute forever.
+MIN_GOOD_BYTES = 64 * 1024
+# How often to read the Victrola's power state while following a stream. It drops from
+# "online" to "networkStandby" (reason idleTimer) about 9 min after the last record ends
+# (2026-11-13); that ends the session cleanly.
+POWER_POLL_S = int(os.environ.get("POWER_POLL_SECONDS", "15"))
+STANDBY_TARGETS = {"networkStandby", "standby", "off"}
+VICTROLA_API_PORT = int(os.environ.get("VICTROLA_API_PORT", "80"))  # its local API (tests override)
 SINK = ",".join([
     "http-get:*:audio/x-flac:*", "http-get:*:audio/flac:*", "http-get:*:audio/ogg:*",
     "http-get:*:audio/mpeg:*",
@@ -186,6 +197,7 @@ class Session:
         """
         counter = [0]
         threading.Thread(target=self._watch, args=(gen, uri, counter), daemon=True).start()
+        threading.Thread(target=self._power, args=(gen, uri), daemon=True).start()
         failures = 0
         while self.generation == gen:
             got = 0
@@ -202,14 +214,34 @@ class Session:
                         self._set_alive(gen, True)
             except Exception as e:
                 self._set_alive(gen, False)
-                # Only a connection that delivered nothing counts toward giving up, so a stream
-                # that keeps dropping and reconnecting with data is still followed.
-                failures = 0 if got else failures + 1
+                # Only a connection that delivered real audio resets the count, so a stream that
+                # keeps dropping and reconnecting with data is still followed, but one that only
+                # hands out a header and stalls (the Victrola in standby) is given up on.
+                failures = 0 if got >= MIN_GOOD_BYTES else failures + 1
                 log("stream error", failures, f"after {got} bytes:", repr(e))
                 if failures >= 5:
                     self.stop("stream gone after 5 retries", gen)
                     return
                 time.sleep(2 * max(failures, 1))
+
+    def _power(self, gen, uri):
+        """End the session when the Victrola goes to standby (read-only GET on its local API).
+
+        Errors are ignored: the API is a convenience, and the stream checks still end a session
+        without it."""
+        api = f"http://{urllib.parse.urlsplit(uri).hostname}:{VICTROLA_API_PORT}/api/getData?path=powermanager:target&roles=@all"
+        while True:
+            time.sleep(POWER_POLL_S)
+            if self.generation != gen:
+                return
+            try:
+                with urllib.request.urlopen(api, timeout=5) as r:
+                    target = json.load(r)["value"]["powerTarget"]["target"]
+            except Exception:
+                continue
+            if target in STANDBY_TARGETS:
+                self.stop(f"Victrola went to {target}", gen)
+                return
 
     def _watch(self, gen, uri, counter):
         """Every WINDOW_S, turn the byte count into a bit rate and track silence (FLAC only)."""
