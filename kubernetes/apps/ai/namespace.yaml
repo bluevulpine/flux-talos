@@ -21,7 +21,8 @@ metadata:
     # capability except NET_BIND_SERVICE. baseline permits all four.
     #
     # PSA is namespace-level with no per-pod exemption, so this is a genuine
-    # either/or: `ai` restricted means Hermes stays in `develop` at privileged.
+    # either/or: `ai` restricted would have meant Hermes staying in `develop`,
+    # which was privileged when this was decided.
     # Two workloads at baseline beats one restricted plus one privileged, and it
     # means the namespace never has to be relabelled later — a change that would
     # silently start rejecting pods.
