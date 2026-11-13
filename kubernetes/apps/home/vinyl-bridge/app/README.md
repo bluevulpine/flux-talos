@@ -27,7 +27,8 @@ esphome-hass.
 | ~100 s later, `SetAVTransportURI` MP3 URL + `Play` | Ignores it while the FLAC stream still flows; logged as `ignoring mp3 URI` |
 | Needle parked (FLAC drops below `SILENCE_BPS` for `SILENCE_SECONDS`) | `stop` webhook; keeps reading |
 | Next side (byte rate back up) | `start` webhook again |
-| FLAC stream dies | Reads as silence, so `stop` after `SILENCE_SECONDS`; gives up after 5 empty reconnects without a second `stop`; a new URI + `Play` starts over |
+| FLAC stream dies | Reads as silence, so `stop` after `SILENCE_SECONDS`; gives up after 5 short reconnects (under 64 KiB and under 2 x `STALL_SECONDS`) without a second `stop`; a new URI + `Play` starts over |
+| Victrola goes to standby (`powermanager:target` = `networkStandby`, about 9 min after the last record) | Session ends; `stop` webhook unless silence already sent it |
 | `Stop` (never observed) | `stop` webhook |
 
 The MP3 fallback was most likely triggered by the 2026-11-10 test renderer reading 64 KB and then
@@ -68,6 +69,9 @@ On MP3 the bitrate is constant, so silence cannot be detected and no automatic s
 - `SILENCE_BPS` (default 64 kbit/s): music FLAC runs about 1 Mbit/s, and parked-needle silence
   is close to zero.
 - `SILENCE_SECONDS` (default 45): long enough for a quiet passage or the lead-in groove.
+- `STALL_SECONDS` (default 60): no byte at all for this long and the bridge reconnects.
+- `POWER_POLL_SECONDS` (default 15): how often the Victrola's power state is read while following. If the logs never show `Victrola went to networkStandby` about 9 min after a record, the reads may be resetting its idle timer: raise this.
+- `VICTROLA_API_PORT` (default 80): only for tests.
 - Check both against the logs after the first few records.
 
 ```bash

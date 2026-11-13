@@ -30,7 +30,8 @@ Victrola only finds renderers on its own L2. The webhook goes to Home Assistant 
 pod's cluster interface, so moving HA to another VLAN or address does not break the bridge.
 
 Stdlib only. Env: BIND_IP, HA_URL (e.g. http://homeassistant.funb.us:8123), HA_WEBHOOK_ID,
-NAME, UDN_SEED, HTTP_PORT, SILENCE_BPS, SILENCE_SECONDS.
+NAME, UDN_SEED, HTTP_PORT, SILENCE_BPS, SILENCE_SECONDS, STALL_SECONDS, POWER_POLL_SECONDS,
+VICTROLA_API_PORT.
 """
 import http.server
 import json
@@ -66,6 +67,7 @@ MIN_GOOD_BYTES = 64 * 1024
 # "online" to "networkStandby" (reason idleTimer) about 9 min after the last record ends
 # (2026-11-13); that ends the session cleanly.
 POWER_POLL_S = int(os.environ.get("POWER_POLL_SECONDS", "15"))
+# Only networkStandby has been observed; "standby" and "off" are guesses at the deeper states.
 STANDBY_TARGETS = {"networkStandby", "standby", "off"}
 VICTROLA_API_PORT = int(os.environ.get("VICTROLA_API_PORT", "80"))  # its local API (tests override)
 SINK = ",".join([
@@ -200,7 +202,7 @@ class Session:
         threading.Thread(target=self._power, args=(gen, uri), daemon=True).start()
         failures = 0
         while self.generation == gen:
-            got = 0
+            got, t0 = 0, time.monotonic()
             try:
                 req = urllib.request.Request(uri, headers={"User-Agent": "vinyl-bridge"})
                 with urllib.request.urlopen(req, timeout=STALL_S) as r:
@@ -217,7 +219,10 @@ class Session:
                 # Only a connection that delivered real audio resets the count, so a stream that
                 # keeps dropping and reconnecting with data is still followed, but one that only
                 # hands out a header and stalls (the Victrola in standby) is given up on.
-                failures = 0 if got >= MIN_GOOD_BYTES else failures + 1
+                # A long-lived connection also counts as good: a parked needle between sides
+                # carries almost no bytes, and dropping that session would lose the next start.
+                good = got >= MIN_GOOD_BYTES or time.monotonic() - t0 > 2 * STALL_S
+                failures = 0 if good else failures + 1
                 log("stream error", failures, f"after {got} bytes:", repr(e))
                 if failures >= 5:
                     self.stop("stream gone after 5 retries", gen)
