@@ -74,6 +74,6 @@ edit these files.
 ## Future: build the image in-cluster
 
 For a faster cold start, the runtime `apt`/tooling install can be baked into a
-pre-built image produced by the in-cluster Gitea + Drone + Nexus stack (build on
-push, push to the Nexus Docker registry, pin the digest here). Not done yet —
+pre-built image produced by the in-cluster Gitea + Drone stack (build on
+push, push to the Gitea container registry, pin the digest here). Not done yet —
 this first pass trades a slower boot for zero build pipeline.

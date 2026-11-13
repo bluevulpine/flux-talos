@@ -4,24 +4,27 @@
 
 ## Mirror Chain
 
-This cluster has a Nexus pull-through cache configured in the Talos node registries. Spegel is deployed with `prependExisting: true`, which inserts itself in front of the existing Nexus mirror configuration. The result is a three-tier chain:
+The Talos node registries point every mirrored registry at the zot pull-through cache on the NAS
+(`http://10.0.10.11:5000/v2/<registry>`; see `docs/runbooks/zot-registry-mirror.md`). Spegel is
+deployed with `prependExisting: true`, which inserts itself in front of that configuration. The
+result is a three-tier chain:
 
 ```
-Pull request → Spegel (local cluster peers) → Nexus (pull-through cache) → Upstream registry
+Pull request → Spegel (local cluster peers) → zot (pull-through cache on vault) → Upstream registry
 ```
 
-This means a layer only leaves the cluster network if no peer has it *and* Nexus doesn't have it cached.
+This means a layer only leaves the home network if no peer has it *and* zot doesn't have it cached.
 
-**The chain only exists for registries listed in `spegel.mirroredRegistries`.** `prependExisting` merges Spegel's hosts with the Talos-written Nexus `hosts.toml` one registry at a time. With an empty list (the chart default) Spegel writes a single `_default/hosts.toml` and moves the Talos files to `/etc/cri/conf.d/hosts/_backup/`, where containerd never reads them. That ran unnoticed until 2026-10-20: every pull went Spegel → upstream, and the Nexus hosts' broken TLS (no `*.nexus.` SAN, fixed in #2213) never surfaced. When a workload starts pulling from a new registry, add it to the list. Check a node with `talosctl -n <ip> read /etc/cri/conf.d/hosts/ghcr.io/hosts.toml`, which should show the Spegel NodePort followed by the Nexus host.
+**The chain only exists for registries listed in `spegel.mirroredRegistries`.** `prependExisting` merges Spegel's hosts with the Talos-written `hosts.toml` one registry at a time. With an empty list (the chart default) Spegel writes a single `_default/hosts.toml` and moves the Talos files to `/etc/cri/conf.d/hosts/_backup/`, where containerd never reads them. That ran unnoticed until 2026-10-20, under Nexus: every pull went Spegel → upstream. When a workload starts pulling from a new registry, add it to the list (and to the Talos template if zot should cache it). Check a node with `talosctl -n <ip> read /etc/cri/conf.d/hosts/ghcr.io/hosts.toml`, which should show the Spegel NodePort followed by the zot host with `override_path = true`.
 
-Spegel only backs up the Talos files on its first run (when `_backup/` does not exist yet). If the Talos mirror patch changes later, the backup is stale until `_backup/` is removed and the Spegel pods restart.
+Spegel only backs up the Talos files on its first run (when `_backup/` does not exist yet), and re-merges from that backup on every restart. A live Talos registries change regenerates the whole hosts directory, `_backup/` included (seen 2026-11-13 on Talos 1.13.11), so after `apply --mode no-reboot` restart the Spegel DaemonSet and it backs up the new files.
 
-Registries without a Nexus repository (`oci.element.io`, `cr.fluentbit.io`, `mirror.gcr.io`, the Gitea registry) are listed too, so they at least get peer-to-peer sharing. Spegel serves any cached layer to anything that can reach its NodePort, including layers of private Gitea images.
+Registries with no zot upstream (`oci.element.io`, `cr.fluentbit.io`, `mirror.gcr.io`, the Gitea registry) are listed too, so they at least get peer-to-peer sharing. Spegel serves any cached layer to anything that can reach its NodePort, including layers of private Gitea images.
 
 ## Dashboard
 
 Chart 0.8.0 no longer ships a Grafana dashboard. `app/spegel-dashboard.json` is the 0.7.4 chart's dashboard, adapted to 0.8's metrics: `spegel_advertised_keys` replaced `spegel_advertised_{content,image}_digests`, and the registry variable now comes from `spegel_mirror_requests_total`. The grafana.com dashboard 18089 that Grafana also loaded was removed, because it only ever had revision 1 and queried metrics Spegel no longer exports.
 
-## Why not just Nexus?
+## Why not just zot?
 
-Nexus reduces upstream bandwidth but still requires a round-trip to the Nexus host for every node that needs an image. Spegel allows nodes to serve each other directly over the node subnet, which is useful during rolling restarts or upgrades where many nodes pull the same image in a short window.
+zot reduces upstream bandwidth but every node that needs an image still round-trips to the NAS. Spegel lets nodes serve each other directly over the node subnet, which is useful during rolling restarts or upgrades where many nodes pull the same image in a short window.
