@@ -13,15 +13,16 @@ metadata:
   labels:
     # baseline, NOT restricted — and the choice is load-bearing, not a
     # concession. Hermes is expected to move here from `develop` (which is
-    # `privileged`, originally for Nexus's root init container; Nexus is gone since
-    # 2026-11-13, see develop/namespace.yaml), and Hermes
+    # `baseline` since 2026-11-13; it was `privileged` only for Nexus's root init
+    # container, see develop/namespace.yaml), and Hermes
     # CANNOT run restricted: its s6-overlay entrypoint starts as root to chown
     # /opt/data before dropping to uid 10000, and it adds CHOWN, DAC_OVERRIDE,
     # SETGID, SETUID. restricted requires runAsNonRoot and allows no added
     # capability except NET_BIND_SERVICE. baseline permits all four.
     #
     # PSA is namespace-level with no per-pod exemption, so this is a genuine
-    # either/or: `ai` restricted means Hermes stays in `develop` at privileged.
+    # either/or: `ai` restricted would have meant Hermes staying in `develop`,
+    # which was privileged when this was decided.
     # Two workloads at baseline beats one restricted plus one privileged, and it
     # means the namespace never has to be relabelled later — a change that would
     # silently start rejecting pods.

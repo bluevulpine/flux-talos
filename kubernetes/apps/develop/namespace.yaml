@@ -9,9 +9,24 @@ metadata:
     kopiur.home-operations.com/privileged-movers: "true"
   labels:
     name: develop
-    # Changed from 'restricted' to 'privileged' for Nexus's root chownDataDir init
-    # container. Nexus is gone (2026-11-13, replaced by zot on the NAS), but drone and
-    # dev-shell have run here under 'privileged' since; audit them before tightening.
-    pod-security.kubernetes.io/enforce: privileged
-    pod-security.kubernetes.io/audit: privileged
-    pod-security.kubernetes.io/warn: privileged
+    # baseline since 2026-11-13. It was 'privileged' only for Nexus's root chownDataDir
+    # init container; Nexus is gone (replaced by zot on the NAS). Verified BEFORE this
+    # label was written, not predicted:
+    #   kubectl label --dry-run=server --overwrite ns develop \
+    #     pod-security.kubernetes.io/enforce=baseline
+    # returned no warnings for dev-shell, drone-server, drone-runner, gitea or the
+    # renovate job. Pods the dry run cannot see also fit baseline:
+    # - Drone build pods: every active repo's pipeline is `type: kubernetes` with
+    #   kaniko (root, which baseline allows), no `privileged` and no host volume; 4
+    #   active repos have no .drone.yml and no builds. No repo is Trusted. Using an
+    #   image on the runner's default privileged list (plugins/docker, /ecr, /gcr...)
+    #   would bypass trust and now fail admission: build with kaniko.
+    # - kopiur movers: root with DAC_OVERRIDE (backup) or CHOWN/FOWNER/FSETID/
+    #   DAC_OVERRIDE (kopiur-claim restore), all on baseline's allowed list; `ai` and
+    #   `media` already run the same movers under baseline.
+    # `restricted` is not attempted: dev-shell runs as root by design, and drone and
+    # gitea set no runAsNonRoot/seccompProfile (renovate is already restricted-clean).
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/warn: baseline
