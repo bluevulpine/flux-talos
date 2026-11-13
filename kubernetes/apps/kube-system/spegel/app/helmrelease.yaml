@@ -21,19 +21,19 @@ spec:
     spegel:
       containerdSock: /run/containerd/containerd.sock
       containerdRegistryConfigPath: /etc/cri/conf.d/hosts
-      # Keep existing mirror configuration (Nexus) and prepend Spegel, giving
-      # Spegel -> Nexus -> upstream. prependExisting only works per registry: with
+      # Keep existing mirror configuration (zot on the NAS) and prepend Spegel, giving
+      # Spegel -> zot -> upstream. prependExisting only works per registry: with
       # an empty list Spegel writes a single `_default` hosts.toml, moves the Talos
-      # Nexus entries into `_backup/` where containerd never reads them, and the
-      # Nexus tier silently drops out (found 2026-10-20). So every registry the
-      # cluster pulls from is listed. A registry left off still pulls, from
-      # upstream only, with no peer-to-peer and no Nexus.
+      # mirror entries into `_backup/` where containerd never reads them, and the
+      # mirror tier silently drops out (found 2026-10-20, under Nexus). So every
+      # registry the cluster pulls from is listed. A registry left off still pulls,
+      # from upstream only, with no peer-to-peer and no zot.
       #
       # Literal hostnames, not ${SECRET_DOMAIN}: bootstrap/helmfile.d reads these
       # values raw, with no Flux substitution.
       prependExisting: true
       mirroredRegistries:
-        # Nexus-backed (talos/patches/all/12-registry-mirrors.yaml.tpl)
+        # zot-backed (talos/patches/all/12-registry-mirrors.yaml.tpl)
         - https://docker.io
         - https://ghcr.io
         - https://quay.io
@@ -42,7 +42,7 @@ spec:
         - https://lscr.io
         - https://public.ecr.aws
         - https://cgr.dev
-        # Peer-to-peer only (no Nexus repository for these)
+        # Peer-to-peer only (no zot upstream for these)
         - https://oci.element.io
         - https://cr.fluentbit.io
         - https://mirror.gcr.io

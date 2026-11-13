@@ -13,7 +13,8 @@ metadata:
   labels:
     # baseline, NOT restricted — and the choice is load-bearing, not a
     # concession. Hermes is expected to move here from `develop` (which is
-    # `privileged` only because Nexus needs a root init container), and Hermes
+    # `privileged`, originally for Nexus's root init container; Nexus is gone since
+    # 2026-11-13, see develop/namespace.yaml), and Hermes
     # CANNOT run restricted: its s6-overlay entrypoint starts as root to chown
     # /opt/data before dropping to uid 10000, and it adds CHOWN, DAC_OVERRIDE,
     # SETGID, SETUID. restricted requires runAsNonRoot and allows no added

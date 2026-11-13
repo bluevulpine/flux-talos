@@ -51,14 +51,14 @@ spec:
         # HindsightDown WILL eventually fire — but ImagePullBackOff does not trip
         # the pod-failure alert (docs/runbooks/flux-image-automation.md, Gotcha
         # 3), and this names the cause directly. Not optional for a 1.42 GB image
-        # behind the Nexus pull-through mirror.
+        # behind the zot pull-through mirror.
         - alert: HindsightImagePullFailing
           annotations:
             summary: >-
               Hindsight pod {{ $labels.pod }} can't pull its image
               ({{ $labels.reason }}). Check the image refs in
-              kubernetes/apps/ai/hindsight/app/helmrelease.yaml and the Nexus
-              pull-through mirror.
+              kubernetes/apps/ai/hindsight/app/helmrelease.yaml and the zot
+              pull-through mirror on vault (docs/runbooks/zot-registry-mirror.md).
           expr: |
             kube_pod_container_status_waiting_reason{namespace="ai", pod=~"hindsight-.*", reason=~"ImagePullBackOff|ErrImagePull|InvalidImageName"} > 0
           for: 15m
