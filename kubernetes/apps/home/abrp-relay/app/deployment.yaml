@@ -31,7 +31,7 @@ spec:
         - name: relay
           # NOTE: no ":tag" suffix on the marker — this is a combined image:repo:tag scalar,
           # so Flux must write the whole ref. ":tag" would overwrite the scalar with the bare tag.
-          image: gitea.derekjacobs.dev/bvn-homelab/abrp-relay:50-fd24a827 # {"$imagepolicy": "flux-system:abrp-relay"}
+          image: gitea.derekjacobs.dev/bvn-homelab/abrp-relay:52-86e14788 # {"$imagepolicy": "flux-system:abrp-relay"}
           imagePullPolicy: IfNotPresent
           env:
             # "1" = post to ABRP; "0" = log the payload it would send, post nothing.
