@@ -74,7 +74,7 @@ spec:
               # marker — this is a combined image:repo:tag scalar, so Flux must
               # write the whole ref. ":tag" would overwrite the scalar with the
               # bare tag and produce an unpullable image.
-              image: gitea.derekjacobs.dev/bvn-homelab/kia-trip-archiver:52-86e14788 # {"$imagepolicy": "flux-system:kia-trip-archiver"}
+              image: gitea.derekjacobs.dev/bvn-homelab/kia-trip-archiver:54-8861ffc0 # {"$imagepolicy": "flux-system:kia-trip-archiver"}
               imagePullPolicy: Always
               envFrom:
                 - configMapRef:
