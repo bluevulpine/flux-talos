@@ -35,7 +35,8 @@ The cluster's pull-through image cache. Every node pulls through
   months. A pure age window would expire exactly what a cold bootstrap needs. `keepUntagged` matters
   because digest-only pulls cache untagged manifests.
 - **Why `public.ecr.aws` has `reqPerSec: 1`:** ECR Public answered zot's anonymous request pattern
-  with `429 TOOMANYREQUESTS`, so cold syncs stalled 20–40s or failed with 503 (2026-11-13).
+  with `429 TOOMANYREQUESTS`, so cold syncs stalled 20–40s or failed with 503 (2026-11-13). With
+  the cap, 4 cold ECR syncs took 2–3s with no 429 logged; a small sample, not a load test.
 
 ## Changing the config
 
@@ -83,13 +84,19 @@ directory was not regenerated: re-apply that node's config, then restart its Spe
 A registry must be in both the template and `spegel.mirroredRegistries`. A registry Spegel does not
 list loses its zot entry when Spegel moves the Talos files into `_backup/`.
 
-## Retention follow-up
+## Retention
 
-The config ships with `retention.dryRun: true`. After a gc pass (`gcInterval` 6h), read zot's
-retention log lines. Nothing pulled in the last 30 days should be listed for removal; in
-particular, no digest-pinned untagged manifest. Then set `dryRun: false`, paste the file again,
-and update this section.
+Retention is live (`dryRun: false`) from 2026-11-13, after one dry-run gc pass. Its log lines
+(`"module":"retention"`) evaluated both the tagged and the untagged policy on the repos that pass
+reached (cgr.dev/chainguard/static, docker.io/alpine/socat) and decided `keep`, "retained by pushedWithin". The untagged policy only evaluates with zot's
+metadata DB, and without that DB zot would delete untagged manifests after `delay` regardless of
+`keepUntagged`, so those lines are the evidence the DB works.
 
-`keepUntagged` needs zot's metadata DB. If it is missing, zot silently falls back to deleting
-untagged manifests after `delay`. That alone is reason to keep the dry run until the log has been
-read.
+What the dry run could not show: a removal. Nothing is older than 30 days until about
+2026-12-13. After that date, check that removals are only images nobody has pulled in 30 days and
+outside their repo's 3 most recently pulled.
+Removed images are re-synced from upstream on the next pull, so a wrong removal costs an
+upstream fetch, not an outage.
+
+Warnings "skipping missing manifest blob" (sync and GC) are expected: on-demand sync stores an
+image index without its per-platform manifests, which sync on first request.
