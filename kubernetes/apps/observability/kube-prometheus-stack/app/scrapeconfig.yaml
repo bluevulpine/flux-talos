@@ -225,3 +225,23 @@ spec:
     - action: replace
       targetLabel: job
       replacement: *name
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: &name zot
+spec:
+  staticConfigs:
+    # zot pull-through registry cache on TrueNAS (vault, 10.0.10.11), the mirror tier
+    # behind Spegel (docs/runbooks/zot-registry-mirror.md). /metrics is anonymous-read in
+    # zot's accessControl. BootstrapRateLimitRisk alerts on this job going away.
+    - targets:
+        - 10.0.10.11:5000
+      labels:
+        instance: zot
+  metricsPath: /metrics
+  relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: *name
