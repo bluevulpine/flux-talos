@@ -71,8 +71,10 @@ spec:
               # Upload cap: upstream default. The one-time MailStore import ran
               # as CLI Jobs off a NAS share (removed after the import).
               # Native OIDC with Authentik. Client id/secret/admin email come
-              # from the ExternalSecret. Local password login stays on as
-              # break-glass (DisablePasswordLogin=false).
+              # from the ExternalSecret. SSO-only: local password login is
+              # disabled and users are auto-redirected to Authentik
+              # (Derek, task t_bf4be918). Re-enable by flipping
+              # DisablePasswordLogin to "false" if Authentik is unavailable.
               OAuth__Enabled: "true"
               OAuth__Authority: https://sso.derekjacobs.dev/application/o/mail-archiver/
               OAuth__DisplayName: Authentik
@@ -80,8 +82,8 @@ spec:
               OAuth__ClientScopes__1: profile
               OAuth__ClientScopes__2: email
               OAuth__AutoApproveUsers: "false"
-              OAuth__DisablePasswordLogin: "false"
-              OAuth__AutoRedirect: "false"
+              OAuth__DisablePasswordLogin: "true"
+              OAuth__AutoRedirect: "true"
             envFrom:
               - secretRef:
                   name: mail-archiver-secret
