@@ -60,7 +60,8 @@ configs:
     #
     # - public.ecr.aws reqPerSec 1: ECR Public answers anonymous clients with 429 TOOMANYREQUESTS
     #   under zot's default request pattern (seen 2026-11-13: every cold ECR sync stalled 20-40s
-    #   in backoff, and some failed with 503). A per-host cap of 1 req/s keeps it under the limit.
+    #   in backoff, and some failed with 503). With a per-host cap of 1 req/s, 4 cold ECR syncs
+    #   took 2-3s with no 429 in the log (2026-11-13); a small sample, not proof under load.
     #
     # Retention (storage.retention): keep anything pulled or cached in the last 30 days, plus the
     # 3 most recently pulled tags and digests of every repo whatever their age. The count clause is
@@ -68,8 +69,8 @@ configs:
     # them peer to peer, so a stable app may not touch zot for months. A pure 30-day window would
     # then expire exactly the set a cold bootstrap needs. keepUntagged matters because this repo
     # pins by digest: a digest-only pull caches an untagged manifest, which the default
-    # deleteUntagged would remove after `delay` (24h). dryRun starts true: read zot's retention
-    # log lines after the first gc pass, then flip it.
+    # deleteUntagged would remove after `delay` (24h). dryRun was true for the first gc pass; its
+    # log evaluated both policies (so the metaDB works) and kept everything (2026-11-13).
     content: |-
       {
         "distSpecVersion": "1.1.1",
@@ -80,7 +81,7 @@ configs:
           "gcDelay": "1h",
           "gcInterval": "6h",
           "retention": {
-            "dryRun": true,
+            "dryRun": false,
             "delay": "24h",
             "policies": [
               {
