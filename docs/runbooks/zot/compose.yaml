@@ -1,0 +1,142 @@
+---
+# zot pull-through registry cache on the TrueNAS host `vault`, the cluster's image mirror tier
+# behind Spegel (talos/patches/all/12-registry-mirrors.yaml.tpl). It replaced the in-cluster Nexus
+# on 2026-11-12. Runbook: docs/runbooks/zot-registry-mirror.md.
+#
+# TrueNAS: Apps > Discover Apps > (three dots) > Install via YAML, name `zot`, paste this file.
+# This file is the record: change it here first, then paste it again (Apps > zot > Edit).
+#
+# Why the NAS and plain HTTP: nodes must reach the mirror during a cold bootstrap, when no
+# in-cluster gateway or certificate exists yet. That is exactly when Docker Hub's anonymous rate
+# limit bites. zot is anonymous read-only (no push), so nobody on the LAN can plant an image under
+# a mirrored name. containerd checks every blob against its digest; only tag resolution is in
+# cleartext.
+services:
+  zot:
+    # Pin by digest: Renovate does not see this file. Bump by hand from
+    # https://github.com/project-zot/zot/releases and update the digest
+    # (`skopeo inspect --raw docker://ghcr.io/project-zot/zot:<tag> | sha256sum` gives the index digest).
+    image: ghcr.io/project-zot/zot:v2.1.23@sha256:9d3de83ac2099e6f4843045b4c9b65b7e8baf40f92d28f54906dee9d4d390fd7
+    restart: unless-stopped
+    # The image defaults to root. 568 is TrueNAS's `apps` user, which owns the dataset.
+    user: "568:568"
+    command:
+      - serve
+      - /etc/zot/config.json
+    ports:
+      # .11 is the NAS's app address (Garage, Scrutiny); .10 stays the management address.
+      - 10.0.10.11:5000:5000
+    volumes:
+      # The dataset root itself, not a subdirectory: Docker creates a missing bind source as
+      # root, which user 568 then can't write. home/zot is excluded from the recursive `home`
+      # snapshot task: snapshots of a churning cache would pin deleted layers against the quota.
+      - /mnt/home/zot:/var/lib/registry
+    configs:
+      - source: zot-config
+        target: /etc/zot/config.json
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: "3"
+configs:
+  zot-config:
+    # Field reference: examples/README.md in project-zot/zot at the pinned tag (read at v2.1.23).
+    #
+    # One sync registry per upstream, each under its own destination prefix. Talos points
+    # docker.io at http://10.0.10.11:5000/v2/docker.io with overridePath, so containerd requests
+    # /v2/docker.io/library/alpine/manifests/<ref>. zot strips the destination and fetches
+    # library/alpine from that upstream.
+    #
+    # - onDemand only, never pollInterval. Docker Hub forbids polling (rate limits, no catalog),
+    #   and for the others only what the cluster asks for is worth caching.
+    # - http.compat docker2s2 keeps Docker media types as served. Without it zot converts images
+    #   to OCI, which changes their digests, and every `@sha256:` pin in this repo would miss.
+    #   preserveDigest is ignored since v2.1.x; this is its replacement.
+    # - manifestCheckInterval 1h: unset, zot re-checks upstream on every tag request.
+    # - syncTimeout 30m: on-demand sync blocks the manifest request until the whole image is
+    #   copied, so multi-GB images (immich-ml, plex) need room. If it fails, containerd falls back
+    #   to the upstream directly.
+    #
+    # - public.ecr.aws reqPerSec 1: ECR Public answers anonymous clients with 429 TOOMANYREQUESTS
+    #   under zot's default request pattern (seen 2026-11-13: every cold ECR sync stalled 20-40s
+    #   in backoff, and some failed with 503). A per-host cap of 1 req/s keeps it under the limit.
+    #
+    # Retention (storage.retention): keep anything pulled or cached in the last 30 days, plus the
+    # 3 most recently pulled tags and digests of every repo whatever their age. The count clause is
+    # what keeps the running set. Nodes keep running images in their own store and Spegel serves
+    # them peer to peer, so a stable app may not touch zot for months. A pure 30-day window would
+    # then expire exactly the set a cold bootstrap needs. keepUntagged matters because this repo
+    # pins by digest: a digest-only pull caches an untagged manifest, which the default
+    # deleteUntagged would remove after `delay` (24h). dryRun starts true: read zot's retention
+    # log lines after the first gc pass, then flip it.
+    content: |-
+      {
+        "distSpecVersion": "1.1.1",
+        "storage": {
+          "rootDirectory": "/var/lib/registry",
+          "dedupe": true,
+          "gc": true,
+          "gcDelay": "1h",
+          "gcInterval": "6h",
+          "retention": {
+            "dryRun": true,
+            "delay": "24h",
+            "policies": [
+              {
+                "repositories": ["**"],
+                "deleteReferrers": false,
+                "deleteUntagged": true,
+                "keepTags": [
+                  {
+                    "mostRecentlyPulledCount": 3,
+                    "pulledWithin": "720h",
+                    "pushedWithin": "720h"
+                  }
+                ],
+                "keepUntagged": {
+                  "mostRecentlyPulledCount": 3,
+                  "pulledWithin": "720h",
+                  "pushedWithin": "720h"
+                }
+              }
+            ]
+          }
+        },
+        "http": {
+          "address": "0.0.0.0",
+          "port": "5000",
+          "compat": ["docker2s2"],
+          "accessControl": {
+            "repositories": {
+              "**": { "anonymousPolicy": ["read"] }
+            },
+            "metrics": { "anonymousPolicy": ["read"] }
+          }
+        },
+        "log": { "level": "info" },
+        "extensions": {
+          "metrics": { "enable": true, "prometheus": { "path": "/metrics" } },
+          "sync": {
+            "enable": true,
+            "registries": [
+              { "urls": ["https://registry-1.docker.io"], "onDemand": true, "tlsVerify": true, "manifestCheckInterval": "1h", "syncTimeout": "30m", "maxRetries": 1, "retryDelay": "10s",
+                "content": [{ "prefix": "**", "destination": "/docker.io" }] },
+              { "urls": ["https://ghcr.io"], "onDemand": true, "tlsVerify": true, "manifestCheckInterval": "1h", "syncTimeout": "30m", "maxRetries": 1, "retryDelay": "10s",
+                "content": [{ "prefix": "**", "destination": "/ghcr.io" }] },
+              { "urls": ["https://quay.io"], "onDemand": true, "tlsVerify": true, "manifestCheckInterval": "1h", "syncTimeout": "30m", "maxRetries": 1, "retryDelay": "10s",
+                "content": [{ "prefix": "**", "destination": "/quay.io" }] },
+              { "urls": ["https://lscr.io"], "onDemand": true, "tlsVerify": true, "manifestCheckInterval": "1h", "syncTimeout": "30m", "maxRetries": 1, "retryDelay": "10s",
+                "content": [{ "prefix": "**", "destination": "/lscr.io" }] },
+              { "urls": ["https://gcr.io"], "onDemand": true, "tlsVerify": true, "manifestCheckInterval": "1h", "syncTimeout": "30m", "maxRetries": 1, "retryDelay": "10s",
+                "content": [{ "prefix": "**", "destination": "/gcr.io" }] },
+              { "urls": ["https://registry.k8s.io"], "onDemand": true, "tlsVerify": true, "manifestCheckInterval": "1h", "syncTimeout": "30m", "maxRetries": 1, "retryDelay": "10s",
+                "content": [{ "prefix": "**", "destination": "/registry.k8s.io" }] },
+              { "urls": ["https://public.ecr.aws"], "onDemand": true, "tlsVerify": true, "manifestCheckInterval": "1h", "syncTimeout": "30m", "maxRetries": 1, "retryDelay": "10s", "reqPerSec": 1,
+                "content": [{ "prefix": "**", "destination": "/public.ecr.aws" }] },
+              { "urls": ["https://cgr.dev"], "onDemand": true, "tlsVerify": true, "manifestCheckInterval": "1h", "syncTimeout": "30m", "maxRetries": 1, "retryDelay": "10s",
+                "content": [{ "prefix": "**", "destination": "/cgr.dev" }] }
+            ]
+          }
+        }
+      }
