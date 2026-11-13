@@ -1,5 +1,5 @@
 # containerd registry mirrors: the zot pull-through cache on the TrueNAS host `vault`
-# (docs/runbooks/zot-registry-mirror.md; it replaced the in-cluster Nexus on 2026-11-12).
+# (docs/runbooks/zot-registry-mirror.md; it replaced the in-cluster Nexus on 2026-11-13).
 # Spegel (prependExisting: true) prepends itself, giving Spegel -> zot -> upstream.
 #
 # Plain HTTP to the NAS IP, not a cluster hostname: nodes must reach the mirror during a cold

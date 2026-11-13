@@ -1,7 +1,7 @@
 ---
 # zot pull-through registry cache on the TrueNAS host `vault`, the cluster's image mirror tier
 # behind Spegel (talos/patches/all/12-registry-mirrors.yaml.tpl). It replaced the in-cluster Nexus
-# on 2026-11-12. Runbook: docs/runbooks/zot-registry-mirror.md.
+# on 2026-11-13. Runbook: docs/runbooks/zot-registry-mirror.md.
 #
 # TrueNAS: Apps > Discover Apps > (three dots) > Install via YAML, name `zot`, paste this file.
 # This file is the record: change it here first, then paste it again (Apps > zot > Edit).
