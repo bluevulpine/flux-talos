@@ -1,9 +1,15 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: chargepoint-collector
   labels:
     app.kubernetes.io/name: chargepoint-collector
+  annotations:
+    # Config arrives via envFrom, which is read only at container start; without this a
+    # configmap change (e.g. turning PRE_CUT_STOP_ACCOUNTS off) lands in the cluster and
+    # the running pod keeps the old value.
+    reloader.stakater.com/auto: "true"
 spec:
   replicas: 1
   strategy:
