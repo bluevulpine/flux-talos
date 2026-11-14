@@ -39,7 +39,7 @@ spec:
               # tag; spark-setup's renovate.json uses managerFilePatterns, so
               # this must stay >= 41.
               repository: ghcr.io/renovatebot/renovate
-              tag: 44.206.2
+              tag: 44.239.1
             env:
               TZ: "${TIMEZONE}"
               LOG_LEVEL: info
