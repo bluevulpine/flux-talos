@@ -56,7 +56,7 @@ spec:
     # Multi-arch (amd64 + arm64).
     image:
       repository: ghcr.io/block/buzz
-      tag: 0.2.1
+      tag: 0.3.0
 
     # Single community per relay URL. Clients connect here; it also derives
     # the /media base URL.
