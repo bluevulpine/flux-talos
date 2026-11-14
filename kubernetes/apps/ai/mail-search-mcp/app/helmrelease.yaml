@@ -1,0 +1,76 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app mail-search-mcp
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: mail-search-mcp
+  interval: 1h
+  values:
+    controllers:
+      mail-search-mcp:
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: "true"
+        # Stateless: every request reads Postgres and calls LiteLLM, and the
+        # only credential is the bearer token. A second replica would be safe,
+        # but one is plenty for a personal search tool.
+        replicas: 1
+        containers:
+          app:
+            # First-party image, built by Drone from
+            # https://gitea.derekjacobs.dev/bvn-homelab/mail-archive-search
+            # and pushed to the Gitea registry on every merge to main.
+            image:
+              repository: gitea.derekjacobs.dev/bvn-homelab/mail-archive-search
+              # app-template wants an image object, so this is a dedicated `tag:`
+              # node and the marker takes the `:tag` suffix (runbook gotcha 1).
+              tag: 1-8b803f80 # {"$imagepolicy": "flux-system:mail-archive-search:tag"}
+            env:
+              TZ: "${TIMEZONE}"
+            envFrom:
+              - secretRef:
+                  name: mail-search-mcp-secret
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: &port 8765
+                  initialDelaySeconds: 10
+                  periodSeconds: 30
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 20m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+    defaultPodOptions:
+      imagePullSecrets:
+        - name: gitea-registry-creds
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+    persistence:
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
+    service:
+      app:
+        controller: mail-search-mcp
+        ports:
+          http:
+            port: *port

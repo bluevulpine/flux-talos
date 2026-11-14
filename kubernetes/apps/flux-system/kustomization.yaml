@@ -25,5 +25,6 @@ resources:
   - ./yardstick/ks.yaml
   - ./ops-console/ks.yaml
   - ./tapestry/ks.yaml
+  - ./mail-archive-search/ks.yaml
   # self-repair for the reflector "no tags in database" bug (recurs on reflector restart)
   - ./image-reflector-healer/ks.yaml
