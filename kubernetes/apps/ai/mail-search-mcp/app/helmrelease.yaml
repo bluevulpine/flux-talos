@@ -24,7 +24,11 @@ spec:
             # First-party image, built by Drone from
             # https://gitea.derekjacobs.dev/bvn-homelab/mail-archive-search
             # and pushed to the Gitea registry on every merge to main.
-            image: gitea.derekjacobs.dev/bvn-homelab/mail-archive-search:1-8b803f80 # {"$imagepolicy": "flux-system:mail-archive-search"}
+            image:
+              repository: gitea.derekjacobs.dev/bvn-homelab/mail-archive-search
+              # app-template wants an image object, so this is a dedicated `tag:`
+              # node and the marker takes the `:tag` suffix (runbook gotcha 1).
+              tag: 1-8b803f80 # {"$imagepolicy": "flux-system:mail-archive-search:tag"}
             env:
               TZ: "${TIMEZONE}"
             envFrom:
