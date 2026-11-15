@@ -1,4 +1,3 @@
----
 # yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -28,7 +27,7 @@ spec:
               repository: gitea.derekjacobs.dev/bvn-homelab/mail-archive-search
               # app-template wants an image object, so this is a dedicated `tag:`
               # node and the marker takes the `:tag` suffix (runbook gotcha 1).
-              tag: 1-8b803f80 # {"$imagepolicy": "flux-system:mail-archive-search:tag"}
+              tag: 2-cabe87cc # {"$imagepolicy": "flux-system:mail-archive-search:tag"}
             env:
               TZ: "${TIMEZONE}"
             envFrom:
