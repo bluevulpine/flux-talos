@@ -1,0 +1,29 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: mail-search-mcp
+spec:
+  description: >-
+    The MCP server reads Derek's mail, so 8765 answers to litellm pods in this
+    namespace and to no other pod (the bearer token is the second gate; Cilium's
+    allow-localhost default still exempts hostNetwork pods on the same node).
+    INGRESS ONLY: an egress section, even an empty one, would put the pod into
+    default-deny for egress and cut OpenBao, LiteLLM, Postgres and the archive.
+    Probes are tcpSocket, which the kubelet makes from the node (also exempt),
+    so nothing needs re-admitting. This namespace's `default` enforcement mode
+    means only the endpoint selected here is affected. Recovery if it ever
+    blocks LiteLLM: revert this file alone.
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: mail-search-mcp
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            app.kubernetes.io/name: litellm
+      toPorts:
+        - ports:
+            - port: "8765"
+              protocol: TCP

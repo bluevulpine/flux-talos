@@ -1,0 +1,33 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+# MCP server for semantic search over the mail archive (kanban t_8f3a8cc8).
+# Source: https://gitea.derekjacobs.dev/bvn-homelab/mail-archive-search
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app mail-search-mcp
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    - name: external-secrets-openbao-store
+      namespace: external-secrets
+    # The vector store (database, role, schema) it reads.
+    - name: mail-embeddings
+      namespace: ai
+  path: ./kubernetes/apps/ai/mail-search-mcp/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: home-kubernetes
+    namespace: flux-system
+  targetNamespace: ai
+  wait: false
+  interval: 1h
+  retryInterval: 2m
+  timeout: 5m
+  postBuild:
+    substitute:
+      APP: *app
+      NS: ai

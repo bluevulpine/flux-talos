@@ -815,6 +815,21 @@ spec:
                 namespace: litellm.cache
                 mode: default_off
 
+            # MCP gateway: one URL and one LiteLLM key for harnesses, instead of a
+            # server per harness. The server is in-cluster (ai/mail-search-mcp, ingress
+            # limited to these pods) and requires a bearer token, which LiteLLM sends.
+            # Server names must be SEP-986 compliant, hence the underscore; tools are
+            # exposed as `mail_archive-search_mail` and `mail_archive-get_mail`.
+            # Not allow_all_keys: only keys granted this server in their MCP
+            # permissions can search Derek's mail.
+            mcp_servers:
+              mail_archive:
+                url: http://mail-search-mcp.ai.svc.cluster.local:8765/mcp
+                transport: http
+                description: Semantic search over Derek's mail archive
+                auth_type: bearer_token
+                auth_value: os.environ/MAIL_SEARCH_MCP_TOKEN
+
             # Shared state that must NOT be per-process: tpm/rpm limits, each virtual
             # key's max_parallel_requests, spend counters. Without this every worker
             # enforces its own copy, so a key capped at 2 parallel requests can
