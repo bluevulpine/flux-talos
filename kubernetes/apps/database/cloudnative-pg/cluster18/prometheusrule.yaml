@@ -11,12 +11,25 @@ spec:
   groups:
     - name: cloudnative-pg.rules
       rules:
+        # Immich's nightly file-checksum job (IntegrityService, 03:00 local,
+        # capped at 1 hour) holds one transaction open for the whole run: on
+        # 2026-11-15 it was 3515 s old at 09:59Z, opened as the job started
+        # at 09:00Z. That paged on ~85 of 90 days and taught the alert to be
+        # ignored. Only that connection (immich db, postgres.js) is exempt,
+        # and only 08:00-10:59 UTC, which covers 03:00-04:00 local under
+        # both CST and CDT. Any other database, or Immich outside that
+        # window, still fires. If the job's schedule or time limit changes
+        # in Immich's settings, move this window with it.
         - alert: LongRunningTransaction
           annotations:
             description: Pod {{ $labels.pod }} is taking more than 5 minutes (300 seconds) for a query.
             summary: A query is taking longer than 5 minutes.
           expr: |-
             cnpg_backends_max_tx_duration_seconds > 300
+            unless (
+              cnpg_backends_max_tx_duration_seconds{datname="immich", application_name="postgres.js"}
+              and on () (hour() >= 8 <= 10)
+            )
           for: 1m
           labels:
             severity: warning
