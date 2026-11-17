@@ -122,7 +122,7 @@ spec:
             image:
               repository: docker.io/alpine/git
               # renovate: datasource=docker depName=docker.io/alpine/git
-              tag: v2.54.0
+              tag: v2.54.1
             command:
               - "/bin/sh"
               - "/scripts/commit.sh"
