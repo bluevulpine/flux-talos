@@ -25,7 +25,7 @@ spec:
               # custom regex manager has no digest group) and automerges minor/
               # patch/digest bumps, since the broker is internet-facing (WAN 8883,
               # and 1883 limited to one ISP). Majors still get a human.
-              tag: 2.0.22@sha256:81a6193ae693942a3231cd3ac52875b02b7e3a19da671b2fb4b55cc874c5b279
+              tag: 2.0.23@sha256:6a332cc7a8dbe011cbc076180cbb76b37c6f0f55809682ea08e7980ef0112ad9
             command:
               - sh
               - -c
@@ -40,7 +40,7 @@ spec:
           app:
             image:
               repository: public.ecr.aws/docker/library/eclipse-mosquitto
-              tag: 2.0.22@sha256:81a6193ae693942a3231cd3ac52875b02b7e3a19da671b2fb4b55cc874c5b279
+              tag: 2.0.23@sha256:6a332cc7a8dbe011cbc076180cbb76b37c6f0f55809682ea08e7980ef0112ad9
             env:
               TZ: "${TIMEZONE}"
             securityContext:
@@ -55,7 +55,7 @@ spec:
           hasher:
             image:
               repository: public.ecr.aws/docker/library/eclipse-mosquitto
-              tag: 2.0.22@sha256:81a6193ae693942a3231cd3ac52875b02b7e3a19da671b2fb4b55cc874c5b279
+              tag: 2.0.23@sha256:6a332cc7a8dbe011cbc076180cbb76b37c6f0f55809682ea08e7980ef0112ad9
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
