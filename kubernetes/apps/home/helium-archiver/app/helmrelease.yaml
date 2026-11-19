@@ -1,4 +1,3 @@
----
 # yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -35,7 +34,7 @@ spec:
             # Pushed to the Gitea container registry on every merge to main.
             image:
               repository: gitea.derekjacobs.dev/bvn-homelab/helium-archiver
-              tag: 3-fb762320 # {"$imagepolicy": "flux-system:helium-archiver:tag"}
+              tag: 4-8c0e7060 # {"$imagepolicy": "flux-system:helium-archiver:tag"}
             env:
               TZ: "${TIMEZONE}"
               MQTT_HOST: mosquitto.home.svc.cluster.local
