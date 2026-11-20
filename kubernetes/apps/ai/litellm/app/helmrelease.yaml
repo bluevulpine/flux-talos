@@ -678,10 +678,13 @@ spec:
               # reject. `repetition_penalty` is dropped for the same replay reason:
               # hindsight's refresh stage sends it in the body (flux-talos #2508,
               # breaks the delta-ops repeat loop on the Spark), it is not an OpenAI
-              # param so `drop_params` passes it through, and Anthropic rejects
-              # unknown fields, which would fail a refresh that reaches this stage
-              # (Spark down AND Nous failing) instead of running it here. Nous
-              # answered a direct call on 2026-11-12, so this is the second line. Hindsight's spend here is bounded by its key's max_budget
+              # param so `drop_params` passes it through, and Anthropic may reject
+              # unknown fields (not tested without the drop), which would fail a
+              # refresh that reaches this stage (Spark down AND Nous failing)
+              # instead of running it here. With the drop, a direct call carrying
+              # the field returned 200 on 2026-11-12. Nous also answered a direct
+              # call that day, so this is the second fallback, not the first.
+              # Hindsight's spend here is bounded by its key's max_budget
               # per 30 days (budget_duration 30d, set 2026-10-24; $25, raised to
               # $95 the same day for the accuracy sweep, resets 2026-11-01). That
               # cap is on the KEY, so once hit it also blocks hindsight's free
