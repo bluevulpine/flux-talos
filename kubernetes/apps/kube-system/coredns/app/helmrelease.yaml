@@ -135,6 +135,23 @@ spec:
             configBlock: |-
               rcode NXDOMAIN
               authority "aliyuncs.com. 60 IN SOA ns.dns. hostmaster.dns. (1 60 60 60 60)"
+          # The NAS by a static answer, so a Morpheus outage cannot stop a pod from
+          # mounting its storage. Every CSI node plugin (tns-csi NFS and NVMe-oF,
+          # csi-nfs) and the tns-csi controller reach the NAS by NAME, and they run
+          # ClusterFirstWithHostNet, so the name is resolved HERE. Without this,
+          # `forward` asks Talos hostDNS, which asks Morpheus (10.0.10.1), which answers
+          # with TTL 0; when Morpheus is down a new mount fails with
+          # `mount.nfs: Failed to resolve server` until it is back (only names still in
+          # serve_stale's cache survive). Tested 2026-11-19 with a fake name, see
+          # docs/runbooks/static-nas-hosts.md.
+          # Talos `extraHostEntries` (talos/patches/all/14-static-hosts.yaml) does NOT
+          # cover this path: Talos hostDNS does not answer from /etc/hosts entries, so
+          # CoreDNS never sees them. Both copies are needed, and the IP must match in
+          # both, and Morpheus's local DNS record.
+          - name: hosts
+            configBlock: |-
+              10.0.10.10 vault.funb.us
+              fallthrough
           - name: forward
             parameters: . /etc/resolv.conf
           - name: cache

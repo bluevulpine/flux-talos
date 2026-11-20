@@ -1,0 +1,26 @@
+---
+# Static /etc/hosts entries for the LAN hosts the nodes themselves depend on, so a
+# Morpheus (10.0.10.1) outage cannot stop them. The nodes' only DNS server is
+# Morpheus, which answers these names with TTL 0, so nothing caches them.
+#
+# - vault.funb.us: the kubelet mounts the 22 static NFS PVs (`spec.nfs.server:
+#   vault.funb.us`) on the HOST, with mount.nfs reading this file. Without the entry
+#   a pod that starts during an outage sits in ContainerCreating with
+#   `mount.nfs: Failed to resolve server`. Tested 2026-11-19 with a fake name, see
+#   docs/runbooks/static-nas-hosts.md.
+# - chronos.funb.us: the GPS NTP server in 08-time.yaml. Not tested: Talos's time
+#   sync is expected to read /etc/hosts like any resolver, but nobody has checked.
+#
+# This does NOT cover pods (CSI plugins, the tns-csi controller): Talos hostDNS does
+# not answer from these entries, and pods resolve through CoreDNS, so the CoreDNS
+# HelmRelease carries its own `hosts` copy of vault.funb.us. If an IP here changes,
+# change it there and in Morpheus too.
+machine:
+  network:
+    extraHostEntries:
+      - ip: 10.0.10.10
+        aliases:
+          - vault.funb.us
+      - ip: 10.0.10.3
+        aliases:
+          - chronos.funb.us
