@@ -46,8 +46,11 @@ spec:
           app:
             image:
               # nginxinc/nginx-unprivileged is archived on Docker Hub; NGINX publishes it here now.
+              # Pinned to a version + digest, not a floating tag: with `alpine`/`1.31-alpine`
+              # Renovate had nothing to bump, so the 2026-11-18 HTTP/2 CVEs (fixed in 1.31.9)
+              # produced no PR. A digest change also changes the pod spec, so Flux rolls it.
               repository: nginx/nginx-unprivileged
-              tag: alpine
+              tag: 1.31.9-alpine@sha256:60214a103e6f38e953ff957f34b1f2e97a9db801ab2df3821da955d0fe6cadd6
             probes:
               liveness: &probes
                 enabled: true
