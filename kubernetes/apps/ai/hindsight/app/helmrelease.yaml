@@ -390,8 +390,9 @@ spec:
               # account) can differ from everyone else's when it needs to: LiteLLM
               # fallbacks are per route name and the deployed version does not
               # filter targets by the calling key. (spark-main got the same Haiku
-              # stage later on 2026-10-24 while Nous is out of credit, so the two
-              # chains are identical for now.) Reflect names its model directly
+              # stage later on 2026-10-24 while Nous was out of credit; Nous
+              # renews monthly on the 5th. The two chains are identical as of
+              # 2026-11-20.) Reflect names its model directly
               # below. Wherever this file says spark-gpt-oss-20b or
               # spark-gpt-oss-20b-long it means the route these stages USED to
               # name; both were the same backend, and the separate -long route for
@@ -1044,9 +1045,10 @@ spec:
               # (2 of 6 inputs), and retain must keep every fact. vLLM reads
               # repetition_penalty from the body; hindsight merges this under its
               # own keys, so REASONING_EFFORT above still turns thinking off.
-              # If a refresh falls back off the Spark, Nous accepts the field;
-              # Haiku may reject it (unverified), failing that refresh instead of
-              # billing it, which a refresh can afford: it is retried later.
+              # If a refresh falls back off the Spark, Nous accepts the field and
+              # LiteLLM strips it before Haiku (additional_drop_params, #2509;
+              # a direct call with it returned 200 on 2026-11-12), so the refresh
+              # runs there and bills the hindsight key's budget.
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_EXTRA_BODY: '{"repetition_penalty": 1.05}'
               HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "4"
               # Floor on AUTOMATIC mental-model refreshes. The default is 0 — no
