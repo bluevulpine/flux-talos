@@ -16,6 +16,12 @@ spec:
       # hangs through this route (2026-08-31). DNS is small packets and works;
       # queries reach UniFi SNATed to a VLAN 10 address, which it answers.
       - "10.0.10.1/32" # UniFi gateway (morpheus) DNS
+      # Home Assistant only, not VLAN 30 (dropped as a /24 on 2026-09-11). Lets
+      # homeassistant.funb.us work off-LAN. HA's own tailnet node (100.86.80.127)
+      # is not enough: HA treats 100.64/10 as non-local, so local-only users and
+      # tokens get 401 there. Via this route HA sees the connector's VLAN 30
+      # address (192.168.30.253, same L2, no firewall hop), which is local.
+      - "192.168.30.10/32" # homeassistant (HAOS, Pi 5)
       - "192.168.50.0/24" # VLAN 50 (IOT)
       - "172.16.8.0/24" # Cluster LoadBalancer pool (BGP advertised)
       - "10.25.52.0/22" # Additional subnet
