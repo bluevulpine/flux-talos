@@ -19,8 +19,16 @@ spec:
   # sourcing from another interface: find it in Cilium's drops
   # (`cilium-dbg monitor --type drop` on the node holding the LB) and add that
   # one address, not the whole LAN.
+  #
+  # 172.16.8.254 is the gateway's own br172 address. syslog-ng opens its UDP
+  # socket once at boot, before BGP has learned the route to the LB, so after a
+  # gateway reboot it reaches 172.16.8.6 over the directly connected br172 and
+  # stays pinned to that source until syslog-ng restarts. That silently dropped
+  # every firewall log from the 2026-11-15 reboot until 2026-11-23. Only the
+  # gateway holds the address, so allowing it keeps the "gateway only" rule.
   loadBalancerSourceRanges:
     - 10.0.10.1/32
+    - 172.16.8.254/32
   selector:
     app.kubernetes.io/name: victoria-logs-single
     app.kubernetes.io/instance: victoria-logs
