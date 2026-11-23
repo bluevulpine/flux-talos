@@ -22,9 +22,12 @@ spec:
       # tokens get 401 there. Via this route HA sees the connector's VLAN 30
       # address (192.168.30.253, same L2, no firewall hop), which is local.
       - "192.168.30.10/32" # homeassistant (HAOS, Pi 5)
-      - "192.168.50.0/24" # VLAN 50 (IOT)
+      # Not VLAN 50 (IoT) or 10.25.52.0/22 (UniFi device management): both were
+      # listed here but never approved in the tailnet, and removed 2026-11-23 so
+      # the file matches what is live. The pod has a vlan-50 leg, so a VLAN 50
+      # route would reach IoT devices on L2 with no gateway firewall in the path;
+      # UniFi devices are managed through the console at 10.0.10.1 instead.
       - "172.16.8.0/24" # Cluster LoadBalancer pool (BGP advertised)
-      - "10.25.52.0/22" # Additional subnet
       - "10.0.10.30/32" # VIP route
       # Talos nodes, one /32 each (keep in sync with talos/topf.yaml nodes[]).
       # Through the VIP alone, apid on the control plane already proxies
